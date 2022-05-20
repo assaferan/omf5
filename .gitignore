@@ -1,1 +1,17 @@
+.DS_Store
 *.lo
+*.la
+*.o
+aclocal.m4
+config.log
+config.status
+libtool
+autom4te.cache/*
+cnf/*
+m4/*
+src/.deps/*
+src/.libs/*
+Makefile
+Makefile.in
+src/A61
+src/A61_dbg
