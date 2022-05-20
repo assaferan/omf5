@@ -24,7 +24,7 @@ int total(int p)
   cpuclock = clock() - cpuclock;
   cputime = cpuclock / CLOCKS_PER_SEC;
 
-  // Since we know the specific eigenform, it is hard coded here
+  /* Since we know the specific eigenform, it is hard coded here */
   e = -a[1]+a[2]+2*a[3]-2*a[5]+(3*a[4]-4*a[7])/6;
   
   printf("%4d %4d - %10d %10d %10d %10d %10d %10d %10d %10d - %10f\n",
