@@ -15,3 +15,6 @@ Makefile
 Makefile.in
 src/A61
 src/A61_dbg
+*.c#
+*.c~
+*.h~

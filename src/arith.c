@@ -26,3 +26,24 @@ int gcdext(int a, int b, int *x, int *y)
   
   return gcd;
 }
+
+int rational_lt(rational a, rational b)
+{
+  // we assume here that a and b are positive as they should be
+  return a.z * b.n < b.z * a.n;
+}
+
+rational rational_sum(rational a, rational b)
+{
+  int d, dummy1, dummy2;
+  rational c;
+
+  c.z = a.z * b.n + b.z * a.n;
+  c.n = a.n * b.n;
+
+  d = gcdext(c.z, c.n, &dummy1, &dummy2);
+  c.z /= d;
+  c.n /= d;
+
+  return c;
+}

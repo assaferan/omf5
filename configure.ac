@@ -57,4 +57,4 @@ dnl Finally, generate the Makefiles and output everything
 dnl
 AC_OUTPUT(Makefile src/Makefile)
 AM_PROG_CC_C_O
-AC_SEARCH_LIBS([carat])
+AC_SEARCH_LIBS([carat], [gmp])

@@ -19,10 +19,11 @@ if LINUX
         DBG_CFLAGS += -pg
 endif
 
-DBG_LDFLAGS = -L../libs -lfunctions
+DBG_LDFLAGS = -L../libs -lfunctions -lgmp
 
 SOURCES = arith.c
 SOURCES += genus.c
+SOURCES += hash.c
 SOURCES += hecke.c
 SOURCES += matrix_tools.c
 SOURCES += neighbor.c

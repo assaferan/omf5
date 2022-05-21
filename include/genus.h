@@ -3,6 +3,8 @@
 
 #include "carat/matrix.h"
 
+#include "hash.h"
+
 /* a struct that saves the hash table (theta values),
  * as well as the isotropic vector and the form we work with
  */
@@ -20,5 +22,8 @@ nbrs_data* q61_init(int p, int k);
 
 /* identify the genus representative of Q (returns the index) */
 int q61_id(matrix_TYP* Q, int* th61);
+
+/* compute the genus of a quadratic form */
+hash_table* get_genus_reps(matrix_TYP* Q);
 
 #endif // __GENUS_H__

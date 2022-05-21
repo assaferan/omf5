@@ -1,51 +1,20 @@
 #include "arith.h"
 #include "hecke.h"
+#include "matrix_tools.h"
 #include "neighbor.h"
 
-int process_isotropic_vector(matrix_TYP* v, matrix_TYP* w_mat, matrix_TYP* Q,
+int process_isotropic_vector(matrix_TYP* v, matrix_TYP* w, matrix_TYP* Q,
 			     int p, matrix_TYP* b, int* T, int* th61)
 {
-  matrix_TYP *t_mat, *n_mat, *tmp;
-  int j, t, n, n_inv, dummy;
-  
-  n_mat = mat_mul(mat_mul(w_mat, Q), tr_pose(w_mat));
-  n = n_mat->array.SZ[0][0]/2 % p;
-  t_mat = mat_mul(w_mat, tr_pose(b));
-  t = t_mat->array.SZ[0][0] % p;
+  matrix_TYP* iso_vec;
+  int iso_j;
 
-  /* printf("v = "); */
-  /* print_mat(v); */
-  
-  /* printf("w = "); */
-  /* print_mat(w_mat); */
-
-  /* printf("n = %d, t = %d\n", n, t); */
-    
-  if (n) {
-    if (t) {
-      /* do [n*v-t*w] */
-      gcdext(n, p, &n_inv, &dummy);
-      tmp = imat_add(v, w_mat, 1, -t*n_inv);
-      /* printf("tmp = "); */
-      /* print_mat(tmp); */
-      /* This differs from the gp script */
-      /* modp_mat(tmp, p); */
-      for (j = 0; j < 5; j++)
-	tmp->array.SZ[0][j] %= p;
-      /* printf("tmp mod p = "); */
-      /* print_mat(tmp); */
-      T[q61_id(q61_nb(Q, p, tmp), th61)]++;
-    }
-  }
-  else {
-    /* do [w] */
-    T[q61_id(q61_nb(Q, p, w_mat), th61)]++;
-    if (!t) {
-      for (j = 1; j < p; j++)
-	/* do [v+j*w] */
-	T[q61_id(q61_nb(Q, p, imat_add(v,w_mat,1,j)), th61)]++;
-    }
-  }
+  iso_j = 0;
+  do {
+    iso_vec = get_next_isotropic_vector(Q, p, v, w, b, &iso_j);
+    if (iso_vec != NULL)
+      T[q61_id(q61_nb(Q, p, iso_vec), th61)]++;
+  } while ((iso_j != 0) && (iso_j != p));
 
   return 0;
 }
@@ -54,7 +23,7 @@ int q61_nbs1(int* T, int p, int i, nbrs_data* init_orig)
 {
   matrix_TYP *Q, *v, *b, *w_mat;
   int *th61;
-  int *w, j, k;
+  int *w;
 
   nbrs_data* init;
 
@@ -98,26 +67,9 @@ int q61_nbs1(int* T, int p, int i, nbrs_data* init_orig)
   w[3] = 1;
   w[4] = i;
 
-  process_isotropic_vector(v, w_mat, Q, p, b, T, th61);
-
-  for (j = 0; j < p; j++) {
-    w[0] = w[1] = 0;
-    w[2] = 1;
-    w[3] = i;
-    w[4] = j;
-
+  while (w[0] == 0) {
     process_isotropic_vector(v, w_mat, Q, p, b, T, th61);
-
-    for (k = 0; k < p; k++) {
-      w[0] = 0;
-      w[1] = 1;
-      w[2] = i;
-      w[3] = j;
-      w[4] = k;
-
-      process_isotropic_vector(v, w_mat, Q, p, b, T, th61);
-      
-    }
+    update_pivot(w, p, i);
   }
 
   return 0;

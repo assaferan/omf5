@@ -247,3 +247,209 @@ matrix_TYP* q61_nb(matrix_TYP* Q_orig, int p, matrix_TYP* x_mat)
   
   return Q_mat;
 };
+
+/* find an isotropic vector for Q mod p */
+/* return a row vector 1x5 */
+matrix_TYP* get_isotropic_vector(matrix_TYP* Q, int p)
+{
+  matrix_TYP *v, *Qx, *n_mat;
+  int* x;
+  int v1, v2, v3, v4, n;
+  
+  v = init_mat(1,5,"");
+  x = v->array.SZ[0];
+
+  /* find one zero "v0" */
+  /* TODO : We have a much better way to do this.... */
+  x[0] = 1;
+  for (v1 = 0; v1 < p; v1++) {
+    x[1] = v1;
+    for (v2 = 0; v2 < p; v2++) {
+      x[2] = v2;
+      for (v3 = 0; v3 < p; v3++) {
+	x[3] = v3;
+	for (v4 = 0; v4 < p; v4++) {
+	  x[4] = v4;
+	  Qx = mat_mul(v, Q);
+	  n_mat = mat_mul(v, tr_pose(Qx));
+	  n = n_mat->array.SZ[0][0] / 2 % p;
+	  if (!n)
+	    return v;
+	}
+      }
+    }
+  }
+  
+  printf("Didn't find an isotropic vector!?\n");
+  return v;
+}
+
+/* update the pivot vector v */
+void update_pivot(int* v, int p, int i)
+{
+  int pivot, lsb;
+  
+  pivot = 0;
+  while (v[pivot] == 0) {
+    pivot++;
+  }
+
+  if (pivot == 0)
+    printf("Error! Got a vector with pivot 0! shouldn't have gotten here\n");
+  
+  if (pivot == 5) {
+    printf("Error! Got the zero vector!\n");
+  }
+  if (v[pivot] != 1)
+    printf("Error! value at pivot is not 1!\n");
+
+  lsb = 4;
+  v[lsb]++;
+
+  /* carry */
+  while ((v[lsb] == p) && (pivot+1 < lsb)) {
+    v[lsb] = 0;
+    lsb--;
+    v[lsb]++;
+  }
+  /* We have completed this round
+   */
+  if (lsb <= pivot+1) {
+    if (pivot < 4)
+      v[pivot+1] = 0;
+    v[pivot] = i;
+    v[pivot-1] = 1;
+  }
+
+  return;
+}
+
+/* get isotropic vector , correposnding to the pivot vector w. */
+/* If none is found returns NULL */
+matrix_TYP* get_next_isotropic_vector(matrix_TYP*Q, int p,
+				      matrix_TYP* v, matrix_TYP* w_mat,
+				      matrix_TYP* b, int* iso_j)
+{
+  matrix_TYP *t_mat, *n_mat, *iso_vec;
+  int j, t, n, n_inv, dummy;
+
+
+  if (*iso_j) {
+    iso_vec = imat_add(v,w_mat,1,*iso_j);
+    (*iso_j)++;
+    return iso_vec;
+  }
+  
+  n_mat = mat_mul(mat_mul(w_mat, Q), tr_pose(w_mat));
+  n = n_mat->array.SZ[0][0]/2 % p;
+  t_mat = mat_mul(w_mat, tr_pose(b));
+  t = t_mat->array.SZ[0][0] % p;
+
+  /* printf("v = "); */
+  /* print_mat(v); */
+  
+  /* printf("w = "); */
+  /* print_mat(w_mat); */
+
+  /* printf("n = %d, t = %d\n", n, t); */
+    
+  if (n) {
+    if (t) {
+      /* do [n*v-t*w] */
+      gcdext(n, p, &n_inv, &dummy);
+      iso_vec = imat_add(v, w_mat, 1, -t*n_inv);
+      /* printf("tmp = "); */
+      /* print_mat(tmp); */
+      /* This differs from the gp script */
+      /* modp_mat(tmp, p); */
+      for (j = 0; j < 5; j++)
+	iso_vec->array.SZ[0][j] %= p;
+      /* printf("n*v-t*w = "); */
+      /* print_mat(iso_vec); */
+      return iso_vec;
+    }
+  }
+  else {
+    if (*iso_j == 0)
+      iso_vec = w_mat;
+    else
+      iso_vec = imat_add(v,w_mat,1,*iso_j);
+    /* printf("v+%d*w = ", *iso_j); */
+    /* print_mat(iso_vec); */
+    if (!t)
+      (*iso_j)++;
+    return iso_vec;
+  }
+
+  return NULL;
+}
+
+void init_nbr_process(neighbor_manager* nbr_man, matrix_TYP* Q, int p)
+{ 
+  nbr_man->Q = Q;
+  nbr_man->p = p;
+  nbr_man->v = get_isotropic_vector(Q,p);
+  nbr_man->b = mat_mul(nbr_man->v, Q);
+  modp_mat(nbr_man->b,p);
+  nbr_man->w = init_mat(1,5, "");
+  nbr_man->i = 0;
+  nbr_man->iso_j = 0;
+  nbr_man->iso_vec = nbr_man->v;
+
+  return;
+}
+
+void advance_nbr_process(neighbor_manager* nbr_man)
+{
+  int* w = nbr_man->w->array.SZ[0];
+  
+  // This is the first iteration
+  if (nbr_man->iso_vec == nbr_man->v) {
+    w[0] = w[1] = w[2] = w[3] = 0;
+    w[4] = 1;
+  }
+  else {
+    
+    // finished looping over v+jw
+    if (nbr_man->iso_j == nbr_man->p) {
+      nbr_man->iso_j = 0; 
+    }
+    
+    // update to next pivot
+    if (nbr_man->iso_j == 0) {
+      update_pivot(w, nbr_man->p, nbr_man->i);
+    }
+  }
+
+  nbr_man->iso_vec = NULL;
+  while ((nbr_man->iso_vec == NULL) && (nbr_man->i < nbr_man->p) ) {
+    
+    while ((w[0] == 0) && (nbr_man->iso_vec == NULL)) {
+      nbr_man->iso_vec = get_next_isotropic_vector(nbr_man->Q, nbr_man->p,
+						   nbr_man->v, nbr_man->w,
+						   nbr_man->b,
+						   &(nbr_man->iso_j));
+
+      if (nbr_man->iso_vec == NULL) {
+	// finished looping over v+jw
+	if (nbr_man->iso_j == nbr_man->p) {
+	  nbr_man->iso_j = 0; 
+	}
+	
+	// update to next pivot
+	if (nbr_man->iso_j == 0) {
+	  update_pivot(w, nbr_man->p, nbr_man->i);
+	}
+      }
+    }
+
+    if (w[0] != 0) {
+      (nbr_man->i)++;
+      w[0] = w[1] = w[2] = 0;
+      w[3] = 1;
+      w[4] = nbr_man->i;
+    }
+  }
+
+  return;
+}
