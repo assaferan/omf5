@@ -39,4 +39,6 @@ void update_pivot(int* v, int p, int i);
 /* get the next isotropic vector */
 void update_isotropic_vector(matrix_TYP*Q, int p, matrix_TYP* v);
 
+int has_ended(neighbor_manager* nbr_man);
+
 #endif // __NEIGHBOR_H__

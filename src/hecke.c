@@ -41,10 +41,11 @@ int q61_nbs1(int* T, int p, int i, nbrs_data* init_orig)
 
   init_nbr_process(&nbr_man, Q, p, i);
 
-   while (nbr_man.w->array.SZ[0][0] == 0) {
+  // while (nbr_man.w->array.SZ[0][0] == 0) {
+  while (!(has_ended(&nbr_man))) {
      process_isotropic_vector(&nbr_man, T, th61);
      advance_nbr_process(&nbr_man);
-   }
+  }
  
   return 0;
 }
