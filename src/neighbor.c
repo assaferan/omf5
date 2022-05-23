@@ -463,3 +463,8 @@ void advance_nbr_process(neighbor_manager* nbr_man)
 
   return;
 }
+
+int has_ended(neighbor_manager* nbr_man)
+{
+  return (nbr_man->w->array.SZ[0][0] != 0);
+}

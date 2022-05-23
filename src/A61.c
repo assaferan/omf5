@@ -30,7 +30,7 @@ int total(int p)
   printf("%4d %4d - %10d %10d %10d %10d %10d %10d %10d %10d - %10f\n",
     p, e, a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], cputime);
 
-  if ((p == 97) and (e != 453))
+  if ((p = 97) && (e != 453))
     return -1;
   
   return 0;
