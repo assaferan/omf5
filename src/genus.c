@@ -89,13 +89,14 @@ int q61_id(matrix_TYP* Q, int* th61)
 hash_table* get_genus_reps(matrix_TYP* Q)
 {
   bravais_TYP *aut_grp;
-  matrix_TYP *iso_vec, *nbr, *isom, *genus_rep;
+  matrix_TYP *nbr, *isom, *genus_rep;
   rational mass, acc_mass, mass_form;
   Z prime;
   int i, p, current, next_idx, key_num;
   int options[6] = {0};
   size_t genus_size;
   hash_table* genus;
+  neighbor_manager nbr_man;
 
   /* until we implement the mass formula, have it fixed */
   
@@ -125,7 +126,7 @@ hash_table* get_genus_reps(matrix_TYP* Q)
 
   mpz_init(prime);
   mpz_set_ui(prime, 1);
-
+  
   while (rational_lt(acc_mass, mass)) {
     /* !! TODO - we don't really need to restrict to good primes here, */
     /* but let's check these first */
@@ -136,29 +137,31 @@ hash_table* get_genus_reps(matrix_TYP* Q)
     while (!p_mat_det(Q, p));
 
     while (current < genus->num_stored) {
-      iso_vec = get_isotropic_vector(genus->keys[current], p);
-
       i = 0;
-      nbr = q61_nb(genus->keys[current], p, iso_vec);
+      init_nbr_process(&nbr_man, genus->keys[current], p, i);
 
-      key_num = -1;
-      isom = NULL;
-      
-      while ((genus_rep != NULL) && (isom == NULL)) {
-	genus_rep = get_key(genus, nbr, &key_num);
-	if (genus_rep != NULL)
-	  isom = isometry(&genus_rep, &nbr, 1,
-			  NULL, NULL, NULL, 0, options);
-      }
+      while (i < p) {
+	  nbr = q61_nb(genus->keys[current], p, nbr_man.iso_vec);
 
-      if (isom == NULL) {
-	add(genus, nbr);
-	aut_grp = autgrp(&nbr, 1, NULL, NULL, 0, options);
-	mass_form.z = 1;
-	mass_form.n = aut_grp->order;
-	acc_mass = rational_sum(acc_mass, mass_form);
-      }
+	  key_num = -1;
+	  isom = NULL;
       
+	  while ((genus_rep != NULL) && (isom == NULL)) {
+	    genus_rep = get_key(genus, nbr, &key_num);
+	    if (genus_rep != NULL)
+	      isom = isometry(&genus_rep, &nbr, 1,
+			      NULL, NULL, NULL, 0, options);
+	  }
+	  
+	  if (isom == NULL) {
+	    add(genus, nbr);
+	    aut_grp = autgrp(&nbr, 1, NULL, NULL, 0, options);
+	    mass_form.z = 1;
+	    mass_form.n = aut_grp->order;
+	    acc_mass = rational_sum(acc_mass, mass_form);
+	  }
+	  i++;
+      }
       /* Right now all the isotropic vectors are paritioned to p */
       /* sets, by index as Gonzalo did */
 

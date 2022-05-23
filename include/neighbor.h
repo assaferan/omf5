@@ -16,7 +16,9 @@ struct neighbor_manager_t {
 
 typedef struct neighbor_manager_t neighbor_manager;
 
-void init_nbr_process(neighbor_manager* nbr_man, matrix_TYP* Q, int p);
+void init_nbr_process(neighbor_manager* nbr_man, matrix_TYP* Q, int p, int i);
+
+void advance_nbr_process(neighbor_manager* nbr_man);
 
 /* Compute one p-neighbour for Q_orig corresponding to vector x 
  * On error, return NULL.
@@ -29,9 +31,7 @@ matrix_TYP* get_isotropic_vector(matrix_TYP* Q, int p);
 
 /* get isotropic vector , correposnding to the pivot vector w. */
 
-matrix_TYP* get_next_isotropic_vector(matrix_TYP*Q, int p,
-				      matrix_TYP* v, matrix_TYP* w,
-				      matrix_TYP* b, int* j);
+matrix_TYP* get_next_isotropic_vector(neighbor_manager* nbr_man);
 
 /* update the pivot vector v */
 void update_pivot(int* v, int p, int i);
