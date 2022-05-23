@@ -401,7 +401,12 @@ void init_nbr_process(neighbor_manager* nbr_man, matrix_TYP* Q, int p, int i)
     w[0] = w[1] = w[2] = 0;
     w[3] = 1;
     w[4] = i;
-    nbr_man->iso_vec = get_next_isotropic_vector(nbr_man);
+    nbr_man->iso_vec = NULL;
+    while ((w[0] == 0) && (nbr_man->iso_vec == NULL)) {
+      nbr_man->iso_vec = get_next_isotropic_vector(nbr_man);
+      if (nbr_man->iso_vec == NULL)
+	  update_pivot(w, nbr_man->p, nbr_man->i);
+    }
   }
   
   return;
@@ -444,7 +449,7 @@ void advance_nbr_process(neighbor_manager* nbr_man)
       if (nbr_man->iso_j == 0) {
 	update_pivot(w, nbr_man->p, nbr_man->i);
       }
-      }
+    }
   }
   /*
     if (w[0] != 0) {

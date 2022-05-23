@@ -9,17 +9,9 @@ int process_isotropic_vector(matrix_TYP* v, matrix_TYP* w, matrix_TYP* Q,
 */
 int process_isotropic_vector(neighbor_manager* nbr_man, int* T, int* th61)
 {
-  if (nbr_man->iso_vec == nbr_man->v) {
-    T[q61_id(q61_nb(nbr_man->Q, nbr_man->p, nbr_man->v), th61)]++;
-    return 0;
-  }
-  nbr_man->iso_j = 0;
-  do {
-    nbr_man->iso_vec = get_next_isotropic_vector(nbr_man);
-    if (nbr_man->iso_vec != NULL)
-      T[q61_id(q61_nb(nbr_man->Q, nbr_man->p, nbr_man->iso_vec), th61)]++;
-  } while ((nbr_man->iso_j != 0) && (nbr_man->iso_j != nbr_man->p));
 
+  T[q61_id(q61_nb(nbr_man->Q, nbr_man->p, nbr_man->iso_vec), th61)]++;
+  
   return 0;
 }
 
