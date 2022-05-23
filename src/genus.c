@@ -136,13 +136,17 @@ hash_table* get_genus_reps(matrix_TYP* Q)
     }
     while (!p_mat_det(Q, p));
 
-    while (current < genus->num_stored) {
+    while ((current < genus->num_stored) && rational_lt(acc_mass, mass)){
       i = 0;
-      init_nbr_process(&nbr_man, genus->keys[current], p, i);
-
-      while (i < p) {
-	  nbr = q61_nb(genus->keys[current], p, nbr_man.iso_vec);
-
+      
+      /* Right now all the isotropic vectors are paritioned to p */
+      /* sets, by index as Gonzalo did */
+      
+      while ((i < p) && rational_lt(acc_mass, mass)) {
+	init_nbr_process(&nbr_man, genus->keys[current], p, i);
+	while ((!(has_ended(&nbr_man))) && rational_lt(acc_mass, mass)) {
+	  // process_isotropic_vector(&nbr_man, T, th61);
+	  nbr = q61_nb(nbr_man.Q, nbr_man.p, nbr_man.iso_vec);
 	  key_num = -1;
 	  isom = NULL;
       
@@ -160,15 +164,16 @@ hash_table* get_genus_reps(matrix_TYP* Q)
 	    mass_form.n = aut_grp->order;
 	    acc_mass = rational_sum(acc_mass, mass_form);
 	  }
-	  i++;
+	  
+	  advance_nbr_process(&nbr_man);
+	}
+	  
+	i++;
       }
-      /* Right now all the isotropic vectors are paritioned to p */
-      /* sets, by index as Gonzalo did */
 
       current++;
     }
-    
-    
+     
   }
 
   mpz_clear(prime);
