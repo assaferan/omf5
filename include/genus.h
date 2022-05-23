@@ -18,12 +18,14 @@ struct nbrs_data_t {
 typedef struct nbrs_data_t nbrs_data;
 
 /* initialize the neighbors data */
-void q61_init(nbrs_data* dtm, int p, int k);
+void init_nbrs_data(nbrs_data* dtm, int p, int k);
 
 /* identify the genus representative of Q (returns the index) */
 int q61_id(matrix_TYP* Q, int* th61);
 
 /* compute the genus of a quadratic form */
 hash_table* get_genus_reps(matrix_TYP* Q);
+
+void free_nbrs_data(nbrs_data* dtm);
 
 #endif // __GENUS_H__

@@ -27,7 +27,7 @@ int q61_nbs1(int* T, int p, int i, nbrs_data* init_orig)
   /* printf("initializing q61 data\n"); */
   if (init_orig == NULL) {
     init = (nbrs_data*) malloc(sizeof(nbrs_data));
-    q61_init(init, p, 2);
+    init_nbrs_data(init, p, 2);
   }
   else
     init = init_orig;
@@ -50,7 +50,7 @@ int q61_nbs1(int* T, int p, int i, nbrs_data* init_orig)
   }
 
   if (init_orig == NULL)
-    free(init);
+    free_nbrs_data(init);
  
   return 0;
 }

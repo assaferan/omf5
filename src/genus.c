@@ -12,7 +12,7 @@
 typedef mpz_t Z;
 
 /* initialize the neighbors data */
-void q61_init(nbrs_data* dtm, int p, int k)
+void init_nbrs_data(nbrs_data* dtm, int p, int k)
 {  
   int s, i;
   matrix_TYP* genus[8];
@@ -58,21 +58,11 @@ void q61_init(nbrs_data* dtm, int p, int k)
   return;
 }
 
-/*
-int hash_form(matrix_TYP* Q)
+void free_nbrs_data(nbrs_data* dtm)
 {
-  int norm, x;
-  int num_short[3];
-  
-  for (norm = 2; norm <= 6; norm += 2) {
-    short_vectors(Q, norm, norm, 0, 1, &(num_short[norm/2 - 1]));
-  }
-
-  x = num_short[0] - num_short[1] + num_short[2] ;
-
-  return x;
+  free(dtm->th61);
+  free(dtm);
 }
-*/
 
 /* identify the genus representative of Q (returns the index) */
 int q61_id(matrix_TYP* Q, int* th61)
