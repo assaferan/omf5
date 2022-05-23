@@ -15,9 +15,7 @@ int process_isotropic_vector(neighbor_manager* nbr_man, int* T, int* th61)
   }
   nbr_man->iso_j = 0;
   do {
-    nbr_man->iso_vec = get_next_isotropic_vector(nbr_man->Q, nbr_man->p,
-						 nbr_man->v, nbr_man->w,
-						 nbr_man->b, &(nbr_man->iso_j));
+    nbr_man->iso_vec = get_next_isotropic_vector(nbr_man);
     if (nbr_man->iso_vec != NULL)
       T[q61_id(q61_nb(nbr_man->Q, nbr_man->p, nbr_man->iso_vec), th61)]++;
   } while ((nbr_man->iso_j != 0) && (nbr_man->iso_j != nbr_man->p));
@@ -55,37 +53,6 @@ int q61_nbs1(int* T, int p, int i, nbrs_data* init_orig)
      process_isotropic_vector(&nbr_man, T, th61);
      advance_nbr_process(&nbr_man);
    }
-  /*
-  b = mat_mul(v, Q);
-  modp_mat(b,p);
-  */
-  /* printf("b = v*Q mod p: \n"); */
-  /* print_mat(b); */
-  /*
-  w_mat = init_mat(1,5, "");
-  w = w_mat->array.SZ[0];
-  
-  if (i % p == 0) { */
-    /* printf("Doing [v]..\n"); */
-    /* do [v] */
-  /*
-    T[q61_id(q61_nb(Q, p, v), th61)]++;
-
-    w[0] = w[1] = w[2] = w[3] = 0;
-    w[4] = 1;
-
-    process_isotropic_vector(v, w_mat, Q, p, b, T, th61);
-    
-  }
-
-  w[0] = w[1] = w[2] = 0;
-  w[3] = 1;
-  w[4] = i;
-
-  while (w[0] == 0) {
-    process_isotropic_vector(v, w_mat, Q, p, b, T, th61);
-    update_pivot(w, p, i);
-  }
-*/
+ 
   return 0;
 }
