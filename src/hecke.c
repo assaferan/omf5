@@ -11,8 +11,8 @@ int process_isotropic_vector(neighbor_manager* nbr_man, int* T,
 			     int* th61, hash_table* genus)
 {
 
-  //  T[indexof(genus, q61_nb(nbr_man), 0)]++;
-  T[q61_id(q61_nb(nbr_man),th61)]++;
+  T[indexof(genus, q61_nb(nbr_man), 0)]++;
+  // T[q61_id(q61_nb(nbr_man),th61)]++;
   // T[q61_id(q61_nb(nbr_man->Q, nbr_man->p, nbr_man->iso_vec), th61)]++;
   
   return 0;

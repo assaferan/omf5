@@ -181,9 +181,14 @@ void expand(hash_table* table)
 
   free(table->key_ptr);
   table->key_ptr = (int*)malloc((table->capacity << 1)*sizeof(int));
+  free(table->counts);
+  table->counts = (int*)malloc((table->capacity << 1)*sizeof(int));
 
   for (i = 0; i < 2*table->capacity; i++)
     table->key_ptr[i] = -1;
+
+  for (i = 0; i < 2*table->capacity; i++)
+    table->counts[i] = 0;
 
   stored = table->num_stored;
   table->num_stored = 0;
@@ -198,5 +203,6 @@ void free_hash(hash_table* table)
   free(table->key_ptr);
   free(table->vals);
   free(table->keys);
+  free(table->counts);
   free(table);
 }
