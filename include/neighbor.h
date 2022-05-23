@@ -16,7 +16,9 @@ struct neighbor_manager_t {
 
 typedef struct neighbor_manager_t neighbor_manager;
 
-void init_nbr_process(neighbor_manager* nbr_man, matrix_TYP* Q, int p);
+void init_nbr_process(neighbor_manager* nbr_man, matrix_TYP* Q, int p, int i);
+
+void advance_nbr_process(neighbor_manager* nbr_man);
 
 /* Compute one p-neighbour for Q_orig corresponding to vector x 
  * On error, return NULL.

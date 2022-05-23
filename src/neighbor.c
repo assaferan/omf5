@@ -384,18 +384,31 @@ matrix_TYP* get_next_isotropic_vector(matrix_TYP*Q, int p,
   return NULL;
 }
 
-void init_nbr_process(neighbor_manager* nbr_man, matrix_TYP* Q, int p)
-{ 
+void init_nbr_process(neighbor_manager* nbr_man, matrix_TYP* Q, int p, int i)
+{
+  int* w;
+  
   nbr_man->Q = Q;
   nbr_man->p = p;
   nbr_man->v = get_isotropic_vector(Q,p);
   nbr_man->b = mat_mul(nbr_man->v, Q);
   modp_mat(nbr_man->b,p);
   nbr_man->w = init_mat(1,5, "");
-  nbr_man->i = 0;
+  nbr_man->i = i;
   nbr_man->iso_j = 0;
-  nbr_man->iso_vec = nbr_man->v;
-
+  if (i == 0)
+    nbr_man->iso_vec = nbr_man->v;
+  else {
+    w = nbr_man->w->array.SZ[0];
+    w[0] = w[1] = w[2] = 0;
+    w[3] = 1;
+    w[4] = i;
+    nbr_man->iso_vec = get_next_isotropic_vector(nbr_man->Q, nbr_man->p,
+						 nbr_man->v, nbr_man->w,
+						 nbr_man->b,
+						 &(nbr_man->iso_j));
+  }
+  
   return;
 }
 
@@ -422,34 +435,34 @@ void advance_nbr_process(neighbor_manager* nbr_man)
   }
 
   nbr_man->iso_vec = NULL;
-  while ((nbr_man->iso_vec == NULL) && (nbr_man->i < nbr_man->p) ) {
-    
-    while ((w[0] == 0) && (nbr_man->iso_vec == NULL)) {
-      nbr_man->iso_vec = get_next_isotropic_vector(nbr_man->Q, nbr_man->p,
-						   nbr_man->v, nbr_man->w,
-						   nbr_man->b,
-						   &(nbr_man->iso_j));
+  //   while ((nbr_man->iso_vec == NULL) && (nbr_man->i < nbr_man->p) ) {
+  while ((w[0] == 0) && (nbr_man->iso_vec == NULL)) {
+    nbr_man->iso_vec = get_next_isotropic_vector(nbr_man->Q, nbr_man->p,
+						 nbr_man->v, nbr_man->w,
+						 nbr_man->b,
+						 &(nbr_man->iso_j));
 
-      if (nbr_man->iso_vec == NULL) {
-	// finished looping over v+jw
-	if (nbr_man->iso_j == nbr_man->p) {
-	  nbr_man->iso_j = 0; 
-	}
-	
-	// update to next pivot
-	if (nbr_man->iso_j == 0) {
-	  update_pivot(w, nbr_man->p, nbr_man->i);
-	}
+    if (nbr_man->iso_vec == NULL) {
+      // finished looping over v+jw
+      if (nbr_man->iso_j == nbr_man->p) {
+	nbr_man->iso_j = 0; 
       }
-    }
-
-    if (w[0] != 0) {
-      (nbr_man->i)++;
-      w[0] = w[1] = w[2] = 0;
-      w[3] = 1;
-      w[4] = nbr_man->i;
-    }
+	
+      // update to next pivot
+      if (nbr_man->iso_j == 0) {
+	update_pivot(w, nbr_man->p, nbr_man->i);
+      }
+      }
   }
+  /*
+    if (w[0] != 0) {
+    (nbr_man->i)++;
+    w[0] = w[1] = w[2] = 0;
+    w[3] = 1;
+    w[4] = nbr_man->i;
+    }
+  */
+  // }
 
   return;
 }
