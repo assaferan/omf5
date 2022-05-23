@@ -55,13 +55,18 @@ void init_nbrs_data(nbrs_data* dtm, int p, int k)
 
   dtm->v = get_isotropic_vector(dtm->Q, p);
 
+  for (i = 0; i < 8; i++) {
+    free_mat(genus[i]);
+  }
+  
   return;
 }
 
 void free_nbrs_data(nbrs_data* dtm)
 {
+  free_mat(dtm->Q);
+  free_mat(dtm->v);
   free(dtm->th61);
-  free(dtm);
 }
 
 /* identify the genus representative of Q (returns the index) */
@@ -154,6 +159,7 @@ hash_table* get_genus_reps(matrix_TYP* Q)
 	}
 	  
 	i++;
+	free_nbr_process(&nbr_man);
       }
 
       current++;

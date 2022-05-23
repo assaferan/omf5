@@ -468,3 +468,9 @@ int has_ended(neighbor_manager* nbr_man)
 {
   return (nbr_man->w->array.SZ[0][0] != 0);
 }
+
+void free_nbr_process(neighbor_manager* nbr_man)
+{
+  free_mat(nbr_man->v);
+  free_mat(nbr_man->w);
+}

@@ -176,3 +176,11 @@ void expand(hash_table* table)
     _add(table, table->keys[i], table->vals[i], 0);
 
 }
+
+void free_hash(hash_table* table)
+{
+  free(table->key_ptr);
+  free(table->vals);
+  free(table->keys);
+  free(table);
+}

@@ -49,8 +49,12 @@ int q61_nbs1(int* T, int p, int i, nbrs_data* init_orig)
      advance_nbr_process(&nbr_man);
   }
 
-  if (init_orig == NULL)
+  free_nbr_process(&nbr_man);
+  
+  if (init_orig == NULL) {
     free_nbrs_data(init);
+    free(init);
+  }
  
   return 0;
 }
