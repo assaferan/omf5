@@ -12,12 +12,9 @@
 typedef mpz_t Z;
 
 /* initialize the neighbors data */
-nbrs_data* q61_init(int p, int k)
-{
-  nbrs_data* dtm;
-  
+void q61_init(nbrs_data* dtm, int p, int k)
+{  
   int s, i;
-
   matrix_TYP* genus[8];
 
   /* Set of representatives for the quadratic forms */
@@ -40,8 +37,6 @@ nbrs_data* q61_init(int p, int k)
     genus[i] = init_sym_matrix(genus_coeffs[i]);
     /* print_mat(genus[i]); */
   }
-  
-  dtm = (nbrs_data*) malloc(sizeof(nbrs_data));
 
   /* Hardcode detect class */
   // !! This depends on the size of our hash
@@ -60,7 +55,7 @@ nbrs_data* q61_init(int p, int k)
 
   dtm->v = get_isotropic_vector(dtm->Q, p);
 
-  return dtm;
+  return;
 }
 
 /*

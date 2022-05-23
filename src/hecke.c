@@ -23,10 +23,12 @@ int q61_nbs1(int* T, int p, int i, nbrs_data* init_orig)
 
   nbrs_data* init;
   neighbor_manager nbr_man;
-
+  
   /* printf("initializing q61 data\n"); */
-  if (init_orig == NULL)
-    init = q61_init(p, 2);
+  if (init_orig == NULL) {
+    init = (nbrs_data*) malloc(sizeof(nbrs_data));
+    q61_init(init, p, 2);
+  }
   else
     init = init_orig;
 
@@ -46,6 +48,9 @@ int q61_nbs1(int* T, int p, int i, nbrs_data* init_orig)
      process_isotropic_vector(&nbr_man, T, th61);
      advance_nbr_process(&nbr_man);
   }
+
+  if (init_orig == NULL)
+    free(init);
  
   return 0;
 }

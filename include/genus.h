@@ -18,7 +18,7 @@ struct nbrs_data_t {
 typedef struct nbrs_data_t nbrs_data;
 
 /* initialize the neighbors data */
-nbrs_data* q61_init(int p, int k);
+void q61_init(nbrs_data* dtm, int p, int k);
 
 /* identify the genus representative of Q (returns the index) */
 int q61_id(matrix_TYP* Q, int* th61);
