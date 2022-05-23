@@ -20,6 +20,8 @@ int hash_form(matrix_TYP* Q);
 
 hash_table* create_hash(int hash_size);
 
+void free_hash(hash_table* table);
+
 int add(hash_table* table, matrix_TYP* key);
 
 matrix_TYP* get_key(hash_table* table, matrix_TYP* key, int* index);

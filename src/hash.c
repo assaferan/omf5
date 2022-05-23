@@ -160,8 +160,8 @@ void expand(hash_table* table)
   table->capacity <<= 1;
   table->mask = (table->capacity << 1)-1;
   // problem - this might invalidate existing references to the HashMap (e.g. mother)
-  table->keys = realloc(table->keys, table->capacity);
-  table->vals = realloc(table->vals, table->capacity);
+  table->keys = realloc(table->keys, (table->capacity)*sizeof(matrix_TYP*));
+  table->vals = realloc(table->vals, (table->capacity)*sizeof(matrix_TYP*));
 
   free(table->key_ptr);
   table->key_ptr = (int*)malloc((table->capacity << 1)*sizeof(int));

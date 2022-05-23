@@ -1,3 +1,7 @@
+#include "carat/autgrp.h"
+#include "carat/reduction.h"
+#include "carat/symm.h"
+
 #include "matrix_tools.h"
 
 /* Right now working with matrices as in CARAT package
@@ -77,4 +81,73 @@ int resymmetrize(int **Q)
       Q[col][row] = Q[row][col];
 
   return 0;
+}
+
+bravais_TYP* automorphism_group(matrix_TYP* Q)
+{
+  bravais_TYP* grp;
+  int i, Qmax;
+  matrix_TYP* SV;
+  int options[6] = {0};
+  
+  Qmax = Q->array.SZ[0][0];
+  for(i=1;i < Q->cols;i++) {
+    if(Q->array.SZ[i][i] > Qmax)
+      Qmax = Q->array.SZ[i][i];
+  }
+  SV = short_vectors(Q, Qmax, 0, 0, 0, &i);
+
+  grp = autgrp(&Q, 1, SV, NULL, 0, options);
+
+  free_mat(SV);
+  
+  return grp;
+}
+
+matrix_TYP* is_isometric(matrix_TYP* Q1, matrix_TYP* Q2)
+{
+  int i, Qmax;
+  matrix_TYP *SV1, *SV2, *isom;
+  int options[6] = {0};
+  
+  Qmax = Q1->array.SZ[0][0];
+  for(i=1;i < Q1->cols;i++) {
+    if(Q1->array.SZ[i][i] > Qmax)
+      Qmax = Q1->array.SZ[i][i];
+  }
+  SV1 = short_vectors(Q1, Qmax, 0, 0, 0, &i);
+  SV2 = short_vectors(Q2, Qmax, 0, 0, 0, &i);
+
+  isom = isometry(&Q1, &Q2, 1, SV1, SV2, NULL, 0, options);
+  
+  free_mat(SV1);
+  free_mat(SV2);
+
+  return isom;
+}
+
+matrix_TYP* minkowski_reduce(matrix_TYP* Q)
+{
+  matrix_TYP *T1, *T2, *red1, *red2;
+
+  /* printf("Trying to minkowski reduce: \n"); */
+  /* print_mat(Q); */
+  
+  T1 = init_mat(N, N, "");
+  red1 = pair_red(Q, T1);
+
+  /* printf("After pair reduce, got: \n"); */
+  /* print_mat(red1); */
+  
+  T2 = init_mat(N, N, "1");
+  red2 = mink_red(red1, T2);
+
+  /* printf("After Minkowski reduce, got: \n"); */
+  /* print_mat(red1); */
+  
+  free_mat(T1);
+  free_mat(T2);
+  free_mat(red1);
+
+  return red2;
 }

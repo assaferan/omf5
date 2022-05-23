@@ -1,8 +1,5 @@
 #include <gmp.h>
 
-#include "carat/autgrp.h"
-#include "carat/symm.h"
-
 #include "arith.h"
 #include "genus.h"
 #include "hash.h"
@@ -41,7 +38,7 @@ void init_nbrs_data(nbrs_data* dtm, int p, int k)
   /* Hardcode detect class */
   // !! This depends on the size of our hash
   // In general replace by some hash
-  dtm->th61 = (int*) malloc(20*sizeof(int));
+  dtm->th61 = (int*) malloc(21*sizeof(int));
 
   /* printf("Computing theta series...\n"); */
   for (i = 0; i < 8; i++) {
@@ -53,11 +50,21 @@ void init_nbrs_data(nbrs_data* dtm, int p, int k)
 
   dtm->Q = init_sym_matrix(genus_coeffs[k]);
 
+  /* hash_table* genus_hash = get_genus_reps(dtm->Q); */
+
+  /* printf("Found %d genus representatives\n", genus_hash->num_stored); */
+  /* for (i = 0; i < 8; i++) { */
+  /*   print_mat(genus_hash->keys[i]); */
+  /*   printf("s = %d\n", hash_form(genus_hash->keys[i])); */
+  /* } */
+  
   dtm->v = get_isotropic_vector(dtm->Q, p);
 
   for (i = 0; i < 8; i++) {
     free_mat(genus[i]);
   }
+
+  /* free_hash(genus_hash); */
   
   return;
 }
@@ -83,7 +90,7 @@ hash_table* get_genus_reps(matrix_TYP* Q)
   rational mass, acc_mass, mass_form;
   Z prime;
   int i, p, current, next_idx, key_num;
-  int options[6] = {0};
+  //  int options[6] = {0};
   size_t genus_size;
   hash_table* genus;
   neighbor_manager nbr_man;
@@ -93,7 +100,7 @@ hash_table* get_genus_reps(matrix_TYP* Q)
   mass.z = 31;
   mass.n = 96;
 
-  printf("mass = %d / %d \n", mass.z, mass.n);
+  /* printf("mass = %d / %d \n", mass.z, mass.n); */
 
   /* this is ceiling */
   genus_size = (mass.z + mass.n - 1)/ mass.n;
@@ -107,12 +114,13 @@ hash_table* get_genus_reps(matrix_TYP* Q)
   current = 0;
   next_idx = 1;
   
-  aut_grp = autgrp(&Q, 1, NULL, NULL, 0, options);
+  // aut_grp = autgrp(&Q, 1, NULL, NULL, 0, options);
+  aut_grp = automorphism_group(Q);
   
   acc_mass.z = 1;
   acc_mass.n = aut_grp->order;
 
-  printf("acc_mass = %d / %d \n", acc_mass.z, acc_mass.n);
+  /* printf("acc_mass = %d / %d \n", acc_mass.z, acc_mass.n); */
 
   mpz_init(prime);
   mpz_set_ui(prime, 1);
@@ -127,32 +135,45 @@ hash_table* get_genus_reps(matrix_TYP* Q)
     while (!p_mat_det(Q, p));
 
     while ((current < genus->num_stored) && rational_lt(acc_mass, mass)){
+      /* printf("current = %d\n", current); */
       i = 0;
       
       /* Right now all the isotropic vectors are paritioned to p */
       /* sets, by index as Gonzalo did */
       
       while ((i < p) && rational_lt(acc_mass, mass)) {
+	/* printf("i = %d\n", i); */
 	init_nbr_process(&nbr_man, genus->keys[current], p, i);
 	while ((!(has_ended(&nbr_man))) && rational_lt(acc_mass, mass)) {
 	  // process_isotropic_vector(&nbr_man, T, th61);
 	  nbr = q61_nb(nbr_man.Q, nbr_man.p, nbr_man.iso_vec);
+	  /* printf("nbr = \n"); */
+	  /* print_mat(nbr); */
+	  
 	  key_num = -1;
 	  isom = NULL;
+	  // just something that is not NULL
+	  genus_rep = genus->keys[current];
       
 	  while ((genus_rep != NULL) && (isom == NULL)) {
+	    /* printf("checking if it is already in the genus...\n"); */
 	    genus_rep = get_key(genus, nbr, &key_num);
-	    if (genus_rep != NULL)
-	      isom = isometry(&genus_rep, &nbr, 1,
-			      NULL, NULL, NULL, 0, options);
+	    if (genus_rep != NULL) {
+	      /* printf("Found candidate :\n"); */
+	      /* print_mat(genus_rep); */
+	      /* printf("Checking for isometry...\n"); */
+	      isom = is_isometric(genus_rep, nbr);
+	    }
 	  }
 	  
 	  if (isom == NULL) {
+	    /* printf("no Isometry found, adding neighbor...\n"); */
 	    add(genus, nbr);
-	    aut_grp = autgrp(&nbr, 1, NULL, NULL, 0, options);
+	    aut_grp = automorphism_group(nbr);
 	    mass_form.z = 1;
 	    mass_form.n = aut_grp->order;
 	    acc_mass = rational_sum(acc_mass, mass_form);
+	    /* printf("acc_mass = %d / %d \n", acc_mass.z, acc_mass.n); */
 	  }
 	  
 	  advance_nbr_process(&nbr_man);

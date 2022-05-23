@@ -15,4 +15,10 @@ int swap(int** Q, int row1, int col1, int row2, int col2);
 /* resymmetrizing a matrix after working with upper triangular part */
 int resymmetrize(int **Q);
 
+bravais_TYP* automorphism_group(matrix_TYP* Q);
+
+matrix_TYP* is_isometric(matrix_TYP* Q1, matrix_TYP* Q2);
+
+matrix_TYP* minkowski_reduce(matrix_TYP* Q);
+
 #endif // __MATRIX_TOOLS_H__

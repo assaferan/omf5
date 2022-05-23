@@ -4,7 +4,7 @@ lib_LTLIBRARIES = libomf5.la
 INCLUDE_FLAGS = -I ../include
 
 OPT_CFLAGS = -O3 -DNDEBUG -Wall -Werror -msse3 -mavx
-DBG_CFLAGS = -g -Wall -Werror -DDEBUG -DDEBUG_LEVEL_FULL 
+DBG_CFLAGS = -g -Wall -Werror -DDEBUG -DDEBUG_LEVEL_FULL -fsanitize=address
 OPT_CFLAGS += -fomit-frame-pointer
 
 OPT_CFLAGS += ${INCLUDE_FLAGS}

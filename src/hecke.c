@@ -15,7 +15,7 @@ int process_isotropic_vector(neighbor_manager* nbr_man, int* T, int* th61)
   return 0;
 }
 
-int q61_nbs1(int* T, int p, int i, nbrs_data* init_orig)
+int q61_nbs1(int* T, int p, int i, nbrs_data* init_orig, hash_table* genus)
 {
   matrix_TYP *Q, *v; // , *b, *w_mat;
   int *th61;
@@ -35,7 +35,7 @@ int q61_nbs1(int* T, int p, int i, nbrs_data* init_orig)
   Q = init->Q;
   v = init->v;
   th61 = init->th61;
-
+  
   /* printf("initialized Q: \n"); */
   /* print_mat(Q); */
   /* printf("isotropic vector: "); */
@@ -55,6 +55,8 @@ int q61_nbs1(int* T, int p, int i, nbrs_data* init_orig)
     free_nbrs_data(init);
     free(init);
   }
+  
+  //  free_hash(genus);
  
   return 0;
 }
