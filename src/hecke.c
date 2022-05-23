@@ -7,10 +7,13 @@
 int process_isotropic_vector(matrix_TYP* v, matrix_TYP* w, matrix_TYP* Q,
 			     int p, matrix_TYP* b, int* T, int* th61)
 */
-int process_isotropic_vector(neighbor_manager* nbr_man, int* T, int* th61)
+int process_isotropic_vector(neighbor_manager* nbr_man, int* T,
+			     int* th61, hash_table* genus)
 {
 
-  T[q61_id(q61_nb(nbr_man->Q, nbr_man->p, nbr_man->iso_vec), th61)]++;
+  //T[indexof(genus, q61_nb(nbr_man))]++;
+  T[q61_id(q61_nb(nbr_man),th61)]++;
+  // T[q61_id(q61_nb(nbr_man->Q, nbr_man->p, nbr_man->iso_vec), th61)]++;
   
   return 0;
 }
@@ -45,8 +48,8 @@ int q61_nbs1(int* T, int p, int i, nbrs_data* init_orig, hash_table* genus)
 
   // while (nbr_man.w->array.SZ[0][0] == 0) {
   while (!(has_ended(&nbr_man))) {
-     process_isotropic_vector(&nbr_man, T, th61);
-     advance_nbr_process(&nbr_man);
+    process_isotropic_vector(&nbr_man, T, th61, genus);
+    advance_nbr_process(&nbr_man);
   }
 
   free_nbr_process(&nbr_man);

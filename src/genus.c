@@ -146,9 +146,10 @@ hash_table* get_genus_reps(matrix_TYP* Q)
 	init_nbr_process(&nbr_man, genus->keys[current], p, i);
 	while ((!(has_ended(&nbr_man))) && rational_lt(acc_mass, mass)) {
 	  // process_isotropic_vector(&nbr_man, T, th61);
-	  nbr = q61_nb(nbr_man.Q, nbr_man.p, nbr_man.iso_vec);
+	  /* nbr = q61_nb(nbr_man.Q, nbr_man.p, nbr_man.iso_vec); */
 	  /* printf("nbr = \n"); */
 	  /* print_mat(nbr); */
+	  nbr = q61_nb(&nbr_man);
 	  
 	  key_num = -1;
 	  isom = NULL;

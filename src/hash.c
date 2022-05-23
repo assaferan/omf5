@@ -1,6 +1,7 @@
 #include "carat/symm.h"
 
 #include "hash.h"
+#include "matrix_tools.h"
 
 int hash_form(matrix_TYP* Q)
 {
@@ -74,7 +75,7 @@ int _add(hash_table* table, matrix_TYP* key, int val, int do_push_back)
     offset = table->key_ptr[index];
     if (offset == -1) 
       return insert(table, key, val, index, do_push_back);
-    if (key == table->keys[offset])
+    if (is_isometric(key,table->keys[offset]))
       return 0;
 
     index = (index + 1) & table->mask;
@@ -122,7 +123,7 @@ int exists(hash_table* table, matrix_TYP* key)
     offset = table->key_ptr[index];
     if (offset == -1)
       return 0;
-    if (key == table->keys[offset])
+    if (is_isometric(key,table->keys[offset]))
       return 1;
 
     index = (index + 1) & table->mask;
@@ -144,7 +145,7 @@ int indexof(hash_table* table, matrix_TYP* key)
       return -1;
     }
     
-    if (key == table->keys[offset])
+    if (is_isometric(key,table->keys[offset]))
       return offset;
 
     index = (index + 1) & table->mask;
