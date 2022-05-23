@@ -1,6 +1,7 @@
 #include "carat/symm.h"
 
 #include "hash.h"
+#include "matrix_tools.h"
 
 int hash_form(matrix_TYP* Q)
 {
@@ -34,10 +35,13 @@ hash_table* create_hash(int hash_size)
   table->keys = (matrix_TYP**) malloc(table->capacity * sizeof(matrix_TYP*));
   table->vals = (int*) malloc(table->capacity * sizeof(int));
   table->key_ptr = (int*) malloc(2*table->capacity * sizeof(int));
+  table->counts = (int*) malloc(2*table->capacity * sizeof(int));
   table->num_stored = 0;
 
-  for (i = 0; i < 2*table->capacity; i++)
+  for (i = 0; i < 2*table->capacity; i++) {
     table->key_ptr[i] = -1;
+    table->counts[i] = 0;
+  }
   
   return table;
 }
@@ -61,23 +65,26 @@ int insert(hash_table* table, matrix_TYP* key, int val,
   }
 
   table->key_ptr[index] = offset;
+  table->counts[(val & table->mask)]++;
 
   return 1; 
 }
 
 int _add(hash_table* table, matrix_TYP* key, int val, int do_push_back)
 {
-  int index, offset;
+  int index, offset, i;
 
   index = val & table->mask;
-  while (1) {
+  i = 0;
+  while (i <= table->counts[val & table->mask]) {
     offset = table->key_ptr[index];
     if (offset == -1) 
       return insert(table, key, val, index, do_push_back);
-    if (key == table->keys[offset])
+    if (is_isometric(key,table->keys[offset]))
       return 0;
 
     index = (index + 1) & table->mask;
+    i++;
   }
 
   return 1;
@@ -111,43 +118,52 @@ matrix_TYP* get_key(hash_table* table, matrix_TYP* key, int* index)
   return table->keys[offset];
 }
 
-int exists(hash_table* table, matrix_TYP* key)
+int exists(hash_table* table, matrix_TYP* key, int check_isom)
 {
-  int index, offset, value;
+  int index, offset, value, i;
 
   value = hash_form(key);
   
   index = value & table->mask;
-  while (1) {
+  i = 0;
+  while (i < table->counts[value & table->mask]) {
     offset = table->key_ptr[index];
     if (offset == -1)
       return 0;
-    if (key == table->keys[offset])
+    if ((table->counts[value & table->mask] == 1) && (!check_isom))
+      return 1;
+    if (is_isometric(key,table->keys[offset]))
       return 1;
 
     index = (index + 1) & table->mask;
+    i++;
   }
 
   return 0;
 }
 
-int indexof(hash_table* table, matrix_TYP* key)
+int indexof(hash_table* table, matrix_TYP* key, int check_isom)
 {
-  int index, offset, value;
+  int index, offset, value, i;
 
   value = hash_form(key);
   index = value & table->mask;
-  while (1) {
+  i = 0;
+  while (i < table->counts[value & table->mask]) {
     offset = table->key_ptr[index];
     if (offset == -1) {
       printf("Error! Key not found!\n");
       return -1;
     }
     
-    if (key == table->keys[offset])
+    if ((table->counts[value & table->mask] == 1) && (!check_isom))
+      return offset;
+    
+    if (is_isometric(key,table->keys[offset]))
       return offset;
 
     index = (index + 1) & table->mask;
+    i++;
   }
 
   return -1;
@@ -160,14 +176,19 @@ void expand(hash_table* table)
   table->capacity <<= 1;
   table->mask = (table->capacity << 1)-1;
   // problem - this might invalidate existing references to the HashMap (e.g. mother)
-  table->keys = realloc(table->keys, table->capacity);
-  table->vals = realloc(table->vals, table->capacity);
+  table->keys = realloc(table->keys, (table->capacity)*sizeof(matrix_TYP*));
+  table->vals = realloc(table->vals, (table->capacity)*sizeof(matrix_TYP*));
 
   free(table->key_ptr);
   table->key_ptr = (int*)malloc((table->capacity << 1)*sizeof(int));
+  free(table->counts);
+  table->counts = (int*)malloc((table->capacity << 1)*sizeof(int));
 
   for (i = 0; i < 2*table->capacity; i++)
     table->key_ptr[i] = -1;
+
+  for (i = 0; i < 2*table->capacity; i++)
+    table->counts[i] = 0;
 
   stored = table->num_stored;
   table->num_stored = 0;
@@ -175,4 +196,13 @@ void expand(hash_table* table)
   for (i=0; i<stored; i++)
     _add(table, table->keys[i], table->vals[i], 0);
 
+}
+
+void free_hash(hash_table* table)
+{
+  free(table->key_ptr);
+  free(table->vals);
+  free(table->keys);
+  free(table->counts);
+  free(table);
 }

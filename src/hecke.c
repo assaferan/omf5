@@ -7,15 +7,18 @@
 int process_isotropic_vector(matrix_TYP* v, matrix_TYP* w, matrix_TYP* Q,
 			     int p, matrix_TYP* b, int* T, int* th61)
 */
-int process_isotropic_vector(neighbor_manager* nbr_man, int* T, int* th61)
+int process_isotropic_vector(neighbor_manager* nbr_man, int* T,
+			     int* th61, hash_table* genus)
 {
 
-  T[q61_id(q61_nb(nbr_man->Q, nbr_man->p, nbr_man->iso_vec), th61)]++;
+  T[indexof(genus, q61_nb(nbr_man), 0)]++;
+  // T[q61_id(q61_nb(nbr_man),th61)]++;
+  // T[q61_id(q61_nb(nbr_man->Q, nbr_man->p, nbr_man->iso_vec), th61)]++;
   
   return 0;
 }
 
-int q61_nbs1(int* T, int p, int i, nbrs_data* init_orig)
+int q61_nbs1(int* T, int p, int i, nbrs_data* init_orig, hash_table* genus)
 {
   matrix_TYP *Q, *v; // , *b, *w_mat;
   int *th61;
@@ -23,17 +26,19 @@ int q61_nbs1(int* T, int p, int i, nbrs_data* init_orig)
 
   nbrs_data* init;
   neighbor_manager nbr_man;
-
+  
   /* printf("initializing q61 data\n"); */
-  if (init_orig == NULL)
-    init = q61_init(p, 2);
+  if (init_orig == NULL) {
+    init = (nbrs_data*) malloc(sizeof(nbrs_data));
+    init_nbrs_data(init, p, 2);
+  }
   else
     init = init_orig;
 
   Q = init->Q;
   v = init->v;
   th61 = init->th61;
-
+  
   /* printf("initialized Q: \n"); */
   /* print_mat(Q); */
   /* printf("isotropic vector: "); */
@@ -43,9 +48,18 @@ int q61_nbs1(int* T, int p, int i, nbrs_data* init_orig)
 
   // while (nbr_man.w->array.SZ[0][0] == 0) {
   while (!(has_ended(&nbr_man))) {
-     process_isotropic_vector(&nbr_man, T, th61);
-     advance_nbr_process(&nbr_man);
+    process_isotropic_vector(&nbr_man, T, th61, genus);
+    advance_nbr_process(&nbr_man);
   }
+
+  free_nbr_process(&nbr_man);
+  
+  if (init_orig == NULL) {
+    free_nbrs_data(init);
+    free(init);
+  }
+  
+  //  free_hash(genus);
  
   return 0;
 }

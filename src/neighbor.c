@@ -5,9 +5,10 @@
 /* Compute one p-neighbour for Q_orig corresponding to vector x 
  * On error, return NULL.
 */
-matrix_TYP* q61_nb(matrix_TYP* Q_orig, int p, matrix_TYP* x_mat)
+// matrix_TYP* q61_nb(matrix_TYP* Q_orig, int p, matrix_TYP* x_mat)
+matrix_TYP* q61_nb(neighbor_manager* nbr_man)
 {
-  matrix_TYP *Q_mat, *Qx_mat, *xQx_mat;
+  matrix_TYP *Q_mat, *Qx_mat, *xQx_mat; // , *Q_mat_red;
   int q, y, row, col, *x, **Q, *Qx, xQx;
   int a1, a2, a3, a4;
 
@@ -17,18 +18,18 @@ matrix_TYP* q61_nb(matrix_TYP* Q_orig, int p, matrix_TYP* x_mat)
   /* printf("Corresponding to isotropic vector "); */
   /* print_mat(x_mat); */
   
-  Q_mat = copy_mat(Q_orig);
-  Qx_mat = mat_mul(x_mat, Q_mat);
+  Q_mat = copy_mat(nbr_man->Q);
+  Qx_mat = mat_mul(nbr_man->iso_vec, Q_mat);
   /* From now until the end, Q is computed only upper triangular */
 
   /* printf("Qx = \n"); */
   /* print_mat(Qx_mat); */
   
-  x = x_mat->array.SZ[0];
+  x = nbr_man->iso_vec->array.SZ[0];
   Q = Q_mat->array.SZ;
   Qx = Qx_mat->array.SZ[0];
 
-  xQx_mat = mat_mul(Qx_mat, tr_pose(x_mat));
+  xQx_mat = mat_mul(Qx_mat, tr_pose(nbr_man->iso_vec));
 
   xQx = xQx_mat->array.SZ[0][0];
   
@@ -101,13 +102,13 @@ matrix_TYP* q61_nb(matrix_TYP* Q_orig, int p, matrix_TYP* x_mat)
     }
   }
  
-  if (Q[0][0] % p) {
+  if (Q[0][0] % nbr_man->p) {
     printf("NOT 0 mod p\n");
     return NULL;
   }
   
-  if (!(Q[0][4] % p)) {
-    if (Q[0][3] % p) {
+  if (!(Q[0][4] % nbr_man->p)) {
+    if (Q[0][3] % nbr_man->p) {
       /* M[,4] <--> M[,5] */
       /* printf("swapping rows 4 and 5, now Q = \n"); */
       for (row = 0; row < 3; row++) {
@@ -118,7 +119,7 @@ matrix_TYP* q61_nb(matrix_TYP* Q_orig, int p, matrix_TYP* x_mat)
       /* print_mat(Q_mat); */
     }
     else {
-      if (Q[0][2] % p) {
+      if (Q[0][2] % nbr_man->p) {
 	/* M[,3] <--> M[,5] */
 	/* printf("swapping rows 3 and 5, now Q = \n"); */
 	swap(Q, 0, 2, 0, 4);
@@ -129,7 +130,7 @@ matrix_TYP* q61_nb(matrix_TYP* Q_orig, int p, matrix_TYP* x_mat)
 	/* print_mat(Q_mat); */
       }
       else {
-	if (Q[0][1] % p) {
+	if (Q[0][1] % nbr_man->p) {
 	  /* M[,2] <--> M[,5] */
 	  /* printf("swapping rows 2 and 5, now Q = \n"); */
 	  swap(Q, 0, 1, 0, 4);
@@ -153,28 +154,28 @@ matrix_TYP* q61_nb(matrix_TYP* Q_orig, int p, matrix_TYP* x_mat)
   /* M[,1] += a*M[,5]  */
   /* printf("Doing R[1] <-- R[1] + aR[5], now Q = \n"); */
   
-  Q[0][0] /= p;
-  gcdext(Q[0][4], p, &q, &y);
-  a1 = -Q[0][0]*q/2 % p;
+  Q[0][0] /= nbr_man->p;
+  gcdext(Q[0][4], nbr_man->p, &q, &y);
+  a1 = -Q[0][0]*q/2 % nbr_man->p;
   if (a1 < 0)
-    a1 += p;
+    a1 += nbr_man->p;
 
   /* printf("q = %d, a1 = %d (y = %d)\n", q, a1, y); */
   
-  Q[0][0] += a1*(2*Q[0][4]+p*a1*Q[4][4]);
-  Q[0][1] += p*a1*Q[1][4];
-  Q[0][2] += p*a1*Q[2][4];
-  Q[0][3] += p*a1*Q[3][4];
-  Q[0][4] += p*a1*Q[4][4];
+  Q[0][0] += a1*(2*Q[0][4]+nbr_man->p*a1*Q[4][4]);
+  Q[0][1] += nbr_man->p*a1*Q[1][4];
+  Q[0][2] += nbr_man->p*a1*Q[2][4];
+  Q[0][3] += nbr_man->p*a1*Q[3][4];
+  Q[0][4] += nbr_man->p*a1*Q[4][4];
 
   /* print_mat(Q_mat); */
   
   /* M[,2] += a*M[,5]  */
   /* printf("Doing R[2] <-- R[2] + aR[5], now Q = \n"); */
   
-  a2 = -Q[0][1]*q % p;
+  a2 = -Q[0][1]*q % nbr_man->p;
   if (a2 < 0)
-    a2 += p;
+    a2 += nbr_man->p;
   
   Q[0][1] += a2*Q[0][4];
   Q[1][1] += a2*(2*Q[1][4]+a2*Q[4][4]);
@@ -187,9 +188,9 @@ matrix_TYP* q61_nb(matrix_TYP* Q_orig, int p, matrix_TYP* x_mat)
   /* M[,3] += a*M[,5]  */
   /* printf("Doing R[3] <-- R[3] + aR[5], now Q = \n"); */
    
-  a3 = -Q[0][2]*q % p;
+  a3 = -Q[0][2]*q % nbr_man->p;
   if (a3 < 0)
-    a3 += p;
+    a3 += nbr_man->p;
   
   Q[0][2] += a3*Q[0][4];
   Q[1][2] += a3*Q[1][4];
@@ -202,9 +203,9 @@ matrix_TYP* q61_nb(matrix_TYP* Q_orig, int p, matrix_TYP* x_mat)
   /* M[,4] += a*M[,5]  */
   /* printf("Doing R[4] <-- R[4] + aR[5], now Q = \n"); */
   
-  a4 = -Q[0][3]*q % p;
+  a4 = -Q[0][3]*q % nbr_man->p;
   if (a4 < 0)
-    a4 += p;
+    a4 += nbr_man->p;
   
   Q[0][3] += a4*Q[0][4];
   Q[1][3] += a4*Q[1][4];
@@ -217,20 +218,20 @@ matrix_TYP* q61_nb(matrix_TYP* Q_orig, int p, matrix_TYP* x_mat)
   /* M[,1] /= p */
   /* printf("Doing R[1] <-- R[1]/p, now Q = \n"); */
   
-  Q[0][0] /= p;
-  Q[0][1] /= p;
-  Q[0][2] /= p;
-  Q[0][3] /= p;
+  Q[0][0] /= nbr_man->p;
+  Q[0][1] /= nbr_man->p;
+  Q[0][2] /= nbr_man->p;
+  Q[0][3] /= nbr_man->p;
 
   /* print_mat(Q_mat); */
   
   /* M[,5] *= p */
   /* printf("Doing R[5] <-- R[5]/p, now Q = \n"); */
   
-  Q[1][4] *= p;
-  Q[2][4] *= p;
-  Q[3][4] *= p;
-  Q[4][4] *= p*p;
+  Q[1][4] *= nbr_man->p;
+  Q[2][4] *= nbr_man->p;
+  Q[3][4] *= nbr_man->p;
+  Q[4][4] *= (nbr_man->p)*(nbr_man->p);
 
   /* print_mat(Q_mat); */
   
@@ -244,7 +245,14 @@ matrix_TYP* q61_nb(matrix_TYP* Q_orig, int p, matrix_TYP* x_mat)
 
   /* if (!is_definite) */
   /*   printf("Neighbor is not positive definite!!!\n"); */
+
+  /* Do we want to reduce here ? */
+  /* Q_mat_red = minkowski_reduce(Q_mat); */
+
+  /* free_mat(Q_mat); */
   
+  /* return Q_mat_red; */
+
   return Q_mat;
 };
 
@@ -467,4 +475,10 @@ void advance_nbr_process(neighbor_manager* nbr_man)
 int has_ended(neighbor_manager* nbr_man)
 {
   return (nbr_man->w->array.SZ[0][0] != 0);
+}
+
+void free_nbr_process(neighbor_manager* nbr_man)
+{
+  free_mat(nbr_man->v);
+  free_mat(nbr_man->w);
 }
