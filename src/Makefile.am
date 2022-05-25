@@ -23,7 +23,7 @@ endif
 OPT_CFLAGS += ${ALL_CFLAGS}
 DBG_CFLAGS += ${ALL_CFLAGS}
 
-DBG_LDFLAGS = -L../libs -lfunctions -lgmp
+DBG_LDFLAGS = -lfunctions -lgmp
 
 SOURCES = arith.c
 SOURCES += genus.c
