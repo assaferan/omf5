@@ -1,14 +1,11 @@
 bin_PROGRAMS = A61 A61_dbg
 lib_LTLIBRARIES = libomf5.la
 
-INCLUDE_FLAGS = -I ../include
+ALL_CFLAGS = -I ../include -Wall -Werror
 
-OPT_CFLAGS = -O3 -DNDEBUG -Wall -Werror -msse3 -mavx
-DBG_CFLAGS = -g -Wall -Werror -DDEBUG -DDEBUG_LEVEL_FULL -fsanitize=address
+OPT_CFLAGS = -O3 -DNDEBUG -msse3 -mavx
+DBG_CFLAGS = -g -DDEBUG -DDEBUG_LEVEL_FULL -fsanitize=address
 OPT_CFLAGS += -fomit-frame-pointer
-
-OPT_CFLAGS += ${INCLUDE_FLAGS}
-DBG_CFLAGS += ${INCLUDE_FLAGS}
 
 # These are not supported on macOS
 
@@ -18,6 +15,13 @@ if LINUX
 	OPT_CFLAGS += -funroll-all-loops
         DBG_CFLAGS += -pg
 endif
+
+if OSX
+	ALL_CFLAGS += -mmacosx-version-min=10.10
+endif
+
+OPT_CFLAGS += ${ALL_CFLAGS}
+DBG_CFLAGS += ${ALL_CFLAGS}
 
 DBG_LDFLAGS = -L../libs -lfunctions -lgmp
 
