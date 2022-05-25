@@ -1,3 +1,7 @@
+#ifdef DEBUG
+#include "carat/symm.h"
+#endif // DEBUG
+
 #include "arith.h"
 #include "matrix_tools.h"
 #include "neighbor.h"
@@ -12,18 +16,26 @@ matrix_TYP* q61_nb(neighbor_manager* nbr_man)
   int q, y, row, col, *x, **Q, *Qx, xQx;
   int a1, a2, a3, a4;
 
-  /* printf("Computing p-neighbor for Q_orig: \n"); */
-  /* print_mat(Q_orig); */
+#ifdef DEBUG
+  int is_definite;
+#endif // DEBUG
+  
+#ifdef DEBUG_LEVEL_FULL
+  printf("Computing p-neighbor for Q: \n");
+  print_mat(nbr_man->Q);
 
-  /* printf("Corresponding to isotropic vector "); */
-  /* print_mat(x_mat); */
+  printf("Corresponding to isotropic vector ");
+  print_mat(nbr_man->iso_vec);
+#endif // DEBUG_LEVEL_FULL
   
   Q_mat = copy_mat(nbr_man->Q);
   Qx_mat = mat_mul(nbr_man->iso_vec, Q_mat);
   /* From now until the end, Q is computed only upper triangular */
 
-  /* printf("Qx = \n"); */
-  /* print_mat(Qx_mat); */
+#ifdef DEBUG_LEVEL_FULL
+  printf("Qx = \n");
+  print_mat(Qx_mat);
+#endif // DEBUG_LEVEL_FULL
   
   x = nbr_man->iso_vec->array.SZ[0];
   Q = Q_mat->array.SZ;
@@ -39,9 +51,10 @@ matrix_TYP* q61_nb(neighbor_manager* nbr_man)
       Q[0][0] = xQx;
       for (col = 1; col < 5; col++)
 	Q[0][col] = Qx[col];
-
-      /* printf("put x as first vector, now Q = \n"); */
-      /* print_mat(Q_mat); */
+#ifdef DEBUG_LEVEL_FULL
+      printf("put x as first vector, now Q = \n");
+      print_mat(Q_mat);
+#endif // DEBUG_LEVEL_FULL
   }
   else {
     if (x[1] == 1) {
@@ -110,35 +123,44 @@ matrix_TYP* q61_nb(neighbor_manager* nbr_man)
   if (!(Q[0][4] % nbr_man->p)) {
     if (Q[0][3] % nbr_man->p) {
       /* M[,4] <--> M[,5] */
-      /* printf("swapping rows 4 and 5, now Q = \n"); */
+#ifdef DEBUG_LEVEL_FULL
+      printf("swapping rows 4 and 5, now Q = \n");
+#endif // DEBUG_LEVEL_FULL
       for (row = 0; row < 3; row++) {
 	swap(Q, row, 3, row, 4);
       }
       swap(Q, 3, 3, 4, 4);
-
-      /* print_mat(Q_mat); */
+#ifdef DEBUG_LEVEL_FULL
+      print_mat(Q_mat);
+#endif // DEBUG_LEVEL_FULL
     }
     else {
       if (Q[0][2] % nbr_man->p) {
 	/* M[,3] <--> M[,5] */
-	/* printf("swapping rows 3 and 5, now Q = \n"); */
+#ifdef DEBUG_LEVEL_FULL
+	printf("swapping rows 3 and 5, now Q = \n");
+#endif // DEBUG_LEVEL_FULL
 	swap(Q, 0, 2, 0, 4);
 	swap(Q, 1, 2, 1, 4);
 	swap(Q, 2, 2, 4, 4);
 	swap(Q, 2, 3, 3, 4);
-
-	/* print_mat(Q_mat); */
+#ifdef DEBUG_LEVEL_FULL
+	print_mat(Q_mat);
+#endif // DEBUG_LEVEL_FULL
       }
       else {
 	if (Q[0][1] % nbr_man->p) {
 	  /* M[,2] <--> M[,5] */
-	  /* printf("swapping rows 2 and 5, now Q = \n"); */
+#ifdef DEBUG_LEVEL_FULL
+	  printf("swapping rows 2 and 5, now Q = \n");
+#endif // DEBUG_LEVEL_FULL
 	  swap(Q, 0, 1, 0, 4);
 	  swap(Q, 1, 1, 4, 4);
 	  swap(Q, 1, 2, 2, 4);
 	  swap(Q, 1, 3, 3, 4);
-	  
-	  /* print_mat(Q_mat); */
+#ifdef DEBUG_LEVEL_FULL
+	  print_mat(Q_mat);
+#endif // DEBUG_LEVEL_FULL
 	}
 	else {
 	  /* a singular zero, return Q as-is*/
@@ -152,26 +174,33 @@ matrix_TYP* q61_nb(neighbor_manager* nbr_man)
   }
   
   /* M[,1] += a*M[,5]  */
-  /* printf("Doing R[1] <-- R[1] + aR[5], now Q = \n"); */
+#ifdef DEBUG_LEVEL_FULL
+  printf("Doing R[1] <-- R[1] + aR[5], now Q = \n");
+#endif // DEBUG_LEVEL_FULL
   
   Q[0][0] /= nbr_man->p;
   gcdext(Q[0][4], nbr_man->p, &q, &y);
   a1 = -Q[0][0]*q/2 % nbr_man->p;
   if (a1 < 0)
     a1 += nbr_man->p;
-
-  /* printf("q = %d, a1 = %d (y = %d)\n", q, a1, y); */
+#ifdef DEBUG_LEVEL_FULL
+  printf("q = %d, a1 = %d (y = %d)\n", q, a1, y);
+#endif // DEBUG_LEVEL_FULL
   
   Q[0][0] += a1*(2*Q[0][4]+nbr_man->p*a1*Q[4][4]);
   Q[0][1] += nbr_man->p*a1*Q[1][4];
   Q[0][2] += nbr_man->p*a1*Q[2][4];
   Q[0][3] += nbr_man->p*a1*Q[3][4];
   Q[0][4] += nbr_man->p*a1*Q[4][4];
-
-  /* print_mat(Q_mat); */
+  
+#ifdef DEBUG_LEVEL_FULL
+  print_mat(Q_mat);
+#endif // DEBUG_LEVEL_FULL
   
   /* M[,2] += a*M[,5]  */
-  /* printf("Doing R[2] <-- R[2] + aR[5], now Q = \n"); */
+#ifdef DEBUG_LEVEL_FULL
+  printf("Doing R[2] <-- R[2] + aR[5], now Q = \n");
+#endif // DEBUG_LEVEL_FULL
   
   a2 = -Q[0][1]*q % nbr_man->p;
   if (a2 < 0)
@@ -182,11 +211,15 @@ matrix_TYP* q61_nb(neighbor_manager* nbr_man)
   Q[1][2] += a2*Q[2][4];
   Q[1][3] += a2*Q[3][4];
   Q[1][4] += a2*Q[4][4];
-
-  /* print_mat(Q_mat); */
+  
+#ifdef DEBUG_LEVEL_FULL
+  print_mat(Q_mat);
+#endif // DEBUG_LEVEL_FULL
   
   /* M[,3] += a*M[,5]  */
-  /* printf("Doing R[3] <-- R[3] + aR[5], now Q = \n"); */
+#ifdef DEBUG_LEVEL_FULL
+  printf("Doing R[3] <-- R[3] + aR[5], now Q = \n");
+#endif // DEBUG_LEVEL_FULL
    
   a3 = -Q[0][2]*q % nbr_man->p;
   if (a3 < 0)
@@ -198,10 +231,14 @@ matrix_TYP* q61_nb(neighbor_manager* nbr_man)
   Q[2][3] += a3*Q[3][4];
   Q[2][4] += a3*Q[4][4];
 
-  /* print_mat(Q_mat); */
+#ifdef DEBUG_LEVEL_FULL
+  print_mat(Q_mat);
+#endif // DEBUG_LEVEL_FULL
   
   /* M[,4] += a*M[,5]  */
-  /* printf("Doing R[4] <-- R[4] + aR[5], now Q = \n"); */
+#ifdef DEBUG_LEVEL_FULL
+  printf("Doing R[4] <-- R[4] + aR[5], now Q = \n");
+#endif // DEBUG_LEVEL_FULL
   
   a4 = -Q[0][3]*q % nbr_man->p;
   if (a4 < 0)
@@ -213,39 +250,53 @@ matrix_TYP* q61_nb(neighbor_manager* nbr_man)
   Q[3][3] += a4*(2*Q[3][4]+a4*Q[4][4]);
   Q[3][4] += a4*Q[4][4];
 
-  /* print_mat(Q_mat); */
+#ifdef DEBUG_LEVEL_FULL
+  print_mat(Q_mat);
+#endif // DEBUG_LEVEL_FULL
   
   /* M[,1] /= p */
-  /* printf("Doing R[1] <-- R[1]/p, now Q = \n"); */
+#ifdef DEBUG_LEVEL_FULL
+  printf("Doing R[1] <-- R[1]/p, now Q = \n");
+#endif // DEBUG_LEVEL_FULL
   
   Q[0][0] /= nbr_man->p;
   Q[0][1] /= nbr_man->p;
   Q[0][2] /= nbr_man->p;
   Q[0][3] /= nbr_man->p;
 
-  /* print_mat(Q_mat); */
+#ifdef DEBUG_LEVEL_FULL
+  print_mat(Q_mat);
+#endif // DEBUG_LEVEL_FULL
   
   /* M[,5] *= p */
-  /* printf("Doing R[5] <-- R[5]/p, now Q = \n"); */
+#ifdef DEBUG_LEVEL_FULL
+  printf("Doing R[5] <-- R[5]/p, now Q = \n");
+#endif // DEBUG_LEVEL_FULL
   
   Q[1][4] *= nbr_man->p;
   Q[2][4] *= nbr_man->p;
   Q[3][4] *= nbr_man->p;
   Q[4][4] *= (nbr_man->p)*(nbr_man->p);
 
-  /* print_mat(Q_mat); */
+#ifdef DEBUG_LEVEL_FULL
+  print_mat(Q_mat);
+#endif // DEBUG_LEVEL_FULL
   
   /* Re-symmetrize */
   resymmetrize(Q);
 
-  /* printf("Resulting neighbor is: \n"); */
-  /* print_mat(Q_mat); */
+#ifdef DEBUG_LEVEL_FULL
+  printf("Resulting neighbor is: \n");
+  print_mat(Q_mat);
+#endif // DEBUG_LEVEL_FULL
 
-  /* is_definite = definite_test(Q_mat); */
+#ifdef DEBUG
+  is_definite = definite_test(Q_mat);
 
-  /* if (!is_definite) */
-  /*   printf("Neighbor is not positive definite!!!\n"); */
-
+  if (!is_definite)
+    printf("Neighbor is not positive definite!!!\n");
+  
+#endif // DEBUG
   /* Do we want to reduce here ? */
   /* Q_mat_red = minkowski_reduce(Q_mat); */
 
@@ -351,27 +402,33 @@ matrix_TYP* get_next_isotropic_vector(neighbor_manager* nbr_man)
   t_mat = mat_mul(nbr_man->w, tr_pose(nbr_man->b));
   t = t_mat->array.SZ[0][0] % nbr_man->p;
 
-  /* printf("v = "); */
-  /* print_mat(v); */
+#ifdef DEBUG_LEVEL_FULL
+  printf("v = ");
+  print_mat(nbr_man->v);
   
-  /* printf("w = "); */
-  /* print_mat(w_mat); */
+  printf("w = ");
+  print_mat(nbr_man->w);
 
-  /* printf("n = %d, t = %d\n", n, t); */
+  printf("n = %d, t = %d\n", n, t);
+#endif // DEBUG_LEVEL_FULL
     
   if (n) {
     if (t) {
       /* do [n*v-t*w] */
       gcdext(n, nbr_man->p, &n_inv, &dummy);
       nbr_man->iso_vec = imat_add(nbr_man->v, nbr_man->w, 1, -t*n_inv);
-      /* printf("tmp = "); */
-      /* print_mat(tmp); */
+#ifdef DEBUG_LEVEL_FULL
+      printf("iso_vec = ");
+      print_mat(nbr_man->iso_vec);
+#endif // DEBUG_LEVEL_FULL
       /* This differs from the gp script */
       /* modp_mat(tmp, p); */
       for (j = 0; j < 5; j++)
 	nbr_man->iso_vec->array.SZ[0][j] %= nbr_man->p;
-      /* printf("n*v-t*w = "); */
-      /* print_mat(iso_vec); */
+#ifdef DEBUG_LEVEL_FULL
+      printf("n*v-t*w = ");
+      print_mat(nbr_man->iso_vec);
+#endif // DEBUG_LEVEL_FULL
       return nbr_man->iso_vec;
     }
   }
@@ -380,8 +437,10 @@ matrix_TYP* get_next_isotropic_vector(neighbor_manager* nbr_man)
       nbr_man->iso_vec = nbr_man->w;
     else
       nbr_man->iso_vec = imat_add(nbr_man->v,nbr_man->w,1,nbr_man->iso_j);
-    /* printf("v+%d*w = ", *iso_j); */
-    /* print_mat(iso_vec); */
+#ifdef DEBUG_LEVEL_FULL
+    printf("v+%d*w = ", nbr_man->iso_j);
+    print_mat(nbr_man->iso_vec);
+#endif // DEBUG_LEVEL_FULL
     if (!t)
       (nbr_man->iso_j)++;
     return nbr_man->iso_vec;

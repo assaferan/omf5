@@ -135,15 +135,19 @@ matrix_TYP* minkowski_reduce(matrix_TYP* Q)
   
   T1 = init_mat(N, N, "");
   red1 = pair_red(Q, T1);
-
-  /* printf("After pair reduce, got: \n"); */
-  /* print_mat(red1); */
+  
+#ifdef DEBUG_LEVEL_FULL
+  printf("After pair reduce, got: \n");
+  print_mat(red1);
+#endif // DEBUG_LEVEL_FULL
   
   T2 = init_mat(N, N, "1");
   red2 = mink_red(red1, T2);
 
-  /* printf("After Minkowski reduce, got: \n"); */
-  /* print_mat(red1); */
+#ifdef DEBuG_LEVEL_FULL
+  printf("After Minkowski reduce, got: \n");
+  print_mat(red1);
+#endif // DEBUG_LEVEL_FULL
   
   free_mat(T1);
   free_mat(T2);
