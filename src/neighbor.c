@@ -5,7 +5,7 @@
 /* Compute one p-neighbour for Q_orig corresponding to vector x 
  * On error, return NULL.
 */
-// matrix_TYP* q61_nb(matrix_TYP* Q_orig, int p, matrix_TYP* x_mat)
+
 matrix_TYP* q61_nb(neighbor_manager* nbr_man)
 {
   matrix_TYP *Q_mat, *Qx_mat, *xQx_mat; // , *Q_mat_red;
