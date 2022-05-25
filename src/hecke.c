@@ -14,9 +14,8 @@ int process_isotropic_vector(neighbor_manager* nbr_man, int* T,
 
 int q61_nbs1(int* T, int p, int i, nbrs_data* init_orig, hash_table* genus)
 {
-  matrix_TYP *Q, *v; // , *b, *w_mat;
+  matrix_TYP *Q, *v;
   int *th61;
-  // int *w;
 
   nbrs_data* init;
   neighbor_manager nbr_man;
