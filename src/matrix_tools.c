@@ -47,15 +47,48 @@ matrix_TYP* init_sym_matrix(int* coeff_vec)
 /* function to print matrices nicely
  */
 
+int num_digits(int a, int base)
+{
+  int num, b;
+
+  num = 0;
+  b = a;
+  while (b) {
+    b /= base;
+    num++;
+  }
+  if (num == 0)
+    num++;
+
+  return num;
+}
+
 void print_mat(matrix_TYP* Q)
 {
-  int row, col;
+  int row, col, width;
+  int* widths;
+
+  widths = (int *)malloc(Q->cols * sizeof(int));
+
+  // checking width
+  for (col = 0; col < Q->cols; col++) {
+    widths[col] = 0;
+    for (row = 0; row < Q->rows; row++) {
+      width = num_digits(Q->array.SZ[row][col], 10);
+      if (widths[col] < width)
+	widths[col] = width;
+    }
+  }
+  
   for (row = 0; row < Q->rows; row++) {
     for (col = 0; col < Q->cols; col++) {
-      printf("%4d", Q->array.SZ[row][col]);
+      printf("%*d", widths[col] + 1, Q->array.SZ[row][col]);
     }
     printf("\n");
   }
+  
+  free(widths);
+  return;
 }
 
 /* swapping, assumes they do not point to the same thing!!! */

@@ -23,9 +23,6 @@ int get_ev(hash_table* genus, int p)
   
   cpuclock = clock();
   
-  /* for (num = 0; num < p; num++) { */
-  /*   q61_nbs1(a, p, num, NULL, genus); */
-  /* } */
   hecke_col(a, p, 0, genus);
 
   cpuclock = clock() - cpuclock;
@@ -53,7 +50,7 @@ int test_61()
   clock_t cpuclock;
   double cputime;
   int Q_coeffs[15] = {2,1,2,0,0,2,0,0,0,4,1,0,0,-1,6};
-  matrix_TYP* Q;
+  matrix_TYP* Q, *hecke;
 
   cpuclock = clock();
 
@@ -71,8 +68,12 @@ int test_61()
       free_mat(Q);
       return FALSE;
     }
+    hecke = hecke_matrix(genus, ps[i]);
+    print_mat(hecke);
+    free_mat(hecke);
   }
-
+  
+  
   free_hash(genus);
   free_mat(Q);
   

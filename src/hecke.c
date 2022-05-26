@@ -51,7 +51,15 @@ void hecke_col(int* T, int p, int gen_idx, hash_table* genus)
   return;
 }
 
-/* matrix_TYP* hecke_matrix(hash_table* genus, int p) */
-/* { */
+matrix_TYP* hecke_matrix(hash_table* genus, int p)
+{
+  matrix_TYP* hecke;
+  int gen_idx;
+
+  hecke = init_mat(genus->num_stored, genus->num_stored, "");
+
+  for (gen_idx = 0; gen_idx < genus->num_stored; gen_idx++)
+    hecke_col(hecke->array.SZ[gen_idx], p, gen_idx, genus);
   
-/* } */
+  return hecke;
+}
