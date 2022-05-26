@@ -8,78 +8,11 @@
 
 typedef mpz_t Z;
 
-/* initialize the neighbors data */
-void init_nbrs_data(nbrs_data* dtm, int p, int k)
-{  
-  int s, i;
-  matrix_TYP* genus[8];
-
-  /* Set of representatives for the quadratic forms */
-  
-  int genus_coeffs[8][15] =
-    {
-     {2,1,2,1,0,2,0,1,0,16,0,0,0,0,2},
-     {2,1,2,0,0,2,1,1,1,6,-1,-1,0,-3,6},
-     {2,1,2,0,0,2,0,0,0,4,1,0,0,-1,6},
-     {2,-1,2,-1,1,2,1,-1,-1,6,-1,1,0,2,8},
-     {2,1,2,1,0,4,-1,-1,0,4,0,0,1,0,4},
-     {2,1,2,-1,0,2,0,0,0,6,-1,0,1,-1,6},
-     {2,-1,2,0,0,2,1,0,-1,4,1,0,0,0,8},
-     {2,0,2,0,0,2,0,0,1,4,0,1,1,2,6}
-    };
-#ifdef DEBUG_LEVEL_FULL
-  printf("in q61_init. Initializing genus representatives to:\n");
-#endif // DEBUG_LEVEL_FULL
-  
-  for (i = 0; i < 8; i++) {
-    genus[i] = init_sym_matrix(genus_coeffs[i]);
-#ifdef DEBUG_LEVEL_FULL
-    print_mat(genus[i]);
-#endif // DEBUG_LEVEL_FULL
-  }
-
-  /* Hardcode detect class */
-  // !! This depends on the size of our hash
-  // In general replace by some hash
-  dtm->th61 = (int*) malloc(21*sizeof(int));
-
-  /* printf("Computing theta series...\n"); */
-  for (i = 0; i < 8; i++) {
-    s = hash_form(genus[i]);
-#ifdef DEBUG_LEVEL_FULL
-    printf("s = %d\n", s);
-#endif // DEBUG_LEVEL_FULL
-    dtm->th61[s] = i;
-  }
-
-  dtm->Q = init_sym_matrix(genus_coeffs[k]);
-  dtm->v = get_isotropic_vector(dtm->Q, p);
-
-  for (i = 0; i < 8; i++) {
-    free_mat(genus[i]);
-  }
-  
-  return;
-}
-
-void free_nbrs_data(nbrs_data* dtm)
-{
-  free_mat(dtm->Q);
-  free_mat(dtm->v);
-  free(dtm->th61);
-}
-
-/* identify the genus representative of Q (returns the index) */
-int q61_id(matrix_TYP* Q, int* th61)
-{
-  return th61[hash_form(Q)];
-}
-
 /* compute the genus of a quadratic form */
 hash_table* get_genus_reps(matrix_TYP* Q)
 {
   bravais_TYP *aut_grp;
-  matrix_TYP *nbr, *isom, *genus_rep;
+  matrix_TYP *nbr, *isom, *genus_rep, *s;
   rational mass, acc_mass, mass_form;
   Z prime;
   int i, p, current, next_idx, key_num;
@@ -173,6 +106,9 @@ hash_table* get_genus_reps(matrix_TYP* Q)
 #ifdef DEBUG_LEVEL_FULL
 	    printf("no Isometry found, adding neighbor...\n");
 #endif // DEBUG_LEVEL_FULL
+	    s = init_mat(5,5,"1");
+	    greedy(nbr, s, 5, 5);
+	    free_mat(s);
 	    add(genus, nbr);
 	    aut_grp = automorphism_group(nbr);
 	    mass_form.z = 1;

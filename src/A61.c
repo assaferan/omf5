@@ -13,9 +13,7 @@ int get_ev(hash_table* genus, int p)
 {
   int* a;
   int num, e;
-  /* int Q_coeffs[15] = {2,1,2,0,0,2,0,0,0,4,1,0,0,-1,6}; */
-  /* matrix_TYP* Q; */
-
+ 
   a = (int*)malloc(genus->num_stored * sizeof(int));
   for (num = 0; num < genus->num_stored; num++)
     a[num] = 0;
@@ -25,9 +23,10 @@ int get_ev(hash_table* genus, int p)
   
   cpuclock = clock();
   
-  for (num = 0; num < p; num++) {
-    q61_nbs1(a, p, num, NULL, genus);
-  }
+  /* for (num = 0; num < p; num++) { */
+  /*   q61_nbs1(a, p, num, NULL, genus); */
+  /* } */
+  hecke_col(a, p, 0, genus);
 
   cpuclock = clock() - cpuclock;
   cputime = cpuclock / CLOCKS_PER_SEC;
@@ -48,8 +47,8 @@ int get_ev(hash_table* genus, int p)
 int test_61()
 {
   int i;
-  int ps[8] = {2,3,5,7,11,13,17,19};
-  int evs[8] = {-7,-3,3,-9,-4,-3,37,-75};
+  int ps[25] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97};
+  int evs[25] = {-7, -3, 3, -9, -4, -3, 37, -75, 10, 212, -6, -88, -3, 547, -147, -108, -45, 145, -632, -650, 859, -978, 931, -571, 453};
   hash_table* genus;
   clock_t cpuclock;
   double cputime;
@@ -66,7 +65,7 @@ int test_61()
   
   printf("computing genus took %f\n", cputime);
   
-  for (i = 0; i < 8; i++) {
+  for (i = 0; i < 25; i++) {
     if (get_ev(genus, ps[i]) != evs[i]) {
       free_hash(genus);
       free_mat(Q);

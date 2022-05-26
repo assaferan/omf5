@@ -12,7 +12,7 @@
 
 matrix_TYP* q61_nb(neighbor_manager* nbr_man)
 {
-  matrix_TYP *Q_mat, *Qx_mat, *xQx_mat, *s; // , *Q_mat_red;
+  matrix_TYP *Q_mat, *Qx_mat, *xQx_mat;
   int q, y, row, col, *x, **Q, *Qx, xQx;
   int a1, a2, a3, a4;
 
@@ -297,18 +297,7 @@ matrix_TYP* q61_nb(neighbor_manager* nbr_man)
     printf("Neighbor is not positive definite!!!\n");
   
 #endif // DEBUG
-  /* Do we want to reduce here ? */
-  /* Q_mat_red = minkowski_reduce(Q_mat); */
 
-  /* free_mat(Q_mat); */
-  
-  /* return Q_mat_red; */
-
-  s = init_mat(5,5,"1");
-  greedy(Q_mat, s, 5, 5);
-
-  free_mat(s);
-  
   return Q_mat;
 };
 
