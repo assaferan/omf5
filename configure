@@ -2637,6 +2637,7 @@ else
 fi
 
 
+: ${CFLAGS=""}
 
 
 

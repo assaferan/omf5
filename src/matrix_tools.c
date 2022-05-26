@@ -1,3 +1,5 @@
+#include <limits.h>
+
 #include "carat/autgrp.h"
 #include "carat/reduction.h"
 #include "carat/symm.h"
@@ -261,16 +263,38 @@ matrix_TYP* transform(matrix_TYP* g, matrix_TYP* Q)
   return mat_mul(tr_pose(g), mat_mul(Q, g));
 }
 
+matrix_TYP* transform_eq(matrix_TYP* g, matrix_TYP* Q)
+{
+  int i,j;
+  
+  Q = mat_muleq(Q,g);
+  for (i = 0; i < N-1; i++)
+    for (j = i+1; j < N; j++) {
+      swap(Q->array.SZ, i, j, j, i);
+    }
+  return mat_muleq(Q, g);
+  //  return mat_mul(tr_pose(g), mat_muleq(Q, g));
+}
+
 void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
 {
   matrix_TYP *H_int, *v_int, *y_int, *g, *min_g, *x_gram;
 
   int **q;
   int *voronoi, *x, *x_min, *x_max, *x_num, *x_closest;
-  int i,j, det, tmp, num_xs, x_idx, min_dist;
+  int i,j, det, tmp, num_xs, x_idx, min_dist, n;
 
+  n = Q->rows;
+
+#ifdef DEBUG_LEVEL_FULL
+  printf("finding closest_lattice_vector with gram:\n");
+  print_mat(Q);
+#endif // DEBUG_LEVEL_FULL
+  
   v_int = init_mat(1, dim-1, "");
-  g = init_mat(dim-1, dim-1, "");
+  g = init_mat(n, n, "1");
+  min_g = init_mat(n, n, "");
+  g->flags.Symmetric = g->flags.Scalar = g->flags.Diagonal = 0;
   H_int = adjugate(Q, dim-1);
   
   q = Q->array.SZ;
@@ -335,8 +359,9 @@ void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
     x_gram = transform(g,Q);
     if (x_gram->array.SZ[dim-1][dim-1] < min_dist) {
       min_dist = x_gram->array.SZ[dim-1][dim-1];
-      min_g = g;
-      x_closest = x;
+      min_g = copy_mat(g);
+      for (j = 0; j < dim-1; j++)
+	x_closest[j] = x[j];
     }
   }
 
@@ -347,13 +372,235 @@ void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
   printf("\n");
 #endif // DEBUG_LEVEL_FULL
   
-  iso = mat_mul(iso, min_g);
-  Q = transform(min_g, Q);
+  iso = mat_muleq(iso, min_g);
+  Q = transform_eq(min_g, Q);
 #ifdef DEBUG_LEVEL_FULL
   printf("returning isometry: \n");
   print_mat(iso);
   printf("transformed gram to: \n");
   print_mat(Q);
 #endif // DEBUG_LEVEL_FULL
+
+  free_mat(v_int);
+  free_mat(g);
+  free_mat(min_g);
+  free_mat(H_int);
+  free(x);
+  free(x_min);
+  free(x_max);
+  free(x_num);
+  free(x_closest);
   return;
+}
+
+void _swap(int* pos, int i, int j)
+{
+  pos[i] ^= pos[j];
+  pos[j] ^= pos[i];
+  pos[i] ^= pos[j];
+
+  return;
+}
+
+void sort(int* values, int* pos, int n)
+{
+  int cmp, i, j, k;
+  int sorting_network_5_idx1[9] = {1,3,1,2,1,3,2,4,3};
+  int sorting_network_5_idx2[9] = {2,4,3,5,2,4,3,5,4};
+  
+  switch(n) {
+  case 2:
+    if (values[0] > values[1]) {
+      _swap(pos, 0, 1);
+    }
+    break;
+    
+  case 3:
+    cmp = values[0] > values[1];
+    cmp |= (values[0] > values[2]) << 1;
+    cmp |= (values[1] > values[2]) << 2;
+    switch(cmp) {
+    case 0:
+      // 0 <= 1 <= 2
+      break;
+    case 1:
+      // 1 < 0 <=2
+      _swap(pos, 0, 1);
+      break;
+    case 2:
+      // 0 <= 1 <= 2, 0 > 2 can't really happen
+      printf("Error! Shouldn't happen!\n");
+      break;
+    case 3:
+      // 1 <= 2 < 0
+      _swap(pos, 0, 1);
+      _swap(pos, 1, 2);
+      break;
+    case 4:
+      // 0 <= 2 < 1
+      _swap(pos, 1, 2);
+      break;
+    case 5:
+      // 0 > 1 > 2, 0 <=2
+      printf("Error! Shouldn't happen!\n");
+      break;
+    case 6:
+      // 2 < 0 <= 1
+      _swap(pos, 0, 1);
+      _swap(pos, 0, 2);
+      break;
+    case 7:
+      // 0 > 1 > 2
+      _swap(pos, 0, 2);
+      break;
+    }
+    break;
+    
+  case 4:
+    // This might be improved - currently 5 comparisons and 10 swaps.
+    // It is the minimal number of comparisons, but we might be able to save on swaps.
+    if (values[0] > values[1]) {
+      _swap(pos, 0, 1);
+      _swap(values, 0, 1);
+    }
+    if (values[2] > values[3]) {
+      _swap(pos, 2, 3);
+      _swap(values, 2, 3);
+    }
+    if (values[0] > values[2]) {
+      _swap(pos, 0, 2);
+      _swap(values, 0, 2);
+    }
+    if (values[1] > values[3]) {
+      _swap(pos, 1, 3);
+      _swap(values, 1, 3);
+    }
+    if (values[1] > values[2]) {
+      _swap(pos, 1, 2);
+      _swap(values, 1, 2);
+    }
+    break;
+
+  case 5:
+    // This might be improved - currently 9 comparisons and 18 swaps.
+    // It is the minimal number of comparisons, but we might be able to save on swaps.
+    for (i = 0; i < 9; i++) {
+      j = sorting_network_5_idx1[i]-1;
+      k = sorting_network_5_idx2[i]-1;
+      if (values[j] > values[k]) {
+	_swap(pos, j, k);
+	_swap(values, j, k);
+      }
+    }
+    break;
+  }
+  
+  return;
+}
+
+void updatePerm(matrix_TYP* isom, int* perm)
+{
+  matrix_TYP* temp;
+  int i,j,n;
+
+  n = isom->cols;
+  temp = init_mat(n,n,"");
+  for ( i = 0; i < n; i++)
+    for ( j = 0; j < n; j++)
+      temp->array.SZ[i][j] = isom->array.SZ[i][j];
+  for ( i = 0; i < n; i++)
+    for ( j = 0; j < n; j++)
+      isom->array.SZ[perm[i]][j] = temp->array.SZ[i][j];
+
+  free_mat(temp);
+  
+  return;
+}
+
+
+// to avoid recursive template instantiation,
+// we supply a parameter defining the level of recursion
+// and use only this part of the matrices
+// All containers will have size n, but we will only use dim entries
+void greedy(matrix_TYP* gram, matrix_TYP* s, int n, int dim)
+{
+  matrix_TYP* tmp, *iso;
+  int* perm_norm;
+  int* perm;
+  int i;
+  
+#ifdef DEBUG_LEVEL_FULL
+  matrix_TYP *s0, *q0;
+#endif // DEBUG_LEVEL_FULL
+
+#ifdef DEBUG_LEVEL_FULL
+  s0 = copy_mat(s);
+  q0 = copy_mat(gram);
+#endif // DEBUG_LEVEL_FULL
+  
+  if (dim == 1) return;
+
+  perm_norm = (int*)malloc(dim*sizeof(int));
+  perm = (int*)malloc(n*sizeof(int));
+  
+  do {
+    for (i = 0; i < dim; i++) {
+      perm_norm[i] = gram->array.SZ[i][i];
+      perm[i] = i;
+    }
+    sort(perm_norm, perm, dim);
+
+    // this is to make sure we do not touch these rows
+    for ( i = dim; i < n; i++)
+      perm[i] = i;
+
+     // temp isometry
+    tmp = init_mat(n,n,"1");
+    tmp->flags.Scalar = tmp->flags.Diagonal = tmp->flags.Symmetric = 0;
+    
+    updatePerm(tmp, perm);
+
+    // update isometry s = s*tmp;
+    s = mat_muleq(s, tmp);
+    
+    // update gram
+    gram = transform_eq(tmp, gram);
+
+    free_mat(tmp);
+    
+/* #ifdef DEBUG_LEVEL_FULL */
+/*     assert((s0.inverse()*s).transform(q0) == gram); */
+/* #endif // DEBUG_LEVEL_FULL */
+
+    // !! - TODO - do we really need iso here
+    // or could we simply pass s?
+    iso = init_mat(n,n,"1");
+    iso->flags.Scalar = iso->flags.Diagonal = iso->flags.Symmetric = 0;
+    greedy(gram, iso, n, dim-1);
+
+    //    s = s*iso;
+    s = mat_muleq(s, iso);
+
+    free_mat(iso);
+    // !! TODO - one can use subgram to save computations
+    // This transformation already happens inside greedy(dim-1)
+    //     gram = iso.transform(gram);
+
+/* #ifdef DEBUG_LEVEL_FULL */
+/*     assert((s0.inverse()*s).transform(q0) == gram); */
+/* #endif // DEBUG_LEVEL_FULL */
+    
+    closest_lattice_vector(gram, s, dim);
+
+/* #ifdef DEBUG_LEVEL_FULL */
+/*     assert((s0.inverse()*s).transform(q0) == gram); */
+/* #endif // DEBUG_LEVEL_FULL */
+    
+  } while (gram->array.SZ[dim-1][dim-1] < gram->array.SZ[dim-2][dim-2]);
+
+  free(perm);
+  free(perm_norm);
+  
+  return;
+
 }

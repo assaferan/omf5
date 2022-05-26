@@ -40,6 +40,7 @@ AM_CONDITIONAL([OSX], [test "$build_mac" = "yes"])
 dnl
 dnl C is the language
 dnl
+: ${CFLAGS=""}
 AC_PROG_CC
 AC_LANG([C])
 

@@ -21,4 +21,6 @@ matrix_TYP* is_isometric(matrix_TYP* Q1, matrix_TYP* Q2);
 
 matrix_TYP* minkowski_reduce(matrix_TYP* Q);
 
+void greedy(matrix_TYP* gram, matrix_TYP* s, int n, int dim);
+
 #endif // __MATRIX_TOOLS_H__

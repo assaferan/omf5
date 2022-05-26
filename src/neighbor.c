@@ -12,7 +12,7 @@
 
 matrix_TYP* q61_nb(neighbor_manager* nbr_man)
 {
-  matrix_TYP *Q_mat, *Qx_mat, *xQx_mat; // , *Q_mat_red;
+  matrix_TYP *Q_mat, *Qx_mat, *xQx_mat, *s; // , *Q_mat_red;
   int q, y, row, col, *x, **Q, *Qx, xQx;
   int a1, a2, a3, a4;
 
@@ -304,6 +304,9 @@ matrix_TYP* q61_nb(neighbor_manager* nbr_man)
   
   /* return Q_mat_red; */
 
+  s = init_mat(5,5,"1");
+  greedy(Q_mat, s, 5, 5);
+  
   return Q_mat;
 };
 

@@ -46,7 +46,7 @@ int total(int p)
   free_hash(genus);
   free_mat(Q);
   
-  if ((p = 97) && (e != 453))
+  if ((p == 97) && (e != 453))
     return -1;
   
   return 0;
