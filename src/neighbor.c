@@ -306,6 +306,8 @@ matrix_TYP* q61_nb(neighbor_manager* nbr_man)
 
   s = init_mat(5,5,"1");
   greedy(Q_mat, s, 5, 5);
+
+  free_mat(s);
   
   return Q_mat;
 };
