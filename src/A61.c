@@ -22,15 +22,6 @@ int get_ev(hash_table* genus, int p)
   
   clock_t cpuclock;
   double cputime;
-
-  /* cpuclock = clock(); */
-
-  /* Q = init_sym_matrix(Q_coeffs); */
-  /* genus = get_genus_reps(Q); */
-
-  /* cpuclock = clock() - cpuclock; */
-  /* cputime = cpuclock / CLOCKS_PER_SEC; */
-  /* printf("computing genus took %f\n", cputime); */
   
   cpuclock = clock();
   
@@ -48,14 +39,6 @@ int get_ev(hash_table* genus, int p)
   
   printf("%4d %4d - %10d %10d %10d %10d %10d %10d %10d %10d - %10f\n",
     p, e, a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], cputime);
-
-  /* free_hash(genus); */
-  /* free_mat(Q); */
-  
-  /* if ((p == 97) && (e != 453)) */
-  /*   return -1; */
-  
-  /* return 0; */
 
   free(a);
   
@@ -100,18 +83,6 @@ int test_61()
 int main(int argc, char* argv[])
 {
   int test_res;
-  /* int p; */
-  
-  /* printf("testing Tornaria in C...\n"); */
-  /* if (argc > 2) */
-  /*   return -1; */
-
-  /* p = 97; */
-
-  /* if (argc == 2) */
-  /*   sscanf(argv[1], "%d", &p); */
-  
-  /* return total(p); */
 
   if (argc > 1)
     return -1;
