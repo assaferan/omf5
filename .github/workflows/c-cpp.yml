@@ -17,8 +17,12 @@ jobs:
       run: brew update && brew install autoconf automake libtool
     - name: Checkout flint
       run: git clone https://github.com/wbhart/flint2.git
+    - name: Descend to flint
+      run: cd flint2
     - name: Install flint
-      run: cd flint2 && configure && make && make check && make install && cd ..
+      run: ./configure && make && make check && make install
+    - name: Ascend from flint
+      run: cd ..
     - name: Checkout antic 
       run: git clone https://github.com/wbhart/antic.git
     - name: Install antic
