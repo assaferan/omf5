@@ -21,3 +21,4 @@ src/A61_dbg
 *.ac~
 configure~
 configure
+src/A61_dbg_full

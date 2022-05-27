@@ -1,10 +1,17 @@
 #include <limits.h>
 
+#include <antic/nf.h>
+#include <antic/nf_elem.h>
+
+#include <flint/fmpz_mat.h>
+#include <flint/fmpz_poly_factor.h>
+
 #include "carat/autgrp.h"
 #include "carat/reduction.h"
 #include "carat/symm.h"
 
 #include "matrix_tools.h"
+#include "nf_mat.h"
 
 /* Right now working with matrices as in CARAT package
  * using matrix_TYP.
@@ -60,6 +67,10 @@ int num_digits(int a, int base)
   if (num == 0)
     num++;
 
+  // the minus sign
+  if (a < 0)
+    num++;
+  
   return num;
 }
 
@@ -636,4 +647,100 @@ void greedy(matrix_TYP* gram, matrix_TYP* s, int n, int dim)
   
   return;
 
+}
+
+eigenvalues* get_eigenvalues(matrix_TYP* mat)
+{
+  fmpz_mat_t M;
+  fmpz_poly_t cp;
+  fmpz_poly_factor_t cp_fac;
+  fmpq_poly_t nf_poly;
+  int row, col, i, j;
+  eigenvalues* evs;
+  nf_mat_t M_K, ker, lambda;
+  
+  fmpz_mat_init(M, mat->rows, mat->cols);
+
+  for (row = 0; row < mat->rows; row++)
+    for (col = 0; col  < mat->cols; col++)
+      *fmpz_mat_entry(M, row, col) = mat->array.SZ[row][col];
+
+  fmpz_poly_init(cp);
+  fmpz_mat_charpoly(cp, M);
+#ifdef DEBUG_LEVEL_FULL
+  fmpz_poly_print_pretty(cp, "x");
+  printf("\n");
+#endif // DEBUG_LEVEL_FULL
+  fmpz_poly_factor_init(cp_fac);
+  fmpz_poly_factor_zassenhaus(cp_fac, cp);
+
+#ifdef DEBUG_LEVEL_FULL
+  for (i = 0; i < cp_fac->num; i++) {
+    fmpz_poly_print_pretty(&(cp_fac->p[i]), "x");
+    printf("\n");
+  }
+#endif // DEBUG_LEVEL_FULL
+
+  evs = (eigenvalues*)malloc(sizeof(eigenvalues));
+  
+  evs->num = cp_fac->num;
+  evs->dim = mat->rows;
+  evs->nfs = (nf_t*)malloc(cp_fac->num * sizeof(nf_t));
+  evs->eigenvals = (nf_elem_t*)malloc(cp_fac->num * sizeof(nf_elem_t));
+  evs->eigenvecs = (nf_elem_t**)malloc(cp_fac->num * sizeof(nf_elem_t*));
+  
+  for (i = 0; i < cp_fac->num; i++) {
+    evs->eigenvecs[i] = (nf_elem_t*)malloc(mat->rows * sizeof(nf_elem_t));
+    fmpq_poly_init(nf_poly);
+    fmpq_poly_set_fmpz_poly(nf_poly, &(cp_fac->p[i]));
+    nf_init(evs->nfs[i], nf_poly);
+    nf_elem_init(evs->eigenvals[i], evs->nfs[i]);
+    nf_elem_gen(evs->eigenvals[i], evs->nfs[i]);
+    nf_mat_init(M_K, &(evs->nfs[i]), mat->rows, mat->cols);
+    nf_mat_init(lambda, &(evs->nfs[i]), mat->rows, mat->cols);
+    fmpz_mat_get_nf_mat(M_K, M);
+    nf_mat_one(lambda);
+    nf_mat_scalar_mul_nf(lambda, lambda, evs->eigenvals[i]);
+    nf_mat_sub(M_K, M_K, lambda);
+    nf_mat_kernel(ker, M_K);
+#ifdef DEBUG
+    printf("ker = \n");
+    nf_mat_print_pretty(ker);
+#endif // DEBUG
+    for (j = 0; j < mat->rows; j++) {
+      nf_elem_init(evs->eigenvecs[i][j], evs->nfs[i]);
+      nf_elem_set(evs->eigenvecs[i][j], *nf_mat_entry(ker, 0, j), evs->nfs[i]);
+    }
+    nf_mat_clear(ker);
+    nf_mat_clear(M_K);
+    nf_mat_clear(lambda);
+  }
+
+  fmpz_mat_clear(M);
+  fmpz_poly_factor_clear(cp_fac);
+  fmpz_poly_clear(cp);
+  
+  return evs;
+}
+
+void free_eigenvalues(eigenvalues* evs)
+{
+  int i, j;
+
+  for (i = 0; i < evs->num; i++) {
+    for (j = 0; j < evs->dim; j++) {
+      nf_elem_clear(evs->eigenvecs[i][j], evs->nfs[i]);
+    }
+    free(evs->eigenvecs[i]);
+    nf_elem_clear(evs->eigenvals[i], evs->nfs[i]);
+    nf_clear(evs->nfs[i]);
+  }
+
+  free(evs->eigenvecs);
+  free(evs->eigenvals);
+  free(evs->nfs);
+  
+  free(evs);
+  
+  return;
 }
