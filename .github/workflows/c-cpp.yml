@@ -28,10 +28,8 @@ jobs:
         path: antic
     - name: Install autotools
       run: brew update && brew install autoconf automake libtool
-    - name: Descend to flint
-      run: cd flint2
     - name: Install flint
-      run:  ls && ./configure && make && make check && make install
+      run:  cd flint2 && ./configure && make && make check && make install
     - name: Ascend from flint
       run: cd ..
     - name: Descend to antic
