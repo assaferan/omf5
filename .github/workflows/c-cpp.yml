@@ -27,8 +27,12 @@ jobs:
       run: cd ..
     - name: Checkout antic 
       run: git clone https://github.com/wbhart/antic.git
+    - name: Descend to antic
+      run: cd antic 
     - name: Install antic
-      run: cd antic && make && make install && make check
+      run: ./configure && make && make install && make check
+    - name: Ascend from antic
+      run: cd ..
     - name: autogen
       run:  ./autogen.sh
     - name: configure
