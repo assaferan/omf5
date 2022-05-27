@@ -19,8 +19,10 @@ jobs:
       run: git clone https://github.com/wbhart/flint2.git
     - name: Descend to flint
       run: cd flint2
+    - name: Reconfigure
+      run : libtoolize && aclocal && automake --add-missing && autoconf
     - name: Install flint
-      run: autoreconf -i && ./configure && make && make check && make install
+      run:  ./configure && make && make check && make install
     - name: Ascend from flint
       run: cd ..
     - name: Checkout antic 
