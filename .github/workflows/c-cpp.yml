@@ -20,7 +20,7 @@ jobs:
     - name: Descend to flint
       run: cd flint2
     - name: Install flint
-      run: ./automake && ./configure && make && make check && make install
+      run: autoreconf -i && ./configure && make && make check && make install
     - name: Ascend from flint
       run: cd ..
     - name: Checkout antic 
