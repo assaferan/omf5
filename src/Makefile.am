@@ -4,7 +4,7 @@ lib_LTLIBRARIES = libomf5.la
 ALL_CFLAGS = -I ../include -Wall -Werror
 
 OPT_CFLAGS = -O3 -DNDEBUG -msse3 -mavx
-DBG_CFLAGS = -g -DDEBUG -fsanitize=address -fsanitize=leak
+DBG_CFLAGS = -g -DDEBUG -fsanitize=address
 OPT_CFLAGS += -fomit-frame-pointer
 
 # These are not supported on macOS
