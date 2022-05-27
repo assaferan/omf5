@@ -127,9 +127,9 @@ int test_61()
       nf_elem_clear(ev, evs->nfs[j]);
     }
     printf("\n");
-#endif // DEBUG
-    
     free_mat(hecke);
+#endif // DEBUG
+   
   }
 
   free_eigenvalues(evs);
