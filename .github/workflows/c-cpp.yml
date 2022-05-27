@@ -29,18 +29,10 @@ jobs:
     - name: Install autotools
       run: brew update && brew install autoconf automake libtool
     - name: Install flint
-      run:  cd flint2 && ./configure && make && make check && make install
-    - name: Ascend from flint
-      run: cd ..
-    - name: Descend to antic
-      run: cd antic 
+      run:  cd flint2 && ./configure && make && make check && make install && cd ..
     - name: Install antic
-      run: ./configure && make && make install && make check
-    - name: Ascend from antic
-      run: cd ..
-    - name: Descend to omf5
-      run: cd omf5
+      run: cd antic && ./configure && make && make install && make check && cd ..
     - name: build
-      run:  ./autogen.sh && ./configure && make
+      run:  cd omf5 && ./autogen.sh && ./configure && make
     - name: test
       run: ./src/A61
