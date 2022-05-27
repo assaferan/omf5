@@ -20,7 +20,7 @@ jobs:
     - name: Descend to flint
       run: cd flint2
     - name: Reconfigure
-      run : libtoolize && aclocal && automake --add-missing && autoconf
+      run : glibtoolize && aclocal && automake --add-missing && autoconf
     - name: Install flint
       run:  ./configure && make && make check && make install
     - name: Ascend from flint
