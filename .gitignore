@@ -18,3 +18,8 @@ src/A61_dbg
 *.c#
 *.c~
 *.h~
+*.ac~
+configure~
+configure
+src/A61_dbg_full
+*.Plo
