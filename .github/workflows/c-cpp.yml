@@ -12,14 +12,27 @@ jobs:
     runs-on: macos-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout 
+      uses: actions/checkout@v3
+      with:
+          path: omf5
+    - name: Checkout flint
+      uses: actions/checkout@v3
+      with:
+        repository: wbhart/flint2
+        path: flint2
+    - name: Checkout antic
+      uses: actions/checkout@v3
+      with:
+        repository: wbhart/antic
+        path: antic
     - name: Install autotools
       run: brew update && brew install autoconf automake libtool
-    - name: autogen
-      run:  ./autogen.sh
-    - name: configure
-      run: ./configure
-    - name: make
-      run: make
+    - name: Install flint
+      run:  cd flint2 && ./configure && make && make check && make install && cd ..
+    - name: Install antic
+      run: cd antic && ./configure && make && make install && make check && cd ..
+    - name: build
+      run:  cd omf5 && ./autogen.sh && ./configure && make
     - name: test
       run: ./src/A61
