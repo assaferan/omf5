@@ -74,7 +74,7 @@ int num_digits(int a, int base)
   return num;
 }
 
-void print_mat(matrix_TYP* Q)
+void print_mat(const matrix_TYP* Q)
 {
   int row, col, width;
   int* widths;

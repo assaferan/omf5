@@ -1,38 +1,47 @@
-#include <gmp.h>
+#include <carat/matrix.h>
 
-#include "arith.h"
 #include "genus.h"
 #include "hash.h"
+#include "mass.h"
 #include "matrix_tools.h"
 #include "neighbor.h"
-
-typedef mpz_t Z;
 
 /* compute the genus of a quadratic form */
 hash_table* get_genus_reps(matrix_TYP* Q)
 {
   bravais_TYP *aut_grp;
   matrix_TYP *nbr, *isom, *genus_rep, *s;
-  rational mass, acc_mass, mass_form;
-  Z prime;
+  fmpq_t mass, acc_mass, mass_form;
+  fmpz_t prime;
   int i, p, current, next_idx, key_num;
-  //  int options[6] = {0};
   size_t genus_size;
+  fmpz_t genus_size_fmpz;
   hash_table* genus;
   neighbor_manager nbr_man;
 
   /* until we implement the mass formula, have it fixed */
-  
-  mass.z = 31;
-  mass.n = 96;
 
-#ifdef DEBUG_LEVEL_FULL
-  printf("mass = %d / %d \n", mass.z, mass.n);
-#endif // DEBUG_LEVEL_FULL
+  fmpq_init(mass);
+  get_mass(mass, Q);
+  
+#ifdef DEBUG
+  printf("mass = ");
+  fmpq_print(mass);
+  printf("\n");
+#endif // DEBUG
+  
+  // fmpq_set_si(mass, 31, 96);
+
 
   /* this is ceiling */
-  genus_size = (mass.z + mass.n - 1)/ mass.n;
 
+  fmpz_init(genus_size_fmpz);
+  fmpz_cdiv_q(genus_size_fmpz, fmpq_numref(mass), fmpq_denref(mass));
+
+  genus_size = fmpz_get_si(genus_size_fmpz);
+
+  fmpz_clear(genus_size_fmpz);
+    
   genus_size = (4 * genus_size) / 3; // load factor
 
   genus = create_hash(genus_size);
@@ -43,27 +52,30 @@ hash_table* get_genus_reps(matrix_TYP* Q)
   next_idx = 1;
   
   aut_grp = automorphism_group(Q);
-  
-  acc_mass.z = 1;
-  acc_mass.n = aut_grp->order;
+
+  fmpq_init(mass_form);
+  fmpq_init(acc_mass);
+  fmpq_set_si(acc_mass, 1, aut_grp->order);
 
 #ifdef DEBUG_LEVEL_FULL
-  printf("acc_mass = %d / %d \n", acc_mass.z, acc_mass.n);
+  printf("acc_mass = ");
+  fmpq_print(acc_mass);
+  printf("\n");
 #endif // DEBUG_LEVEL_FULL
 
-  mpz_init(prime);
-  mpz_set_ui(prime, 1);
+  fmpz_init(prime);
+  fmpz_set_ui(prime, 1);
   
-  while (rational_lt(acc_mass, mass)) {
+  while (fmpq_cmp(acc_mass, mass)) {
     /* !! TODO - we don't really need to restrict to good primes here, */
     /* but let's check these first */
     do {
-      mpz_nextprime(prime, prime);
-      p = mpz_get_ui(prime);
+      fmpz_nextprime(prime, prime, TRUE);
+      p = fmpz_get_ui(prime);
     }
     while (!p_mat_det(Q, p));
 
-    while ((current < genus->num_stored) && rational_lt(acc_mass, mass)){
+    while ((current < genus->num_stored) && fmpq_cmp(acc_mass, mass)){
 #ifdef DEBUG_LEVEL_FULL
       printf("current = %d\n", current);
 #endif // DEBUG_LEVEL_FULL
@@ -72,10 +84,10 @@ hash_table* get_genus_reps(matrix_TYP* Q)
       /* Right now all the isotropic vectors are paritioned to p */
       /* sets, by index as Gonzalo did */
       
-      while ((i < p) && rational_lt(acc_mass, mass)) {
+      while ((i < p) && fmpq_cmp(acc_mass, mass)) {
 	/* printf("i = %d\n", i); */
 	init_nbr_process(&nbr_man, genus->keys[current], p, i);
-	while ((!(has_ended(&nbr_man))) && rational_lt(acc_mass, mass)) {
+	while ((!(has_ended(&nbr_man))) && fmpq_cmp(acc_mass, mass)) {
 	  nbr = q61_nb(&nbr_man);
 #ifdef DEBUG_LEVEL_FULL
 	  printf("nbr = \n");
@@ -111,11 +123,12 @@ hash_table* get_genus_reps(matrix_TYP* Q)
 	    free_mat(s);
 	    add(genus, nbr);
 	    aut_grp = automorphism_group(nbr);
-	    mass_form.z = 1;
-	    mass_form.n = aut_grp->order;
-	    acc_mass = rational_sum(acc_mass, mass_form);
+	    fmpq_set_si(mass_form, 1, aut_grp->order);
+	    fmpq_add(acc_mass, acc_mass, mass_form);
 #ifdef DEBUG_LEVEL_FULL
-	    printf("acc_mass = %d / %d \n", acc_mass.z, acc_mass.n);
+	    printf("acc_mass = ");
+	    fmpq_print(acc_mass);
+	    printf("\n");
 #endif // DEBUG_LEVEL_FULL
 	  }
 	  
@@ -131,7 +144,11 @@ hash_table* get_genus_reps(matrix_TYP* Q)
      
   }
 
-  mpz_clear(prime);
+  fmpq_clear(mass);
+  fmpq_clear(acc_mass);
+  fmpq_clear(mass_form);
+  fmpz_clear(prime);
   
   return genus;
 }
+
