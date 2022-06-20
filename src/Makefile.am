@@ -35,9 +35,13 @@ SOURCES = arith.c
 SOURCES += genus.c
 SOURCES += hash.c
 SOURCES += hecke.c
+SOURCES += jordan.c
+SOURCES += mass.c
 SOURCES += matrix_tools.c
 SOURCES += neighbor.c
 SOURCES += nf_mat.c
+SOURCES += orthogonalize.c
+SOURCES += qf_inv.c
 
 A61_dbg_full_SOURCES = A61.c $(SOURCES)
 A61_dbg_full_CFLAGS = $(DBG_FULL_CFLAGS)

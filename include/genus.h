@@ -1,6 +1,8 @@
 #ifndef __GENUS_H__
 #define __GENUS_H__
 
+#include <flint/fmpq.h>
+
 #include "carat/matrix.h"
 
 #include "hash.h"

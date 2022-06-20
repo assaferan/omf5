@@ -1,4 +1,110 @@
+#include <assert.h>
 #include "arith.h"
+
+int hilbert_lut_odd[16] = { 1, 1, 1, 1,
+			    1, 1,-1,-1,
+			    1,-1, 1,-1,
+			    1,-1,-1, 1 };
+
+int hilbert_lut_p2[64] = { 1, 1, 1, 1, 1, 1, 1, 1,
+			   1,-1, 1,-1,-1, 1,-1, 1,
+			   1, 1, 1, 1,-1,-1,-1,-1,
+			   1,-1, 1,-1, 1,-1, 1,-1,
+			   1,-1,-1, 1, 1,-1,-1, 1,
+			   1, 1,-1,-1,-1,-1, 1, 1,
+			   1,-1,-1, 1,-1, 1, 1,-1,
+			   1, 1,-1,-1, 1, 1,-1,-1 };
+
+// return the valuation of x at p, and put the non-divisible part in a.
+int fmpz_valuation_unit(fmpz_t a, const fmpz_t x, const fmpz_t p)
+{
+  int a_val = 0;
+  fmpz_t a_div_p, a_mod_p;
+  
+  fmpz_set(a, x);
+  fmpz_init(a_div_p);
+  fmpz_init(a_mod_p);
+
+  fmpz_fdiv_qr(a_div_p, a_mod_p, a, p);
+  while (fmpz_is_zero(a_mod_p)) {
+    ++a_val;
+    fmpz_set(a, a_div_p);
+    fmpz_fdiv_qr(a_div_p, a_mod_p, a, p);
+  }
+  
+  fmpz_clear(a_div_p);
+  fmpz_clear(a_mod_p);
+
+  return a_val;
+}
+
+int fmpz_valuation(const fmpz_t x, const fmpz_t p)
+{
+  fmpz_t a;
+  int a_val;
+
+  fmpz_init(a);
+
+  a_val = fmpz_valuation_unit(a,x,p);
+  
+  fmpz_clear(a);
+
+  return a_val;
+}
+
+int fmpq_valuation(const fmpq_t x, const fmpz_t p)
+{
+  return fmpz_valuation(fmpq_numref(x), p) - fmpz_valuation(fmpq_denref(x), p);
+}
+
+int hilbert_symbol(const fmpz_t x, const fmpz_t y, const fmpz_t p)
+{
+  fmpz_t a, b;
+  int a_val, b_val;
+  int aa, bb, index, a_notsqr, b_notsqr, hilbert;
+  fmpz_t p_mod_4, a_mod_8, b_mod_8;
+
+  fmpz_init(a);
+  fmpz_init(b);
+  
+  a_val = fmpz_valuation_unit(a, x, p);
+  b_val = fmpz_valuation_unit(b, y, p);
+
+  if (fmpz_equal_si(p,2)) {
+    fmpz_init(a_mod_8);
+    fmpz_init(b_mod_8);
+    fmpz_mod_ui(a_mod_8, a, 8);
+    fmpz_mod_ui(b_mod_8, b, 8);
+    aa = (fmpz_get_si(a_mod_8) >> 1) & 0x3;
+    bb = (fmpz_get_si(b_mod_8) >> 1) & 0x3;
+    index = ((a_val&0x1)<<5) | (aa << 3) | ((b_val&0x1)<<2) | bb;
+    fmpz_clear(a_mod_8);
+    fmpz_clear(b_mod_8);
+    fmpz_clear(a);
+    fmpz_clear(b);
+    return hilbert_lut_p2[index];
+  }
+
+  /* a_notsqr = mpz_legendre(a.get_mpz_t(), p.get_mpz_t()) == -1; */
+  /* b_notsqr = mpz_legendre(b.get_mpz_t(), p.get_mpz_t()) == -1; */
+  a_notsqr = (fmpz_jacobi(a, p) == -1);
+  b_notsqr = (fmpz_jacobi(b, p) == -1);
+
+  fmpz_init(p_mod_4);
+  index = ((a_val&0x1)<<3) | (a_notsqr<<2) | ((b_val&0x1)<<1) | b_notsqr;
+  fmpz_mod_ui(p_mod_4, p, 4);
+  if (((index & 0xa) == 0xa) && (fmpz_equal_si(p_mod_4,0x3))) {
+    hilbert = -hilbert_lut_odd[index];
+  }
+  else {
+    hilbert = hilbert_lut_odd[index];
+  }
+
+  fmpz_clear(p_mod_4);
+  fmpz_clear(a);
+  fmpz_clear(b);
+  return hilbert;
+}
 
 /* Recursive function for a temporary extended Euclidean algorithm. */
 /* It uses pointers to return multiple values. */
@@ -46,4 +152,305 @@ rational rational_sum(rational a, rational b)
   c.n /= d;
 
   return c;
+}
+
+// We need twisted bernoulli numbers, so here is our implementation of it
+
+// collect all of the along the way.
+// We are using Akiyama and Tanigawa's algorithm
+// It's not the fastest, but it is one of the simplest.
+
+// This should be the same as arith_bernoulli_number_vec, maybe replace
+void _bernoulli_up_to(fmpq* b, ulong n)
+{
+  fmpq* a;
+  fmpz_t mult;
+  fmpq_t diff;
+  ulong i, j;
+
+  fmpz_init(mult);
+  fmpq_init(diff);
+  
+  a = (fmpq*)malloc((n+1)*sizeof(fmpq));
+  
+  for (i = 0; i <= n; i++) {
+    fmpq_set_si(&(a[i]), 1, i+1);
+  }
+  fmpq_set(&(b[0]), &(a[0]));
+
+  for (i = 0; i < n; i++) {
+    for (j = 0; j < n - i; j++) {
+      fmpz_set_si(mult, j+1);
+      fmpq_sub(diff, &(a[j]), &(a[j+1]));
+      fmpq_mul_fmpz(&(a[j]), diff, mult);
+    }
+    fmpq_set(&(b[i+1]),&(a[0]));
+  }
+
+  fmpz_clear(mult);
+  fmpq_clear(diff);
+  free(a);
+  return;
+  
+}
+
+void bernoulli_number(fmpq_t b, ulong n)
+{
+  fmpq* b_vec;
+
+  b_vec = (fmpq*)malloc((n+1)*sizeof(fmpq));
+  _bernoulli_up_to(b_vec, n);
+
+  fmpq_set(b, &(b_vec[n]));
+  free(b_vec);
+  
+  return;
+}
+
+void binomial_coefficient(fmpz_t b, const fmpz_t n, const fmpz_t k)
+{
+  fmpz_t i, n_k;
+  
+  fmpz_init(i); // this sets to 0
+  fmpz_init(n_k);
+  fmpz_set_si(b,1);
+
+  fmpz_sub(n_k, n, k);
+  if (fmpz_cmp(n_k, k) < 0)
+    return binomial_coefficient(b,n,n_k);
+  
+  for (; fmpz_cmp(i,k) < 0; ) {
+    fmpz_sub(n_k, n, i);
+    fmpz_mul(b, b, n_k);
+    fmpz_add_si(i,i,1);
+    fmpz_fdiv_q(b, b, i);
+  }
+
+  fmpz_clear(n_k);
+  fmpz_clear(i);
+  return;
+}
+
+
+void _bernoulli_poly(fmpq* b, ulong n)
+{
+  fmpq* b_vec;
+  ulong k;
+  fmpz_t nn, kk, n_choose_k;
+
+  fmpz_init_set_ui(nn, n);
+  fmpz_init(kk);
+  fmpz_init(n_choose_k);
+
+  b_vec = (fmpq*)malloc((n+1)*sizeof(fmpq));
+  _bernoulli_up_to(b_vec, n);
+  
+  for (k = 0; k <= n; k++)
+    fmpq_set(&(b[k]), &(b_vec[n-k]));
+  
+  for (k = 0; k <= n; k++) {
+    fmpz_set_ui(kk,k);
+    binomial_coefficient(n_choose_k, nn, kk);
+    fmpq_mul_fmpz(&(b[k]), &(b[k]), n_choose_k);
+  }
+
+  free(b_vec);
+  fmpz_clear(n_choose_k);
+  fmpz_clear(kk);
+  fmpz_clear(nn);
+  return;
+}
+
+slong kronecker_symbol(const fmpz_t a, const fmpz_t n)
+{
+  fmpz_t val_mpz, n_sqr, minus1, minus_n, minus_a, n_star, two, a_mod_n;
+  slong val, n_prime, res;
+
+  // extremal cases
+  if (fmpz_is_zero(n)) return (fmpz_is_pm1(a) ? 1 : 0);
+  if (fmpz_equal_si(n,-1)) return ((fmpz_cmp_si(a,0)) < 0 ? -1 : 1);
+  if (fmpz_is_one(n)) return 1;
+  if (fmpz_equal_si(n,2)) {
+    if (fmpz_is_even(a)) return 0;
+    fmpz_init(val_mpz);
+    fmpz_mod_ui(val_mpz, a, 8);
+    val = fmpz_get_si(val_mpz);
+    fmpz_clear(val_mpz);
+    val /= 2;
+    if ((val == 0) || (val == 3))
+      return 1;
+    return -1;
+  }
+  if (fmpz_equal_si(a, -1)) {
+    n_prime = fmpz_get_si(n);
+    while (n_prime % 2 == 0) n_prime /= 2;
+    return ((n_prime / 2) % 2 == 0) ? 1 : -1;
+  }
+  if (fmpz_equal_si(a,2) && fmpz_is_odd(n)) {
+    fmpz_init(n_sqr);
+    fmpz_pow_ui(n_sqr, n, 2);
+    fmpz_fdiv_q_2exp(n_sqr, n_sqr, 3);
+    res = (fmpz_is_even(n_sqr) ? 1 : -1);
+    fmpz_clear(n_sqr);
+    return res;
+  }
+  // multiplicativity
+  if (fmpz_cmp_si(n,0) < 0) {
+    fmpz_init_set_si(minus1, -1);
+    fmpz_init(minus_n);
+    fmpz_neg(minus_n, n);
+    res = kronecker_symbol(a, minus1) * kronecker_symbol(a, minus_n);
+    fmpz_clear(minus_n);
+    fmpz_clear(minus1);
+    return res;
+  }
+  if (fmpz_cmp_si(a,0) < 0) {
+    fmpz_init_set_si(minus1, -1);
+    fmpz_init(minus_a);
+    fmpz_neg(minus_a, a);
+    res = kronecker_symbol(minus1, n) * kronecker_symbol(minus_a, n);
+    fmpz_clear(minus_a);
+    fmpz_clear(minus1);
+    return res;
+  }
+
+  // now may assume n >= 3, a >= 0
+ 
+  // quadratic reciprocity
+  if (fmpz_cmp(a, n) < 0) {
+    n_prime = fmpz_get_si(n);
+    while (n_prime % 2 == 0) n_prime /= 2;
+    fmpz_init_set(n_star, n);
+    if ((n_prime / 2) % 2 != 0)
+      fmpz_neg(n_star, n);
+    res = kronecker_symbol(n_star, a);
+    fmpz_clear(n_star);
+    return res;
+  }
+
+  // now we may also assume a ge n
+
+  // if n = 2 mod 4, we can't reduce, use multiplicativity again
+  if (fmpz_get_si(n) % 4 == 2) {
+    fmpz_init(n_star);
+    fmpz_init_set_si(two,2);
+    fmpz_fdiv_q_2exp(n_star, n, 1);
+    res = kronecker_symbol(a,n_star)*kronecker_symbol(a, two);
+    fmpz_clear(two);
+    fmpz_clear(n_star);
+    return res;
+  }
+  // now we can reduce
+  fmpz_init(a_mod_n);
+  fmpz_mod(a_mod_n, a, n);
+  res = kronecker_symbol(a_mod_n, n);
+  fmpz_clear(a_mod_n);
+  return res;
+}
+
+
+// B_{n, chi} where chi is the quadratic character corresponding to
+// quadratic field with discrminant d (Is it? verify we are working
+// with the correct discriminant (d or 4d maybe?))
+void bernoulli_number_chi(fmpq_t b_chi, ulong n, const fmpz_t d)
+{
+  fmpq* b;
+  fmpz_t a_pow, d_pow, a, nn;
+  fmpq_t s, ba_pow;
+  slong chi_a;
+  ulong k;
+
+  fmpz_init(a);
+  fmpz_init(a_pow);
+  fmpz_init(d_pow);
+  fmpq_init(ba_pow);
+  fmpz_init_set_ui(nn, n);
+  fmpq_init(s);
+  b = (fmpq*)malloc((n+1)*sizeof(fmpq));
+  _bernoulli_poly(b,n);
+
+  fmpz_pow_ui(d_pow, d, n);
+
+  fmpq_zero(b_chi);
+
+  for (fmpz_zero(a); fmpz_cmp(a,d) < 0; fmpz_add_si(a,a,1)) {
+    chi_a = kronecker_symbol(a, nn);
+    fmpz_one(a_pow);
+    fmpq_zero(s);
+    for (k = 0; k <= n; k++) {
+      fmpz_fdiv_q(d_pow, d_pow, d);
+      fmpq_mul_fmpz(ba_pow, &(b[k]), a_pow);
+      fmpq_mul_fmpz(ba_pow, ba_pow, d_pow);
+      fmpq_add(s, s, ba_pow);
+      fmpz_mul(a_pow, a_pow, a);
+    }
+    fmpq_mul_si(s, s, chi_a);
+    fmpq_add(b_chi, b_chi, s);
+  }
+  free(b);
+  fmpq_clear(s);
+  fmpz_clear(nn);
+  fmpq_clear(ba_pow);
+  fmpz_clear(d_pow);
+  fmpz_clear(a_pow);
+  fmpz_clear(a);
+  return;
+}
+
+int fmpz_is_local_square(const fmpz_t a, const fmpz_t p)
+{
+  fmpz_t a0, a0_1;
+  ulong v, i, w, ee;
+  slong ok, ww;
+  int res;
+
+  if (fmpz_is_zero(a)) return TRUE;
+  v = fmpz_valuation(a,p);
+  if (v % 2 == 1) return FALSE;
+  
+  fmpz_init_set(a0,a);
+  for (i = 0; i < v; i++)
+    fmpz_fdiv_q(a0, a0, p);
+
+  ok = (kronecker_symbol(a0,p) != -1);
+
+  if (!fmpz_equal_si(p,2)) {
+    fmpz_clear(a0);
+    return ok;
+  }
+  fmpz_init(a0_1);
+  fmpz_sub_si(a0_1, a0, 1);
+  w = fmpz_valuation(a0_1,p);
+
+  assert(w >= 1);
+  ee = 2;
+
+  while ((w < ee) && (w % 2 == 0)) {
+    ww = (1+ (1<< (w/2)))*(1+ (1<< (w/2)));
+    fmpz_fdiv_q_si(a0, a0, ww);
+    fmpz_sub_si(a0_1, a0, 1);
+    w = fmpz_valuation(a0_1, p);
+  }
+  fmpz_mod_ui(a0, a0, 8);
+  res = ((w > ee) || ((w == ee) && fmpz_is_one(a0)));
+  fmpz_clear(a0);
+  fmpz_clear(a0_1);
+  return res;
+}
+
+int fmpq_is_local_square(const fmpq_t a, const fmpz_t p)
+{
+  return (fmpz_is_local_square(fmpq_numref(a), p)
+	  == fmpz_is_local_square(fmpq_denref(a), p));
+}
+
+int fmpq_is_integral(const fmpq_t r)
+{
+  return fmpz_divisible(fmpq_numref(r), fmpq_denref(r));
+}
+
+void fmpq_floor(fmpz_t res, const fmpq_t r)
+{
+  fmpz_fdiv_q(res, fmpq_numref(r), fmpq_denref(r));
+  return;
 }

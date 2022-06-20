@@ -74,26 +74,33 @@ int test_61()
   int test_evs[25] = {-7, -3, 3, -9, -4, -3, 37, -75, 10, 212, -6, -88, -3, 547, -147, -108, -45,
 		      145, -632, -650, 859, -978, 931, -571, 453};
   hash_table* genus;
-  clock_t cpuclock;
+  clock_t cpuclock_0, cpuclock_1, cpudiff;
   double cputime;
   int Q_coeffs[15] = {2,1,2,0,0,2,0,0,0,4,1,0,0,-1,6};
   matrix_TYP* Q, *hecke;
   eigenvalues* evs;
   nf_elem_t ev;
 
-  cpuclock = clock();
+  cpuclock_0 = clock();
 
   Q = init_sym_matrix(Q_coeffs);
   genus = get_genus_reps(Q);
 
-  cpuclock = clock() - cpuclock;
-  cputime = cpuclock / CLOCKS_PER_SEC;
+  cpuclock_1 = clock();
+  cpudiff = cpuclock_1 - cpuclock_0;
+  cputime = cpudiff / CLOCKS_PER_SEC;
   
   printf("computing genus took %f\n", cputime);
-
+  
   hecke = hecke_matrix(genus, 2);
   evs = get_eigenvalues(hecke);
   free_mat(hecke);
+
+  cpuclock_0 = clock();
+  cpudiff = cpuclock_0 - cpuclock_1;
+  cputime = cpudiff / CLOCKS_PER_SEC;
+  
+  printf("computing eigenvectors took %f\n", cputime);
   
 #ifdef DEBUG
   printf("eigenvectors are:\n");
@@ -115,6 +122,7 @@ int test_61()
       free_mat(Q);
       return FALSE;
     }
+
 #ifdef DEBUG
     hecke = hecke_matrix(genus, ps[i]);
     print_mat(hecke);
@@ -131,6 +139,12 @@ int test_61()
 #endif // DEBUG
    
   }
+
+  cpuclock_1 = clock();
+  cpudiff = cpuclock_1 - cpuclock_0;
+  cputime = cpudiff / CLOCKS_PER_SEC;
+  
+  printf("computing eigenvalues took %f\n", cputime);
 
   free_eigenvalues(evs);
 
