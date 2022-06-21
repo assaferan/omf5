@@ -38,7 +38,7 @@ jobs:
     - name: Install antic
       run: cd antic && ./configure && make && make install && make check && cd ..
     - name: Install carat
-      run: cd carat && ./autogen.sh && ./configure && make && make install && cd ..
+      run: cd carat && ./autogen.sh && ./configure && make && make install && cp libfunctions.a /usr/local/lib && cd ..
     - name: build
       run:  cd omf5 && ./autogen.sh && ./configure && make
     - name: test
