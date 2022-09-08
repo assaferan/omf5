@@ -41,6 +41,7 @@ SOURCES += matrix_tools.c
 SOURCES += neighbor.c
 SOURCES += nf_mat.c
 SOURCES += orthogonalize.c
+SOURCES += tests.c
 SOURCES += qf_inv.c
 
 A61_dbg_full_SOURCES = A61.c $(SOURCES)

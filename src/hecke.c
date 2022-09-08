@@ -63,3 +63,55 @@ matrix_TYP* hecke_matrix(hash_table* genus, int p)
   
   return hecke;
 }
+
+void get_hecke_ev(nf_elem_t e, hash_table* genus, eigenvalues* evs, int p, int ev_idx)
+{
+  int* a;
+  int num, k, pivot;
+  nf_elem_t prod;
+
+  nf_elem_init(e, evs->nfs[ev_idx]);
+  nf_elem_init(prod, evs->nfs[ev_idx]);
+  a = (int*)malloc(genus->num_stored * sizeof(int));
+  for (num = 0; num < genus->num_stored; num++)
+    a[num] = 0;
+
+  pivot = 0;
+  for (k = 0; k < evs->dim; k++)
+    if (nf_elem_is_zero(evs->eigenvecs[ev_idx][k], evs->nfs[ev_idx])) {
+      pivot++;
+    }
+  
+  clock_t cpuclock;
+  double cputime;
+  
+  cpuclock = clock();
+  
+  hecke_col(a, p, pivot, genus);
+
+  cpuclock = clock() - cpuclock;
+  cputime = cpuclock / CLOCKS_PER_SEC;
+
+  nf_elem_zero(e, evs->nfs[ev_idx]);
+  for (k = 0; k < evs->dim; k++) {
+    nf_elem_set_si(prod, a[k], evs->nfs[ev_idx]);
+    nf_elem_mul(prod, prod, evs->eigenvecs[ev_idx][k], evs->nfs[ev_idx]);
+    nf_elem_add(e, e, prod, evs->nfs[ev_idx]);
+  }
+  nf_elem_div(e, e, evs->eigenvecs[ev_idx][pivot], evs->nfs[ev_idx]);
+
+#ifdef DEBUG
+  printf("%4d ", p);
+  nf_elem_print_pretty(e, evs->nfs[ev_idx], "a");
+  printf(" - ");
+  for (num = 0; num < genus->num_stored; num++)
+    printf("%10d ", a[num]);
+  
+  printf("- %10f\n", cputime);
+#endif // DEBUG
+
+  nf_elem_clear(prod, evs->nfs[ev_idx]);
+  free(a);
+  
+  return;
+}
