@@ -1,4 +1,4 @@
-bin_PROGRAMS = A61 A61_dbg A61_dbg_full
+bin_PROGRAMS = omf5 omf5_dbg omf5_dbg_full
 lib_LTLIBRARIES = libomf5.la
 
 ALL_CFLAGS = -I ../include -Wall -Werror
@@ -41,28 +41,29 @@ SOURCES += matrix_tools.c
 SOURCES += neighbor.c
 SOURCES += nf_mat.c
 SOURCES += orthogonalize.c
+SOURCES += tests.c
 SOURCES += qf_inv.c
 
-A61_dbg_full_SOURCES = A61.c $(SOURCES)
-A61_dbg_full_CFLAGS = $(DBG_FULL_CFLAGS)
+omf5_dbg_full_SOURCES = omf5.c $(SOURCES)
+omf5_dbg_full_CFLAGS = $(DBG_FULL_CFLAGS)
 
-A61_dbg_SOURCES = A61.c $(SOURCES)
-A61_dbg_CFLAGS = $(DBG_CFLAGS)
+omf5_dbg_SOURCES = omf5.c $(SOURCES)
+omf5_dbg_CFLAGS = $(DBG_CFLAGS)
 
-A61_SOURCES = A61.c $(SOURCES)
-A61_CFLAGS = $(OPT_CFLAGS)
+omf5_SOURCES = omf5.c $(SOURCES)
+omf5_CFLAGS = $(OPT_CFLAGS)
 
 libomf5_la_SOURCES = $(SOURCES)
 libomf5_la_CFLAGS = -shared -fPIC $(OPT_CFLAGS)
 
-A61_dbg_full_LDFLAGS = ${DBG_LD_FLAGS}
+omf5_dbg_full_LDFLAGS = ${DBG_LD_FLAGS}
 
-A61_dbg_LDFLAGS = ${DBG_LD_FLAGS}
+omf5_dbg_LDFLAGS = ${DBG_LD_FLAGS}
 
 OPT_LDFLAGS = ${ALL_LDFLAGS}
 OPT_LDFLAGS += -O3 -fPIC
 
-A61_LDFLAGS = ${OPT_LDFLAGS}
+omf5_LDFLAGS = ${OPT_LDFLAGS}
 libomf5_la_LDFLAGS = ${OPT_LDFLAGS}
 
 

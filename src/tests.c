@@ -1,68 +1,10 @@
-#include <stdio.h>
 #include <time.h>
 
-#include <carat/typedef.h>
-
-#include <antic/nf.h>
-#include <antic/nf_elem.h>
-
-#include "arith.h"
 #include "genus.h"
+#include "hash.h"
 #include "hecke.h"
 #include "matrix_tools.h"
-#include "neighbor.h"
-
-void get_hecke_ev(nf_elem_t e, hash_table* genus, eigenvalues* evs, int p, int ev_idx)
-{
-  int* a;
-  int num, k, pivot;
-  nf_elem_t prod;
-
-  nf_elem_init(e, evs->nfs[ev_idx]);
-  nf_elem_init(prod, evs->nfs[ev_idx]);
-  a = (int*)malloc(genus->num_stored * sizeof(int));
-  for (num = 0; num < genus->num_stored; num++)
-    a[num] = 0;
-
-  pivot = 0;
-  for (k = 0; k < evs->dim; k++)
-    if (nf_elem_is_zero(evs->eigenvecs[ev_idx][k], evs->nfs[ev_idx])) {
-      pivot++;
-    }
-  
-  clock_t cpuclock;
-  double cputime;
-  
-  cpuclock = clock();
-  
-  hecke_col(a, p, pivot, genus);
-
-  cpuclock = clock() - cpuclock;
-  cputime = cpuclock / CLOCKS_PER_SEC;
-
-  nf_elem_zero(e, evs->nfs[ev_idx]);
-  for (k = 0; k < evs->dim; k++) {
-    nf_elem_set_si(prod, a[k], evs->nfs[ev_idx]);
-    nf_elem_mul(prod, prod, evs->eigenvecs[ev_idx][k], evs->nfs[ev_idx]);
-    nf_elem_add(e, e, prod, evs->nfs[ev_idx]);
-  }
-  nf_elem_div(e, e, evs->eigenvecs[ev_idx][pivot], evs->nfs[ev_idx]);
-
-#ifdef DEBUG
-  printf("%4d ", p);
-  nf_elem_print_pretty(e, evs->nfs[ev_idx], "a");
-  printf(" - ");
-  for (num = 0; num < genus->num_stored; num++)
-    printf("%10d ", a[num]);
-  
-  printf("- %10f\n", cputime);
-#endif // DEBUG
-
-  nf_elem_clear(prod, evs->nfs[ev_idx]);
-  free(a);
-  
-  return;
-}
+#include "tests.h"
 
 int test_61()
 {
@@ -152,20 +94,4 @@ int test_61()
   free_mat(Q);
   
   return TRUE;
-}
-
-int main(int argc, char* argv[])
-{
-  int test_res;
-
-  if (argc > 1)
-    return -1;
-
-  test_res = test_61();
-
-  if (test_res == TRUE)
-    return 0;
-  else
-    return -1;
-  
 }
