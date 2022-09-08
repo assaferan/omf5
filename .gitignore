@@ -22,5 +22,8 @@ src/A61_dbg
 configure~
 configure
 src/A61_dbg_full
+src/omf5
+src/omf5_dbg
+src/omf5_dbg_full
 *.Plo
 *.log
