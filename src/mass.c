@@ -241,6 +241,17 @@ void get_mass(fmpq_t mass, const matrix_TYP* q)
       j++;
     }
   }
+  // only one of these loops is entered to finish the rest
+  for(;i < fac->num; i++) {
+    if (!fmpz_equal_si(&(fac->p[i]), 2))
+      fmpz_set(fmpz_mat_entry(B, 0, num_B++), &(fac->p[i]));
+  }
+  for(;j < num_hasse; j++) {
+    if (!fmpz_equal_si(fmpz_mat_entry(hasse, 0, j), 2))
+      fmpz_set(fmpz_mat_entry(B, 0, num_B++), fmpz_mat_entry(hasse, 0, j));
+    else
+      has_two = TRUE;
+  } 
 
   // originally, leave hasse only with 2, if it had a 2.
   

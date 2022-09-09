@@ -6,7 +6,7 @@
 int process_isotropic_vector(neighbor_manager* nbr_man, int* T, hash_table* genus)
 {
 
-  T[indexof(genus, q61_nb(nbr_man), 0)]++;
+  T[indexof(genus, build_nb(nbr_man), 0)]++;
   
   return 0;
 }

@@ -87,7 +87,12 @@ int _add(hash_table* table, matrix_TYP* key, int val, int do_push_back)
     i++;
   }
 
-  return 1;
+  while (offset != -1) {
+    index = (index + 1) & table->mask;
+    offset = table->key_ptr[index];
+  }
+  return insert(table, key, val, index, do_push_back);
+  
 }
 
 int add(hash_table* table, matrix_TYP* key)
