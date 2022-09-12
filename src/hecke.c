@@ -9,6 +9,13 @@ int process_isotropic_vector(neighbor_manager* nbr_man, int* T, hash_table* genu
   int i;
   
   i = indexof(genus, build_nb(nbr_man), 0);
+
+#ifdef DEBUG
+  if ((i < 0) || (i > genus->num_stored)) {
+    printf("Error! Couldn't find element in genus!\n");
+    exit(-1);
+  }
+#endif // DEBUG
   
   T[i]++;
   

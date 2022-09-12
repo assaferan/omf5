@@ -33,7 +33,8 @@ hash_table* get_genus_reps(matrix_TYP* Q)
   /* this is ceiling */
 
   fmpz_init(genus_size_fmpz);
-  fmpz_cdiv_q(genus_size_fmpz, fmpq_numref(mass), fmpq_denref(mass));
+  // fmpz_cdiv_q(genus_size_fmpz, fmpq_numref(mass), fmpq_denref(mass));
+  fmpz_set(genus_size_fmpz, fmpq_denref(mass));
 
   genus_size = fmpz_get_si(genus_size_fmpz);
 

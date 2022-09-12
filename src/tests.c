@@ -14,6 +14,7 @@ int test(int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_idx)
   int i;
   int j;
 
+  hash_table* slow_genus;
   hash_table* genus;
   clock_t cpuclock_0, cpuclock_1, cpudiff;
   double cputime;
@@ -25,20 +26,28 @@ int test(int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_idx)
   cpuclock_0 = clock();
 
   Q = init_sym_matrix(Q_coeffs);
-  genus = get_genus_reps(Q);
+  slow_genus = get_genus_reps(Q);
 
   cpuclock_1 = clock();
   cpudiff = cpuclock_1 - cpuclock_0;
   cputime = cpudiff / CLOCKS_PER_SEC;
   
   printf("computing genus took %f\n", cputime);
+
+  genus = recalibrate_hash(slow_genus);
+
+  cpuclock_0 = clock();
+  cpudiff = cpuclock_0 - cpuclock_1;
+  cputime = cpudiff / CLOCKS_PER_SEC;
+
+  printf("recalibrating genus took %f\n", cputime);
   
   hecke = hecke_matrix(genus, 2);
   evs = get_eigenvalues(hecke);
   free_mat(hecke);
 
-  cpuclock_0 = clock();
-  cpudiff = cpuclock_0 - cpuclock_1;
+  cpuclock_1 = clock();
+  cpudiff = cpuclock_1 - cpuclock_0;
   cputime = cpudiff / CLOCKS_PER_SEC;
   
   printf("computing eigenvectors took %f\n", cputime);
@@ -51,7 +60,7 @@ int test(int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_idx)
 	nf_elem_print_pretty(evs->eigenvecs[i][j], evs->nfs[i], "a");
 	printf(" ");
       }
-      printf(" over ");
+      printf("over ");
       nf_print(evs->nfs[i]);
       printf("\n");
     }
