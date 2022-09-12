@@ -12,7 +12,7 @@ typedef struct {
 
   ulong n;
   slong I;
-  fmpz* primes;
+  fmpz_t* primes;
   slong* symbols;
 } qf_inv;
 

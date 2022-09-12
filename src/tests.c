@@ -51,7 +51,8 @@ int test(int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_idx)
 	nf_elem_print_pretty(evs->eigenvecs[i][j], evs->nfs[i], "a");
 	printf(" ");
       }
-      
+      printf(" over ");
+      nf_print(evs->nfs[i]);
       printf("\n");
     }
   }

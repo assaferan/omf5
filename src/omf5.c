@@ -2,20 +2,21 @@
 
 #include "tests.h"
 
-int parse_matrix(char* mat_str, int* Q_coeffs)
+int parse_matrix(const char* mat_str, int* Q_coeffs)
 {
   int idx;
+  char *original;
   char *token;
 
   idx = 0;
-  token = strtok(mat_str, ",");
+  original = (char*)malloc(strlen(mat_str)*sizeof(char));
+  strncpy(original, mat_str, strlen(mat_str));
+  token = strtok(original, ",");
   while(token) {
-    // puts(token);
     Q_coeffs[idx++] = atoi(token);
-    // printf("%d,", Q_coeffs[idx-1]);
     token = strtok(NULL, ",");
   }
-  // printf("returning from parse_matrix\n");
+  free(original);
   return (idx == 15);
 }
 
@@ -33,9 +34,6 @@ int main(int argc, char* argv[])
   
   if (argc == 2) {
     parse_matrix(argv[1], Q_coeffs);
-    // printf("got:");
-    // for (idx = 0; idx < 15; idx++)
-    //   printf("%d,", Q_coeffs[idx]);
     return compute_eigenvectors(Q_coeffs);
   }
 

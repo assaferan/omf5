@@ -3,9 +3,22 @@
 #include "hash.h"
 #include "matrix_tools.h"
 
-int hash_form(matrix_TYP* Q)
+#define FNV_OFFSET 0x811c9dc5
+#define FNV_PRIME 0x01000193
+
+W64 hash_vec(int* vec, int n)
 {
-  int norm, x;
+  W64 fnv = FNV_OFFSET;
+  for (int i = 0; i < n; i++)
+      fnv = (fnv ^ vec[i]) * FNV_PRIME;
+
+  return fnv;
+}
+
+W64 hash_form(matrix_TYP* Q)
+{
+  W64 x;
+  int norm;
   int num_short[3];
   
   for (norm = 2; norm <= 6; norm += 2) {
@@ -13,6 +26,7 @@ int hash_form(matrix_TYP* Q)
   }
 
   x = num_short[0] - num_short[1] + num_short[2] ;
+  // x = hash_vec(num_short, 3);
 
   return x;
 }
@@ -46,7 +60,7 @@ hash_table* create_hash(int hash_size)
   return table;
 }
 
-int insert(hash_table* table, matrix_TYP* key, int val,
+int insert(hash_table* table, matrix_TYP* key, W64 val,
 	   int index, int do_push_back)
 {
   int offset;
@@ -70,9 +84,10 @@ int insert(hash_table* table, matrix_TYP* key, int val,
   return 1; 
 }
 
-int _add(hash_table* table, matrix_TYP* key, int val, int do_push_back)
+int _add(hash_table* table, matrix_TYP* key, W64 val, int do_push_back)
 {
-  int index, offset, i;
+  int offset, i;
+  W64 index;
 
   index = val & table->mask;
   i = 0;
@@ -104,7 +119,8 @@ int add(hash_table* table, matrix_TYP* key)
 hash value */
 matrix_TYP* get_key(hash_table* table, matrix_TYP* key, int* index)
 {
-  int offset, value;
+  int offset;
+  W64 value;
 
   value = hash_form(key);
   
@@ -117,15 +133,20 @@ matrix_TYP* get_key(hash_table* table, matrix_TYP* key, int* index)
   if (offset == -1)
     return NULL;
 
-  if (hash_form(table->keys[offset]) != value)
-    return NULL;
+  while (hash_form(table->keys[offset]) != value) {
+    *index = (*index + 1) & table->mask;
+    offset = table->key_ptr[*index];
+    if (offset == -1)
+      return NULL;
+  }
   
   return table->keys[offset];
 }
 
 int exists(hash_table* table, matrix_TYP* key, int check_isom)
 {
-  int index, offset, value, i;
+  int offset, i;
+  W64 index, value;
 
   value = hash_form(key);
   
@@ -149,7 +170,8 @@ int exists(hash_table* table, matrix_TYP* key, int check_isom)
 
 int indexof(hash_table* table, matrix_TYP* key, int check_isom)
 {
-  int index, offset, value, i;
+  int offset, i;
+  W64 index, value;
 
   value = hash_form(key);
   index = value & table->mask;

@@ -3,21 +3,23 @@
 
 #include "carat/matrix.h"
 
+typedef uint64_t W64;
+
 struct hash_table_t {
   matrix_TYP** keys;
   int* vals;
   int* key_ptr;
   int* counts; 
 
-  int num_stored;
-  int mask; // uint64_t ?
-  int capacity;
+  W64 num_stored;
+  W64 mask; 
+  W64 capacity;
 };
 
 typedef struct hash_table_t hash_table;
 
 /* hash the form Q into an index between 0 and hash_size */
-int hash_form(matrix_TYP* Q);
+W64 hash_form(matrix_TYP* Q);
 
 hash_table* create_hash(int hash_size);
 
@@ -33,9 +35,9 @@ int indexof(hash_table* table, matrix_TYP* key, int check_isom);
 
 void expand(hash_table* table);
 
-int _add(hash_table* table, matrix_TYP* key, int val, int do_push_back);
+int _add(hash_table* table, matrix_TYP* key, W64 val, int do_push_back);
 
-int insert(hash_table* table, matrix_TYP* key, int val,
+int insert(hash_table* table, matrix_TYP* key, W64 val,
 	   int index, int do_push_back);
 
 #endif // __HASH_H__

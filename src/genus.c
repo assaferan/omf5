@@ -29,9 +29,6 @@ hash_table* get_genus_reps(matrix_TYP* Q)
   fmpq_print(mass);
   printf("\n");
 #endif // DEBUG
-  
-  // fmpq_set_si(mass, 31, 96);
-
 
   /* this is ceiling */
 
@@ -69,7 +66,7 @@ hash_table* get_genus_reps(matrix_TYP* Q)
   while (fmpq_cmp(acc_mass, mass)) {
 #ifdef DEBUG
     if (fmpq_cmp(acc_mass, mass) > 0) {
-      printf("Error! Accumluated too much mass!\n");
+      printf("Error! Accumulated too much mass!\n");
       return genus;
     }
 #endif // DEBUG
@@ -78,6 +75,10 @@ hash_table* get_genus_reps(matrix_TYP* Q)
     do {
       fmpz_nextprime(prime, prime, TRUE);
       p = fmpz_get_ui(prime);
+#ifdef DEBUG
+      printf("p = %d, Q = ", p);
+      print_mat(Q);
+#endif //DEBUG
     }
     while (!p_mat_det(Q, p));
 
