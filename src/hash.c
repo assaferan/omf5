@@ -2,25 +2,37 @@
 
 #include "hash.h"
 #include "matrix_tools.h"
+#include "neighbor.h"
 
-int hash_form(matrix_TYP* Q)
+// TODO : We should be able to determine thes in a smarter way
+
+#define INITIAL_THETA_PREC  25
+
+// hash_vec is defined in the end, as different choices of hash functions might lead to extremely
+// different performance times
+hash_t hash_vec(const int* vec, unsigned int n);
+
+hash_t hash_form(matrix_TYP* Q, W32 theta_prec)
 {
-  int norm, x;
-  int num_short[3];
-  
-  for (norm = 2; norm <= 6; norm += 2) {
+  hash_t x;
+  int norm;
+  int* num_short;
+
+  num_short = (int*)malloc(theta_prec * sizeof(int));
+  for (norm = 2; norm <= 2*theta_prec; norm += 2) {
     short_vectors(Q, norm, norm, 0, 1, &(num_short[norm/2 - 1]));
   }
 
-  x = num_short[0] - num_short[1] + num_short[2] ;
+  // x = num_short[0] - num_short[1] + num_short[2] ;
+  x = hash_vec(num_short, theta_prec);
 
   return x;
 }
 
-hash_table* create_hash(int hash_size)
+hash_table* create_hash(hash_t hash_size)
 {
   hash_table* table;
-  int i, log_hash_size, n;
+  hash_t i, log_hash_size, n;
 
   table = (hash_table*) malloc(sizeof(hash_table));
 
@@ -33,10 +45,15 @@ hash_table* create_hash(int hash_size)
   table->capacity = 1LL << log_hash_size;
   table->mask = (1LL << (log_hash_size + 1)) - 1;
   table->keys = (matrix_TYP**) malloc(table->capacity * sizeof(matrix_TYP*));
-  table->vals = (int*) malloc(table->capacity * sizeof(int));
-  table->key_ptr = (int*) malloc(2*table->capacity * sizeof(int));
-  table->counts = (int*) malloc(2*table->capacity * sizeof(int));
+  table->vals = (hash_t*) malloc(table->capacity * sizeof(hash_t));
+  table->key_ptr = (hash_t*) malloc(2*table->capacity * sizeof(int));
+  table->counts = (W32*) malloc(2*table->capacity * sizeof(int));
+  table->probs = (fmpq_t*) malloc(table->capacity * sizeof(fmpq_t));
+  for (i = 0; i < table->capacity; i++)
+    fmpq_init(table->probs[i]);
   table->num_stored = 0;
+  table->theta_prec = INITIAL_THETA_PREC;
+  table->red_on_isom = 0;
 
   for (i = 0; i < 2*table->capacity; i++) {
     table->key_ptr[i] = -1;
@@ -46,10 +63,165 @@ hash_table* create_hash(int hash_size)
   return table;
 }
 
-int insert(hash_table* table, matrix_TYP* key, int val,
+double get_isom_cost(hash_table* table, double* red_cost)
+{
+  double isom_cost;
+  clock_t cputime;
+  hash_t idx, offset, i;
+  neighbor_manager nbr_man;
+  matrix_TYP* s;
+  matrix_TYP* nbr;
+
+#define NUM_ISOMS 10
+
+  isom_cost = 0;
+  if (red_cost != NULL)
+    *red_cost = 0;
+  idx = 0;
+  for (offset = 0; offset < table->num_stored; offset++) {
+    init_nbr_process(&nbr_man, table->keys[offset], 3, idx);
+    for (i = 0; i <  NUM_ISOMS; i++) {
+      nbr = build_nb(&nbr_man);
+      if (red_cost != NULL) {
+	s = init_mat(5,5,"1");
+	cputime = clock();
+	greedy(nbr, s, 5, 5);
+	(*red_cost) += (clock() - cputime);
+	free_mat(s);
+      }
+      cputime = clock();
+      is_isometric(nbr, table->keys[i % table->num_stored]);
+      isom_cost += (clock() - cputime);
+      advance_nbr_process(&nbr_man);
+      if (has_ended(&nbr_man)) {
+	idx++;
+	free_nbr_process(&nbr_man);
+	init_nbr_process(&nbr_man, table->keys[offset], 3, idx);
+      }
+    }
+    free_nbr_process(&nbr_man);
+  }
+  isom_cost /= (NUM_ISOMS * table->num_stored);
+  if (red_cost != NULL)
+    (*red_cost) /= (NUM_ISOMS * table->num_stored);
+
+  return isom_cost;
+}
+
+double get_total_cost(hash_table* table, W32 theta_prec, double isom_cost, fmpq_t* wt_cnts)
+{
+  hash_t i, offset, idx;
+  double theta_cost, total_cost;
+  clock_t cputime;
+  
+  for (i = 0; i < 2*table->capacity; i++) {
+    fmpq_zero(wt_cnts[i]);
+    table->counts[i] = 0;
+  }
+  
+  theta_cost = 0;
+  for (offset = 0; offset < table->num_stored; offset++) {
+    cputime = clock();
+    table->vals[offset] = hash_form(table->keys[offset], theta_prec);
+    theta_cost += (clock() - cputime);
+    idx = table->vals[offset] & table->mask;
+    fmpq_add(wt_cnts[idx], wt_cnts[idx], table->probs[offset]);
+    table->counts[table->vals[offset] & table->mask]++;
+  }
+  theta_cost /= table->num_stored;
+    
+  total_cost = 0;
+  for (i = 0; i < 2 * table->capacity; i++) {
+    total_cost += table->counts[i] * fmpq_get_d(wt_cnts[i]);
+  }
+  total_cost -= 1;
+  printf("Expecting average number of %f calls to is_isometric.\n", total_cost);
+  total_cost *= isom_cost;
+  total_cost += theta_cost;
+    
+  return total_cost;
+}
+
+// This can be done better, by first computing the theta series and
+// only then going over them. Since this is not a critical path,
+// we postpone doing that.
+
+hash_table* recalibrate_hash(hash_table* table)
+{
+  hash_table* new_table;
+  hash_t offset, i;
+  W32 theta_prec;
+  double greedy_cost, red_isom_cost, isom_cost;
+  double total_cost;
+  double old_cost;
+  fmpq_t* wt_cnts;
+  fmpq_t mass;
+  int red_on_isom;
+
+  fmpq_init(mass);
+  fmpq_zero(mass);
+  
+  wt_cnts = (fmpq_t*) malloc(2*table->capacity*sizeof(fmpq_t));
+  for (i = 0; i < 2 * table->capacity; i++) {
+    fmpq_init(wt_cnts[i]);
+  }
+
+  for (offset = 0; offset < table->num_stored; offset++) {
+    fmpq_add(mass, mass, table->probs[offset]);
+  }
+
+  for (offset = 0; offset < table->num_stored; offset++) {
+    fmpq_div(table->probs[offset], table->probs[offset], mass);
+  }
+  
+  // first we check the cost of checking isometries with random neighbors
+  isom_cost = get_isom_cost(table, NULL);
+  // then we try to reduce them first
+  red_isom_cost = get_isom_cost(table, &greedy_cost);
+
+  printf("Expected cost of isometries is %f\n", isom_cost);
+  printf("Expected cost of reduced isometries is %f\n", red_isom_cost + greedy_cost);
+  
+  red_on_isom = FALSE;
+  if (red_isom_cost + greedy_cost < isom_cost) {
+    isom_cost = red_isom_cost + greedy_cost;
+    red_on_isom = TRUE;
+  }
+  
+  theta_prec = 0;
+
+  total_cost = (table->num_stored - 1) * isom_cost;
+  old_cost = total_cost + 1;
+
+  // finding the minimum by brute force
+  while (total_cost < old_cost) {
+    theta_prec++;
+    old_cost = total_cost;
+    total_cost = get_total_cost(table, theta_prec, isom_cost, wt_cnts);
+  }
+  // we are now passed the peak, have to go back one
+  theta_prec--;
+
+  // #ifdef DEBUG
+  printf("Recalibrated with theta_prec = %u and red_on_isom = %d \n", theta_prec, red_on_isom);
+  // #endif // DEBUG
+  
+  new_table = create_hash(table->capacity);
+  new_table->theta_prec = theta_prec;
+  new_table->red_on_isom = red_on_isom;
+  for (offset = 0; offset < table->num_stored; offset++)
+    add(new_table, table->keys[offset]);
+
+  free_hash(table);
+  
+  return new_table;
+}
+
+int insert(hash_table* table, matrix_TYP* key, hash_t val,
 	   int index, int do_push_back)
 {
   int offset;
+  bravais_TYP* aut_grp;
   
   if (table->num_stored == table->capacity) {
     expand(table);
@@ -62,6 +234,8 @@ int insert(hash_table* table, matrix_TYP* key, int val,
   if (do_push_back) {
     table->keys[offset] = key;
     table->vals[offset] = val;
+    aut_grp = automorphism_group(key);
+    fmpq_set_si(table->probs[offset], 1, aut_grp->order);
   }
 
   table->key_ptr[index] = offset;
@@ -70,9 +244,10 @@ int insert(hash_table* table, matrix_TYP* key, int val,
   return 1; 
 }
 
-int _add(hash_table* table, matrix_TYP* key, int val, int do_push_back)
+int _add(hash_table* table, matrix_TYP* key, hash_t val, int do_push_back)
 {
-  int index, offset, i;
+  int offset, i;
+  hash_t index;
 
   index = val & table->mask;
   i = 0;
@@ -80,28 +255,39 @@ int _add(hash_table* table, matrix_TYP* key, int val, int do_push_back)
     offset = table->key_ptr[index];
     if (offset == -1) 
       return insert(table, key, val, index, do_push_back);
-    if (is_isometric(key,table->keys[offset]))
-      return 0;
-
+    // we first check equal hashes before testing an isometry
+    if ((table->vals[offset] & table->mask) == (val & table->mask)) {
+      i++;
+      if (table->vals[offset] == val) {
+	if (is_isometric(key,table->keys[offset]))
+	  return 0;
+      }
+    }
     index = (index + 1) & table->mask;
-    i++;
   }
 
-  return 1;
+  offset = table->key_ptr[index];
+  while (offset != -1) {
+    index = (index + 1) & table->mask;
+    offset = table->key_ptr[index];
+  }
+  return insert(table, key, val, index, do_push_back);
+  
 }
 
 int add(hash_table* table, matrix_TYP* key)
 {
-  return _add(table, key, hash_form(key), 1);
+  return _add(table, key, hash_form(key, table->theta_prec), 1);
 }
 
 /* a modified version of exists to be able to run over all with the same
 hash value */
 matrix_TYP* get_key(hash_table* table, matrix_TYP* key, int* index)
 {
-  int offset, value;
+  int offset;
+  hash_t value;
 
-  value = hash_form(key);
+  value = hash_form(key, table->theta_prec);
   
   if (*index == -1) 
     *index = value & table->mask;
@@ -112,17 +298,22 @@ matrix_TYP* get_key(hash_table* table, matrix_TYP* key, int* index)
   if (offset == -1)
     return NULL;
 
-  if (hash_form(table->keys[offset]) != value)
-    return NULL;
+  while (hash_form(table->keys[offset], table->theta_prec) != value) {
+    *index = (*index + 1) & table->mask;
+    offset = table->key_ptr[*index];
+    if (offset == -1)
+      return NULL;
+  }
   
   return table->keys[offset];
 }
 
 int exists(hash_table* table, matrix_TYP* key, int check_isom)
 {
-  int index, offset, value, i;
+  int offset, i;
+  hash_t index, value;
 
-  value = hash_form(key);
+  value = hash_form(key, table->theta_prec);
   
   index = value & table->mask;
   i = 0;
@@ -130,23 +321,32 @@ int exists(hash_table* table, matrix_TYP* key, int check_isom)
     offset = table->key_ptr[index];
     if (offset == -1)
       return 0;
-    if ((table->counts[value & table->mask] == 1) && (!check_isom))
-      return 1;
-    if (is_isometric(key,table->keys[offset]))
-      return 1;
+    if ((table->vals[offset] & table->mask) == (value & table->mask)) {
+      if ((table->counts[value & table->mask] == i + 1) && (!check_isom))
+	return 1;
+      i++;
+      if (table->vals[offset] == value) {
+	if (is_isometric(key,table->keys[offset]))
+	   return 1;
+      }
+    }
 
     index = (index + 1) & table->mask;
-    i++;
   }
 
   return 0;
 }
 
-int indexof(hash_table* table, matrix_TYP* key, int check_isom)
+int indexof(hash_table* table, matrix_TYP* key, int check_isom, double* theta_time, double* isom_time, int* num_isom)
 {
-  int index, offset, value, i;
+  int offset, i;
+  hash_t index, value;
+  clock_t cputime;
+  matrix_TYP* s;
 
-  value = hash_form(key);
+  cputime = clock();
+  value = hash_form(key, table->theta_prec);
+  (*theta_time) += clock() - cputime;
   index = value & table->mask;
   i = 0;
   while (i < table->counts[value & table->mask]) {
@@ -155,16 +355,31 @@ int indexof(hash_table* table, matrix_TYP* key, int check_isom)
       printf("Error! Key not found!\n");
       return -1;
     }
-    
-    if ((table->counts[value & table->mask] == 1) && (!check_isom))
-      return offset;
-    
-    if (is_isometric(key,table->keys[offset]))
-      return offset;
+    if ((table->vals[offset] & table->mask) == (value & table->mask)) {
+      if ((table->counts[value & table->mask] == i + 1) && (!check_isom))
+	return offset;
+      i++;
+      if (table->vals[offset] == value) {
+	(*num_isom)++;
+	cputime = clock();
+	if (table->red_on_isom) {
+	  s = init_mat(5,5,"1");
+	  greedy(key, s, 5, 5);
+	  free_mat(s);
+	}
+	if (is_isometric(key,table->keys[offset])) {
+	  (*isom_time) += clock() - cputime;
+	  return offset;
+	}
+	(*isom_time) += clock() - cputime;
+      }
+    }
 
     index = (index + 1) & table->mask;
-    i++;
   }
+
+  printf("Error! Key not found!\n");
+  exit(-1);
 
   return -1;
 }
@@ -180,9 +395,9 @@ void expand(hash_table* table)
   table->vals = realloc(table->vals, (table->capacity)*sizeof(matrix_TYP*));
 
   free(table->key_ptr);
-  table->key_ptr = (int*)malloc((table->capacity << 1)*sizeof(int));
+  table->key_ptr = (hash_t*)malloc((table->capacity << 1)*sizeof(int));
   free(table->counts);
-  table->counts = (int*)malloc((table->capacity << 1)*sizeof(int));
+  table->counts = (W32*)malloc((table->capacity << 1)*sizeof(int));
 
   for (i = 0; i < 2*table->capacity; i++)
     table->key_ptr[i] = -1;
@@ -200,9 +415,48 @@ void expand(hash_table* table)
 
 void free_hash(hash_table* table)
 {
+  hash_t i;
+  
   free(table->key_ptr);
   free(table->vals);
   free(table->keys);
+  for (i = 0; i < table->capacity; i++)
+    fmpq_clear(table->probs[i]);
+  free(table->probs);
   free(table->counts);
   free(table);
 }
+
+/*************************************************************************************
+ * Here we list several different hash functions that can be used for the hash_table
+ *
+ *************************************************************************************/
+
+hash_t RSHash(const int* vec, unsigned int n)
+{
+  hash_t b = 378551;
+  hash_t a = 63689;
+  hash_t hash = 0;
+  unsigned int i = 0;
+  for (i = 0; i < n; i++) {
+    hash = hash * a + vec[i];
+    a *= b;
+  }
+  return hash;
+}
+
+hash_t hash_vec(const int* vec, unsigned int n)
+{
+  return RSHash(vec, n);
+}
+
+/* hash_t hash_vec(int* vec, int n) */
+/* { */
+/*   hash_t fnv = FNV_OFFSET; */
+/*   for (int i = 0; i < n; i++) */
+/*     // too slow */
+/*     // fnv = (fnv ^ vec[i]) * FNV_PRIME; */
+/*     // This one follows a hashing scheme by D J Bernstein */
+/*     fnv = ((fnv << 5) + fnv) + vec[i]; */
+/*   return fnv; */
+/* } */

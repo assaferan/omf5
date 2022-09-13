@@ -4,22 +4,30 @@
 
 void qf_inv_init(qf_inv_t hasse, ulong n)
 {
+  slong i = 0;
   slong NUM_INIT = 16;
   
   hasse->num_stored = 0;
   hasse->I = 0;
   hasse->num_alloc = NUM_INIT;
 
-  hasse->primes = (fmpz*)malloc(NUM_INIT * sizeof(fmpz));
+  hasse->primes = (fmpz_t*)malloc(NUM_INIT * sizeof(fmpz_t));
   hasse->symbols = (slong*)malloc(NUM_INIT * sizeof(slong));
 
   hasse->n = n;
+
+  for (i = 0; i < NUM_INIT; i++)
+    fmpz_init(hasse->primes[i]);
   
   return;
 }
 
 void qf_inv_clear(qf_inv_t hasse)
 {
+  slong i;
+  
+  for (i = 0; i < hasse->num_alloc; i++)
+    fmpz_clear(hasse->primes[i]);
   free(hasse->primes);
   free(hasse->symbols);
 }
@@ -30,15 +38,17 @@ void qf_inv_add(qf_inv_t hasse, const fmpz_t p, slong s)
   
   // right now implementing a silly search
   for (i = 0; i < hasse->num_stored; i++)
-    if (fmpz_equal(&(hasse->primes[i]), p)) return;
+    if (fmpz_equal(hasse->primes[i], p)) return;
   
   if (hasse->num_stored == hasse->num_alloc) {
     hasse->num_alloc <<= 1;
-    hasse->primes = (fmpz*)realloc(hasse->primes, hasse->num_alloc * sizeof(fmpz));
+    hasse->primes = (fmpz_t*)realloc(hasse->primes, hasse->num_alloc * sizeof(fmpz_t));
     hasse->symbols = (slong*)realloc(hasse->symbols, hasse->num_alloc * sizeof(slong));
   }
+  for (i = hasse->num_stored; i < hasse->num_alloc; i++)
+    fmpz_init(hasse->primes[i]);
   
-  fmpz_set(&(hasse->primes[hasse->num_stored]), p);
+  fmpz_set(hasse->primes[hasse->num_stored], p);
   hasse->symbols[hasse->num_stored] = s;
   hasse->num_stored++;
 
@@ -123,9 +133,9 @@ int witt_to_hasse(fmpz_mat_t hasse,
 
   num_hasse = 0;
   for (i = 0; i < finite->num_stored; i++) {
-    hilbert = hilbert_symbol(minus_one, c, &(finite->primes[i]));
+    hilbert = hilbert_symbol(minus_one, c, finite->primes[i]);
     if (hilbert != finite->symbols[i]) {
-      fmpz_set(fmpz_mat_entry(hasse, 0, num_hasse), &(finite->primes[i]));
+      fmpz_set(fmpz_mat_entry(hasse, 0, num_hasse), finite->primes[i]);
       num_hasse++;
     }
   }

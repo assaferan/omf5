@@ -161,9 +161,9 @@ rational rational_sum(rational a, rational b)
 // It's not the fastest, but it is one of the simplest.
 
 // This should be the same as arith_bernoulli_number_vec, maybe replace
-void _bernoulli_up_to(fmpq* b, ulong n)
+void _bernoulli_up_to(fmpq_t* b, ulong n)
 {
-  fmpq* a;
+  fmpq_t* a;
   fmpz_t mult;
   fmpq_t diff;
   ulong i, j;
@@ -171,24 +171,37 @@ void _bernoulli_up_to(fmpq* b, ulong n)
   fmpz_init(mult);
   fmpq_init(diff);
   
-  a = (fmpq*)malloc((n+1)*sizeof(fmpq));
-  
-  for (i = 0; i <= n; i++) {
-    fmpq_set_si(&(a[i]), 1, i+1);
+  a = (fmpq_t*)malloc((n+1)*sizeof(fmpq_t));
+#ifdef DEBUG
+  if (a == NULL) {
+    printf("could not allocate vector of size %lu\n", n);
+    exit(-1);
   }
-  fmpq_set(&(b[0]), &(a[0]));
+  if (b == NULL) {
+    printf("received a null pointer as argument!\n");
+    exit(-1);
+  }
+#endif // DEBUG
+
+  for (i = 0; i <= n; i++) {
+    fmpq_init(a[i]);
+    fmpq_set_si(a[i], 1, i+1);
+  }
+  fmpq_set(b[0], a[0]);
 
   for (i = 0; i < n; i++) {
     for (j = 0; j < n - i; j++) {
       fmpz_set_si(mult, j+1);
-      fmpq_sub(diff, &(a[j]), &(a[j+1]));
-      fmpq_mul_fmpz(&(a[j]), diff, mult);
+      fmpq_sub(diff, a[j], a[j+1]);
+      fmpq_mul_fmpz(a[j], diff, mult);
     }
-    fmpq_set(&(b[i+1]),&(a[0]));
+    fmpq_set(b[i+1],a[0]);
   }
 
   fmpz_clear(mult);
   fmpq_clear(diff);
+  for (i = 0; i < n; i++)
+    fmpq_clear(a[i]);
   free(a);
   return;
   
@@ -196,12 +209,19 @@ void _bernoulli_up_to(fmpq* b, ulong n)
 
 void bernoulli_number(fmpq_t b, ulong n)
 {
-  fmpq* b_vec;
+  fmpq_t* b_vec;
+  int i;
 
-  b_vec = (fmpq*)malloc((n+1)*sizeof(fmpq));
+  b_vec = (fmpq_t*)malloc((n+1)*sizeof(fmpq_t));
+  for (i = 0; i <= n; i++)
+    fmpq_init(b_vec[i]);
+  
   _bernoulli_up_to(b_vec, n);
 
-  fmpq_set(b, &(b_vec[n]));
+  fmpq_set(b, b_vec[n]);
+
+  for (i = 0; i <= n; i++)
+    fmpq_clear(b_vec[i]);
   free(b_vec);
   
   return;
@@ -232,9 +252,9 @@ void binomial_coefficient(fmpz_t b, const fmpz_t n, const fmpz_t k)
 }
 
 
-void _bernoulli_poly(fmpq* b, ulong n)
+void _bernoulli_poly(fmpq_t* b, ulong n)
 {
-  fmpq* b_vec;
+  fmpq_t* b_vec;
   ulong k;
   fmpz_t nn, kk, n_choose_k;
 
@@ -242,18 +262,22 @@ void _bernoulli_poly(fmpq* b, ulong n)
   fmpz_init(kk);
   fmpz_init(n_choose_k);
 
-  b_vec = (fmpq*)malloc((n+1)*sizeof(fmpq));
+  b_vec = (fmpq_t*)malloc((n+1)*sizeof(fmpq_t));
+  for (k = 0; k <= n; k++)
+    fmpq_init(b_vec[k]);
   _bernoulli_up_to(b_vec, n);
   
   for (k = 0; k <= n; k++)
-    fmpq_set(&(b[k]), &(b_vec[n-k]));
+    fmpq_set(b[k], b_vec[n-k]);
   
   for (k = 0; k <= n; k++) {
     fmpz_set_ui(kk,k);
     binomial_coefficient(n_choose_k, nn, kk);
-    fmpq_mul_fmpz(&(b[k]), &(b[k]), n_choose_k);
+    fmpq_mul_fmpz(b[k], b[k], n_choose_k);
   }
 
+  for (k = 0; k <= n; k++)
+    fmpq_clear(b_vec[k]);
   free(b_vec);
   fmpz_clear(n_choose_k);
   fmpz_clear(kk);
@@ -354,7 +378,7 @@ slong kronecker_symbol(const fmpz_t a, const fmpz_t n)
 // with the correct discriminant (d or 4d maybe?))
 void bernoulli_number_chi(fmpq_t b_chi, ulong n, const fmpz_t d)
 {
-  fmpq* b;
+  fmpq_t* b;
   fmpz_t a_pow, d_pow, a, nn;
   fmpq_t s, ba_pow;
   slong chi_a;
@@ -366,7 +390,9 @@ void bernoulli_number_chi(fmpq_t b_chi, ulong n, const fmpz_t d)
   fmpq_init(ba_pow);
   fmpz_init_set_ui(nn, n);
   fmpq_init(s);
-  b = (fmpq*)malloc((n+1)*sizeof(fmpq));
+  b = (fmpq_t*)malloc((n+1)*sizeof(fmpq_t));
+  for (k = 0; k <= n; k++)
+    fmpq_init(b[k]);
   _bernoulli_poly(b,n);
 
   fmpz_pow_ui(d_pow, d, n);
@@ -379,7 +405,7 @@ void bernoulli_number_chi(fmpq_t b_chi, ulong n, const fmpz_t d)
     fmpq_zero(s);
     for (k = 0; k <= n; k++) {
       fmpz_fdiv_q(d_pow, d_pow, d);
-      fmpq_mul_fmpz(ba_pow, &(b[k]), a_pow);
+      fmpq_mul_fmpz(ba_pow, b[k], a_pow);
       fmpq_mul_fmpz(ba_pow, ba_pow, d_pow);
       fmpq_add(s, s, ba_pow);
       fmpz_mul(a_pow, a_pow, a);
@@ -387,6 +413,8 @@ void bernoulli_number_chi(fmpq_t b_chi, ulong n, const fmpz_t d)
     fmpq_mul_si(s, s, chi_a);
     fmpq_add(b_chi, b_chi, s);
   }
+  for (k = 0; k <= n; k++)
+    fmpq_clear(b[k]);
   free(b);
   fmpq_clear(s);
   fmpz_clear(nn);

@@ -7,7 +7,7 @@
 #include "matrix_tools.h"
 #include "neighbor.h"
 
-int process_isotropic_vector(neighbor_manager* nbr_man, int* T, hash_table* genus);
+int process_isotropic_vector(neighbor_manager* nbr_man, int* T, hash_table* genus, double* theta_time, double* isom_time, double* total_time, int* num_isom);
 
 int process_neighbour_chunk(int* T, int p, int i, int gen_idx, hash_table* genus);
 

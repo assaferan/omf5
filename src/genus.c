@@ -29,14 +29,12 @@ hash_table* get_genus_reps(matrix_TYP* Q)
   fmpq_print(mass);
   printf("\n");
 #endif // DEBUG
-  
-  // fmpq_set_si(mass, 31, 96);
-
 
   /* this is ceiling */
 
   fmpz_init(genus_size_fmpz);
-  fmpz_cdiv_q(genus_size_fmpz, fmpq_numref(mass), fmpq_denref(mass));
+  // fmpz_cdiv_q(genus_size_fmpz, fmpq_numref(mass), fmpq_denref(mass));
+  fmpz_set(genus_size_fmpz, fmpq_denref(mass));
 
   genus_size = fmpz_get_si(genus_size_fmpz);
 
@@ -67,11 +65,21 @@ hash_table* get_genus_reps(matrix_TYP* Q)
   fmpz_set_ui(prime, 1);
   
   while (fmpq_cmp(acc_mass, mass)) {
+#ifdef DEBUG
+    if (fmpq_cmp(acc_mass, mass) > 0) {
+      printf("Error! Accumulated too much mass!\n");
+      return genus;
+    }
+#endif // DEBUG
     /* !! TODO - we don't really need to restrict to good primes here, */
     /* but let's check these first */
     do {
       fmpz_nextprime(prime, prime, TRUE);
       p = fmpz_get_ui(prime);
+#ifdef DEBUG
+      printf("p = %d, Q = ", p);
+      print_mat(Q);
+#endif //DEBUG
     }
     while (!p_mat_det(Q, p));
 
@@ -88,7 +96,7 @@ hash_table* get_genus_reps(matrix_TYP* Q)
 	/* printf("i = %d\n", i); */
 	init_nbr_process(&nbr_man, genus->keys[current], p, i);
 	while ((!(has_ended(&nbr_man))) && fmpq_cmp(acc_mass, mass)) {
-	  nbr = q61_nb(&nbr_man);
+	  nbr = build_nb(&nbr_man);
 #ifdef DEBUG_LEVEL_FULL
 	  printf("nbr = \n");
 	  print_mat(nbr);

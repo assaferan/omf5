@@ -206,7 +206,7 @@ void get_mass(fmpq_t mass, const matrix_TYP* q)
   for (i = 0; i < q->rows; i++)
     for (j = 0; j < q->cols; j++)
       fmpz_set_si(fmpz_mat_entry(Q, i, j), q->array.SZ[i][j]);
-  
+
   invariants(det, witt, Q);
 
   fmpz_mat_init(hasse, 1, witt->num_stored);
@@ -241,6 +241,17 @@ void get_mass(fmpq_t mass, const matrix_TYP* q)
       j++;
     }
   }
+  // only one of these loops is entered to finish the rest
+  for(;i < fac->num; i++) {
+    if (!fmpz_equal_si(&(fac->p[i]), 2))
+      fmpz_set(fmpz_mat_entry(B, 0, num_B++), &(fac->p[i]));
+  }
+  for(;j < num_hasse; j++) {
+    if (!fmpz_equal_si(fmpz_mat_entry(hasse, 0, j), 2))
+      fmpz_set(fmpz_mat_entry(B, 0, num_B++), fmpz_mat_entry(hasse, 0, j));
+    else
+      has_two = TRUE;
+  } 
 
   // originally, leave hasse only with 2, if it had a 2.
   
@@ -248,14 +259,14 @@ void get_mass(fmpq_t mass, const matrix_TYP* q)
 
   // mass from infinity and 2
   fmpq_set_si(mass, 1, 1 << r);
-  
+
   for (i = 1; i < n / 2 + n % 2; i++) {
     fmpz_set_si(two_i, -2*i);
     bernoulli_number(bernoulli, 2*i);
     fmpq_div_fmpz(bernoulli, bernoulli, two_i);
     fmpq_mul(mass, mass, bernoulli);
   }
-     
+
   if (n % 2 == 1) {	 
     if (val2 % 2 == 1) {
       fmpz_set_si(mass_two, (1 << r) + (has_two ? -1 : 1));

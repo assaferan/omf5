@@ -10,7 +10,7 @@
  * On error, return NULL.
 */
 
-matrix_TYP* q61_nb(neighbor_manager* nbr_man)
+matrix_TYP* build_nb(neighbor_manager* nbr_man)
 {
   matrix_TYP *Q_mat, *Qx_mat, *xQx_mat;
   int q, y, row, col, *x, **Q, *Qx, xQx;
@@ -166,7 +166,6 @@ matrix_TYP* q61_nb(neighbor_manager* nbr_man)
 	  /* a singular zero, return Q as-is*/
 	  /* Re-symmetrize */
 	  resymmetrize(Q);
-	  printf("???\n");
 	  return Q_mat;
 	}
       }
@@ -496,7 +495,6 @@ void advance_nbr_process(neighbor_manager* nbr_man)
   }
 
   nbr_man->iso_vec = NULL;
-  //   while ((nbr_man->iso_vec == NULL) && (nbr_man->i < nbr_man->p) ) {
   while ((w[0] == 0) && (nbr_man->iso_vec == NULL)) {
     nbr_man->iso_vec = get_next_isotropic_vector(nbr_man);
 
@@ -512,15 +510,6 @@ void advance_nbr_process(neighbor_manager* nbr_man)
       }
     }
   }
-  /*
-    if (w[0] != 0) {
-    (nbr_man->i)++;
-    w[0] = w[1] = w[2] = 0;
-    w[3] = 1;
-    w[4] = nbr_man->i;
-    }
-  */
-  // }
 
   return;
 }
