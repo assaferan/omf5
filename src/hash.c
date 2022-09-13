@@ -2,11 +2,11 @@
 
 #include "hash.h"
 #include "matrix_tools.h"
+#include "neighbor.h"
 
 // TODO : We should be able to determine thes in a smarter way
 
 #define INITIAL_THETA_PREC  25
-#define MAX_THETA_PREC     100
 
 // hash_vec is defined in the end, as different choices of hash functions might lead to extremely
 // different performance times
@@ -53,6 +53,7 @@ hash_table* create_hash(hash_t hash_size)
     fmpq_init(table->probs[i]);
   table->num_stored = 0;
   table->theta_prec = INITIAL_THETA_PREC;
+  table->red_on_isom = 0;
 
   for (i = 0; i < 2*table->capacity; i++) {
     table->key_ptr[i] = -1;
@@ -60,6 +61,85 @@ hash_table* create_hash(hash_t hash_size)
   }
   
   return table;
+}
+
+double get_isom_cost(hash_table* table, double* red_cost)
+{
+  double isom_cost;
+  clock_t cputime;
+  hash_t idx, offset, i;
+  neighbor_manager nbr_man;
+  matrix_TYP* s;
+  matrix_TYP* nbr;
+
+#define NUM_ISOMS 10
+
+  isom_cost = 0;
+  if (red_cost != NULL)
+    *red_cost = 0;
+  idx = 0;
+  for (offset = 0; offset < table->num_stored; offset++) {
+    init_nbr_process(&nbr_man, table->keys[offset], 3, idx);
+    for (i = 0; i <  NUM_ISOMS; i++) {
+      nbr = build_nb(&nbr_man);
+      if (red_cost != NULL) {
+	s = init_mat(5,5,"1");
+	cputime = clock();
+	greedy(nbr, s, 5, 5);
+	(*red_cost) += (clock() - cputime);
+	free_mat(s);
+      }
+      cputime = clock();
+      is_isometric(nbr, table->keys[i % table->num_stored]);
+      isom_cost += (clock() - cputime);
+      advance_nbr_process(&nbr_man);
+      if (has_ended(&nbr_man)) {
+	idx++;
+	free_nbr_process(&nbr_man);
+	init_nbr_process(&nbr_man, table->keys[offset], 3, idx);
+      }
+    }
+    free_nbr_process(&nbr_man);
+  }
+  isom_cost /= (NUM_ISOMS * table->num_stored);
+  if (red_cost != NULL)
+    (*red_cost) /= (NUM_ISOMS * table->num_stored);
+
+  return isom_cost;
+}
+
+double get_total_cost(hash_table* table, W32 theta_prec, double isom_cost, fmpq_t* wt_cnts)
+{
+  hash_t i, offset, idx;
+  double theta_cost, total_cost;
+  clock_t cputime;
+  
+  for (i = 0; i < 2*table->capacity; i++) {
+    fmpq_zero(wt_cnts[i]);
+    table->counts[i] = 0;
+  }
+  
+  theta_cost = 0;
+  for (offset = 0; offset < table->num_stored; offset++) {
+    cputime = clock();
+    table->vals[offset] = hash_form(table->keys[offset], theta_prec);
+    theta_cost += (clock() - cputime);
+    idx = table->vals[offset] & table->mask;
+    fmpq_add(wt_cnts[idx], wt_cnts[idx], table->probs[offset]);
+    table->counts[table->vals[offset] & table->mask]++;
+  }
+  theta_cost /= table->num_stored;
+    
+  total_cost = 0;
+  for (i = 0; i < 2 * table->capacity; i++) {
+    total_cost += table->counts[i] * fmpq_get_d(wt_cnts[i]);
+  }
+  total_cost -= 1;
+  printf("Expecting average number of %f calls to is_isometric.\n", total_cost);
+  total_cost *= isom_cost;
+  total_cost += theta_cost;
+    
+  return total_cost;
 }
 
 // This can be done better, by first computing the theta series and
@@ -71,21 +151,42 @@ hash_table* recalibrate_hash(hash_table* table)
   hash_table* new_table;
   hash_t offset, i;
   W32 theta_prec;
-  double total_cost, isom_cost, theta_cost, old_cost;
-  clock_t cputime;
+  double greedy_cost, red_isom_cost, isom_cost;
+  double total_cost;
+  double old_cost;
   fmpq_t* wt_cnts;
-  hash_t idx;
+  fmpq_t mass;
+  int red_on_isom;
 
+  fmpq_init(mass);
+  fmpq_zero(mass);
+  
   wt_cnts = (fmpq_t*) malloc(2*table->capacity*sizeof(fmpq_t));
-  for (i = 0; i < 2 * table->capacity; i++)
+  for (i = 0; i < 2 * table->capacity; i++) {
     fmpq_init(wt_cnts[i]);
+  }
+
+  for (offset = 0; offset < table->num_stored; offset++) {
+    fmpq_add(mass, mass, table->probs[offset]);
+  }
+
+  for (offset = 0; offset < table->num_stored; offset++) {
+    fmpq_div(table->probs[offset], table->probs[offset], mass);
+  }
   
-  #define NUM_ISOMS 100
+  // first we check the cost of checking isometries with random neighbors
+  isom_cost = get_isom_cost(table, NULL);
+  // then we try to reduce them first
+  red_isom_cost = get_isom_cost(table, &greedy_cost);
+
+  printf("Expected cost of isometries is %f\n", isom_cost);
+  printf("Expected cost of reduced isometries is %f\n", red_isom_cost + greedy_cost);
   
-  cputime = clock();
-  for (i = 0; i <  NUM_ISOMS; i++)
-    is_isometric(table->keys[0], table->keys[i % table->num_stored]);
-  isom_cost = (clock() - cputime) / NUM_ISOMS;
+  red_on_isom = FALSE;
+  if (red_isom_cost + greedy_cost < isom_cost) {
+    isom_cost = red_isom_cost + greedy_cost;
+    red_on_isom = TRUE;
+  }
   
   theta_prec = 0;
 
@@ -95,38 +196,19 @@ hash_table* recalibrate_hash(hash_table* table)
   // finding the minimum by brute force
   while (total_cost < old_cost) {
     theta_prec++;
-
-    for (i = 0; i < 2*table->capacity; i++) {
-      fmpq_zero(wt_cnts[i]);
-      table->counts[i] = 0;
-    }
-    theta_cost = 0;
-    for (offset = 0; offset < table->num_stored; offset++) {
-      cputime = clock();
-      table->vals[offset] = hash_form(table->keys[offset], theta_prec);
-      theta_cost += (clock() - cputime);
-      idx = table->vals[offset] & table->mask;
-      fmpq_add(wt_cnts[idx], wt_cnts[idx], table->probs[offset]);
-      table->counts[table->vals[offset] & table->mask]++;
-    }
-    theta_cost /= table->num_stored;
-    
     old_cost = total_cost;
-    total_cost = 0;
-    for (i = 0; i < 2 * table->capacity; i++) {
-      total_cost += table->counts[i] * fmpq_get_d(wt_cnts[i]);
-    }
-    total_cost -= 1;
-    total_cost *= isom_cost;
-    total_cost += theta_cost;
+    total_cost = get_total_cost(table, theta_prec, isom_cost, wt_cnts);
   }
+  // we are now passed the peak, have to go back one
+  theta_prec--;
 
-#ifdef DEBUG
-  printf("Recalibrated with theta_prec = %u\n", theta_prec);
-#endif // DEBUG
+  // #ifdef DEBUG
+  printf("Recalibrated with theta_prec = %u and red_on_isom = %d \n", theta_prec, red_on_isom);
+  // #endif // DEBUG
   
-  new_table = create_hash(table->num_stored);
+  new_table = create_hash(table->capacity);
   new_table->theta_prec = theta_prec;
+  new_table->red_on_isom = red_on_isom;
   for (offset = 0; offset < table->num_stored; offset++)
     add(new_table, table->keys[offset]);
 
@@ -240,7 +322,7 @@ int exists(hash_table* table, matrix_TYP* key, int check_isom)
     if (offset == -1)
       return 0;
     if ((table->vals[offset] & table->mask) == (value & table->mask)) {
-      if ((table->counts[value & table->mask] == 1) && (!check_isom))
+      if ((table->counts[value & table->mask] == i + 1) && (!check_isom))
 	return 1;
       i++;
       if (table->vals[offset] == value) {
@@ -255,12 +337,16 @@ int exists(hash_table* table, matrix_TYP* key, int check_isom)
   return 0;
 }
 
-int indexof(hash_table* table, matrix_TYP* key, int check_isom)
+int indexof(hash_table* table, matrix_TYP* key, int check_isom, double* theta_time, double* isom_time, int* num_isom)
 {
   int offset, i;
   hash_t index, value;
+  clock_t cputime;
+  matrix_TYP* s;
 
+  cputime = clock();
   value = hash_form(key, table->theta_prec);
+  (*theta_time) += clock() - cputime;
   index = value & table->mask;
   i = 0;
   while (i < table->counts[value & table->mask]) {
@@ -270,12 +356,22 @@ int indexof(hash_table* table, matrix_TYP* key, int check_isom)
       return -1;
     }
     if ((table->vals[offset] & table->mask) == (value & table->mask)) {
-      if ((table->counts[value & table->mask] == 1) && (!check_isom))
+      if ((table->counts[value & table->mask] == i + 1) && (!check_isom))
 	return offset;
       i++;
       if (table->vals[offset] == value) {
-	if (is_isometric(key,table->keys[offset]))
-	   return offset;
+	(*num_isom)++;
+	cputime = clock();
+	if (table->red_on_isom) {
+	  s = init_mat(5,5,"1");
+	  greedy(key, s, 5, 5);
+	  free_mat(s);
+	}
+	if (is_isometric(key,table->keys[offset])) {
+	  (*isom_time) += clock() - cputime;
+	  return offset;
+	}
+	(*isom_time) += clock() - cputime;
       }
     }
 

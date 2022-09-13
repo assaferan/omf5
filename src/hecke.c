@@ -3,12 +3,22 @@
 #include "matrix_tools.h"
 #include "neighbor.h"
 
-int process_isotropic_vector(neighbor_manager* nbr_man, int* T, hash_table* genus)
+int process_isotropic_vector(neighbor_manager* nbr_man, int* T, hash_table* genus, double* theta_time, double* isom_time, double* total_time, int* num_isom)
 {
 
   int i;
+  clock_t cputime;
+  matrix_TYP* nbr;
+  //  matrix_TYP* s;
   
-  i = indexof(genus, build_nb(nbr_man), 0);
+  nbr = build_nb(nbr_man);
+  /* s = init_mat(5,5,"1"); */
+  /* greedy(nbr, s, 5, 5); */
+  /* free_mat(s); */
+
+  cputime = clock();
+  i = indexof(genus, nbr, 0, theta_time, isom_time, num_isom);
+  (*total_time) += clock() - cputime;
 
 #ifdef DEBUG
   if ((i < 0) || (i > genus->num_stored)) {
@@ -24,27 +34,35 @@ int process_isotropic_vector(neighbor_manager* nbr_man, int* T, hash_table* genu
 
 int process_neighbour_chunk(int* T, int p, int i, int gen_idx, hash_table* genus)
 {
-  matrix_TYP *Q, *v;
- 
+  matrix_TYP *Q; 
   neighbor_manager nbr_man;
+  double theta_time, isom_time, total_time;
+  int num_isom;
+
+  num_isom = 0;
+  theta_time = isom_time = total_time = 0;
 
   Q = genus->keys[gen_idx];
-  v = get_isotropic_vector(Q, p);
+  // v = get_isotropic_vector(Q, p);
 
 #ifdef DEBUG_LEVEL_FULL
   printf("initialized Q: \n");
   print_mat(Q);
-  printf("isotropic vector: ");
-  print_mat(v);
+  // printf("isotropic vector: ");
+  // print_mat(v);
 #endif // DEBUG_LEVEL_FULL
 
   init_nbr_process(&nbr_man, Q, p, i);
 
   while (!(has_ended(&nbr_man))) {
-    process_isotropic_vector(&nbr_man, T, genus);
+    process_isotropic_vector(&nbr_man, T, genus, &theta_time, &isom_time, &total_time, &num_isom);
     advance_nbr_process(&nbr_man);
   }
 
+#ifdef DEBUG
+  printf("theta_time = %f, isom_time = %f, total_time = %f, num_isom = %d\n", theta_time, isom_time, total_time, num_isom);
+#endif // DEBUG
+  
   free_nbr_process(&nbr_man);
  
   return 0;
