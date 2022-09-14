@@ -24,6 +24,8 @@
 
 #define N 5
 
+typedef int64_t Z64; 
+
 /* function to initialize a symmetric matrix */
 matrix_TYP* init_sym_matrix(int* coeff_vec)
 {
@@ -292,11 +294,12 @@ matrix_TYP* adjugate(matrix_TYP* Q, int dim)
   return adj;
 }
 
-int* voronoi_bounds(int dim)
+Z64* voronoi_bounds(int dim)
 {
-  int* bounds, i;
+  Z64* bounds;
+  int i;
   
-  bounds = (int *)malloc(dim*sizeof(int));
+  bounds = (Z64 *)malloc(dim*sizeof(Z64));
   for (i = 0; i < dim; i++)
     bounds[i] = 1;
   return bounds; 
@@ -320,13 +323,17 @@ matrix_TYP* transform_eq(matrix_TYP* g, matrix_TYP* Q)
   //  return mat_mul(tr_pose(g), mat_muleq(Q, g));
 }
 
+// right now using integer arithmetic. Should probably run faster with floating point arithmetic
 void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
 {
-  matrix_TYP *H_int, *v_int, *y_int, *g, *min_g, *x_gram;
+  matrix_TYP *H_int, *g, *min_g, *x_gram;
 
   int **q;
-  int *voronoi, *x, *x_min, *x_max, *x_num, *x_closest;
-  int i,j, det, tmp, num_xs, x_idx, min_dist, n;
+  Z64 *voronoi, *x, *x_min, *x_max, *x_num, *x_closest;
+  int i,j, num_xs, x_idx, min_dist, n;
+
+  Z64 *y_int, *v_int;
+  Z64 tmp, det;
 
   n = Q->rows;
 
@@ -335,7 +342,8 @@ void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
   print_mat(Q);
 #endif // DEBUG_LEVEL_FULL
   
-  v_int = init_mat(1, dim-1, "");
+  // v_int = init_mat(1, dim-1, "");
+  v_int = (Z64 *)malloc((dim-1)*sizeof(Z64));
   g = init_mat(n, n, "1");
   min_g = init_mat(n, n, "");
   g->flags.Symmetric = g->flags.Scalar = g->flags.Diagonal = 0;
@@ -344,7 +352,7 @@ void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
   q = Q->array.SZ;
   
   for (i = 0; i < dim-1; i++) {
-    v_int->array.SZ[0][i] = q[i][dim-1];
+    v_int[i] = q[i][dim-1];
   }
 
 #ifdef DEBUG_LEVEL_FULL
@@ -352,34 +360,50 @@ void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
   print_mat(H_int);
 
   printf("v_int = \n");
-  print_mat(v_int);
+  //  print_mat(v_int);
+  for (i = 0; i < dim-1; i++)
+    printf("%lld ", v_int[i]);
+  printf("\n");
 #endif // DEBUG_LEVEL_FULL
   
-  y_int = mat_mul(v_int, tr_pose(H_int));
+  y_int = (Z64 *)malloc((dim-1)*sizeof(Z64));
+  // y_int = mat_mul(v_int, tr_pose(H_int));
+  
+  for (i = 0; i < dim-1; i++)
+    y_int[i] = 0;
+
+  for (i = 0; i < dim-1; i++)
+    for (j = 0; j < dim-1; j++)
+      y_int[i] += H_int->array.SZ[i][j] * v_int[j];
 
 #ifdef DEBUG_LEVEL_FULL
   printf("y_int = \n");
-  print_mat(y_int);
+  //  print_mat(y_int);
+  for (i = 0; i < dim-1; i++)
+    printf("%lld ", y_int[i]);
+  printf("\n");
 #endif // DEBUG_LEVEL_FULL
   
   voronoi = voronoi_bounds(dim-1);
-  x = (int *)malloc((dim-1)*sizeof(int));
-  x_min = (int *)malloc((dim-1)*sizeof(int));
-  x_max = (int *)malloc((dim-1)*sizeof(int));
-  x_num = (int *)malloc((dim-1)*sizeof(int));
-  x_closest = (int *)malloc((dim-1)*sizeof(int));
+  x = (Z64 *)malloc((dim-1)*sizeof(Z64));
+  x_min = (Z64 *)malloc((dim-1)*sizeof(Z64));
+  x_max = (Z64 *)malloc((dim-1)*sizeof(Z64));
+  x_num = (Z64 *)malloc((dim-1)*sizeof(Z64));
+  x_closest = (Z64 *)malloc((dim-1)*sizeof(Z64));
   
   det = 0;
-  for (i = 0; i < dim - 1; i++)
-    det += H_int->array.SZ[0][i]*q[i][0];
-  det = abs(det);
+  for (i = 0; i < dim - 1; i++) {
+    tmp = H_int->array.SZ[0][i];
+    det += tmp*q[i][0];
+  }
+  det = llabs(det);
 
   for ( i = 0; i < dim-1; i++) {
-    tmp =  y_int->array.SZ[0][i] - det*voronoi[i];
+    tmp =  y_int[i] - det*voronoi[i];
     x_min[i] = ((tmp >= 0) ? tmp+det-1 : tmp)/det;
   }
   for ( i = 0; i < dim-1; i++) {
-    tmp =  y_int->array.SZ[0][i] + det*voronoi[i];
+    tmp =  y_int[i] + det*voronoi[i];
     x_max[i] = ((tmp >= 0) ? tmp : tmp-det+1)/det;
   }
   
@@ -412,7 +436,7 @@ void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
 #ifdef DEBUG_LEVEL_FULL
   printf("x_closest = \n");
   for (i = 0; i < dim-1; i++)
-    printf("%4d ", x_closest[i]);
+    printf("%4lld ", x_closest[i]);
   printf("\n");
 #endif // DEBUG_LEVEL_FULL
   
@@ -425,10 +449,12 @@ void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
   print_mat(Q);
 #endif // DEBUG_LEVEL_FULL
 
-  free_mat(v_int);
+  //  free_mat(v_int);
+  free(v_int);
   free_mat(g);
   free_mat(min_g);
   free_mat(H_int);
+  free(y_int);
   free(x);
   free(x_min);
   free(x_max);

@@ -27,6 +27,8 @@ int main(int argc, char* argv[])
   int test_res;
   int Q_coeffs[15];
 
+  test_greedy();
+  
   if (argc == 1) {
     test_res = test_61();
     // test_res |= test_69() << 1;

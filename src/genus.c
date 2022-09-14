@@ -76,10 +76,10 @@ hash_table* get_genus_reps(matrix_TYP* Q)
     do {
       fmpz_nextprime(prime, prime, TRUE);
       p = fmpz_get_ui(prime);
-#ifdef DEBUG
-      printf("p = %d, Q = ", p);
-      print_mat(Q);
-#endif //DEBUG
+/* #ifdef DEBUG */
+/*       printf("p = %d, Q = ", p); */
+/*       print_mat(Q); */
+/* #endif //DEBUG */
     }
     while (!p_mat_det(Q, p));
 
