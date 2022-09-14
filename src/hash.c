@@ -53,7 +53,7 @@ hash_table* create_hash(hash_t hash_size)
     fmpq_init(table->probs[i]);
   table->num_stored = 0;
   table->theta_prec = INITIAL_THETA_PREC;
-  table->red_on_isom = 0;
+  table->red_on_isom = TRUE;
 
   for (i = 0; i < 2*table->capacity; i++) {
     table->key_ptr[i] = -1;
@@ -90,7 +90,7 @@ double get_isom_cost(hash_table* table, double* red_cost)
 	free_mat(s);
       }
       cputime = clock();
-      is_isometric(nbr, table->keys[i % table->num_stored]);
+      is_isometric(table->keys[i % table->num_stored], nbr);
       isom_cost += (clock() - cputime);
       advance_nbr_process(&nbr_man);
       if (has_ended(&nbr_man)) {
@@ -108,7 +108,7 @@ double get_isom_cost(hash_table* table, double* red_cost)
   return isom_cost;
 }
 
-double get_total_cost(hash_table* table, W32 theta_prec, double isom_cost, fmpq_t* wt_cnts)
+double get_total_cost(hash_table* table, W32 theta_prec, double isom_cost, double red_isom_cost, fmpq_t* wt_cnts)
 {
   hash_t i, offset, idx;
   double theta_cost, total_cost;
@@ -136,7 +136,18 @@ double get_total_cost(hash_table* table, W32 theta_prec, double isom_cost, fmpq_
   }
   total_cost -= 1;
   printf("Expecting average number of %f calls to is_isometric.\n", total_cost);
-  total_cost *= isom_cost;
+
+  table->red_on_isom = TRUE;
+  for (offset = 0; offset < table->num_stored; offset++)
+    table->red_on_isom &= (table->counts[table->vals[offset] & table->mask] == 1);
+
+  table->red_on_isom = !(table->red_on_isom);
+
+  if (table->red_on_isom)
+    total_cost *= red_isom_cost;
+  else
+    total_cost *= isom_cost;
+  
   total_cost += theta_cost;
     
   return total_cost;
@@ -156,7 +167,6 @@ hash_table* recalibrate_hash(hash_table* table)
   double old_cost;
   fmpq_t* wt_cnts;
   fmpq_t mass;
-  int red_on_isom;
 
   fmpq_init(mass);
   fmpq_zero(mass);
@@ -182,33 +192,27 @@ hash_table* recalibrate_hash(hash_table* table)
   printf("Expected cost of isometries is %f\n", isom_cost);
   printf("Expected cost of reduced isometries is %f\n", red_isom_cost + greedy_cost);
   
-  red_on_isom = FALSE;
-  if (red_isom_cost + greedy_cost < isom_cost) {
-    isom_cost = red_isom_cost + greedy_cost;
-    red_on_isom = TRUE;
-  }
-  
   theta_prec = 0;
 
-  total_cost = (table->num_stored - 1) * isom_cost;
+  total_cost = (table->num_stored - 1) * (red_isom_cost + greedy_cost);
   old_cost = total_cost + 1;
 
   // finding the minimum by brute force
   while (total_cost < old_cost) {
     theta_prec++;
     old_cost = total_cost;
-    total_cost = get_total_cost(table, theta_prec, isom_cost, wt_cnts);
+    total_cost = get_total_cost(table, theta_prec, isom_cost, red_isom_cost + greedy_cost, wt_cnts);
   }
   // we are now passed the peak, have to go back one
   theta_prec--;
 
   // #ifdef DEBUG
-  printf("Recalibrated with theta_prec = %u and red_on_isom = %d \n", theta_prec, red_on_isom);
+  printf("Recalibrated with theta_prec = %u and red_on_isom = %d \n", theta_prec, table->red_on_isom);
   // #endif // DEBUG
   
   new_table = create_hash(table->capacity);
   new_table->theta_prec = theta_prec;
-  new_table->red_on_isom = red_on_isom;
+  new_table->red_on_isom = table->red_on_isom;
   for (offset = 0; offset < table->num_stored; offset++)
     add(new_table, table->keys[offset]);
 
@@ -259,7 +263,7 @@ int _add(hash_table* table, matrix_TYP* key, hash_t val, int do_push_back)
     if ((table->vals[offset] & table->mask) == (val & table->mask)) {
       i++;
       if (table->vals[offset] == val) {
-	if (is_isometric(key,table->keys[offset]))
+	if (is_isometric(table->keys[offset], key))
 	  return 0;
       }
     }
@@ -326,7 +330,7 @@ int exists(hash_table* table, matrix_TYP* key, int check_isom)
 	return 1;
       i++;
       if (table->vals[offset] == value) {
-	if (is_isometric(key,table->keys[offset]))
+	if (is_isometric(table->keys[offset], key))
 	   return 1;
       }
     }
@@ -367,7 +371,7 @@ int indexof(hash_table* table, matrix_TYP* key, int check_isom, double* theta_ti
 	  greedy(key, s, 5, 5);
 	  free_mat(s);
 	}
-	if (is_isometric(key,table->keys[offset])) {
+	if (is_isometric(table->keys[offset], key)) {
 	  (*isom_time) += clock() - cputime;
 	  return offset;
 	}

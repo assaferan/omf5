@@ -32,15 +32,13 @@ int process_isotropic_vector(neighbor_manager* nbr_man, int* T, hash_table* genu
   return 0;
 }
 
-int process_neighbour_chunk(int* T, int p, int i, int gen_idx, hash_table* genus)
+int process_neighbour_chunk(int* T, int p, int i, int gen_idx, hash_table* genus, double* theta_time, double* isom_time, double* total_time, int* num_isom)
 {
   matrix_TYP *Q; 
   neighbor_manager nbr_man;
-  double theta_time, isom_time, total_time;
-  int num_isom;
+  int lc;
 
-  num_isom = 0;
-  theta_time = isom_time = total_time = 0;
+  lc = 0;
 
   Q = genus->keys[gen_idx];
   // v = get_isotropic_vector(Q, p);
@@ -55,27 +53,32 @@ int process_neighbour_chunk(int* T, int p, int i, int gen_idx, hash_table* genus
   init_nbr_process(&nbr_man, Q, p, i);
 
   while (!(has_ended(&nbr_man))) {
-    process_isotropic_vector(&nbr_man, T, genus, &theta_time, &isom_time, &total_time, &num_isom);
+    process_isotropic_vector(&nbr_man, T, genus, theta_time, isom_time, total_time, num_isom);
     advance_nbr_process(&nbr_man);
+    lc++;
   }
-
-#ifdef DEBUG
-  printf("theta_time = %f, isom_time = %f, total_time = %f, num_isom = %d\n", theta_time, isom_time, total_time, num_isom);
-#endif // DEBUG
   
   free_nbr_process(&nbr_man);
  
-  return 0;
+  return lc;
 }
 
 // assumes T is initialized to zeros
 void hecke_col(int* T, int p, int gen_idx, hash_table* genus)
 {
   int num;
+  int num_isom, lc;
+  double theta_time, isom_time, total_time;
+  num_isom = lc = 0;
+  theta_time = isom_time = total_time = 0;
   
   for (num = 0; num < p; num++) {
-    process_neighbour_chunk(T, p, num, gen_idx, genus);
+    lc += process_neighbour_chunk(T, p, num, gen_idx, genus, &theta_time, &isom_time, &total_time, &num_isom);
   }
+
+#ifdef DEBUG
+  printf("theta_time = %f, isom_time = %f, total_time = %f, num_isom = %d / %d \n", theta_time/lc, isom_time/lc, total_time, num_isom, lc);
+#endif // DEBUG
 
   return;
 }

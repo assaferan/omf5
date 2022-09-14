@@ -3,6 +3,7 @@
 
 int test_61();
 int test_69();
+int test_greedy();
 
 int compute_eigenvectors(int* Q_coeffs);
 

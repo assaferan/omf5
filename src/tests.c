@@ -83,7 +83,7 @@ int test(int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_idx)
       }
     }
 
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
     hecke = hecke_matrix(genus, ps[i]);
     print_mat(hecke);
 
@@ -96,7 +96,7 @@ int test(int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_idx)
     }
     printf("\n");
     free_mat(hecke);
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
    
   }
 
@@ -131,6 +131,29 @@ int test_69()
   int Q_coeffs[15] = {2,0,2,0,0,2,1,0,0,2,0,0,1,0,12};
 
   return test(Q_coeffs, ps, test_evs, 25, 0);
+}
+
+int test_greedy()
+{
+  int Q_coeffs[15] = {8,2,26,2,5,292,3,13,-115,1956,298,69,-60,88,11166};
+  int Q_coeffs_2[15] = {12,6,16,-4,-4,842,-5,-5,175,23596,-125,772,-5402,-1517,88494};
+  matrix_TYP* Q, *s;
+
+  s = init_mat(5, 5, "1");
+  Q = init_sym_matrix(Q_coeffs_2);
+  greedy(Q, s, 5, 5);
+  print_mat(Q);
+  free_mat(s);
+  free_mat(Q);
+  
+  s = init_mat(5, 5, "1");
+  Q = init_sym_matrix(Q_coeffs);
+  greedy(Q, s, 5, 5);
+  print_mat(Q);
+  free_mat(s);
+  free_mat(Q);
+
+  return 0;
 }
 
 int compute_eigenvectors(int* Q_coeffs)
