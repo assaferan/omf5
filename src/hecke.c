@@ -108,12 +108,12 @@ void get_hecke_ev(nf_elem_t e, hash_table* genus, eigenvalues* evs, int p, int e
   for (num = 0; num < genus->num_stored; num++)
     a[num] = 0;
 
-  pivot = 0;
-  for (k = 0; k < evs->dim; k++)
-    if (nf_elem_is_zero(evs->eigenvecs[ev_idx][k], evs->nfs[ev_idx])) {
-      pivot++;
+  for (pivot = 0; pivot < evs->dim;) {
+    if (!(nf_elem_is_zero(evs->eigenvecs[ev_idx][pivot], evs->nfs[ev_idx]))) {
+      break;
     }
-  
+    pivot++;
+  }
   clock_t cpuclock;
   double cputime;
   
