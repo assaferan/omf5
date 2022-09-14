@@ -27,7 +27,7 @@
 typedef int64_t Z64; 
 
 /* function to initialize a symmetric matrix */
-matrix_TYP* init_sym_matrix(int* coeff_vec)
+matrix_TYP* init_sym_matrix(const int* coeff_vec)
 {
   int row, col, idx;
   matrix_TYP* Q_mat;

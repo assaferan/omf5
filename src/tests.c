@@ -9,7 +9,7 @@
 /* Run with test_evs = NULL to just print all the eigenvalues.
    Run with num_evs = 0 to print all the eigenvectors          */
 
-int test(int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_idx)
+STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_idx)
 {
   int i;
   int j;
@@ -111,10 +111,10 @@ int test(int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_idx)
   free_hash(genus);
   free_mat(Q);
   
-  return TRUE;
+  return SUCCESS;
 }
 
-int test_61()
+STATUS test_61()
 {
   int ps[25] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97};
   int test_evs[25] = {-7, -3, 3, -9, -4, -3, 37, -75, 10, 212, -6, -88, -3, 547, -147, -108, -45,
@@ -124,7 +124,7 @@ int test_61()
   return test(Q_coeffs, ps, test_evs, 25, 0);
 }
 
-int test_69()
+STATUS test_69()
 {
   int ps[25] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97};
   int test_evs[25] = {-6, -5, 8, -12, 2, -35, 50, 22, -156, -85, -63, 152, -119, -332, 369, 500, -240, 88, 250, 597, -389, 234, -656, -342, -1342};
@@ -133,44 +133,71 @@ int test_69()
   return test(Q_coeffs, ps, test_evs, 25, 0);
 }
 
-int test_greedy()
+STATUS test_greedy(const int* Q_coeffs, const int* red_Q_coeffs)
 {
-  int Q_coeffs[15] = {8,2,26,2,5,292,3,13,-115,1956,298,69,-60,88,11166};
-  int Q_coeffs_2[15] = {12,6,16,-4,-4,842,-5,-5,175,23596,-125,772,-5402,-1517,88494};
-  matrix_TYP* Q, *s;
+  matrix_TYP *Q, *s, *red_Q;
+  STATUS ret;
 
-  s = init_mat(5, 5, "1");
-  Q = init_sym_matrix(Q_coeffs_2);
-  greedy(Q, s, 5, 5);
-  print_mat(Q);
-  free_mat(s);
-  free_mat(Q);
+  ret = SUCCESS;
   
   s = init_mat(5, 5, "1");
   Q = init_sym_matrix(Q_coeffs);
   greedy(Q, s, 5, 5);
+  red_Q = init_sym_matrix(red_Q_coeffs);
+  
+#ifdef DEBUG
   print_mat(Q);
+#endif // DEBUG
+
+  for (int i = 0; i < 5; i++) {
+    for (int j = 0; j < 5; j++) {
+      if (Q->array.SZ[i][j] != red_Q->array.SZ[i][j]) {
+	ret = FAIL;
+	break;
+      }
+    }
+    if (ret == FAIL)
+      break;
+  }
+  
   free_mat(s);
   free_mat(Q);
+  free_mat(red_Q);
 
-  return 0;
+  return ret;
 }
 
-int compute_eigenvectors(int* Q_coeffs)
+STATUS test_greedy_overflow()
+{
+  STATUS ret;
+  
+  int Q1[15] = {8,2,26,2,5,292,3,13,-115,1956,298,69,-60,88,11166};
+  int Q2[15] = {12,6,16,-4,-4,842,-5,-5,175,23596,-125,772,-5402,-1517,88494};
+  int red_Q[15] = {2,1,2,1,0,2,1,0,1,6,1,1,1,0,8};
+
+  ret = test_greedy(Q1, red_Q) << 1;
+
+  ret |= test_greedy(Q2, red_Q);
+
+  return ret;
+}
+
+STATUS compute_eigenvectors(const int* Q_coeffs)
 {
   return test(Q_coeffs, NULL, NULL, 0, 0);
 }
 
-int compute_eigenvalues(int* Q_coeffs, int form_idx, int p)
+STATUS compute_eigenvalues(const int* Q_coeffs, int form_idx, int p)
 {
   return test(Q_coeffs, &p, NULL, 1, form_idx);
 }
 
-int compute_eigenvalues_up_to(int* Q_coeffs, int form_idx, int prec)
+STATUS compute_eigenvalues_up_to(const int* Q_coeffs, int form_idx, int prec)
 {
   int* ps;
   int* sieve;
   int num_ps, p, i;
+  STATUS res;
 
   num_ps = 0;
   sieve = malloc((prec+2) * sizeof(int));
@@ -191,7 +218,7 @@ int compute_eigenvalues_up_to(int* Q_coeffs, int form_idx, int prec)
 
   free(sieve);
   
-  int res = test(Q_coeffs, ps, NULL, num_ps, form_idx);
+  res = test(Q_coeffs, ps, NULL, num_ps, form_idx);
 
   free(ps);
   

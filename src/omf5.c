@@ -24,14 +24,14 @@ int parse_matrix(const char* mat_str, int* Q_coeffs)
 int main(int argc, char* argv[])
 {
   int form_idx, prec;
-  int test_res;
   int Q_coeffs[15];
-
-  test_greedy();
+  STATUS test_res;
   
   if (argc == 1) {
-    test_res = test_61();
-    // test_res |= test_69() << 1;
+    test_res = test_greedy() << 1;
+    test_res |= test_61();
+    test_res <<= 1;
+    test_res |= test_69();
     return test_res;
   }
   

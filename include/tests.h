@@ -1,14 +1,19 @@
 #ifndef __TESTS_H__
 #define __TESTS_H__
 
-int test_61();
-int test_69();
-int test_greedy();
+typedef int STATUS;
 
-int compute_eigenvectors(int* Q_coeffs);
+#define SUCCESS 0
+#define FAIL    1
 
-int compute_eigenvalues(int* Q_coeffs, int form_idx, int p);
+STATUS test_61();
+STATUS test_69();
+STATUS test_greedy();
 
-int compute_eigenvalues_up_to(int* Q_coeffs, int form_idx, int prec);
+STATUS compute_eigenvectors(const int* Q_coeffs);
+
+STATUS compute_eigenvalues(const int* Q_coeffs, int form_idx, int p);
+
+STATUS compute_eigenvalues_up_to(const int* Q_coeffs, int form_idx, int prec);
 
 #endif // __TESTS_H__
