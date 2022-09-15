@@ -482,3 +482,29 @@ void fmpq_floor(fmpz_t res, const fmpq_t r)
   fmpz_fdiv_q(res, fmpq_numref(r), fmpq_denref(r));
   return;
 }
+
+int primes_up_to(int** ps, int bound)
+{
+  int num_ps, p, i;
+  int* sieve;
+  
+  num_ps = 0;
+  sieve = malloc((bound+2) * sizeof(int));
+  *ps = malloc(bound * sizeof(int));
+  // since bound is small we construct the first primes using aristothenes sieve
+  // replace by fmpz_nextprime if improving.
+  for (i = 0; i <= bound+1; i++)
+    sieve[i] = i;
+  
+  p = 2;
+  while(p <= bound) {
+    (*ps)[num_ps] = p;
+    num_ps++;
+    for (i = p; i <= bound; i+= p)
+      sieve[i] = -1;
+    while(sieve[p] == -1) p++;
+  }
+
+  free(sieve);
+  return num_ps;
+}

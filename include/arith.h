@@ -39,4 +39,6 @@ int fmpq_is_integral(const fmpq_t r);
 
 void fmpq_floor(fmpz_t res, const fmpq_t r);
 
+int primes_up_to(int** ps, int bound);
+
 #endif // __ARITH_H

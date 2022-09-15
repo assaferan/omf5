@@ -1,5 +1,6 @@
 #include <time.h>
 
+#include "arith.h"
 #include "genus.h"
 #include "hash.h"
 #include "hecke.h"
@@ -195,28 +196,10 @@ STATUS compute_eigenvalues(const int* Q_coeffs, int form_idx, int p)
 STATUS compute_eigenvalues_up_to(const int* Q_coeffs, int form_idx, int prec)
 {
   int* ps;
-  int* sieve;
-  int num_ps, p, i;
+  int num_ps;
   STATUS res;
 
-  num_ps = 0;
-  sieve = malloc((prec+2) * sizeof(int));
-  ps = malloc(prec * sizeof(int));
-  // since prec is small we construct the first primes using aristothenes sieve
-  // replace by fmpz_nextprime if improving.
-  for (i = 0; i <= prec+1; i++)
-    sieve[i] = i;
-  num_ps = 0;
-  p = 2;
-  while(p <= prec) {
-    ps[num_ps] = p;
-    num_ps++;
-    for (i = p; i <= prec; i+= p)
-      sieve[i] = -1;
-    while(sieve[p] == -1) p++;
-  }
-
-  free(sieve);
+  num_ps = primes_up_to(&ps, prec);
   
   res = test(Q_coeffs, ps, NULL, num_ps, form_idx);
 

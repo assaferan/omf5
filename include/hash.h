@@ -45,7 +45,7 @@ matrix_TYP* get_key(hash_table* table, matrix_TYP* key, int* index);
 
 int exists(hash_table* table, matrix_TYP* key, int check_isom);
 
-int indexof(hash_table* table, matrix_TYP* key, int check_isom, double* theta_time, double* isom_time, int* num_isom);
+int indexof(const hash_table* table, matrix_TYP* key, int check_isom, double* theta_time, double* isom_time, int* num_isom);
 
 void expand(hash_table* table);
 

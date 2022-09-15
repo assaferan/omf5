@@ -1,4 +1,7 @@
+#include <assert.h>
 #include <limits.h>
+#include <stdlib.h>
+#include <time.h>
 
 #include <antic/nf.h>
 #include <antic/nf_elem.h>
@@ -12,6 +15,7 @@
 
 #include "matrix_tools.h"
 #include "nf_mat.h"
+#include "typedefs.h"
 
 /* Right now working with matrices as in CARAT package
  * using matrix_TYP.
@@ -23,8 +27,6 @@
 /* For now, we use N = 5 hard coded */
 
 #define N 5
-
-typedef int64_t Z64; 
 
 /* function to initialize a symmetric matrix */
 matrix_TYP* init_sym_matrix(const int* coeff_vec)
@@ -673,6 +675,378 @@ void greedy(matrix_TYP* gram, matrix_TYP* s, int n, int dim)
   
   return;
 
+}
+
+// assumes res is already initialized and is in the correct length
+void fmpz_vec_mul_mat(fmpz_t* res, const fmpz_t* v, const fmpz_mat_t mat)
+{
+  slong i,j;
+  fmpz_t *vT;
+
+  vT = (fmpz_t*)malloc(fmpz_mat_ncols(mat) * sizeof(fmpz_t));
+  for (j = 0; j < fmpz_mat_ncols(mat); j++) {
+    fmpz_init(vT[j]);
+    fmpz_zero(vT[j]);
+  }
+  
+  for (i = 0; i < fmpz_mat_nrows(mat); i++)
+    for (j = 0; j < fmpz_mat_ncols(mat); j++)
+      fmpz_addmul(vT[j], v[i], fmpz_mat_entry(mat, i, j));
+
+  for (j = 0; j < fmpz_mat_ncols(mat); j++) {
+    fmpz_set(res[j], vT[j]);
+    fmpz_clear(vT[j]);
+  }
+  
+  free(vT);
+  return;
+}
+
+void nf_elem_vec_mul_fmpq_mat(nf_elem_t* res, const nf_elem_t* v, const fmpq_mat_t mat, const nf_t nf)
+{
+  slong i,j;
+  nf_elem_t tmp;
+
+  assert(res != v);
+
+  nf_elem_init(tmp, nf);
+ 
+  for (j = 0; j < fmpq_mat_ncols(mat); j++) {
+    nf_elem_zero(res[j], nf);
+  }
+  
+  for (i = 0; i < fmpq_mat_nrows(mat); i++)
+    for (j = 0; j < fmpq_mat_ncols(mat); j++) {
+      nf_elem_scalar_mul_fmpq(tmp, v[i], fmpq_mat_entry(mat, i, j), nf);
+      nf_elem_add(res[j], res[j], tmp, nf);
+    }
+
+  nf_elem_clear(tmp, nf);
+  return;
+}
+
+// evec and nf should already be allocated and initialized
+void mat_irred_charpoly_eigenvector(nf_elem_t* evec, const fmpq_mat_t mat, const fmpq_poly_t f, const nf_t nf)
+{
+  slong i, j, n;
+  fmpz_t denom, g;
+  fmpq_t coeff, denom_scale, scale;
+  nf_elem_t a, b, tmp;
+  nf_elem_t *c, *u;
+  fmpz_mat_t scaled_mat;
+  fmpz_t *v, *vv;
+  BOOL is_zero;
+  
+  n = fmpq_poly_degree(f);
+
+  assert( (fmpq_mat_nrows(mat) == n) && (fmpq_mat_ncols(mat) == n) );
+  
+  if (n == 1) {
+    nf_elem_one(evec[0], nf);
+    return;
+  }
+
+  nf_elem_init(a, nf);
+  nf_elem_init(b, nf);
+  nf_elem_init(tmp, nf);
+  fmpq_init(coeff);
+  fmpq_init(denom_scale);
+  fmpq_init(scale);
+  fmpz_init(denom);
+  fmpz_init(g);
+  fmpz_mat_init(scaled_mat, n, n);
+
+  nf_elem_gen(a, nf);
+  nf_elem_inv(b, a, nf);
+
+  c = (nf_elem_t*) malloc(n*sizeof(nf_elem_t));
+  u = (nf_elem_t*) malloc(n*sizeof(nf_elem_t));
+  
+  for (i = 0; i < n; i++)
+    nf_elem_init(c[i], nf);
+
+  for (i = 0; i < n; i++)
+    nf_elem_init(u[i], nf);
+
+  v = (fmpz_t*) malloc(n*sizeof(fmpz_t));
+  vv = (fmpz_t*) malloc(n*sizeof(fmpz_t));
+
+  for (i = 0; i < n; i++)
+    fmpz_init(v[i]);
+  
+  for (i = 0; i < n; i++)
+    fmpz_init(vv[i]);
+
+  // c[0] = -b*f(0)
+  fmpq_poly_get_coeff_fmpq(coeff, f, 0);
+  fmpq_neg(coeff, coeff);
+  nf_elem_scalar_mul_fmpq(c[0], b, coeff, nf);
+
+  for (i = 1; i < n; i++) {
+    // c[i] = (c[i-1] - coeff(f,i))*b
+    fmpq_poly_get_coeff_fmpq(coeff, f, i);
+    nf_elem_sub_fmpq(c[i], c[i-1], coeff, nf);
+    nf_elem_mul(c[i], c[i], b, nf);
+  }
+
+  // scaling
+  // denom := LCM([Denominator(x): x in Eltseq(T)]);
+  // T := Matrix(S, denom*T);
+  fmpq_mat_get_fmpz_mat_matwise(scaled_mat, denom, mat);
+  // denom_scale = 1/denom
+  fmpq_set_fmpz(denom_scale, denom);
+  fmpq_inv(denom_scale, denom_scale);
+  
+  for (i = 0; i < n; i++)
+    fmpz_zero(v[i]);
+
+  srand(time(NULL));
+  do {
+    i = rand()/((RAND_MAX + 1u)/n);
+    fmpz_add_ui(v[i],v[i],1);
+    for (j = 0; j < n; j++)
+      nf_elem_scalar_mul_fmpz(evec[j], c[0], v[j], nf);
+    for (j = 0; j < n; j++)
+      fmpz_set(vv[j], v[j]);
+    fmpq_set(scale, denom_scale);
+    for (i = 1; i < n; i++) {
+      fmpz_vec_mul_mat(vv, vv, scaled_mat);
+      for (j = 0; j < n; j++)
+	nf_elem_set_fmpz(u[j], vv[j], nf);
+      if (!(fmpq_is_one(denom_scale))) {
+	fmpz_zero(g);
+	for (j = 0; j < n; j++)
+	  fmpz_gcd(g,g,vv[j]);
+	if (!(fmpz_is_one(g))) {
+	  for (j = 0; j < n; j++)
+	    fmpz_divexact(vv[j], vv[j], g);
+	  fmpq_mul_fmpz(scale, scale, g);
+	}
+	for (j = 0; j < n; j++)
+	  nf_elem_set_fmpz(u[j], vv[j], nf);
+	for (j = 0; j < n; j++)
+	  nf_elem_scalar_mul_fmpq(u[j],u[j],scale,nf);
+	fmpq_mul(scale, scale, denom_scale);
+      }
+      else {
+	for (j = 0; j < n; j++)
+	  nf_elem_set_fmpz(u[j], vv[j], nf);
+      }
+      for (j = 0; j < n; j++) {
+	nf_elem_mul(tmp, c[i], u[j], nf);
+	nf_elem_add(evec[j], evec[j], tmp, nf);
+      }
+    }
+    is_zero = TRUE;
+    for (j = 0; j < n; j++) {
+      if (!(nf_elem_is_zero(evec[j], nf))) {
+	is_zero = FALSE;
+	break;
+      }
+    }
+  } while (is_zero);
+  
+  for (i = 0; i < n; i++)
+    fmpz_clear(vv[i]);
+  free(vv);
+  for (i = 0; i < n; i++)
+    fmpz_clear(v[i]);
+  free(v);
+  for (i = 0; i < n; i++)
+    nf_elem_clear(u[i], nf);
+  free(u);
+  for (i = 0; i < n; i++)
+    nf_elem_clear(c[i], nf);
+  free(c);
+  fmpz_mat_clear(scaled_mat);
+  fmpz_clear(g);
+  fmpz_clear(denom);
+  fmpq_clear(scale);
+  fmpq_clear(denom_scale);
+  fmpq_clear(coeff);
+  nf_elem_clear(tmp, nf);
+  nf_elem_clear(b, nf);
+  nf_elem_clear(a, nf);
+  
+  return;
+}
+
+// This is what we do in magma. Could be faster to work with the integral matrices whenever we can
+// assumes res_T is initialized
+void restrict_mat(fmpq_mat_t res_T, const fmpq_mat_t T, const fmpq_mat_t basis_W)
+{
+  fmpq_mat_t B_t;
+  
+  if (fmpq_mat_nrows(basis_W) == 0) {
+    return;
+  }
+
+  fmpq_mat_mul(res_T, basis_W, T);
+  // we transpose, since we solve for the other direction
+  fmpq_mat_transpose(res_T, res_T);
+  fmpq_mat_init(B_t, fmpq_mat_nrows(basis_W), fmpq_mat_ncols(basis_W));
+  fmpq_mat_transpose(B_t, basis_W);
+  
+  fmpq_mat_solve_fraction_free(res_T, B_t, res_T);
+
+  fmpq_mat_transpose(res_T, res_T);
+
+  fmpq_mat_clear(B_t);
+
+  return;
+}
+
+// initializes nf and evec (assumes evec is allocated)
+void get_eigenvector(nf_elem_t* evec, nf_t nf, const fmpq_mat_t T, const fmpq_mat_t basis_W)
+{
+  slong i, dim_W, dim;
+  fmpq_mat_t T_W;
+  fmpq_poly_t f;
+  nf_elem_t* evec_W;
+
+  dim_W = fmpq_mat_nrows(basis_W);
+  dim = fmpq_mat_ncols(basis_W);
+
+  assert ((dim == fmpq_mat_nrows(T)) && (dim == fmpq_mat_ncols(T)) );
+  
+  evec_W = (nf_elem_t*) malloc(dim_W * sizeof(nf_elem_t));
+
+  fmpq_mat_init(T_W, dim_W, dim_W);
+  restrict_mat(T_W, T, basis_W);
+  fmpq_poly_init(f);
+  fmpq_mat_charpoly(f, T_W);
+  nf_init(nf, f);
+  for (i = 0; i < dim; i++)
+    nf_elem_init(evec[i], nf);
+  for (i = 0; i < dim_W; i++)
+    nf_elem_init(evec_W[i], nf);
+  
+  mat_irred_charpoly_eigenvector(evec_W, T_W, f, nf);
+  nf_elem_vec_mul_fmpq_mat(evec, evec_W, basis_W, nf);
+
+  for (i = 0; i < dim_W; i++)
+    nf_elem_clear(evec_W[i], nf);
+  free(evec_W);
+  fmpq_mat_clear(T_W);
+  
+  return;
+}
+
+void fmpq_poly_factor(fmpq_poly_factor_t factors, const fmpq_poly_t f)
+{
+  slong i;
+  fmpz_poly_t f_int;
+  fmpz_poly_factor_t f_int_fac;
+
+  fmpz_poly_init(f_int);
+  fmpz_poly_factor_init(f_int_fac);
+ 
+  fmpq_poly_get_numerator(f_int, f);
+  fmpz_poly_factor_zassenhaus(f_int_fac, f_int);
+  factors->num = f_int_fac->num;
+  factors->p = (fmpq_poly_struct*)malloc(factors->num * sizeof(fmpq_poly_struct));
+  factors->exp = (slong*)malloc(factors->num * sizeof(slong));
+  for (i = 0; i < factors->num; i++) {
+    factors->exp[i] = f_int_fac->exp[i];
+    fmpq_poly_set_fmpz_poly(&(factors->p[i]), &(f_int_fac->p[i]));
+  }
+  
+  fmpz_poly_factor_clear(f_int_fac);
+  fmpz_poly_clear(f_int);
+  return;
+}
+
+void fmpq_poly_factor_free(fmpq_poly_factor_t factors)
+{
+  free(factors->p);
+  free(factors->exp);
+}
+
+void fmpq_poly_evaluate_fmpq_mat(fmpq_mat_t res, const fmpq_poly_t poly, const fmpq_mat_t a)
+{
+  slong i, n, r;
+  fmpq_t coeff;
+  fmpq_mat_t scalar;
+
+  fmpq_init(coeff);
+  r = fmpq_mat_nrows(a);
+  assert (r == fmpq_mat_ncols(a));
+  fmpq_mat_init(scalar, r, r);
+  
+  fmpq_mat_zero(res);
+  n = fmpq_poly_degree(poly);
+  for (i = n; i >= 0; i--) {
+    fmpq_mat_mul(res, res, a);
+    fmpq_poly_get_coeff_fmpq(coeff, poly, i);
+    fmpq_mat_one(scalar);
+    fmpq_mat_scalar_mul_fmpq(scalar, scalar, coeff);
+    fmpq_mat_add(res, res, scalar);
+  }
+
+  fmpq_mat_clear(scalar);
+  fmpq_clear(coeff);
+      
+  return;
+}
+
+// initializes the kernel
+void fmpq_mat_left_kernel(fmpq_mat_t kernel, const fmpq_mat_t mat)
+{
+  fmpq_mat_t echelon, trans;
+  slong rank, row, col;
+
+  fmpq_mat_init_set(echelon, mat);
+  fmpq_mat_init(trans, fmpq_mat_nrows(mat), fmpq_mat_ncols(mat));
+
+  rank = fmpq_mat_rref_classical(echelon, trans);
+  
+  // getting the zero rows
+  fmpq_mat_init(kernel, fmpq_mat_nrows(mat)-rank, fmpq_mat_nrows(mat));
+
+  // !! TODO - we could optimize this by using windows
+  for (row = rank; row < fmpq_mat_nrows(mat); row++)
+    for (col = 0; col < fmpq_mat_nrows(mat); col++)
+      fmpq_set(fmpq_mat_entry(kernel,row-rank,col), fmpq_mat_entry(trans,row,col));
+  
+  fmpq_mat_clear(echelon);
+  fmpq_mat_clear(trans);
+   
+  return;
+}
+
+void fmpq_mat_kernel(fmpq_mat_t ker, const fmpq_mat_t mat)
+{
+  fmpq_mat_t tr_mat;
+
+  fmpq_mat_init(tr_mat, fmpq_mat_ncols(mat), fmpq_mat_nrows(mat));
+  
+  fmpq_mat_transpose(tr_mat, mat);
+  fmpq_mat_left_kernel(ker, tr_mat);
+
+  fmpq_mat_clear(tr_mat);
+
+  return;
+}
+
+// initializes ker
+void kernel_on(fmpq_mat_t ker, const fmpq_mat_t A, const fmpq_mat_t B)
+{
+  fmpq_mat_kernel(ker, A);
+  fmpq_mat_mul(ker, ker, B);
+  return;
+}
+
+void fmpq_mat_init_set_matrix_TYP(fmpq_mat_t M, const matrix_TYP* mat)
+{
+  slong row, col;
+  
+  fmpq_mat_init(M, mat->rows, mat->cols);
+
+  for (row = 0; row < mat->rows; row++)
+    for (col = 0; col  < mat->cols; col++)
+      fmpq_set_si(fmpq_mat_entry(M, row, col), mat->array.SZ[row][col], 1);
+
+  return;
 }
 
 eigenvalues* get_eigenvalues(matrix_TYP* mat)

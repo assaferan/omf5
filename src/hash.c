@@ -341,7 +341,7 @@ int exists(hash_table* table, matrix_TYP* key, int check_isom)
   return 0;
 }
 
-int indexof(hash_table* table, matrix_TYP* key, int check_isom, double* theta_time, double* isom_time, int* num_isom)
+int indexof(const hash_table* table, matrix_TYP* key, int check_isom, double* theta_time, double* isom_time, int* num_isom)
 {
   int offset, i;
   hash_t index, value;

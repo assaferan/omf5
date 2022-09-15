@@ -1,10 +1,7 @@
 #ifndef __TESTS_H__
 #define __TESTS_H__
 
-typedef int STATUS;
-
-#define SUCCESS 0
-#define FAIL    1
+#include "typedefs.h"
 
 STATUS test_61();
 STATUS test_69();
