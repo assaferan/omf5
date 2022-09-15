@@ -1123,6 +1123,21 @@ eigenvalues* get_eigenvalues(matrix_TYP* mat)
   return evs;
 }
 
+void eigenvalues_init(eigenvalues** evs, slong num, slong dim)
+{
+  slong i;
+  
+  (*evs)->num = num;
+  (*evs)->dim = dim;
+  (*evs)->nfs = (nf_t*)malloc(num * sizeof(nf_t));
+  (*evs)->eigenvals = (nf_elem_t*)malloc(num * sizeof(nf_elem_t));
+  (*evs)->eigenvecs = (nf_elem_t**)malloc(num * sizeof(nf_elem_t*));
+  for (i = 0; i < num; i++)
+    (*evs)->eigenvecs[i] = (nf_elem_t*)malloc(dim * sizeof(nf_elem_t));
+  
+  return;
+}
+
 void free_eigenvalues(eigenvalues* evs)
 {
   int i, j;

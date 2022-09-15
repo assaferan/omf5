@@ -260,3 +260,30 @@ decomposition* decompose(const hash_table* genus)
 
   return decomp;
 }
+
+eigenvalues* hecke_eigenforms(const hash_table* genus)
+{
+  matrix_TYP* hecke_mat;
+  fmpq_mat_t T;
+  slong i;
+  eigenvalues* evs;
+  decomposition* D;
+  
+  evs = (eigenvalues*)malloc(sizeof(eigenvalues));
+  D = decompose(genus);
+
+  eigenvalues_init(&evs, D->num, genus->num_stored);
+
+  hecke_mat = hecke_matrix(genus, 2);
+  fmpq_mat_init_set_matrix_TYP(T, hecke_mat);
+  
+  for (i = 0; i < D->num; i++) {
+    get_eigenvector(evs->eigenvecs[i], evs->nfs[i], T, D->bases[i]);
+    nf_elem_init(evs->eigenvals[i], evs->nfs[i]);
+    nf_elem_gen(evs->eigenvals[i], evs->nfs[i]);
+  }
+
+  free_mat(hecke_mat);
+  
+  return evs;
+}

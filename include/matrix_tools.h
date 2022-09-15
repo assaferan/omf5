@@ -53,6 +53,10 @@ struct eigenvalues_t {
 
 typedef struct eigenvalues_t eigenvalues;
 
+void eigenvalues_init(eigenvalues** evs, slong num, slong dim);
+
+void get_eigenvector(nf_elem_t* evec, nf_t nf, const fmpq_mat_t T, const fmpq_mat_t basis_W);
+
 eigenvalues* get_eigenvalues(matrix_TYP* mat);
 
 void free_eigenvalues(eigenvalues* evs);
