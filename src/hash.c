@@ -397,7 +397,11 @@ void expand(hash_table* table)
   // problem - this might invalidate existing references to the HashMap (e.g. mother)
   table->keys = realloc(table->keys, (table->capacity)*sizeof(matrix_TYP*));
   table->vals = realloc(table->vals, (table->capacity)*sizeof(matrix_TYP*));
+  table->probs = realloc(table->probs, (table->capacity)*sizeof(matrix_TYP*));
 
+  for (i = 0; i < table->capacity; i++)
+    fmpq_init(table->probs[i]);
+  
   free(table->key_ptr);
   table->key_ptr = (hash_t*)malloc((table->capacity << 1)*sizeof(int));
   free(table->counts);

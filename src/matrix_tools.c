@@ -984,11 +984,16 @@ void fmpq_poly_evaluate_fmpq_mat(fmpq_mat_t res, const fmpq_poly_t poly, const f
   slong i, n, r;
   fmpq_t coeff;
   fmpq_mat_t scalar;
+  fmpz_mat_t num;
+  fmpz_t denom, mat_gcd;
 
+  fmpz_init(denom);
+  fmpz_init(mat_gcd);
   fmpq_init(coeff);
   r = fmpq_mat_nrows(a);
   assert (r == fmpq_mat_ncols(a));
   fmpq_mat_init(scalar, r, r);
+  fmpz_mat_init(num, r, r);
   
   fmpq_mat_zero(res);
   n = fmpq_poly_degree(poly);
@@ -1000,7 +1005,17 @@ void fmpq_poly_evaluate_fmpq_mat(fmpq_mat_t res, const fmpq_poly_t poly, const f
     fmpq_mat_add(res, res, scalar);
   }
 
+  if (!fmpq_mat_is_zero(res)) {
+    // reducing size of coefficients
+    fmpq_mat_get_fmpz_mat_matwise(num, denom, res);
+    fmpz_mat_content(mat_gcd, num);
+    fmpq_mat_scalar_div_fmpz(res, res, mat_gcd);
+  }
+
+  fmpz_mat_clear(num);
   fmpq_mat_clear(scalar);
+  fmpz_clear(denom);
+  fmpz_clear(mat_gcd);
   fmpq_clear(coeff);
       
   return;
@@ -1080,11 +1095,51 @@ void fmpq_mat_left_kernel(fmpq_mat_t ker, const fmpq_mat_t mat)
   return;
 }
 
+void print_content_and_coeff_size(const fmpq_mat_t A, const char* name)
+{
+  fmpz_mat_t num;
+  fmpz_t mat_gcd, denom;
+  mp_bitcnt_t coeff_size;
+  slong i,j;
+
+  fmpz_init(mat_gcd);
+  fmpz_init(denom);
+  
+  fmpz_mat_init(num, fmpq_mat_nrows(A), fmpq_mat_ncols(A));
+  fmpq_mat_get_fmpz_mat_matwise(num, denom, A);
+  fmpz_mat_content(mat_gcd, num);
+  coeff_size = 0;
+  for (i = 0; i < fmpz_mat_nrows(num); i++)
+    for (j = 0; j < fmpz_mat_ncols(num); j++)
+      if (fmpz_bits(fmpz_mat_entry(num, i,j)) > coeff_size)
+	coeff_size = fmpz_bits(fmpz_mat_entry(num, i,j));
+  printf("content of %s is %ld, size of coefficients is %lu\n", name, fmpz_get_si(mat_gcd), coeff_size);
+  
+  fmpz_clear(mat_gcd);
+  fmpz_clear(denom);
+  fmpz_mat_clear(num);
+  return;
+}
+
 // initializes ker
 void kernel_on(fmpq_mat_t ker, const fmpq_mat_t A, const fmpq_mat_t B)
 {
+#ifdef DEBUG
+  print_content_and_coeff_size(A, "A");
+  print_content_and_coeff_size(B, "B");
+#endif // DEBUG
+  
   fmpq_mat_kernel(ker, A);
+
+#ifdef DEBUG
+  print_content_and_coeff_size(ker, "ker(A)");
+#endif // DEBUG
+  
   fmpq_mat_mul(ker, ker, B);
+
+#ifdef DEBUG
+  print_content_and_coeff_size(ker, "ker(A)*B");
+#endif // DEBUG
   return;
 }
 
