@@ -10,7 +10,7 @@
 /* Run with test_evs = NULL to just print all the eigenvalues.
    Run with num_evs = 0 to print all the eigenvectors          */
 
-STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_idx)
+STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_idx, const char* inp_type)
 {
   int i;
   int j;
@@ -33,7 +33,7 @@ STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_i
   
   cpuclock_0 = clock();
 
-  Q = init_sym_matrix(Q_coeffs);
+  Q = init_sym_matrix(Q_coeffs, inp_type);
   slow_genus = get_genus_reps(Q);
 
   cpuclock_1 = clock();
@@ -75,7 +75,12 @@ STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_i
       else
 	printf("a vector of length %d ", evs->dim);
       printf("over ");
-      nf_print(evs->nfs[i]);
+      if (deg < 10) {
+	nf_print(evs->nfs[i]);
+      }
+      else {
+	printf("a number field of degree %ld", deg);
+      }
       printf("\n");
     }
   }
@@ -140,7 +145,7 @@ STATUS test_61()
 		      145, -632, -650, 859, -978, 931, -571, 453};
   int Q_coeffs[15] = {2,1,2,0,0,2,0,0,0,4,1,0,0,-1,6};
 
-  return test(Q_coeffs, ps, test_evs, 25, 0);
+  return test(Q_coeffs, ps, test_evs, 25, 0, "A");
 }
 
 STATUS test_69()
@@ -149,7 +154,7 @@ STATUS test_69()
   int test_evs[25] = {-6, -5, 8, -12, 2, -35, 50, 22, -156, -85, -63, 152, -119, -332, 369, 500, -240, 88, 250, 597, -389, 234, -656, -342, -1342};
   int Q_coeffs[15] = {2,0,2,0,0,2,1,0,0,2,0,0,1,0,12};
 
-  return test(Q_coeffs, ps, test_evs, 25, 0);
+  return test(Q_coeffs, ps, test_evs, 25, 0, "A");
 }
 
 STATUS test_greedy(const int* Q_coeffs, const int* red_Q_coeffs)
@@ -160,9 +165,9 @@ STATUS test_greedy(const int* Q_coeffs, const int* red_Q_coeffs)
   ret = SUCCESS;
   
   s = init_mat(5, 5, "1");
-  Q = init_sym_matrix(Q_coeffs);
+  Q = init_sym_matrix(Q_coeffs, "A");
   greedy(Q, s, 5, 5);
-  red_Q = init_sym_matrix(red_Q_coeffs);
+  red_Q = init_sym_matrix(red_Q_coeffs, "A");
   
 #ifdef DEBUG
   print_mat(Q);
@@ -201,17 +206,17 @@ STATUS test_greedy_overflow()
   return ret;
 }
 
-STATUS compute_eigenvectors(const int* Q_coeffs)
+STATUS compute_eigenvectors(const int* Q_coeffs, const char* inp_type)
 {
-  return test(Q_coeffs, NULL, NULL, 0, 0);
+  return test(Q_coeffs, NULL, NULL, 0, 0, inp_type);
 }
 
-STATUS compute_eigenvalues(const int* Q_coeffs, int form_idx, int p)
+STATUS compute_eigenvalues(const int* Q_coeffs, int form_idx, int p, const char* inp_type)
 {
-  return test(Q_coeffs, &p, NULL, 1, form_idx);
+  return test(Q_coeffs, &p, NULL, 1, form_idx, inp_type);
 }
 
-STATUS compute_eigenvalues_up_to(const int* Q_coeffs, int form_idx, int prec)
+STATUS compute_eigenvalues_up_to(const int* Q_coeffs, int form_idx, int prec, const char* inp_type)
 {
   int* ps;
   int num_ps;
@@ -219,10 +224,9 @@ STATUS compute_eigenvalues_up_to(const int* Q_coeffs, int form_idx, int prec)
 
   num_ps = primes_up_to(&ps, prec);
   
-  res = test(Q_coeffs, ps, NULL, num_ps, form_idx);
+  res = test(Q_coeffs, ps, NULL, num_ps, form_idx, inp_type);
 
   free(ps);
   
   return res;
 }
-

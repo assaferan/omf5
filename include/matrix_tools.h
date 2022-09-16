@@ -7,7 +7,7 @@
 #include "carat/matrix.h"
 
 /* function to initialize a symmetric matrix from a vector of coefficients */
-matrix_TYP* init_sym_matrix(const int* coeff_vec);
+matrix_TYP* init_sym_matrix(const int* coeff_vec, const char* inp_type);
 
 /* function to print matrices nicely*/
 void print_mat(const matrix_TYP* Q);

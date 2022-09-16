@@ -29,7 +29,7 @@
 #define N 5
 
 /* function to initialize a symmetric matrix */
-matrix_TYP* init_sym_matrix(const int* coeff_vec)
+matrix_TYP* init_sym_matrix_A(const int* coeff_vec)
 {
   int row, col, idx;
   matrix_TYP* Q_mat;
@@ -53,6 +53,51 @@ matrix_TYP* init_sym_matrix(const int* coeff_vec)
       Q[col][row] = Q[row][col];
 
   return Q_mat;
+}
+
+matrix_TYP* init_sym_matrix_GG(const int* coeff_vec)
+{
+  int row, col, idx;
+  matrix_TYP* Q_mat;
+  int** Q;
+  
+  Q_mat = init_mat(N,N,"");
+  Q = Q_mat->array.SZ;
+  row = 0;
+  col = 0;
+  for (idx = 0; idx < N*(N+1)/2; idx++)
+    {
+      Q[row][col] = coeff_vec[idx];
+      col++;
+      if (col >= N) {
+	row++;
+	col = row;
+      }
+    }
+  for (row = 0; row < N; row++)
+    for (col = 0; col < row; col++)
+      Q[row][col] = Q[col][row];
+
+  for (row = 0; row < N; row++)
+    Q[row][row] *= 2;
+
+#ifdef DEBUG
+  print_mat(Q_mat);
+#endif // DEBUG
+  
+  return Q_mat;
+  
+}
+
+matrix_TYP* init_sym_matrix(const int* coeff_vec, const char* alg)
+{
+  if (strcmp(alg,"A") == 0)
+    return init_sym_matrix_A(coeff_vec);
+  if (strcmp(alg,"GG") == 0)
+    return init_sym_matrix_GG(coeff_vec);
+
+  assert(FALSE);
+  return NULL;
 }
 
 /* function to print matrices nicely
