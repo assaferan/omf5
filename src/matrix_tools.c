@@ -876,21 +876,37 @@ void mat_irred_charpoly_eigenvector(nf_elem_t* evec, const fmpq_mat_t mat, const
 void restrict_mat(fmpq_mat_t res_T, const fmpq_mat_t T, const fmpq_mat_t basis_W)
 {
   fmpq_mat_t B_t;
+  fmpq_mat_t BA, BA_t;
+  fmpq_mat_t B_BA_t, B_B_t;
   
   if (fmpq_mat_nrows(basis_W) == 0) {
     return;
   }
 
-  fmpq_mat_mul(res_T, basis_W, T);
+  fmpq_mat_init(BA, fmpq_mat_nrows(basis_W), fmpq_mat_ncols(T));
+  fmpq_mat_init(BA_t, fmpq_mat_ncols(T), fmpq_mat_nrows(basis_W));
+  fmpq_mat_mul(BA, basis_W, T);
   // we transpose, since we solve for the other direction
-  fmpq_mat_transpose(res_T, res_T);
-  fmpq_mat_init(B_t, fmpq_mat_nrows(basis_W), fmpq_mat_ncols(basis_W));
+  fmpq_mat_transpose(BA_t, BA);
+  fmpq_mat_init(B_t, fmpq_mat_ncols(basis_W), fmpq_mat_nrows(basis_W));
   fmpq_mat_transpose(B_t, basis_W);
+  // transofrming to square matrices so flint will be able to solve it
+  fmpq_mat_init(B_B_t, fmpq_mat_ncols(B_t), fmpq_mat_ncols(B_t));
+  fmpq_mat_mul(B_B_t, basis_W, B_t);
+  fmpq_mat_init(B_BA_t, fmpq_mat_ncols(B_t), fmpq_mat_ncols(BA_t));
+  fmpq_mat_mul(B_BA_t, basis_W, BA_t);
   
-  fmpq_mat_solve_fraction_free(res_T, B_t, res_T);
+  // fmpq_mat_solve_fraction_free(res_T, B_t, BA_t);
+  fmpq_mat_solve_fraction_free(res_T, B_B_t, B_BA_t);
 
+  assert (!fmpq_mat_is_zero(res_T));
+  
   fmpq_mat_transpose(res_T, res_T);
 
+  fmpq_mat_clear(B_B_t);
+  fmpq_mat_clear(B_BA_t);
+  fmpq_mat_clear(BA_t);
+  fmpq_mat_clear(BA);
   fmpq_mat_clear(B_t);
 
   return;
@@ -948,6 +964,7 @@ void fmpq_poly_factor(fmpq_poly_factor_t factors, const fmpq_poly_t f)
   factors->exp = (slong*)malloc(factors->num * sizeof(slong));
   for (i = 0; i < factors->num; i++) {
     factors->exp[i] = f_int_fac->exp[i];
+    fmpq_poly_init(&(factors->p[i]));
     fmpq_poly_set_fmpz_poly(&(factors->p[i]), &(f_int_fac->p[i]));
   }
   
@@ -989,42 +1006,77 @@ void fmpq_poly_evaluate_fmpq_mat(fmpq_mat_t res, const fmpq_poly_t poly, const f
   return;
 }
 
-// initializes the kernel
-void fmpq_mat_left_kernel(fmpq_mat_t kernel, const fmpq_mat_t mat)
+/* // initializes the kernel */
+/* void fmpq_mat_left_kernel(fmpq_mat_t kernel, const fmpq_mat_t mat) */
+/* { */
+/*   fmpq_mat_t echelon, trans; */
+/*   slong rank, row, col; */
+
+/*   fmpq_mat_init_set(echelon, mat); */
+/*   fmpq_mat_init(trans, fmpq_mat_nrows(mat), fmpq_mat_ncols(mat)); */
+
+/*   rank = fmpq_mat_rref_classical(echelon, echelon); */
+  
+/*   // getting the zero rows */
+/*   fmpq_mat_init(kernel, fmpq_mat_nrows(mat)-rank, fmpq_mat_nrows(mat)); */
+
+/*   // !! TODO - we could optimize this by using windows */
+/*   for (row = rank; row < fmpq_mat_nrows(mat); row++) */
+/*     for (col = 0; col < fmpq_mat_nrows(mat); col++) */
+/*       fmpq_set(fmpq_mat_entry(kernel,row-rank,col), fmpq_mat_entry(trans,row,col)); */
+  
+/*   fmpq_mat_clear(echelon); */
+/*   fmpq_mat_clear(trans); */
+   
+/*   return; */
+/* } */
+
+// void fmpq_mat_left_kernel(fmpq_mat_t ker, const fmpq_mat_t mat)
+void fmpq_mat_kernel(fmpq_mat_t ker, const fmpq_mat_t mat)
 {
-  fmpq_mat_t echelon, trans;
+  fmpz_mat_t num, int_ker;
+  fmpz_t den, mat_gcd;
   slong rank, row, col;
 
-  fmpq_mat_init_set(echelon, mat);
-  fmpq_mat_init(trans, fmpq_mat_nrows(mat), fmpq_mat_ncols(mat));
+  fmpz_init(den);
+  fmpz_init(mat_gcd);
+  fmpz_mat_init(num, fmpq_mat_nrows(mat), fmpq_mat_ncols(mat));
+  fmpz_mat_init(int_ker, fmpq_mat_ncols(mat), fmpq_mat_ncols(mat));
 
-  rank = fmpq_mat_rref_classical(echelon, trans);
-  
-  // getting the zero rows
-  fmpq_mat_init(kernel, fmpq_mat_nrows(mat)-rank, fmpq_mat_nrows(mat));
+  fmpq_mat_get_fmpz_mat_matwise(num, den, mat);
+  rank = fmpz_mat_nullspace(int_ker, num);
 
-  // !! TODO - we could optimize this by using windows
-  for (row = rank; row < fmpq_mat_nrows(mat); row++)
-    for (col = 0; col < fmpq_mat_nrows(mat); col++)
-      fmpq_set(fmpq_mat_entry(kernel,row-rank,col), fmpq_mat_entry(trans,row,col));
+  fmpz_mat_content(mat_gcd, int_ker);
+  fmpz_mat_scalar_divexact_fmpz(int_ker, int_ker, mat_gcd);
   
-  fmpq_mat_clear(echelon);
-  fmpq_mat_clear(trans);
-   
-  return;
+  //fmpq_mat_init(ker, fmpq_mat_ncols(mat), rank);
+  fmpq_mat_init(ker, rank, fmpq_mat_ncols(mat)); 
+
+  // fmpq_mat_set_fmpz_mat(ker, int_ker);
+  for (row = 0; row < fmpq_mat_ncols(mat); row++)
+    for (col = 0; col < rank; col++)
+      fmpq_set_fmpz(fmpq_mat_entry(ker,col,row), fmpz_mat_entry(int_ker,row,col));
+  
+  fmpz_mat_clear(int_ker);
+  fmpz_mat_clear(num);
+  fmpz_clear(mat_gcd);
+  fmpz_clear(den);
 }
 
-void fmpq_mat_kernel(fmpq_mat_t ker, const fmpq_mat_t mat)
+// not sure now if we are doing left kernel or right kernel. 
+// void fmpq_mat_kernel(fmpq_mat_t ker, const fmpq_mat_t mat)
+void fmpq_mat_left_kernel(fmpq_mat_t ker, const fmpq_mat_t mat)
 {
   fmpq_mat_t tr_mat;
 
   fmpq_mat_init(tr_mat, fmpq_mat_ncols(mat), fmpq_mat_nrows(mat));
   
   fmpq_mat_transpose(tr_mat, mat);
-  fmpq_mat_left_kernel(ker, tr_mat);
+  //  fmpq_mat_left_kernel(ker, tr_mat);
+  fmpq_mat_kernel(ker, tr_mat);
 
   fmpq_mat_clear(tr_mat);
-
+  
   return;
 }
 

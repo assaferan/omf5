@@ -17,4 +17,6 @@ void get_hecke_ev(nf_elem_t e, const hash_table* genus, eigenvalues* evs, int p,
 
 matrix_TYP* hecke_matrix(const hash_table* genus, int p);
 
+eigenvalues* hecke_eigenforms(const hash_table* genus);
+
 #endif // __HECKE_H__

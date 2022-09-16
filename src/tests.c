@@ -20,7 +20,10 @@ STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_i
   clock_t cpuclock_0, cpuclock_1, cpudiff;
   double cputime;
 
-  matrix_TYP* Q, *hecke;
+  matrix_TYP* Q; //, *hecke;
+#ifdef DEBUG_LEVEL_FULL
+  matrix_TYP* hecke;
+#endif // DEBUG_LEVEL_FULL
   eigenvalues* evs;
   nf_elem_t ev;
 
@@ -43,9 +46,10 @@ STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_i
 
   printf("recalibrating genus took %f\n", cputime);
   
-  hecke = hecke_matrix(genus, 2);
-  evs = get_eigenvalues(hecke);
-  free_mat(hecke);
+  // hecke = hecke_matrix(genus, 2);
+  // evs = get_eigenvalues(hecke);
+  evs = hecke_eigenforms(genus);
+  //  free_mat(hecke);
 
   cpuclock_1 = clock();
   cpudiff = cpuclock_1 - cpuclock_0;
