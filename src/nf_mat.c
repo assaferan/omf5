@@ -79,6 +79,17 @@ void fmpz_mat_get_nf_mat(nf_mat_t B, const fmpz_mat_t A)
   return;
 }
 
+void fmpq_mat_get_nf_mat(nf_mat_t B, const fmpq_mat_t A)
+{
+  slong row, col;
+
+  for (row = 0; row < fmpq_mat_nrows(A); row++)
+    for (col = 0; col < fmpq_mat_ncols(A); col++)
+      nf_elem_set_fmpq(B->array[row][col], fmpq_mat_entry(A,row,col), *(B->nf));
+
+  return;
+}
+
 void nf_mat_clear(nf_mat_t mat)
 {
   slong row, col;

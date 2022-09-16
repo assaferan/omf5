@@ -19,6 +19,7 @@ STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_i
   hash_table* genus;
   clock_t cpuclock_0, cpuclock_1, cpudiff;
   double cputime;
+  fmpq_t trace;
 
   matrix_TYP* Q; //, *hecke;
 #ifdef DEBUG_LEVEL_FULL
@@ -26,7 +27,10 @@ STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_i
 #endif // DEBUG_LEVEL_FULL
   eigenvalues* evs;
   nf_elem_t ev;
+  slong deg;
 
+  fmpq_init(trace);
+  
   cpuclock_0 = clock();
 
   Q = init_sym_matrix(Q_coeffs);
@@ -61,10 +65,15 @@ STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_i
   if (num_evs == 0) {
     printf("eigenvectors are:\n");
     for (i = 0; i < evs->num; i++) {
-      for (j = 0; j < evs->dim; j++) {
-	nf_elem_print_pretty(evs->eigenvecs[i][j], evs->nfs[i], "a");
-	printf(" ");
+      deg = fmpq_poly_degree(evs->nfs[i]->pol);
+      if (deg < 10) {
+	  for (j = 0; j < evs->dim; j++) {
+	    nf_elem_print_pretty(evs->eigenvecs[i][j], evs->nfs[i], "a");
+	    printf(" ");
+	  }
       }
+      else
+	printf("a vector of length %d ", evs->dim);
       printf("over ");
       nf_print(evs->nfs[i]);
       printf("\n");
@@ -72,10 +81,12 @@ STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_i
   }
   // #endif // DEBUG
 
-  printf("hecke eigenvalues are:\n");
+  printf("traces of hecke eigenvalues are:\n");
   for (i = 0; i < num_evs; i++) {
     get_hecke_ev(ev, genus, evs, ps[i], form_idx);
-    nf_elem_print_pretty(ev, evs->nfs[form_idx], "a");
+    nf_elem_trace(trace, ev, evs->nfs[form_idx]);
+    fmpq_print(trace);
+    // nf_elem_print_pretty(ev, evs->nfs[form_idx], "a");
     printf(" ");
     fflush(stdout); //make sure to print every time it computes an eigenvalue
     nf_elem_clear(ev, evs->nfs[form_idx]);
@@ -92,10 +103,12 @@ STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_i
     hecke = hecke_matrix(genus, ps[i]);
     print_mat(hecke);
 
-    printf("all hecke eigenvalues are:\n");
+    printf("traces of all hecke eigenvalues are:\n");
     for (j = 0; j < evs->num; j++) {
       get_hecke_ev(ev, genus, evs, ps[i], j);
-      nf_elem_print_pretty(ev, evs->nfs[j], "a");
+      nf_elem_trace(trace, ev, evs->nfs[j]);
+      // nf_elem_print_pretty(ev, evs->nfs[j], "a");
+      fmpq_print(trace);
       printf(" ");
       nf_elem_clear(ev, evs->nfs[j]);
     }
@@ -111,6 +124,7 @@ STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_i
   
   printf("computing eigenvalues took %f\n", cputime);
 
+  fmpq_clear(trace);
   free_eigenvalues(evs);
 
   free_hash(genus);

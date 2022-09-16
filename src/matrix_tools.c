@@ -725,6 +725,51 @@ void nf_elem_vec_mul_fmpq_mat(nf_elem_t* res, const nf_elem_t* v, const fmpq_mat
   return;
 }
 
+slong get_pivot(const nf_elem_t* evec, slong dim, const nf_t nf)
+{
+  slong pivot;
+
+  pivot = 0;
+  while (nf_elem_is_zero(evec[pivot], nf)) {
+    pivot++;
+    assert(pivot < dim);
+  }
+  return pivot;
+}
+
+void check_eigenvector(const nf_elem_t* evec, const fmpq_mat_t M, const nf_t nf)
+{
+  nf_elem_t* evec_M;
+  slong pivot, dim, i;
+  nf_elem_t res1, res2;
+
+  nf_elem_init(res1, nf);
+  nf_elem_init(res2, nf);
+
+  dim = fmpq_mat_nrows(M);
+  pivot = get_pivot(evec, dim, nf);
+
+  evec_M = (nf_elem_t*)malloc(dim * sizeof(nf_elem_t));
+  for (i = 0; i < dim; i++)
+    nf_elem_init(evec_M[i], nf);
+  
+  nf_elem_vec_mul_fmpq_mat(evec_M, evec, M, nf);
+  
+  for (i = 0; i < dim; i++) {
+    nf_elem_mul(res1, evec[pivot], evec_M[i], nf);
+    nf_elem_mul(res2, evec_M[pivot], evec[i], nf);
+    assert(nf_elem_equal(res1, res2, nf));
+  }
+  
+  for (i = 0; i < dim; i++)
+    nf_elem_clear(evec_M[i], nf);
+  free(evec_M);
+  nf_elem_clear(res1, nf);
+  nf_elem_clear(res2, nf);
+  
+  return;
+}
+
 // evec and nf should already be allocated and initialized
 void mat_irred_charpoly_eigenvector(nf_elem_t* evec, const fmpq_mat_t mat, const fmpq_poly_t f, const nf_t nf)
 {
@@ -845,6 +890,10 @@ void mat_irred_charpoly_eigenvector(nf_elem_t* evec, const fmpq_mat_t mat, const
       }
     }
   } while (is_zero);
+
+#ifdef DEBUG
+  check_eigenvector(evec, mat, nf);
+#endif // DEBUG
   
   for (i = 0; i < n; i++)
     fmpz_clear(vv[i]);
@@ -868,6 +917,23 @@ void mat_irred_charpoly_eigenvector(nf_elem_t* evec, const fmpq_mat_t mat, const
   nf_elem_clear(b, nf);
   nf_elem_clear(a, nf);
   
+  return;
+}
+
+void check_restrict(const fmpq_mat_t T_W, const fmpq_mat_t T, const fmpq_mat_t W)
+{
+  fmpq_mat_t WT, T_W_W;
+
+  fmpq_mat_init(WT, fmpq_mat_nrows(W), fmpq_mat_ncols(T));
+  fmpq_mat_init(T_W_W, fmpq_mat_nrows(T_W), fmpq_mat_ncols(W));
+  
+  fmpq_mat_mul(WT, W, T);
+  fmpq_mat_mul(T_W_W, T_W, W);
+
+  assert(fmpq_mat_equal(WT, T_W_W));
+
+  fmpq_mat_clear(WT);
+  fmpq_mat_clear(T_W_W);
   return;
 }
 
@@ -902,6 +968,11 @@ void restrict_mat(fmpq_mat_t res_T, const fmpq_mat_t T, const fmpq_mat_t basis_W
   assert (!fmpq_mat_is_zero(res_T));
   
   fmpq_mat_transpose(res_T, res_T);
+
+#ifdef DEBUG
+  check_restrict(res_T, T, basis_W);
+#endif // DEBUG
+  
 
   fmpq_mat_clear(B_B_t);
   fmpq_mat_clear(B_BA_t);
@@ -940,6 +1011,10 @@ void get_eigenvector(nf_elem_t* evec, nf_t nf, const fmpq_mat_t T, const fmpq_ma
   mat_irred_charpoly_eigenvector(evec_W, T_W, f, nf);
   nf_elem_vec_mul_fmpq_mat(evec, evec_W, basis_W, nf);
 
+#ifdef DEBUG
+  check_eigenvector(evec, T, nf);
+#endif // DEBUG
+  
   for (i = 0; i < dim_W; i++)
     nf_elem_clear(evec_W[i], nf);
   free(evec_W);

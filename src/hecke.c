@@ -276,6 +276,7 @@ eigenvalues* hecke_eigenforms(const hash_table* genus)
 
   hecke_mat = hecke_matrix(genus, 2);
   fmpq_mat_init_set_matrix_TYP(T, hecke_mat);
+  fmpq_mat_transpose(T, T);
   
   for (i = 0; i < D->num; i++) {
     get_eigenvector(evs->eigenvecs[i], evs->nfs[i], T, D->bases[i]);
