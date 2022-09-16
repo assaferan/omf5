@@ -1010,7 +1010,7 @@ void restrict_mat(fmpq_mat_t res_T, const fmpq_mat_t T, const fmpq_mat_t basis_W
   // fmpq_mat_solve_fraction_free(res_T, B_t, BA_t);
   fmpq_mat_solve_fraction_free(res_T, B_B_t, B_BA_t);
 
-  assert (!fmpq_mat_is_zero(res_T));
+  // assert (!fmpq_mat_is_zero(res_T));
   
   fmpq_mat_transpose(res_T, res_T);
 
@@ -1244,22 +1244,27 @@ void print_content_and_coeff_size(const fmpq_mat_t A, const char* name)
 // initializes ker
 void kernel_on(fmpq_mat_t ker, const fmpq_mat_t A, const fmpq_mat_t B)
 {
+  fmpq_mat_t ker_A;
 #ifdef DEBUG
   print_content_and_coeff_size(A, "A");
   print_content_and_coeff_size(B, "B");
 #endif // DEBUG
   
-  fmpq_mat_kernel(ker, A);
+  // fmpq_mat_kernel(ker, A);
+  fmpq_mat_left_kernel(ker_A, A);
 
 #ifdef DEBUG
-  print_content_and_coeff_size(ker, "ker(A)");
+  print_content_and_coeff_size(ker_A, "ker(A)");
 #endif // DEBUG
-  
-  fmpq_mat_mul(ker, ker, B);
+
+  fmpq_mat_init(ker, fmpq_mat_nrows(ker_A), fmpq_mat_ncols(B));
+  fmpq_mat_mul(ker, ker_A, B);
 
 #ifdef DEBUG
   print_content_and_coeff_size(ker, "ker(A)*B");
 #endif // DEBUG
+
+  fmpq_mat_clear(ker_A);
   return;
 }
 

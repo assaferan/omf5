@@ -151,6 +151,19 @@ void get_hecke_ev(nf_elem_t e, const hash_table* genus, eigenvalues* evs, int p,
   return;
 }
 
+void get_hecke_fmpq_mat(fmpq_mat_t hecke_fmpq_mat, const hash_table* genus, int p)
+{
+  matrix_TYP* hecke_mat;
+   
+  hecke_mat = hecke_matrix(genus, p);
+  fmpq_mat_init_set_matrix_TYP(hecke_fmpq_mat, hecke_mat);
+  // we transpose to match with our conventions
+  fmpq_mat_transpose(hecke_fmpq_mat, hecke_fmpq_mat);
+
+  free_mat(hecke_mat);
+  return;
+}
+
 // TODO - get rid of the unnecessary recursion
 BOOL decomposition_finite_subspace(decomposition* decomp, const hash_table* genus, const fmpq_mat_t basis_V,
 				   const int* ps, slong idx, slong num_ps)
@@ -160,7 +173,6 @@ BOOL decomposition_finite_subspace(decomposition* decomp, const hash_table* genu
   fmpq_poly_t f;
   fmpq_poly_factor_t fac;
   BOOL is_complete, is_complete_W;
-  matrix_TYP* hecke_mat;
   fmpq_mat_t hecke_fmpq_mat;
 
   dim_V = fmpq_mat_nrows(basis_V);
@@ -180,8 +192,7 @@ BOOL decomposition_finite_subspace(decomposition* decomp, const hash_table* genu
   fmpq_mat_init(fT, dim_V, dim_V);
   fmpq_poly_init(f);
 
-  hecke_mat = hecke_matrix(genus, ps[idx]);
-  fmpq_mat_init_set_matrix_TYP(hecke_fmpq_mat, hecke_mat);
+  get_hecke_fmpq_mat(hecke_fmpq_mat, genus, ps[idx]);
   restrict_mat(T, hecke_fmpq_mat, basis_V);
   fmpq_mat_charpoly(f, T);
   fmpq_poly_factor(fac, f);
@@ -211,7 +222,6 @@ BOOL decomposition_finite_subspace(decomposition* decomp, const hash_table* genu
   fmpq_mat_clear(T);
   fmpq_poly_factor_free(fac);
   fmpq_poly_clear(f);
-  free_mat(hecke_mat);
   
   return is_complete;
 }
@@ -263,7 +273,6 @@ decomposition* decompose(const hash_table* genus)
 
 eigenvalues* hecke_eigenforms(const hash_table* genus)
 {
-  matrix_TYP* hecke_mat;
   fmpq_mat_t T;
   slong i;
   eigenvalues* evs;
@@ -274,17 +283,13 @@ eigenvalues* hecke_eigenforms(const hash_table* genus)
 
   eigenvalues_init(&evs, D->num, genus->num_stored);
 
-  hecke_mat = hecke_matrix(genus, 2);
-  fmpq_mat_init_set_matrix_TYP(T, hecke_mat);
-  fmpq_mat_transpose(T, T);
+  get_hecke_fmpq_mat(T, genus, 2);
   
   for (i = 0; i < D->num; i++) {
     get_eigenvector(evs->eigenvecs[i], evs->nfs[i], T, D->bases[i]);
     nf_elem_init(evs->eigenvals[i], evs->nfs[i]);
     nf_elem_gen(evs->eigenvals[i], evs->nfs[i]);
   }
-
-  free_mat(hecke_mat);
   
   return evs;
 }
