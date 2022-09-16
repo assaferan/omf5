@@ -341,7 +341,7 @@ int exists(hash_table* table, matrix_TYP* key, int check_isom)
   return 0;
 }
 
-int indexof(hash_table* table, matrix_TYP* key, int check_isom, double* theta_time, double* isom_time, int* num_isom)
+int indexof(const hash_table* table, matrix_TYP* key, int check_isom, double* theta_time, double* isom_time, int* num_isom)
 {
   int offset, i;
   hash_t index, value;
@@ -395,13 +395,18 @@ void expand(hash_table* table)
   table->capacity <<= 1;
   table->mask = (table->capacity << 1)-1;
   // problem - this might invalidate existing references to the HashMap (e.g. mother)
-  table->keys = realloc(table->keys, (table->capacity)*sizeof(matrix_TYP*));
-  table->vals = realloc(table->vals, (table->capacity)*sizeof(matrix_TYP*));
+  table->keys = (matrix_TYP**)realloc(table->keys, (table->capacity)*sizeof(matrix_TYP*));
+  table->vals = (hash_t*)realloc(table->vals, (table->capacity)*sizeof(hash_t));
+  table->probs = (fmpq_t*)realloc(table->probs, (table->capacity)*sizeof(fmpq_t));
 
+  // initializing the new ones
+  for (i = (table->capacity)>>1; i < table->capacity; i++)
+    fmpq_init(table->probs[i]);
+  
   free(table->key_ptr);
-  table->key_ptr = (hash_t*)malloc((table->capacity << 1)*sizeof(int));
+  table->key_ptr = (hash_t*)malloc((table->capacity << 1)*sizeof(hash_t));
   free(table->counts);
-  table->counts = (W32*)malloc((table->capacity << 1)*sizeof(int));
+  table->counts = (W32*)malloc((table->capacity << 1)*sizeof(W32));
 
   for (i = 0; i < 2*table->capacity; i++)
     table->key_ptr[i] = -1;

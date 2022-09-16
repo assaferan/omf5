@@ -24,30 +24,51 @@ int parse_matrix(const char* mat_str, int* Q_coeffs)
 int main(int argc, char* argv[])
 {
   int form_idx, prec;
-  int test_res;
   int Q_coeffs[15];
+  STATUS test_res;
+  char input_type[3];
+  int max_args;
+  int forbidden_args;
 
-  test_greedy();
+  forbidden_args = 3;
+  max_args = 4;
   
   if (argc == 1) {
-    test_res = test_61();
-    // test_res |= test_69() << 1;
+    test_res = test_greedy() << 1;
+    test_res |= test_61();
+    test_res <<= 1;
+    test_res |= test_69();
     return test_res;
   }
+
+  if (argc > 1) {
+    if (strcmp(argv[argc-1], "GG") == 0) {
+      strcpy(input_type, "GG");
+      forbidden_args += 1;
+      max_args += 1;
+    }
+    else if (strcmp(argv[argc-1], "A") == 0) {
+      strcpy(input_type, "A");
+      forbidden_args += 1;
+      max_args += 1;
+    }
+    else
+      strcpy(input_type, "A");
+  }
   
-  if (argc == 2) {
+  if (argc == max_args - 2) {
     parse_matrix(argv[1], Q_coeffs);
-    return compute_eigenvectors(Q_coeffs);
+    return compute_eigenvectors(Q_coeffs, input_type);
   }
 
-  if (argc == 4) {
+  if (argc == max_args) {
     parse_matrix(argv[1], Q_coeffs);
     form_idx = atoi(argv[2]);
     prec = atoi(argv[3]);
-    return compute_eigenvalues_up_to(Q_coeffs, form_idx, prec);
+    return compute_eigenvalues_up_to(Q_coeffs, form_idx, prec, input_type);
   }
   
-  if ((argc > 4) || (argc == 3))
+  if ((argc > max_args) || (argc == forbidden_args))
     return -1;
 
 }
