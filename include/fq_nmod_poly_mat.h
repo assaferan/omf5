@@ -5,10 +5,10 @@
 
 typedef struct
 {
-  fq_nmod_poly* entries;
+  fq_nmod_poly_struct* entries;
   slong r;
   slong c;
-  fq_nmod_poly** rows;
+  fq_nmod_poly_struct** rows;
 } fq_nmod_poly_mat_struct;
 
 typedef fq_nmod_poly_mat_struct fq_nmod_poly_mat_t[1];

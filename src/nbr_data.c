@@ -1,10 +1,16 @@
+#include <assert.h>
+
+#include "carat/matrix.h"
+
 #include "flint/fq_nmod.h"
 #include "flint/fq_nmod_mat.h"
+#include "flint/fq_nmod_mpoly.h"
 
+#include "fq_nmod_mat.h"
 #include "fq_nmod_quad.h"
 #include "matrix_tools.h"
 
-#include "neighbor2.h"
+#include "nbr_data.h"
 #include "typedefs.h"
 
 /*****************************************************************************
@@ -16,8 +22,8 @@
 
 void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
 {
+  slong idx;
   fmpz_t p;
-  fmpz_mat_t vec_lift;
 #ifdef DEBUG
   fq_nmod_t value;
 #endif // DEBUG
@@ -71,14 +77,14 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
 
   // Count the rows at the end of the matrix which are exactly zero.
   idx = N;
-  while ((idx >= 1) && fq_nmod_mat_is_row_zero(nbr_man->p_std_gram,idx-1,nbr_man->GF)) idx--;
+  while ((idx >= 1) && fq_nmod_mat_is_zero_row(nbr_man->p_std_gram,idx-1,nbr_man->GF)) idx--;
 
   // The dimension of the radical.
   nbr_man->rad_dim = N - idx;
 
   // Determine the dimension of the totally hyperbolic subspace.
   idx = 1;
-  while ((idx <= N - nbr_man->rad_dim) && fq_is_zero(fq_mat_entry(nbr_man->p_std_gram,idx-1,idx-1),nbr_man->GF)) idx++;
+  while ((idx <= N - nbr_man->rad_dim) && fq_nmod_is_zero(fq_nmod_mat_entry(nbr_man->p_std_gram,idx-1,idx-1),nbr_man->GF)) idx++;
 
   // Dimension of the anistotropic subspace.
   nbr_man->aniso_dim = N - nbr_man->rad_dim - idx + 1;
@@ -93,7 +99,6 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
 #ifdef DEBUG
   fq_nmod_clear(value, nbr_man->GF);
 #endif // DEBUG
-  free_mat(iso_vec);
   fmpz_clear(p);
   
   return;

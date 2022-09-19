@@ -523,107 +523,109 @@ int primes_up_to(int** ps, int bound)
   return num_ps;
 }
 
-void fq_sqrt(fq_t sqrt_a, const fq_t a, const fq_ctx_t F)
-{
-  fmpz_t p, q;
-  fq z, b, c, r, t, t1;
-  int i, j, m, s, e;
+// fq_sqrt seems to already exist
+
+/* void fq_sqrt(fq_t sqrt_a, const fq_t a, const fq_ctx_t F) */
+/* { */
+/*   fmpz_t p, q; */
+/*   fq_t z, b, c, r, t, t1; */
+/*   int i, j, m, s, e; */
   
-  if (fq_is_one(a,F)) {
-    fq_one(sqrt_a, F);
-    return;
-  }
-  if (fq_is_zero(a,F)) {
-    fq_zero(sqrt_a, F);
-    return;
-  }
+/*   if (fq_is_one(a,F)) { */
+/*     fq_one(sqrt_a, F); */
+/*     return; */
+/*   } */
+/*   if (fq_is_zero(a,F)) { */
+/*     fq_zero(sqrt_a, F); */
+/*     return; */
+/*   } */
 
-  assert(is_square(a,F));
+/*   assert(is_square(a,F)); */
 
-  fmpz_init(p);
-  fmpz_init(q);
+/*   fmpz_init(p); */
+/*   fmpz_init(q); */
 
-  fmpz_set(p,fq_ctx_prime(F));
-  fmpz_sub_si(q,p,1);
+/*   fmpz_set(p,fq_ctx_prime(F)); */
+/*   fmpz_sub_si(q,p,1); */
   
-  s = 0;
-  while (fmpz_is_even(q)) {
-    fmpz_div_q_2exp(q, q, 1);
-    s++;
-  }
+/*   s = 0; */
+/*   while (fmpz_is_even(q)) { */
+/*     fmpz_div_q_2exp(q, q, 1); */
+/*     s++; */
+/*   } */
 
-  if (s == 1) {
-    fmpz_add_si(q, p, 1);
-    fmpz_div_q_2exp(q, q, 4);
-    fq_pow(sqrt_a, a, q, F);
-    fmpz_clear(q);
-    fmpz_clear(p);
-    return;
-  }
+/*   if (s == 1) { */
+/*     fmpz_add_si(q, p, 1); */
+/*     fmpz_div_q_2exp(q, q, 4); */
+/*     fq_pow(sqrt_a, a, q, F); */
+/*     fmpz_clear(q); */
+/*     fmpz_clear(p); */
+/*     return; */
+/*   } */
   
-  fq_init(z,F);
-  fq_init(b,F);
-  fq_init(c,F);
-  fq_init(r,F);
-  fq_init(t,F);
-  fq_init(t1,F);
+/*   fq_init(z,F); */
+/*   fq_init(b,F); */
+/*   fq_init(c,F); */
+/*   fq_init(r,F); */
+/*   fq_init(t,F); */
+/*   fq_init(t1,F); */
 
-  // looking for a non-square
-  fq_zero(z,F);
-  while (fq_is_square(z,F))
-    fq_sub_one(z,z,F);
+/*   // looking for a non-square */
+/*   fq_zero(z,F); */
+/*   while (fq_is_square(z,F)) */
+/*     fq_sub_one(z,z,F); */
 
-  m = s;
-  fq_pow(c,z,q,F);
-  fq_pow(t,a,q,F);
-  fmpz_add_si(q,q,1);
-  fmpz_div_q_2exp(q,q,1);
-  fq_pow(r,a,q,F);
+/*   m = s; */
+/*   fq_pow(c,z,q,F); */
+/*   fq_pow(t,a,q,F); */
+/*   fmpz_add_si(q,q,1); */
+/*   fmpz_div_q_2exp(q,q,1); */
+/*   fq_pow(r,a,q,F); */
 
-  // !! TODO - this is poorly written should have the is_one condition in the outer while loop
-  while (true) {
-    if (fq_is_one(t,F)) {
-      fq_set(sqrt_a, r, F);
-      fq_clear(t1,F);
-      fq_clear(t,F);
-      fq_clear(r,F);
-      fq_clear(c,F);
-      fq_clear(b,F);
-      fq_clear(z,F);
-      fmpz_clear(s);
-      fmpz_clear(q);
-      fmpz_clear(p);
-      return;
-    }
-    i = 0;
-    fq_set(t1, t, F);
-    while (!fq_is_one(t1,F)) {
-      fq_sqr(t1,t1,F);
-      i++;
-    }
+/*   // !! TODO - this is poorly written should have the is_one condition in the outer while loop */
+/*   while (true) { */
+/*     if (fq_is_one(t,F)) { */
+/*       fq_set(sqrt_a, r, F); */
+/*       fq_clear(t1,F); */
+/*       fq_clear(t,F); */
+/*       fq_clear(r,F); */
+/*       fq_clear(c,F); */
+/*       fq_clear(b,F); */
+/*       fq_clear(z,F); */
+/*       fmpz_clear(s); */
+/*       fmpz_clear(q); */
+/*       fmpz_clear(p); */
+/*       return; */
+/*     } */
+/*     i = 0; */
+/*     fq_set(t1, t, F); */
+/*     while (!fq_is_one(t1,F)) { */
+/*       fq_sqr(t1,t1,F); */
+/*       i++; */
+/*     } */
 
-    e = 1;
-    for (j = 0; j < m-i-1; j++)
-      e <<= 1;
+/*     e = 1; */
+/*     for (j = 0; j < m-i-1; j++) */
+/*       e <<= 1; */
 
-    fq_pow(b,c,e,F);
-    fq_mul(r,r,b,F);
-    fq_sqr(c,b,F);
-    fq_mul(t,t,c,F);
-    m = i;
-  }
+/*     fq_pow(b,c,e,F); */
+/*     fq_mul(r,r,b,F); */
+/*     fq_sqr(c,b,F); */
+/*     fq_mul(t,t,c,F); */
+/*     m = i; */
+/*   } */
 
-  f1_clear(t1,F);
-  fq_clear(t,F);
-  fq_clear(r,F);
-  fq_clear(c,F);
-  fq_clear(b,F);
-  fq_clear(z,F);
-  fmpz_clear(s);
-  fmpz_clear(q);
-  fmpz_clear(p);
+/*   f1_clear(t1,F); */
+/*   fq_clear(t,F); */
+/*   fq_clear(r,F); */
+/*   fq_clear(c,F); */
+/*   fq_clear(b,F); */
+/*   fq_clear(z,F); */
+/*   fmpz_clear(s); */
+/*   fmpz_clear(q); */
+/*   fmpz_clear(p); */
 
-  assert(false);
+/*   assert(false); */
   
-  return;
-}
+/*   return; */
+/* } */

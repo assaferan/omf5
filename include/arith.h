@@ -40,7 +40,7 @@ bool fmpq_is_local_square(const fmpq_t a, const fmpz_t p);
 
 bool fq_is_square(const fq_t a, const fq_ctx_t F);
 
-void fq_sqrt(fq_t sqrt_a, const fq_t a, const fq_ctx_t F);
+// void fq_sqrt(fq_t sqrt_a, const fq_t a, const fq_ctx_t F);
 
 bool fmpq_is_integral(const fmpq_t r);
 

@@ -1,6 +1,8 @@
 #ifndef __TYPEDEFS_H__
 #define __TYPEDEFS_H__
 
+#include <stdint.h>
+
 // We fix the rank to be hardcoded
 #define N 5
 

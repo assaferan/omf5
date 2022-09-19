@@ -1,3 +1,5 @@
+#include <assert.h>
+
 #include "flint/fq_nmod.h"
 #include "flint/fq_nmod_mat.h"
 #include "flint/fq_nmod_poly.h"
@@ -18,10 +20,10 @@ void fq_nmod_quad_evaluate_p2(fq_nmod_t value, const fq_nmod_mat_t q, const fq_n
   fq_nmod_init(prod, F);
   fq_nmod_zero(value, F);
   
-  for (i = 0; i < fq_nmod_mat_nrows(q); i++) {
+  for (i = 0; i < fq_nmod_mat_nrows(q,F); i++) {
     fq_nmod_mul(prod, fq_nmod_mat_entry(q, i, i), fq_nmod_mat_entry(vec, 0, i), F);
     fq_nmod_add(value, value, prod, F);
-    for (j = i + 1; j < fq_nmod_mat_nrows(q); j++) {
+    for (j = i + 1; j < fq_nmod_mat_nrows(q,F); j++) {
       fq_nmod_mul(prod, fq_nmod_mat_entry(vec, 0, i), fq_nmod_mat_entry(vec, 0, j), F);
       fq_nmod_mul(prod, prod, fq_nmod_mat_entry(q, i, j), F);
       fq_nmod_add(value, value, prod, F);
@@ -44,13 +46,13 @@ void fq_nmod_quad_evaluate(fq_nmod_t value, const fq_nmod_mat_t q, const fq_nmod
   if (fq_nmod_is_zero(two, F))
     return fq_nmod_quad_evaluate_p2(value, q, vec, F);
   
-  fq_nmod_mat_init(vec_t, fq_nmod_mat_ncols(vec), fq_nmod_mat_nrows(vec), F);
+  fq_nmod_mat_init(vec_t, fq_nmod_mat_ncols(vec,F), fq_nmod_mat_nrows(vec,F), F);
   fq_nmod_mat_transpose(vec_t, vec, F);
 
-  fq_nmod_mat_init(vec_q, fq_nmod_mat_nrows(vec), fq_nmod_mat_ncols(q), F);
+  fq_nmod_mat_init(vec_q, fq_nmod_mat_nrows(vec,F), fq_nmod_mat_ncols(q,F), F);
   fq_nmod_mat_mul(vec_q, vec, q, F);
 
-  fq_nmod_mat_init(vec_q_vec_t, fq_nmod_mat_nrows(vec), fq_nmod_mat_nrows(vec));
+  fq_nmod_mat_init(vec_q_vec_t, fq_nmod_mat_nrows(vec,F), fq_nmod_mat_nrows(vec,F), F);
   fq_nmod_mat_mul(vec_q_vec_t, vec_q, vec_t, F);
 
   fq_nmod_set(value, fq_nmod_mat_entry(vec_q_vec_t, 0, 0), F);
@@ -69,7 +71,7 @@ void fq_nmod_quad_transform(fq_nmod_mat_t new_gram, const fq_nmod_mat_t gram, co
   fq_nmod_mat_t isom_gram, isom_t;
 
   fq_nmod_mat_init(isom_gram, N, N, F);
-  fq_nmod_mat_init(isom, N, N, F);
+  fq_nmod_mat_init(isom_t, N, N, F);
   
   fq_nmod_mat_transpose(isom_t, isom, F);
   fq_nmod_mat_mul(isom_gram, isom, gram, F);
@@ -86,7 +88,7 @@ bool fq_nmod_quad_isotropic_vector_p2(fq_nmod_mat_t vec, const fq_nmod_mat_t q, 
   slong i,j,dim;
   fq_nmod_t a,b,c,d,e,f,g;
 
-  for (j = start; j < n; j++) {
+  for (j = start; j < N; j++) {
     if (fq_nmod_is_zero(fq_nmod_mat_entry(q,j,j),F)) {
       fq_nmod_one(fq_nmod_mat_entry(vec,0,j),F);
       return true;
@@ -152,7 +154,7 @@ bool fq_nmod_quad_isotropic_vector_p2(fq_nmod_mat_t vec, const fq_nmod_mat_t q, 
 
   if (dim == 2) {
     for (i = 0; i < 2; i++)
-      if (fq_nmod_is_zero(fq_nmod_mat_entry(q,start+i,start+i))) {
+      if (fq_nmod_is_zero(fq_nmod_mat_entry(q,start+i,start+i),F)) {
 	fq_nmod_one(fq_nmod_mat_entry(vec,0,start+i),F);
 	return true;
       }
@@ -237,23 +239,26 @@ bool fq_nmod_quad_isotropic_vector_p2(fq_nmod_mat_t vec, const fq_nmod_mat_t q, 
 
 bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q, const fq_nmod_ctx_t F, slong start, bool deterministic)
 {
-  fq_nmod_mat_t sub_B, rad, basis, subM, v;
+  fq_nmod_mat_t sub_B, rad, basis, subM, v, q_copy;
   slong row, col, i, j, k, dim;
   fq_nmod_t a, b, c, d, ac, scalar;
   fmpz_t p, x, y;
   flint_rand_t state;
+  bool nonzero;
  
   fq_nmod_mat_init(sub_B,N-start,N-start,F);
   for (row = 0; row < N - start; row++)
     for (col = 0; col < N - start; col++)
       fq_nmod_set(fq_nmod_mat_entry(sub_B, row, col), fq_nmod_mat_entry(q, start+row,start+col),F);
 
-  if ( (fmpz_cmp_si(fq_nmod_ctx_prime(F),2) != 0 ) && (fq_nmod_mat_rref(q,F) < N) ) {
+  fq_nmod_mat_init_set(q_copy, q, F);
+  if ( (fmpz_cmp_si(fq_nmod_ctx_prime(F),2) != 0 ) && (fq_nmod_mat_rref(q_copy,F) < N) ) {
     fq_nmod_mat_kernel(rad, sub_B, F);
     for (i = 0; i < N - start; i++)
       fq_nmod_set(fq_nmod_mat_entry(vec,0,start+i), fq_nmod_mat_entry(rad,0,i), F);
-    fq_nmod_mat_clear(rad);
-    fq_nmod_mat_clear(sub_B);
+    fq_nmod_mat_clear(rad, F);
+    fq_nmod_mat_clear(sub_B, F);
+    fq_nmod_mat_clear(q_copy,F);
     return true;
   }
 
@@ -262,15 +267,18 @@ bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q, con
   if (dim == 1) {
     if (fq_nmod_is_zero(fq_nmod_mat_entry(q,start,start),F)) {
       fq_nmod_one(fq_nmod_mat_entry(vec, 0, start), F);
-      fq_nmod_mat_clear(sub_B);
+      fq_nmod_mat_clear(sub_B, F);
+      fq_nmod_mat_clear(q_copy,F);
       return true;
     }
-    fq_nmod_mat_clear(sub_B);
+    fq_nmod_mat_clear(sub_B, F);
+    fq_nmod_mat_clear(q_copy,F);
     return false;
   }
 
   if (fmpz_cmp_si(fq_nmod_ctx_prime(F),2) == 0) {
-    fq_nmod_mat_clear(sub_B);
+    fq_nmod_mat_clear(sub_B, F);
+    fq_nmod_mat_clear(q_copy,F);
     return fq_nmod_quad_isotropic_vector_p2(vec, q, F, start);
   }
 
@@ -290,8 +298,9 @@ bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q, con
     fq_nmod_mul(ac, a, c, F);
     fq_nmod_sub(d, d, ac, F);
     // If not a square, this form is anisotropic.
-    if (!(is_square(d_lift, F))) {
-      fq_nmod_mat_clear(sub_B);
+    if (!(fq_nmod_is_square(d, F))) {
+      fq_nmod_mat_clear(q_copy,F);
+      fq_nmod_mat_clear(sub_B, F);
       fq_nmod_clear(a, F);
       fq_nmod_clear(b, F);
       fq_nmod_clear(c, F);
@@ -307,8 +316,9 @@ bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q, con
     fq_nmod_neg(d,d,F);
     fq_nmod_set(fq_nmod_mat_entry(vec,0,start),d,F);
     fq_nmod_one(fq_nmod_mat_entry(vec,0,start+1),F);
-    
-    fq_nmod_mat_clear(sub_B);
+
+    fq_nmod_mat_clear(q_copy,F);
+    fq_nmod_mat_clear(sub_B, F);
     fq_nmod_clear(a, F);
     fq_nmod_clear(b, F);
     fq_nmod_clear(c, F);
@@ -320,10 +330,11 @@ bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q, con
   assert(dim >= 3);
 
   // Check the diagonal
-  for (i = start; i < n; i++)
+  for (i = start; i < N; i++)
     if (fq_nmod_is_zero(fq_nmod_mat_entry(q,i,i),F)) {
       fq_nmod_one(fq_nmod_mat_entry(vec,0,i),F);
-      fq_nmod_mat_clear(sub_B);
+      fq_nmod_mat_clear(sub_B, F);
+      fq_nmod_mat_clear(q_copy,F);
       return true;
     }
 
@@ -355,6 +366,8 @@ bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q, con
 	fq_nmod_clear(scalar,F);
 	fq_nmod_mat_clear(subM,F);
 	fq_nmod_mat_clear(basis,F);
+	fq_nmod_mat_clear(sub_B,F);
+	fq_nmod_mat_clear(q_copy,F);
 	return true;
       }
     }
@@ -378,6 +391,8 @@ bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q, con
     fq_nmod_clear(scalar,F);
     fq_nmod_mat_clear(subM,F);
     fq_nmod_mat_clear(basis,F);
+    fq_nmod_mat_clear(sub_B,F);
+    fq_nmod_mat_clear(q_copy,F);
     return true;
   }
 
@@ -412,6 +427,8 @@ bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q, con
 	  fq_nmod_clear(scalar,F);
 	  fq_nmod_mat_clear(subM,F);
 	  fq_nmod_mat_clear(basis,F);
+	  fq_nmod_mat_clear(sub_B,F);
+	  fq_nmod_mat_clear(q_copy,F);
 	  return true;
 	}
       }
@@ -472,14 +489,16 @@ bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q, con
   fq_nmod_clear(scalar,F);
   fq_nmod_mat_clear(subM,F);
   fq_nmod_mat_clear(basis,F);
+  fq_nmod_mat_clear(sub_B,F);
+  fq_nmod_mat_clear(q_copy,F);
 
   return true;
 }
 
 void fq_nmod_quad_split_hyperbolic_plane(const fq_nmod_mat_t vec, fq_nmod_mat_t gram, fq_nmod_mat_t basis, const fq_nmod_mat_t q, const fq_nmod_ctx_t F,  slong start)
 {
-  fq_nmod_mat_t original_gram, vec;
-  slong i, pivot, idx;
+  fq_nmod_mat_t original_gram, row_vec;
+  slong i, pivot, idx, col;
   fmpz_t p;
   bool is_in_radical;
   fq_nmod_t scalar, two;
@@ -490,7 +509,7 @@ void fq_nmod_quad_split_hyperbolic_plane(const fq_nmod_mat_t vec, fq_nmod_mat_t 
   
   // The change of basis which preserving the isometry.
   fq_nmod_mat_zero(basis,F);
-  for (i = 0; i < fq_nmod_mat_nrows(basis); i++)
+  for (i = 0; i < fq_nmod_mat_nrows(basis,F); i++)
     fq_nmod_one(fq_nmod_mat_entry(basis,i,i),F);
 
   // Make a copy of the Gram matrix.
@@ -501,7 +520,7 @@ void fq_nmod_quad_split_hyperbolic_plane(const fq_nmod_mat_t vec, fq_nmod_mat_t 
   // Set the diagonal entries to zero when in characteristic 2.
   // This is because we are decomposing the associated bilinear form
   if (fmpz_equal_si(p,2)) {
-    for (i = start; i < n; i++)
+    for (i = start; i < N; i++)
       fq_nmod_zero(fq_nmod_mat_entry(gram,i,i),F);
   }
 
@@ -522,15 +541,15 @@ void fq_nmod_quad_split_hyperbolic_plane(const fq_nmod_mat_t vec, fq_nmod_mat_t 
     fq_nmod_mat_add_row(gram,pivot,i,fq_nmod_mat_entry(vec,0,i),F);
     fq_nmod_mat_add_col(gram,pivot,i,fq_nmod_mat_entry(vec,0,i),F);
   }
-  fq_nmod_mat_swap_rows(basis,start,pivot,F);
-  fq_nmod_mat_swap_rows(gram,start,pivot,F);
-  fq_nmod_mat_swap_cols(gram,start,pivot,F);
+  fq_nmod_mat_swap_rows(basis,NULL,start,pivot,F);
+  fq_nmod_mat_swap_rows(gram,NULL,start,pivot,F);
+  fq_nmod_mat_swap_cols(gram,NULL,start,pivot,F);
 
   is_in_radical = true;
 
   // Find a basis vector which is not orthogonal to our isotropic vector.
   idx = start;
-  for (; idx < n; idx++)
+  for (; idx < N; idx++)
     // !! TODO - replace by is_zero_row
     if (!fq_nmod_is_zero(fq_nmod_mat_entry(gram,start,idx),F)) {
       is_in_radical = false;
@@ -542,14 +561,14 @@ void fq_nmod_quad_split_hyperbolic_plane(const fq_nmod_mat_t vec, fq_nmod_mat_t 
 
   if (is_in_radical) {
     if (fmpz_equal_si(p,2)) {
-      fq_nmod_mat_init(vec,1,N,F);
+      fq_nmod_mat_init(row_vec,1,N,F);
       // Recover the quadratic form along the diagonal.
       for (i = start; i < N; i++) {
 	for (col = 0; col < N; col++)
-	  fq_nmod_set(fq_nmod_mat_entry(vec,0,col),fq_nmod_mat_entry(basis,i,col),F);
-	fq_nmod_quad_evaluate(fq_nmod_mat_entry(gram,i,i),q,vec,F);
+	  fq_nmod_set(fq_nmod_mat_entry(row_vec,0,col),fq_nmod_mat_entry(basis,i,col),F);
+	fq_nmod_quad_evaluate(fq_nmod_mat_entry(gram,i,i),q,row_vec,F);
       }
-      fq_nmod_mat_clear(vec,F);
+      fq_nmod_mat_clear(row_vec,F);
     }
     fq_nmod_mat_clear(original_gram,F);
     fmpz_clear(p);
@@ -557,9 +576,9 @@ void fq_nmod_quad_split_hyperbolic_plane(const fq_nmod_mat_t vec, fq_nmod_mat_t 
   }
   
   // Swap this basis vector with the second basis vector.
-  fq_nmod_mat_swap_rows(basis,start+1,idx,F);
-  fq_nmod_mat_swap_rows(gram,start+1,idx,F);
-  fq_nmod_mat_swap_cols(gram,start+1,idx,F);
+  fq_nmod_mat_swap_rows(basis,NULL,start+1,idx,F);
+  fq_nmod_mat_swap_rows(gram,NULL,start+1,idx,F);
+  fq_nmod_mat_swap_cols(gram,NULL,start+1,idx,F);
 
   // Normalize the second basis vector so the (0,1)-entry is 1.
   fq_nmod_inv(scalar,fq_nmod_mat_entry(gram,start,start+1),F);
@@ -570,11 +589,11 @@ void fq_nmod_quad_split_hyperbolic_plane(const fq_nmod_mat_t vec, fq_nmod_mat_t 
   // Determine the appropriate scalar for clearing out the (1,1)-entry.
   fq_nmod_init(scalar,F);
   if (fmpz_equal_si(p,2)) {
-    fq_nmod_mat_init(vec,1,N,F);
+    fq_nmod_mat_init(row_vec,1,N,F);
     for (col = 0; col < N; col++)
-      fq_nmod_set(fq_nmod_mat_entry(vec,0,col),fq_nmod_mat_entry(basis,start+1,col),F);
-    fq_nmod_quad_evaluate(scalar,q,vec,F);
-    fq_nmod_mat_clear(vec,F);
+      fq_nmod_set(fq_nmod_mat_entry(row_vec,0,col),fq_nmod_mat_entry(basis,start+1,col),F);
+    fq_nmod_quad_evaluate(scalar,q,row_vec,F);
+    fq_nmod_mat_clear(row_vec,F);
   }
   else {
     fq_nmod_init(two,F);
@@ -608,8 +627,8 @@ void fq_nmod_quad_split_hyperbolic_plane(const fq_nmod_mat_t vec, fq_nmod_mat_t 
   }
 
 #ifdef DEBUG
-  fq_nmod_mat_init(basis_t, fq_nmod_mat_ncols(basis), fq_nmod_mat_nrows(basis), F);
-  fq_nmod_mat_init(tmp, fq_nmod_mat_nrows(basis), fq_nmod_mat_ncols(original_gram), F);
+  fq_nmod_mat_init(basis_t, fq_nmod_mat_ncols(basis,F), fq_nmod_mat_nrows(basis,F), F);
+  fq_nmod_mat_init(tmp, fq_nmod_mat_nrows(basis,F), fq_nmod_mat_ncols(original_gram,F), F);
   fq_nmod_mat_transpose(basis_t, basis, F);
   fq_nmod_mat_mul(tmp, basis, original_gram, F);
   fq_nmod_mat_mul(tmp, tmp, basis_t, F);
@@ -623,11 +642,11 @@ void fq_nmod_quad_split_hyperbolic_plane(const fq_nmod_mat_t vec, fq_nmod_mat_t 
 
   if (fmpz_equal_si(p,2)) {
     for (i = start; i < N; i++) {
-      fq_nmod_mat_init(vec,1,N,F);
+      fq_nmod_mat_init(row_vec,1,N,F);
       for (col = 0; col < N; col++)
-	fq_nmod_set(fq_nmod_mat_entry(vec,0,col),fq_nmod_mat_entry(basis,i,col),F);
-      fq_nmod_quad_evaluate(fq_nmod_mat_entry(gram,i,i),q,vec,F);
-      fq_nmod_mat_clear(vec,F);
+	fq_nmod_set(fq_nmod_mat_entry(row_vec,0,col),fq_nmod_mat_entry(basis,i,col),F);
+      fq_nmod_quad_evaluate(fq_nmod_mat_entry(gram,i,i),q,row_vec,F);
+      fq_nmod_mat_clear(row_vec,F);
     }
   }
   
@@ -639,7 +658,7 @@ void fq_nmod_quad_split_hyperbolic_plane(const fq_nmod_mat_t vec, fq_nmod_mat_t 
 
 void fq_nmod_quad_hyperbolize(fq_nmod_mat_t gram, fq_nmod_mat_t basis, const fq_nmod_mat_t q, const fq_nmod_ctx_t F, bool deterministic, slong start)
 {
-  fq_nmod_mat_t vec, original_gram;
+  fq_nmod_mat_t vec, original_gram, q_split, newbasis;
   fq_nmod_t scalar;
   bool found;
   slong i, dim, lower_dim;
@@ -698,9 +717,9 @@ void fq_nmod_quad_hyperbolize(fq_nmod_mat_t gram, fq_nmod_mat_t basis, const fq_
 
     // If the (1,1)-entry is a square, make it the first entry.
     if (fq_nmod_is_square(fq_nmod_mat_entry(gram,start+1,start+1),F)) {
-      fq_nmod_mat_swap_rows(basis,start,start+1,F);
-      fq_nmod_mat_swap_rows(gram,start,start+1,F);
-      fq_nmod_mat_swap_cols(gram,start,start+1,F);
+      fq_nmod_mat_swap_rows(basis,NULL,start,start+1,F);
+      fq_nmod_mat_swap_rows(gram,NULL,start,start+1,F);
+      fq_nmod_mat_swap_cols(gram,NULL,start,start+1,F);
     }
 
     for (i = 0; i < 2; i++) {
@@ -742,7 +761,7 @@ void fq_nmod_quad_hyperbolize(fq_nmod_mat_t gram, fq_nmod_mat_t basis, const fq_
   fq_nmod_quad_split_hyperbolic_plane(vec,gram,basis,q,F,start);
 
   // Determine how many dimensions we need to split off.
-  lower_dim = is_zero_row(gram,0) ? 1 : 2;
+  lower_dim = fq_nmod_mat_is_zero_row(gram,0,F) ? 1 : 2;
 
   if (dim > lower_dim) {
     // Split the hyperbolic plane from the form.
@@ -759,7 +778,7 @@ void fq_nmod_quad_hyperbolize(fq_nmod_mat_t gram, fq_nmod_mat_t basis, const fq_
   }
 
 #ifdef DEBUG_LEVEL_FULL
-  printf("After hyperbolize_form with start = %d.\n", start);
+  printf("After hyperbolize_form with start = %ld.\n", start);
   printf("Resulting gram matrix is \n");
   fq_nmod_mat_print_pretty(gram,F);
   printf("Resulting basis is \n");
@@ -780,11 +799,11 @@ void fq_nmod_quad_decompose(fq_nmod_mat_t gram, fq_nmod_mat_t basis, const fq_nm
   fq_nmod_mat_t temp1, temp2, temp3, basis_i;
   fq_nmod_t value;
 
-  fq_nmod_init(value);
-  fmpq_mat_init(basis_i, 1, N, F);
-  fmpq_mat_init(temp1, N, N, F);
-  fmpq_mat_init(temp2, N, N, F);
-  fmpq_mat_init(temp3, N, N, F);
+  fq_nmod_init(value,F);
+  fq_nmod_mat_init(basis_i, 1, N, F);
+  fq_nmod_mat_init(temp1, N, N, F);
+  fq_nmod_mat_init(temp2, N, N, F);
+  fq_nmod_mat_init(temp3, N, N, F);
 #endif // DEBUG_LEVEL_FULL
   
   fq_nmod_mat_one(basis, F);
@@ -829,12 +848,12 @@ void fq_nmod_quad_decompose(fq_nmod_mat_t gram, fq_nmod_mat_t basis, const fq_nm
   rad = 0;
   pos = N;
   while (pos >= 1) {
-    if (is_zero_row(gram, pos-1)) {
+    if (fq_nmod_mat_is_zero_row(gram, pos-1, F)) {
       rad++;
       for (i = pos; i < N; i++) {
-	fq_nmod_mat_swap_rows(basis,i-1,i,F);
-	fq_nmod_mat_swap_rows(gram,i-1,i,F);
-	fq_nmod_mat_swap_cols(gram,i-1,i,F);
+	fq_nmod_mat_swap_rows(basis,NULL,i-1,i,F);
+	fq_nmod_mat_swap_rows(gram,NULL,i-1,i,F);
+	fq_nmod_mat_swap_cols(gram,NULL,i-1,i,F);
       }
     }
     pos--;
@@ -843,7 +862,7 @@ void fq_nmod_quad_decompose(fq_nmod_mat_t gram, fq_nmod_mat_t basis, const fq_nm
   // Let's put the hyperbolic planes in our standard antidiagonal form.
 
   // The upper index of the hyperbolic space.
-  upper = n + 1 - rad;
+  upper = N + 1 - rad;
   do {
     upper--;
   } while ((upper >= 1) && (!fq_nmod_is_zero(fq_nmod_mat_entry(gram,upper-1,upper-1),F)));
@@ -855,9 +874,9 @@ void fq_nmod_quad_decompose(fq_nmod_mat_t gram, fq_nmod_mat_t basis, const fq_nm
   // Keep swapping basis vectors until j is less than or equal to i. Note
   //  that if there are no hyperbolic planes, this does nothing.
   while (i < j) {
-    fq_nmod_mat_swap_rows(basis,i-1,j-2,F);
-    fq_nmod_mat_swap_cols(gram,i-1,j-2,F);
-    fq_nmod_mat_swap_rows(gram,i-1,j-2,F);
+    fq_nmod_mat_swap_rows(basis,NULL,i-1,j-2,F);
+    fq_nmod_mat_swap_cols(gram,NULL,i-1,j-2,F);
+    fq_nmod_mat_swap_rows(gram,NULL,i-1,j-2,F);
     i += 2;
     j -= 2;
   }
@@ -868,7 +887,7 @@ void fq_nmod_quad_decompose(fq_nmod_mat_t gram, fq_nmod_mat_t basis, const fq_nm
   fq_nmod_mat_set(basis, basis_t, F);
   
 #ifdef DEBUG_LEVEL_FULL
-  fq_nmod_clear(value);
+  fq_nmod_clear(value, F);
   fq_nmod_mat_clear(temp1, F);
   fq_nmod_mat_clear(temp2, F);
   fq_nmod_mat_clear(temp3, F);
@@ -877,11 +896,11 @@ void fq_nmod_quad_decompose(fq_nmod_mat_t gram, fq_nmod_mat_t basis, const fq_nm
   return;
 }
 
-void fq_nmod_poly_set_fq_nmod_quad(fq_nmod_poly_t poly, const fq_nmod_mat_t q, const fq_nmod_ctx_t F, const fq_nmod_mpoly_ctx_t R)
+void fq_nmod_poly_set_fq_nmod_quad(fq_nmod_mpoly_t poly, const fq_nmod_mat_t q, const fq_nmod_ctx_t F, const fq_nmod_mpoly_ctx_t R)
 {
   slong i,j,gen_idx;
   fq_nmod_mpoly_t mon;
-  fq_nmod_t two;
+  fq_nmod_t two_inv;
 
   fq_nmod_mpoly_init(mon,R);
 
@@ -890,24 +909,25 @@ void fq_nmod_poly_set_fq_nmod_quad(fq_nmod_poly_t poly, const fq_nmod_mat_t q, c
   for (i = 0; i < N; i++)
     for (j = i; j < N; j++) {
       fq_nmod_mpoly_gen(mon,gen_idx,R);
-      fq_nmod_mpoly_scalar_mul_fq_nmod(mon,mon,fq_mat_entry(q,i,j),R);
-      fq_nmod_poly_add(poly,poly,mon,R);
+      fq_nmod_mpoly_scalar_mul_fq_nmod(mon,mon,fq_nmod_mat_entry(q,i,j),R);
+      fq_nmod_mpoly_add(poly,poly,mon,R);
       gen_idx++; 
     }
 
-  if (!fmpz_equal_si(fq_ctx_prime(F),2)) {
-    fq_nmod_init(two,F);
-    fq_nmod_one(two,F);
-    fq_nmod_add(two,two,two,F);
+  if (!fmpz_equal_si(fq_nmod_ctx_prime(F),2)) {
+    fq_nmod_init(two_inv,F);
+    fq_nmod_one(two_inv,F);
+    fq_nmod_add(two_inv,two_inv,two_inv,F);
+    fq_nmod_inv(two_inv,two_inv,F);
     for (i = 0; i < N; i++) {
       // the index of x_{i,i}
       gen_idx = i*N - i*(i+1)/2;
       fq_nmod_mpoly_gen(mon,gen_idx,R);
-      fq_nmod_mpoly_scalar_mul_fq_nmod(mon,mon,fq_mat_entry(q,i,i),R);
-      fq_nmod_mpoly_scalar_div_fq_nmod(mon,mon,two,R);
+      fq_nmod_mpoly_scalar_mul_fq_nmod(mon,mon,fq_nmod_mat_entry(q,i,i),R);
+      fq_nmod_mpoly_scalar_mul_fq_nmod(mon,mon,two_inv,R);
       fq_nmod_mpoly_sub(poly,poly,mon,R);
     }
-    fq_nmod_clear(two,F);
+    fq_nmod_clear(two_inv,F);
   }
 
   fq_nmod_mpoly_clear(mon,R);

@@ -1215,43 +1215,6 @@ void fmpq_mat_left_kernel(fmpq_mat_t ker, const fmpq_mat_t mat)
   return;
 }
 
-void fq_mat_kernel(fq_mat_t ker, const fq_mat_t mat, const fq_ctx_t F)
-{
-  slong* P;
-  slong rank, row, col, n;
-  fq_mat_t LU, L_inv;
-
-  n = fq_mat_nrows(mat);
-  P = (slong*)malloc(n*sizeof(slong));
-  
-  fq_mat_init_set(LU, mat, F);
-  
-  rank = fq_mat_lu(P, LU, false, F); // returns L\U in LU such that PA = LU, P permutation matrix
-
-  // initializing L_inv to be 1
-  fq_mat_init(L_inv, n, n, F);
-  fq_mat_zero(L_inv,F);
-  for (row = 0; row < n; row++)
-    fq_one(fq_mat_entry(L_inv, row, row),F); 
-
-  // sets L_inv to L^(-1)
-  fq_mat_solve_tril(L_inv, LU, L_inv, 1, F);
-
-  // setting the kernel to the last n-r rows of L^(-1)*P
-  fq_mat_init(ker, n - rank, n, F);
-  fq_mat_zero(ker,F);
-  for (row = rank; row < n; row++) {
-    for (col = 0; col < n; col++) {
-      fq_set(fq_mat_entry(ker,row-rank,col), fq_mat_entry(L_inv,row,P[col]),F);
-    }
-  }
-
-  fq_mat_clear(LU);
-  fq_mat_clear(L_inv);
-  free(P);	      
-  return;
-}
-
 void print_content_and_coeff_size(const fmpq_mat_t A, const char* name)
 {
   fmpz_mat_t num;
@@ -1331,19 +1294,6 @@ void fmpz_mat_init_set_matrix_TYP(fmpz_mat_t M, const matrix_TYP* mat)
   return;
 }
 
-void fq_mat_init_set_fmpz_mat(fq_mat_t dest, const fmpz_mat_t mat, const fq_ctx_t F)
-{
-  slong row, col;
-
-  fq_mat_init(dest, fmpz_mat_nrows(mat), fmpz_mat_ncols(mat), F);
-  
-  for (row = 0; row < fmpz_mat_nrows(mat); row++)
-    for (col = 0; col < fmpz_mat_ncols(mat); col++)
-      fq_set_fmpz(fq_mat_entry(dest, row, col), fmpz_mat_entry(mat, row, col), F);
-
-  return;
-}
-
 void nmod_mat_init_set_fmpz_mat(nmod_mat_t dest, const fmpz_mat_t mat, mp_limb_t n)
 {
   slong row, col;
@@ -1354,19 +1304,6 @@ void nmod_mat_init_set_fmpz_mat(nmod_mat_t dest, const fmpz_mat_t mat, mp_limb_t
     for (col = 0; col < fmpz_mat_ncols(mat); col++)
       nmod_mat_entry(dest, row, col) = fmpz_get_si(fmpz_mat_entry(mat, row, col)) % n;
 
-  return;
-}
-
-void fq_mat_transpose(fq_mat_t dest, const fq_mat_t mat, const fq_ctx_t F)
-{
-  slong row, col;
-
-  assert(dest != mat);
-  
-  for (row = 0; row < fq_mat_nrows(mat); row++)
-    for (col = 0; col < fq_mat_ncols(mat); col++)
-      fq_set(fq_mat_entry(dest, col, row), fq_mat_entry(mat, row, col), F);
-  
   return;
 }
 

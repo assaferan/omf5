@@ -5,13 +5,13 @@ void fq_nmod_poly_mat_init(fq_nmod_poly_mat_t mat, slong rows, slong cols, const
   slong i;
 
   if (rows != 0)
-    mat->rows = (fq_nmod_poly **) flint_malloc(rows * sizeof(fq_nmod_poly *));
+    mat->rows = (fq_nmod_poly_struct **) flint_malloc(rows * sizeof(fq_nmod_poly_struct *));
   else
     mat->rows = NULL;
 
   if (rows != 0 && cols != 0)
     {
-      mat->entries = (fq_nmod_poly *) flint_calloc(flint_mul_sizes(rows, cols), sizeof(fq_nmod_poly));
+      mat->entries = (fq_nmod_poly_struct *) flint_calloc(flint_mul_sizes(rows, cols), sizeof(fq_nmod_poly_struct));
 
       /* Set denominators */
       for (i = 0; i < rows * cols; i++)

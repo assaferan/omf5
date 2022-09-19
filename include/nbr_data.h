@@ -1,25 +1,15 @@
-#ifndef __NEIGHBOR2_H__
-#define __NEIGHBOR2_H__
+#ifndef __NBR_DATA_H__
+#define __NBR_DATA_H__
 
 #include "carat/matrix.h"
 
 #include "flint/fq_nmod.h"
 #include "flint/fq_nmod_vec.h"
 #include "flint/fq_nmod_mat.h"
-#include "flint/fq_nmod_poly.h"
+#include "flint/fq_nmod_mpoly.h"
 
 #include "fq_nmod_poly_mat.h"
-
-typedef struct
-{
-  slong** pivots;
-  slong* pivot_lens;
-  slong total_len;
-  slong pivot_ptr;
-  
-} pivot_data;
-
-typedef pivot_data pivot_data_t[1];
+#include "pivot_data.h"
 
 typedef struct
 {
@@ -34,7 +24,7 @@ typedef struct
   fq_nmod_mat_t p_std_gram;
   fq_nmod_mat_t p_basis;
   fq_nmod_mpoly_ctx_t p_q_std_ctx;
-  fq_nmod_poly_t p_q_std;
+  fq_nmod_mpoly_t p_q_std;
 
   // dimension of the radical
   slong rad_dim;
@@ -62,25 +52,23 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k);
 
 void nbr_data_clear(nbr_data_t nbr_man);
 
-void advance_nbr2_process(neighbor2_manager* nbr_man);
+/* void advance_nbr2_process(neighbor2_manager* nbr_man); */
 
+/* /\* Compute one p-neighbour for Q_orig corresponding to vector x  */
+/*  * On error, return NULL. */
+/* *\/ */
+/* matrix_TYP* build_nb2(neighbor2_manager* nbr_man); */
 
+/* /\* get isotropic subspace, correposnding to the pivot matrix w. *\/ */
 
-/* Compute one p-neighbour for Q_orig corresponding to vector x 
- * On error, return NULL.
-*/
-matrix_TYP* build_nb2(neighbor2_manager* nbr_man);
+/* matrix_TYP* get_next_isotropic_subspace(neighbor2_manager* nbr_man); */
 
-/* get isotropic subspace, correposnding to the pivot matrix w. */
+/* /\* update the pivot vector v *\/ */
+/* void update_pivot(int* v, int p, int i); */
 
-matrix_TYP* get_next_isotropic_subspace(neighbor2_manager* nbr_man);
+/* /\* get the next isotropic vector *\/ */
+/* void update_isotropic_subspace(matrix_TYP*Q, int p, matrix_TYP* v); */
 
-/* update the pivot vector v */
-void update_pivot(int* v, int p, int i);
+/* int has_ended(neighbor2_manager* nbr_man); */
 
-/* get the next isotropic vector */
-void update_isotropic_subspace(matrix_TYP*Q, int p, matrix_TYP* v);
-
-int has_ended(neighbor2_manager* nbr_man);
-
-#endif // __NEIGHBOR2_H__
+#endif // __NBR_DATA_H__
