@@ -6,6 +6,12 @@
 
 #include "carat/matrix.h"
 
+#include "flint/fmpz_mat.h"
+#include "flint/fmpq_mat.h"
+#include "flint/fmpq_poly.h"
+#include "flint/fq,h"
+#include "flint/fq_mat.h"
+
 /* function to initialize a symmetric matrix from a vector of coefficients */
 matrix_TYP* init_sym_matrix(const int* coeff_vec, const char* inp_type);
 
@@ -62,6 +68,11 @@ eigenvalues* get_eigenvalues(matrix_TYP* mat);
 void free_eigenvalues(eigenvalues* evs);
 
 void fmpq_mat_init_set_matrix_TYP(fmpq_mat_t M, const matrix_TYP* mat);
+void fmpz_mat_init_set_matrix_TYP(fmpz_mat_t M, const matrix_TYP* mat);
+void fq_mat_init_set_fmpz_mat(fq_mat_t dest, const fmpz_mat_t mat, const fq_ctx_t F);
+void nmod_mat_init_set_fmpz_mat(nmod_mat_t dest, const fmpz_mat_t mat, mp_limb_t n);
+void fq_mat_transpose(fq_mat_t dest, const fq_mat_t mat, const fq_ctx_t F);
+void fq_mat_kernel(fq_mat_t ker, const fq_mat_t mat, const fq_ctx_t F);
 
 void restrict_mat(fmpq_mat_t res_T, const fmpq_mat_t T, const fmpq_mat_t basis_W);
 

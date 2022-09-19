@@ -165,19 +165,19 @@ void get_hecke_fmpq_mat(fmpq_mat_t hecke_fmpq_mat, const hash_table* genus, int 
 }
 
 // TODO - get rid of the unnecessary recursion
-BOOL decomposition_finite_subspace(decomposition* decomp, const hash_table* genus, const fmpq_mat_t basis_V,
+bool decomposition_finite_subspace(decomposition* decomp, const hash_table* genus, const fmpq_mat_t basis_V,
 				   const int* ps, slong idx, slong num_ps)
 {
   slong i, dim_V, next_idx;
   fmpq_mat_t T, fT, W;
   fmpq_poly_t f;
   fmpq_poly_factor_t fac;
-  BOOL is_complete, is_complete_W;
+  bool is_complete, is_complete_W;
   fmpq_mat_t hecke_fmpq_mat;
 
   dim_V = fmpq_mat_nrows(basis_V);
   if (dim_V == 0) {
-    return TRUE;
+    return true;
   }
 
   if (idx >= num_ps) {
@@ -185,7 +185,7 @@ BOOL decomposition_finite_subspace(decomposition* decomp, const hash_table* genu
     decomp->bases = (fmpq_mat_t*)realloc(decomp->bases, (decomp->num)*sizeof(fmpq_mat_t));
     fmpq_mat_init(decomp->bases[decomp->num-1], dim_V, dim_V);
     fmpq_mat_one(decomp->bases[decomp->num-1]);
-    return FALSE;
+    return false;
   }
 
   fmpq_mat_init(T, dim_V, dim_V);
@@ -197,7 +197,7 @@ BOOL decomposition_finite_subspace(decomposition* decomp, const hash_table* genu
   fmpq_mat_charpoly(f, T);
   fmpq_poly_factor(fac, f);
 
-  is_complete = TRUE;
+  is_complete = true;
   for (i = 0; i < fac->num; i++) {
     fmpq_poly_evaluate_fmpq_mat(fT, &(fac->p[i]), T);
     kernel_on(W, fT, basis_V);
@@ -207,7 +207,7 @@ BOOL decomposition_finite_subspace(decomposition* decomp, const hash_table* genu
       (decomp->num)++;
       decomp->bases = (fmpq_mat_t*)realloc(decomp->bases, (decomp->num)*sizeof(fmpq_mat_t));
       fmpq_mat_init_set(decomp->bases[decomp->num-1], W);
-      is_complete_W = TRUE;
+      is_complete_W = true;
     }
     else {
       next_idx = (fmpq_mat_nrows(W) == dim_V) ? idx+1 : 0;
@@ -226,11 +226,11 @@ BOOL decomposition_finite_subspace(decomposition* decomp, const hash_table* genu
   return is_complete;
 }
 
-BOOL decomposition_finite(decomposition* decomp, const hash_table* genus, const int* ps, slong num_ps)
+bool decomposition_finite(decomposition* decomp, const hash_table* genus, const int* ps, slong num_ps)
 {
   fmpq_mat_t basis_M;
   slong dim;
-  BOOL is_complete;
+  bool is_complete;
   
   decomp->num = 0;
   decomp->bases = NULL;
@@ -255,9 +255,9 @@ decomposition* decompose(const hash_table* genus)
   slong bound, num_ps;
   int* ps;
   decomposition* decomp;
-  BOOL is_complete;
+  bool is_complete;
 
-  is_complete = FALSE;
+  is_complete = false;
   decomp = (decomposition*)malloc(sizeof(decomposition));
   bound = 10;
 

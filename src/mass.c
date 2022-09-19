@@ -189,7 +189,7 @@ void get_mass(fmpq_t mass, const matrix_TYP* q)
   int num_hasse, num_B;
   fmpz_factor_t fac;
   int i, j, cmp, val2, w;
-  int has_two;
+  bool has_two;
   fmpq_t bernoulli, mass_r, mass_r_1, mass_2r_1;
 
   fmpz_init(det);
@@ -215,7 +215,7 @@ void get_mass(fmpq_t mass, const matrix_TYP* q)
   fmpz_mat_init(B, 1, num_hasse + fac->num);
 
   num_B = i = j = 0;
-  has_two = FALSE;
+  has_two = false;
   // TODO : Is hasse sorted at this point?
   // merge sort into B
   while ((i < fac->num) && (j < num_hasse)) {
@@ -229,14 +229,14 @@ void get_mass(fmpq_t mass, const matrix_TYP* q)
       if (!fmpz_equal_si(fmpz_mat_entry(hasse, 0, j), 2))
 	fmpz_set(fmpz_mat_entry(B, 0, num_B++), fmpz_mat_entry(hasse, 0, j));
       else
-	has_two = TRUE;
+	has_two = true;
       j++;
     }
     if (cmp == 0) {
       if (!fmpz_equal_si(&(fac->p[i]), 2))
 	fmpz_set(fmpz_mat_entry(B, 0, num_B++), &(fac->p[i]));
       else
-	has_two = TRUE;
+	has_two = true;
       i++;
       j++;
     }
@@ -250,7 +250,7 @@ void get_mass(fmpq_t mass, const matrix_TYP* q)
     if (!fmpz_equal_si(fmpz_mat_entry(hasse, 0, j), 2))
       fmpz_set(fmpz_mat_entry(B, 0, num_B++), fmpz_mat_entry(hasse, 0, j));
     else
-      has_two = TRUE;
+      has_two = true;
   } 
 
   // originally, leave hasse only with 2, if it had a 2.
@@ -272,7 +272,7 @@ void get_mass(fmpq_t mass, const matrix_TYP* q)
       fmpz_set_si(mass_two, (1 << r) + (has_two ? -1 : 1));
       fmpq_mul_fmpz(mass, mass, mass_two); 
       fmpq_div_fmpz(mass, mass, two);
-      has_two = FALSE;
+      has_two = false;
     }
     else if (has_two) {
       fmpz_set_si(mass_two, (1 << (n-1))-1);
@@ -303,7 +303,7 @@ void get_mass(fmpq_t mass, const matrix_TYP* q)
 
       if (val2 % 2 == 1) {
 	fmpq_div_2exp(mass, mass, 1);
-	has_two = FALSE;
+	has_two = false;
       }
     }
     if (has_two) {

@@ -32,6 +32,8 @@ DBG_LD_FLAGS = ${ALL_LDFLAGS}
 # DBG_LD_FLAGS += -fsanitize=leak
 
 SOURCES = arith.c
+SOURCES += fq_mat.c
+SOURCES += fq_quad.c
 SOURCES += genus.c
 SOURCES += hash.c
 SOURCES += hecke.c
@@ -39,6 +41,7 @@ SOURCES += jordan.c
 SOURCES += mass.c
 SOURCES += matrix_tools.c
 SOURCES += neighbor.c
+SOURCES += neighbor2.c
 SOURCES += nf_mat.c
 SOURCES += orthogonalize.c
 SOURCES += tests.c
