@@ -57,6 +57,8 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
   fq_nmod_mat_init(nbr_man->p_basis, N, N, nbr_man->GF);
   fq_nmod_mat_init(nbr_man->p_skew, k, k, nbr_man->GF);
 
+  nbr_man->is_skew_init = true;
+
 #ifdef DEBUG
   fq_nmod_quad_decompose(nbr_man->p_std_gram, nbr_man->p_basis, nbr_man->b, nbr_man->GF, true);
 #else
@@ -113,11 +115,6 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
 
 void nbr_data_clear(nbr_data_t nbr_man)
 {
-  // !! TODO - these are set when lifting a subspace
-  nmod_mat_clear(nbr_man->X);
-  nmod_mat_clear(nbr_man->Z);
-  nmod_mat_clear(nbr_man->U);
-  // make sure we still need to clear them here
   nmod_mat_clear(nbr_man->X_skew);
   pivot_data_clear(nbr_man->pivots);
   fq_nmod_mpoly_clear(nbr_man->p_q_std,nbr_man->p_q_std_ctx);
@@ -913,5 +910,153 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
   fq_nmod_mat_clear(basis_t, nbr_man->GF);
   fq_nmod_mat_clear(basis, nbr_man->GF);
 
+  return;
+}
+
+void nbr_data_update_skew_matrix(nbr_data_t nbr_man, slong row, slong col)
+{
+  bool done;
+  fq_nmod_t one;
+
+  fq_nmod_init(one, nbr_man->GF);
+  fq_nmod_one(one, nbr_man->GF);
+  
+  do {
+    // Flag for determining whether we are done updating
+    //  the skew matrix.
+    done = true;
+     
+    // Increment value of the (row,col) position.
+    fq_nmod_add(fq_nmod_mat_entry(nbr_man->p_skew,row,col), fq_nmod_mat_entry(nbr_man->p_skew,row,col), one, nbr_man->GF);
+      
+    // Update the coefficient of the skew matrix reflected
+    //  across the anti-diagonal.
+    fq_nmod_set(fq_nmod_mat_entry(nbr_man->p_skew, nbr_man->k-1-col, nbr_man->k-1-row),
+		fq_nmod_mat_entry(nbr_man->p_skew, row, col), nbr_man->GF);
+    fq_nmod_neg(fq_nmod_mat_entry(nbr_man->p_skew, nbr_man->k-1-col, nbr_man->k-1-row),
+		fq_nmod_mat_entry(nbr_man->p_skew, nbr_man->k-1-col, nbr_man->k-1-row), nbr_man->GF);
+      
+    // If we've rolled over, move on to the next position.
+    if (fq_nmod_is_zero(fq_nmod_mat_entry(nbr_man->p_skew,row,col),nbr_man->GF)) {
+      // The next column of our skew matrix.
+      col++;
+      // Are we at the end of the column?
+      if (row+col == nbr_man->k-1) {
+	// Yes. Move to the next row.
+	row++;
+	// And reset the column.
+	col = 0;
+      }
+      // Indicate we should repeat another iteration.
+      done = false;
+    }
+  } while ((!done) && (row+col != nbr_man->k-1));
+  
+  fq_nmod_clear(one, nbr_man->GF);
+  return;
+}
+
+void nbr_data_update_skew_space(nbr_data_t nbr_man)
+{
+  slong i,j,l;
+  slong p, val;
+#ifdef DEBUG
+  fmpz_mat_t B, temp, B_t, Bq;
+#endif // DEBUG
+  
+  assert(nmod_mat_nrows(nbr_man->X) == nbr_man->k);
+  assert(nmod_mat_nrows(nbr_man->Z) == nbr_man->k);
+  assert(nbr_man->is_skew_init);
+
+#ifdef DEBUG_LEVEL_FULL
+  printf("X = ");
+  nmod_mat_print(nbr_man->X);
+  printf("Z = ");
+  nmod_mat_print(nbr_man->Z);
+  printf("skew = ");
+  fq_nmod_mat_print(nbr_man->p_skew, nbr_man->GF);
+#endif // DEBUG_LEVEL_FULL
+
+  p = fmpz_get_si(fq_nmod_ctx_prime(nbr_man->GF));
+  // Update the skew space.
+  for (i = 0; i < nbr_man->k; i++) {
+    for (l = 0; l < N; l++)
+      nmod_mat_entry(nbr_man->X_skew, i, l) = nmod_mat_entry(nbr_man->X, i, l);
+    for (j = 0; j < nbr_man->k; j++) {
+      val = nmod_poly_get_coeff_ui(fq_nmod_mat_entry(nbr_man->p_skew,i,j),0);
+      for (l = 0; l < N; l++)
+	nmod_mat_entry(nbr_man->X_skew,i,l) += p * val * nmod_mat_entry(nbr_man->Z,j,l);
+    }
+    for (l = 0; l < N; l++)
+      nmod_mat_entry(nbr_man->X_skew, i, j) %= (p*p);
+  }
+
+#ifdef DEBUG_LEVEL_FULL
+  printf("X_skew = ");
+  nmod_mat_print(nbr_man->X_skew);
+#endif // DEBUG_LEVEL_FULL
+
+#ifdef DEBUG
+  fmpz_mat_init(B, N, N);
+  fmpz_mat_init(B_t, N, N);
+  fmpz_mat_init(Bq, N, N);
+  fmpz_mat_init(temp, N, N);
+
+  // Verify that X_skew is isotropic modulo p^2.
+  for (i = 0; i < nbr_man->k; i++)
+    for (j = 0; j < N; j++)
+      fmpz_set_si(fmpz_mat_entry(B,i,j),nmod_mat_entry(nbr_man->X_skew, i, j));
+
+  fmpz_mat_transpose(B_t, B);
+  fmpz_mat_mul(Bq, B, nbr_man->q);
+  // The Gram matrix on this basis.
+  fmpz_mat_mul(temp, Bq, B_t);
+  
+  // Verify all is well.
+  for (i = 0; i < nbr_man->k; i++)
+    for (j = 0; j < nbr_man->k; j++)
+      assert(fmpz_get_si(fmpz_mat_entry(temp,i,j)) % (p*p) == 0);
+
+  fmpz_mat_clear(B);
+  fmpz_mat_clear(B_t);
+  fmpz_mat_clear(Bq);
+  fmpz_mat_clear(temp);
+#endif // DEBUG
+  
+  return;
+}
+
+void nbr_data_get_next_neighbor(nbr_data_t nbr_man)
+{
+  slong row, col;
+
+  // The starting position of the skew vector to update.
+  row = 0;
+  col = 0;
+  // Update the skew matrix (only for k >= 2).
+  if (nbr_man->skew_dim != 0) {
+    nbr_data_update_skew_matrix(nbr_man, row, col);
+  }
+
+  // If we haven't rolled over, update the skew space and return...
+  if (row + col < nbr_man->k-1) {
+    nbr_data_update_skew_space(nbr_man);
+    return;
+  }
+
+  // ...otherwise, get the next isotropic subspace modulo p.
+  nbr_data_next_isotropic_subspace(nbr_man);
+
+  // Lift the subspace if we haven't reached the end of the list.
+  if (!(nbr_man->is_done)) {
+    nbr_data_lift_subspace(nbr_man);
+    nmod_mat_init_set(nbr_man->X_skew, nbr_man->X);
+  }
+  else {
+    nmod_mat_clear(nbr_man->X);
+    nmod_mat_clear(nbr_man->Z);
+    nmod_mat_clear(nbr_man->U);
+  }
+  
   return;
 }

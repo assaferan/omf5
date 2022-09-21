@@ -41,6 +41,7 @@ typedef struct
   nmod_mat_t X, Z, U, X_skew;
   // fmpz_mat_t X, Z, U, X_skew;
   bool is_done;
+  bool is_skew_init;
   
 } nbr_data;
 
