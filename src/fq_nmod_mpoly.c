@@ -1,19 +1,20 @@
 #include "fq_nmod_mpoly.h"
+#include "typedefs.h"
 
 void fq_nmod_mpoly_quadratic_part(fq_nmod_mpoly_t quad, const fq_nmod_mpoly_t f, const fq_nmod_mpoly_ctx_t ctx)
 {
-  slong i, j, N;
+  slong i, j;
   ulong deg;
   fq_nmod_t coeff;
-  ulong* exp;
+  ulong exp[N];
 
   // !! TODO - maube use get_term and get_exp instead
   fq_nmod_init(coeff, ctx->fqctx);
-  N = mpoly_words_per_exp(f->bits, ctx->minfo);
   fq_nmod_mpoly_zero(quad, ctx);
+  
   for (i = 0; i < f->length; i++) {
+    fq_nmod_mpoly_get_term_exp_ui(exp, f, i, ctx);
     deg = 0;
-    exp = f->exps + i*N;
     for (j = 0; j < N; j++)
       deg += exp[j];
     if (deg == 2) {

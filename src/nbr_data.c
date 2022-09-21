@@ -72,10 +72,13 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
 #ifdef DEBUG_LEVEL_FULL
   printf("Performed Witt Decomposition on\n");
   fq_nmod_mat_print_pretty(nbr_man->b,nbr_man->GF);
+  printf("\n");
   printf("Resulting gram matrix is \n");
   fq_nmod_mat_print_pretty(nbr_man->p_std_gram,nbr_man->GF);
+  printf("\n");
   printf("Resulting basis is \n");
   fq_nmod_mat_print_pretty(nbr_man->p_basis,nbr_man->GF);
+  printf("\n");
 #endif // DEBUG_LEVEL_FULL
 
   // Count the rows at the end of the matrix which are exactly zero.
@@ -99,6 +102,8 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
   nbr_man->k = k;
   nbr_man->skew_dim = k*(k-1)/2;
   nbr_man->is_done = false;
+  nbr_man->pivots->num_params = 0;
+  nbr_man->is_iso_subspace_init = false;
 
   nbr_data_next_isotropic_subspace(nbr_man);
   nbr_data_lift_subspace(nbr_man);
@@ -147,12 +152,14 @@ void nbr_data_next_isotropic_subspace(nbr_data_t nbr_man)
       // Reset the pivot pointer so that we can loop through
       //  the isotropic subspaces again if needed.
       nbr_man->pivots->pivot_ptr = 0;
-      fq_nmod_mat_clear(nbr_man->iso_subspace, nbr_man->GF);
+      if (nbr_man->is_iso_subspace_init)
+	fq_nmod_mat_clear(nbr_man->iso_subspace, nbr_man->GF);
       nbr_man->is_done = true;
       return;
     }
     // Initialize the new pivot.
-    pivot_data_params_clear(nbr_man->pivots);
+    if (nbr_man->pivots->is_params_init)
+      pivot_data_params_clear(nbr_man->pivots);
     nbr_data_params_init(nbr_man->pivots, nbr_man);
   }
 
@@ -161,10 +168,13 @@ void nbr_data_next_isotropic_subspace(nbr_data_t nbr_man)
   // fq_nmod_mat_zero(eval_list, nbr_man->GF);
   eval_list = (fq_nmod_struct**)malloc(N*nbr_man->k*sizeof(fq_nmod_struct*));
   for (i = 0; i < N * nbr_man->k; i++) {
+    eval_list[i] = (fq_nmod_struct*)malloc(sizeof(fq_nmod_struct));
     fq_nmod_init(eval_list[i], nbr_man->GF);
     fq_nmod_zero(eval_list[i], nbr_man->GF);
   }
 
+  assert(nbr_man->pivots->is_params_init);
+  
   // Produce the isotropic subspace corresponding to the current
   //  parameters.
 
@@ -172,8 +182,11 @@ void nbr_data_next_isotropic_subspace(nbr_data_t nbr_man)
     // fq_nmod_set(fq_nmod_mat_entry(eval_list,0,i), nbr_man->pivots->params[i], nbr_man->GF);
     fq_nmod_set(eval_list[i], nbr_man->pivots->params[i], nbr_man->GF);
 
+  if (nbr_man->is_iso_subspace_init)
+    fq_nmod_mat_clear(nbr_man->iso_subspace, nbr_man->GF);
   // The basis for the current isotropic subspace.
   fq_nmod_mat_init(nbr_man->iso_subspace, nbr_man->k, N, nbr_man->GF);
+  nbr_man->is_iso_subspace_init = true;
   for (i = 0; i < nbr_man->k; i++) {
     for (j = 0; j < N; j++) {
       fq_nmod_mpoly_evaluate_all_fq_nmod(fq_nmod_mat_entry(nbr_man->iso_subspace,i,j),
@@ -209,16 +222,14 @@ void nbr_data_next_isotropic_subspace(nbr_data_t nbr_man)
     }
 
   if (all_zero) {
-    for (i = 0; i < nbr_man->pivots->num_params; i++) {
-      fq_nmod_clear(nbr_man->pivots->params[i], nbr_man->GF);
-    }
-    free(nbr_man->pivots->params);
-    nbr_man->pivots->num_params = 0;
+    pivot_data_params_clear(nbr_man->pivots);
   }
   
   // fq_nmod_mat_clear(eval_list, nbr_man->GF);
-  for (i = 0; i < N * nbr_man->k; i++)
+  for (i = 0; i < N * nbr_man->k; i++) {
     fq_nmod_clear(eval_list[i], nbr_man->GF);
+    free(eval_list[i]);
+  }
   free(eval_list);
   
   return;
@@ -315,11 +326,14 @@ void nbr_data_params_init(pivot_data_t pivots, const nbr_data_t nbr_man)
 
   // fq_nmod_mpoly_mat_init(vec, 1, rows*N, pivots->R);
   vec = (fq_nmod_mpoly_struct**)malloc(rows*N*sizeof(fq_nmod_mpoly_struct*));
-  for (i = 0; i < rows*N; i++)
+  for (i = 0; i < rows*N; i++) {
+    vec[i] = (fq_nmod_mpoly_struct*)malloc(sizeof(fq_nmod_mpoly_struct));
     fq_nmod_mpoly_init(vec[i], pivots->R);
+  }
   
   fq_nmod_mat_init(l, 1, rank, nbr_man->GF);
-
+  fq_nmod_mpoly_init(f, pivots->R);
+  
   data_idx = 0;
   vec_idx = 0;
   row = 0;
@@ -333,10 +347,30 @@ void nbr_data_params_init(pivot_data_t pivots, const nbr_data_t nbr_man)
 			    vec[vec_idx], fq_nmod_mpoly_mat_entry(pivots->p_isotropic_param,j,r), pivots->R);
 	vec_idx++;
       }
+#ifdef DEBUG_LEVEL_FULL
+      printf("Substituting vec = ");
+      for (i = 0; i < N; i++) {
+	fq_nmod_mpoly_print_pretty(vec[i], var_names, pivots->R);
+	printf(" ");
+      }
+      printf(" in q_std = ");
+      fq_nmod_mpoly_print_pretty(nbr_man->p_q_std, var_names, pivots->R);
+#endif // DEBUG_LEVEL_FULL
       fq_nmod_mpoly_compose_fq_nmod_mpoly(f, nbr_man->p_q_std, vec, nbr_man->p_q_std_ctx, pivots->R);
+#ifdef DEBUG_LEVEL_FULL
+      printf(" yields f = ");
+      fq_nmod_mpoly_print_pretty(f, var_names, pivots->R);
+      printf("\n");
+#endif // DEBUG_LEVEL_FULL
       // Degree 2 terms are inhomogenous.
-      fq_nmod_mpoly_quadratic_part(f, f, pivots->R);
-      fq_nmod_mpoly_neg(fq_nmod_mpoly_mat_entry(data,0,data_idx++), f, pivots->R);
+      fq_nmod_mpoly_quadratic_part(fq_nmod_mpoly_mat_entry(data,0,data_idx), f, pivots->R);
+#ifdef DEBUG_LEVEL_FULL
+      printf("Quadratic part = ");
+      fq_nmod_mpoly_print_pretty(fq_nmod_mpoly_mat_entry(data,0,data_idx), var_names, pivots->R);
+      printf("\n");
+#endif // DEBUG_LEVEL_FULL
+      fq_nmod_mpoly_neg(fq_nmod_mpoly_mat_entry(data,0,data_idx), fq_nmod_mpoly_mat_entry(data,0,data_idx), pivots->R);
+      data_idx++;
       // The other terms are linear
       // so fill in the matrix accordingly.
       fq_nmod_mpoly_linear_part(l, f, pivots->R);
@@ -350,6 +384,7 @@ void nbr_data_params_init(pivot_data_t pivots, const nbr_data_t nbr_man)
 #ifdef DEBUG_LEVEL_FULL
   printf("The matrix before echelon is mat = \n");
   fq_nmod_mat_print_pretty(mat, nbr_man->GF);
+  printf("\n");
   printf("The last entry is the quadratic data = \n");
   for (i = 0; i < rows; i++) {
     fq_nmod_mpoly_print_pretty(fq_nmod_mpoly_mat_entry(data,0,i), var_names, pivots->R);
@@ -366,6 +401,7 @@ void nbr_data_params_init(pivot_data_t pivots, const nbr_data_t nbr_man)
 #ifdef DEBUG_LEVEL_FULL
   printf("The matrix after echelon is mat = \n");
   fq_nmod_mat_print_pretty(mat, nbr_man->GF);
+  printf("\n");
 #endif
 
   // The evaluation list for replacing variables with their dependence
@@ -374,6 +410,7 @@ void nbr_data_params_init(pivot_data_t pivots, const nbr_data_t nbr_man)
   // fq_nmod_mpoly_mat_init(eval_list, 1, rank, pivots->R);
   eval_list = (fq_nmod_mpoly_struct**)malloc(rank*sizeof(fq_nmod_mpoly_struct*));
   for (i = 0; i < rank; i++) {
+    eval_list[i] = (fq_nmod_mpoly_struct*)malloc(sizeof(fq_nmod_mpoly_struct));
     fq_nmod_mpoly_init(eval_list[i], pivots->R);
     fq_nmod_mpoly_gen(eval_list[i],i,pivots->R);
   }
@@ -431,8 +468,10 @@ void nbr_data_params_init(pivot_data_t pivots, const nbr_data_t nbr_man)
   
 #ifdef DEBUG_LEVEL_FULL
       printf("Substituting vec = ");
-      for (i = 0; i < rows*N; i++)
+      for (i = 0; i < N; i++) {
 	fq_nmod_mpoly_print_pretty(vec[i], var_names, pivots->R);
+	printf(" ");
+      }
       printf(" in q_std = ");
       fq_nmod_mpoly_print_pretty(nbr_man->p_q_std, var_names, pivots->R);
 #endif // DEBUG_LEVEL_FULL
@@ -441,6 +480,7 @@ void nbr_data_params_init(pivot_data_t pivots, const nbr_data_t nbr_man)
 #ifdef DEBUG_LEVEL_FULL
       printf(" yields f = ");
       fq_nmod_mpoly_print_pretty(f, var_names, pivots->R);
+      printf("\n");
 #endif // DEBUG_LEVEL_FULL
       
       assert(fq_nmod_mpoly_is_zero(f,pivots->R));
@@ -461,7 +501,8 @@ void nbr_data_params_init(pivot_data_t pivots, const nbr_data_t nbr_man)
       remove[remove_idx++] = i;
   }
 
-  free(pivots->free_vars);
+  if (pivots->is_params_init)
+    free(pivots->free_vars);
   pivots->free_vars = (slong*)malloc(rank*sizeof(slong)); // not using all of them
   pivots->params = (fq_nmod_t*)malloc(rank*sizeof(fq_nmod_t));
   pivots->num_free_vars = 0;
@@ -481,8 +522,12 @@ void nbr_data_params_init(pivot_data_t pivots, const nbr_data_t nbr_man)
     }
   }
 
-  for (i = 0; i < rank; i++)
+  pivots->is_params_init = true;
+  
+  for (i = 0; i < rank; i++) {
     fq_nmod_mpoly_clear(eval_list[i], pivots->R);
+    free(eval_list[i]);
+  }
   
   free(eval_list);
   
@@ -493,8 +538,10 @@ void nbr_data_params_init(pivot_data_t pivots, const nbr_data_t nbr_man)
   fq_nmod_mat_clear(l, nbr_man->GF);
   fq_nmod_mpoly_clear(f, pivots->R);
 
-  for (i = 0; i < rows*N; i++)
+  for (i = 0; i < rows*N; i++) {
     fq_nmod_mpoly_clear(vec[i], pivots->R);
+    free(vec[i]);
+  }
   free(vec);
   
   fq_nmod_mat_clear(mat,nbr_man->GF);
@@ -588,9 +635,11 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
 
 #ifdef DEBUG_LEVEL_FULL
   printf("before lifting, p_basis is \n");
-  fq_nmod_mat_print(nbr_man->p_basis, nbr_man->GF);
+  fq_nmod_mat_print_pretty(nbr_man->p_basis, nbr_man->GF);
+  printf("\n");
   printf("iso_subspace is \n");
-  fq_nmod_mat_print(nbr_man->iso_subspace, nbr_man->GF);
+  fq_nmod_mat_print_pretty(nbr_man->iso_subspace, nbr_man->GF);
+  printf("\n");
   printf("pivots = ");
   for (i = 0; i < num_pivots; i++)
     printf("%ld", pivots[i]);
@@ -605,7 +654,8 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
   
 #ifdef DEBUG_LEVEL_FULL
   printf("the correct basis vectors are \n");
-  fq_nmod_mat_print(basis, nbr_man->GF);
+  fq_nmod_mat_print_pretty(basis, nbr_man->GF);
+  printf("\n");
 #endif // DEBUG_LEVEL_FULL
 
   fq_nmod_mat_init(basis_t, fq_nmod_mat_ncols(basis, nbr_man->GF), fq_nmod_mat_nrows(basis, nbr_man->GF), nbr_man->GF);
@@ -619,7 +669,8 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
 
 #ifdef DEBUG_LEVEL_FULL
   printf("x = ");
-  fq_nmod_mat_print(x, nbr_man->GF);
+  fq_nmod_mat_print_pretty(x, nbr_man->GF);
+  printf("\n");
 #endif // DEBUG_LEVEL_FULL
 
   // Extract the hyperbolic complement modulo p.
@@ -634,7 +685,8 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
 
 #ifdef DEBUG_LEVEL_FULL
   printf("z = ");
-  fq_nmod_mat_print(z, nbr_man->GF);
+  fq_nmod_mat_print_pretty(z, nbr_man->GF);
+  printf("\n");
 #endif // DEBUG_LEVEL_FULL
 
   // Extract the remaining basis vectors.
@@ -648,13 +700,16 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
   fq_nmod_mat_init(u, N-2*nbr_man->k, N, nbr_man->GF);
   u_idx = 0;
   for (i = 0; i < N; i++)
-    if (excluded[i])
+    if (excluded[i]) {
        for (j = 0; j < N; j++)
-	 fq_nmod_set(fq_nmod_mat_entry(u,u_idx++,j), fq_nmod_mat_entry(basis_t, i,j), nbr_man->GF);
+	 fq_nmod_set(fq_nmod_mat_entry(u,u_idx,j), fq_nmod_mat_entry(basis_t, i,j), nbr_man->GF);
+       u_idx++;
+    }
 
 #ifdef DEBUG_LEVEL_FULL
   printf("u = ");
-  fq_nmod_mat_print(u, nbr_man->GF);
+  fq_nmod_mat_print_pretty(u, nbr_man->GF);
+  printf("\n");
 #endif // DEBUG_LEVEL_FULL
 
   // Convert to coordinates modulo p^2.
@@ -735,7 +790,7 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
     for (j = 0; j < N; j++)
       nmod_mat_entry(B,nbr_man->k+i,j) = nmod_mat_entry(nbr_man->Z,i,j);
 
-  nmod_mat_init(temp, nbr_man->k, nbr_man->k, p*p);
+  nmod_mat_init(temp, N, N, p*p);
   nmod_mat_gram(temp, B, nbr_man->quot_gram, p*p);
   for (i = 0; i < nbr_man->k; i++)
     for (j = 0; j < nbr_man->k; j++)
@@ -1165,16 +1220,17 @@ void fmpz_mat_hermite_form(fmpz_mat_t H, const fmpz_mat_t s, slong d)
   return;
 }
 
-void nbr_data_build_neighbor(fmpz_mat_t nbr, fmpz_mat_t s, const nbr_data_t nbr_man)
+void nbr_data_build_neighbor(fmpz_mat_t nbr, fmpz_mat_t hermite, const nbr_data_t nbr_man)
 {
   slong p, p2, p3;
   slong i, j;
-  fmpz_mat_t hermite;
+  fmpz_mat_t s;
 
   p = fmpz_get_si(fq_nmod_ctx_prime(nbr_man->GF));
   p2 = p*p;
   p3 = p2*p;
 
+  fmpz_mat_init(s, N, N);
   // fill the isomtery by the X,Z,U
   // if lift_subspace was successful,
   // <X,X>, <X,U>,<Z,Z>,<Z,U> in p^2 and <X,Z> = 1 mod p^2
@@ -1194,18 +1250,33 @@ void nbr_data_build_neighbor(fmpz_mat_t nbr, fmpz_mat_t s, const nbr_data_t nbr_
     for (j = 0; j < N; j++)
       fmpz_set_si(fmpz_mat_entry(s,2*nbr_man->k+i,j), p * nmod_mat_entry(nbr_man->U,i,j));
 
-  fmpz_mat_init(hermite, N, N);
+#ifdef DEBUG_LEVEL_FULL
+  printf("Before hnf, s = \n");
+  fmpz_mat_print_pretty(s);
+  printf("\n");
+#endif // DEBUG_LEVEL_FULL
 
   // !! TODO - replace by the already implemented hnf in flint
   fmpz_mat_hermite_form(hermite, s, p3);
 
-  fmpz_mat_transpose(s, hermite);
+#ifdef DEBUG_LEVEL_FULL
+  printf("After hnf, hermite = \n");
+  fmpz_mat_print_pretty(hermite);
+  printf("\n");
+#endif // DEBUG_LEVEL_FULL
+
+  // fmpz_mat_transpose(s, hermite);
 
   // need to adjust determinant for s to be in SO
   // This transforms using the isometry (and rescales already)
-  fmpz_quad_transform(nbr, nbr_man->q, s, p);
+  fmpz_quad_transform(nbr, nbr_man->q, hermite, p);
 
-  fmpz_mat_clear(hermite);
+  fmpz_mat_clear(s);
   
   return;
+}
+
+bool nbr_data_has_ended(const nbr_data_t nbr_man)
+{
+  return nbr_man->is_done;
 }

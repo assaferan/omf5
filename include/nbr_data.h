@@ -9,6 +9,7 @@
 #include "flint/fq_nmod_mpoly.h"
 
 #include "pivot_data.h"
+#include "typedefs.h"
 
 typedef struct
 {
@@ -42,6 +43,7 @@ typedef struct
   // fmpz_mat_t X, Z, U, X_skew;
   bool is_done;
   bool is_skew_init;
+  bool is_iso_subspace_init;
   
 } nbr_data;
 
@@ -56,23 +58,10 @@ void nbr_data_next_isotropic_subspace(nbr_data_t nbr_man);
 
 void nbr_data_lift_subspace(nbr_data_t nbr_man);
 
-/* void advance_nbr2_process(neighbor2_manager* nbr_man); */
+void nbr_data_build_neighbor(fmpz_mat_t nbr, fmpz_mat_t s, const nbr_data_t nbr_man);
 
-/* /\* Compute one p-neighbour for Q_orig corresponding to vector x  */
-/*  * On error, return NULL. */
-/* *\/ */
-/* matrix_TYP* build_nb2(neighbor2_manager* nbr_man); */
+void nbr_data_get_next_neighbor(nbr_data_t nbr_man);
 
-/* /\* get isotropic subspace, correposnding to the pivot matrix w. *\/ */
-
-/* matrix_TYP* get_next_isotropic_subspace(neighbor2_manager* nbr_man); */
-
-/* /\* update the pivot vector v *\/ */
-/* void update_pivot(int* v, int p, int i); */
-
-/* /\* get the next isotropic vector *\/ */
-/* void update_isotropic_subspace(matrix_TYP*Q, int p, matrix_TYP* v); */
-
-/* int has_ended(neighbor2_manager* nbr_man); */
+bool nbr_data_has_ended(const nbr_data_t nbr_man);
 
 #endif // __NBR_DATA_H__

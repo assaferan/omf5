@@ -4,6 +4,7 @@
 #include "flint/flint.h"
 
 #include "fq_nmod_mpoly_mat.h"
+#include "typedefs.h"
 
 typedef struct
 {
@@ -21,6 +22,8 @@ typedef struct
   fq_nmod_mpoly_mat_t p_isotropic_param;
 
   fq_nmod_mpoly_ctx_t R; // polynomial ring for p_isotropic_param
+
+  bool is_params_init;
   
 } pivot_data;
 

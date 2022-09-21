@@ -4,6 +4,8 @@ void pivot_data_init(pivot_data_t pivots, slong dim, slong aniso, slong k)
 {
   pivot_data_t pivots2;
   slong i,j;
+
+  pivots->is_params_init = false;
   
   // Base case.
   if (k == 1) {
@@ -13,6 +15,7 @@ void pivot_data_init(pivot_data_t pivots, slong dim, slong aniso, slong k)
     for (i = 0; i < dim - aniso; i++) {
       pivots->pivot_lens[i] = 1;
       pivots->pivots[i] = (slong*)malloc(sizeof(slong*));
+      pivots->pivots[i][0] = i;
     }
     return;
   }
@@ -83,6 +86,15 @@ void pivot_data_clear(pivot_data_t pivots)
 
 void pivot_data_params_clear(pivot_data_t pivots)
 {
+  slong i;
+  
+  free(pivots->free_vars);
+  for (i = 0; i < pivots->num_params; i++)
+    fq_nmod_clear(pivots->params[i], pivots->R->fqctx);
+  free(pivots->params);
+  pivots->num_params = 0;
+  pivots->num_free_vars = 0;
   fq_nmod_mpoly_mat_clear(pivots->p_isotropic_param, pivots->R);
   fq_nmod_mpoly_ctx_clear(pivots->R);
+  pivots->is_params_init = false;
 }

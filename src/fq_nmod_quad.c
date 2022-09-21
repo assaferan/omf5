@@ -771,7 +771,7 @@ void fq_nmod_quad_hyperbolize(fq_nmod_mat_t gram, fq_nmod_mat_t basis, const fq_
     fq_nmod_mat_zero(newbasis,F);
     for (i = 0; i < N; i++)
       fq_nmod_one(fq_nmod_mat_entry(newbasis,i,i),F);
-    fq_nmod_quad_hyperbolize(gram,newbasis,q,F,deterministic,start+lower_dim);
+    fq_nmod_quad_hyperbolize(gram,newbasis,q_split,F,deterministic,start+lower_dim);
     fq_nmod_mat_mul(basis,newbasis,basis,F);
     fq_nmod_mat_clear(newbasis,F);
     fq_nmod_mat_clear(q_split,F);
@@ -781,8 +781,10 @@ void fq_nmod_quad_hyperbolize(fq_nmod_mat_t gram, fq_nmod_mat_t basis, const fq_
   printf("After hyperbolize_form with start = %ld.\n", start);
   printf("Resulting gram matrix is \n");
   fq_nmod_mat_print_pretty(gram,F);
+  printf("\n");
   printf("Resulting basis is \n");
   fq_nmod_mat_print_pretty(basis,F);
+  printf("\n");
 #endif // DEBUG_LEVEL_FULL
   
   fq_nmod_clear(scalar,F);
@@ -813,8 +815,10 @@ void fq_nmod_quad_decompose(fq_nmod_mat_t gram, fq_nmod_mat_t basis, const fq_nm
   printf("After hyperbolize_form.\n");
   printf("Resulting gram matrix is\n");
   fq_nmod_mat_print_pretty(gram, F);
+  printf("\n");
   printf("Resulting basis is\n");
   fq_nmod_mat_print_pretty(basis, F);
+  printf("\n");
   if (fmpz_cmp_si(fq_nmod_ctx_prime(F), 2) == 0)  { // p = 2
     // Verify that the basis evaluates correctly on the form.
     for (i = 0; i < N; i++) {
@@ -898,20 +902,32 @@ void fq_nmod_quad_decompose(fq_nmod_mat_t gram, fq_nmod_mat_t basis, const fq_nm
 
 void fq_nmod_poly_set_fq_nmod_quad(fq_nmod_mpoly_t poly, const fq_nmod_mat_t q, const fq_nmod_ctx_t F, const fq_nmod_mpoly_ctx_t R)
 {
-  slong i,j,gen_idx;
-  fq_nmod_mpoly_t mon;
+  slong i,j;
+  fq_nmod_mpoly_t mon, mon1, mon2;
   fq_nmod_t two_inv;
+#ifdef DEBUG_LEVEL_FULL
+  const char* var_names[5] = {"x1", "x2", "x3", "x4", "x5"};
+#endif // DEBUG_LEVEL_FULL
 
   fq_nmod_mpoly_init(mon,R);
+  fq_nmod_mpoly_init(mon1,R);
+  fq_nmod_mpoly_init(mon2,R);
 
   fq_nmod_mpoly_zero(poly,R);
-  gen_idx = 0;
   for (i = 0; i < N; i++)
     for (j = i; j < N; j++) {
-      fq_nmod_mpoly_gen(mon,gen_idx,R);
+      fq_nmod_mpoly_gen(mon1,i,R);
+      fq_nmod_mpoly_gen(mon2,j,R);
+      fq_nmod_mpoly_mul(mon, mon1, mon2, R); 
       fq_nmod_mpoly_scalar_mul_fq_nmod(mon,mon,fq_nmod_mat_entry(q,i,j),R);
       fq_nmod_mpoly_add(poly,poly,mon,R);
-      gen_idx++; 
+#ifdef DEBUG_LEVEL_FULL
+      printf("mon = ");
+      fq_nmod_mpoly_print_pretty(mon, var_names, R);
+      printf(" poly = ");
+      fq_nmod_mpoly_print_pretty(poly, var_names, R);
+      printf("\n");
+#endif // DEBUG_LEVEL_FULL
     }
 
   if (!fmpz_equal_si(fq_nmod_ctx_prime(F),2)) {
@@ -920,16 +936,24 @@ void fq_nmod_poly_set_fq_nmod_quad(fq_nmod_mpoly_t poly, const fq_nmod_mat_t q, 
     fq_nmod_add(two_inv,two_inv,two_inv,F);
     fq_nmod_inv(two_inv,two_inv,F);
     for (i = 0; i < N; i++) {
-      // the index of x_{i,i}
-      gen_idx = i*N - i*(i+1)/2;
-      fq_nmod_mpoly_gen(mon,gen_idx,R);
+      fq_nmod_mpoly_gen(mon,i,R);
+      fq_nmod_mpoly_mul(mon,mon,mon,R);
       fq_nmod_mpoly_scalar_mul_fq_nmod(mon,mon,fq_nmod_mat_entry(q,i,i),R);
       fq_nmod_mpoly_scalar_mul_fq_nmod(mon,mon,two_inv,R);
       fq_nmod_mpoly_sub(poly,poly,mon,R);
+#ifdef DEBUG_LEVEL_FULL
+      printf("mon = ");
+      fq_nmod_mpoly_print_pretty(mon, var_names, R);
+      printf(" poly = ");
+      fq_nmod_mpoly_print_pretty(poly, var_names, R);
+      printf("\n");
+#endif // DEBUG_LEVEL_FULL
     }
     fq_nmod_clear(two_inv,F);
   }
 
+  fq_nmod_mpoly_clear(mon2,R);
+  fq_nmod_mpoly_clear(mon1,R);
   fq_nmod_mpoly_clear(mon,R);
   
   return;

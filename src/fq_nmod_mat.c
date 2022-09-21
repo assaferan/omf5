@@ -164,7 +164,7 @@ void fq_nmod_mat_rref_trans(fq_nmod_mat_t mat, fq_nmod_mat_t trans, const fq_nmo
   fq_nmod_mat_solve_tril(L_inv, LU, L_inv, 1, F);
 
   // setting the transformation to be L^(-1)*P
-  assert((fq_nmod_mat_nrows(mat,F) == n) && (fq_nmod_mat_ncols(mat,F) == n));
+  assert((fq_nmod_mat_nrows(trans,F) == n) && (fq_nmod_mat_ncols(trans,F) == n));
   
   for (row = 0; row < n; row++) {
     for (col = 0; col < n; col++) {
