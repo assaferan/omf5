@@ -33,8 +33,9 @@ DBG_LD_FLAGS = ${ALL_LDFLAGS}
 
 SOURCES = arith.c
 SOURCES += fq_nmod_mat.c
+SOURCES += fq_nmod_mpoly.c
+SOURCES += fq_nmod_mpoly_mat.c
 SOURCES += fq_nmod_quad.c
-SOURCES += fq_nmod_poly_mat.c
 SOURCES += genus.c
 SOURCES += hash.c
 SOURCES += hecke.c

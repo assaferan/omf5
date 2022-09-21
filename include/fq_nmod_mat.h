@@ -18,6 +18,8 @@ void fq_nmod_mat_init_set_fmpz_mat(fq_nmod_mat_t dest, const fmpz_mat_t mat, con
 
 void fq_nmod_mat_transpose(fq_nmod_mat_t mat_t, const fq_nmod_mat_t mat, const fq_nmod_ctx_t F);
 
+void fq_nmod_mat_rref_trans(fq_nmod_mat_t mat, fq_nmod_mat_t trans, const fq_nmod_ctx_t F);
+
 void fq_nmod_mat_kernel(fq_nmod_mat_t ker, const fq_nmod_mat_t mat, const fq_nmod_ctx_t F);
 
 #endif // __FQ_NMOD_MAT_H__

@@ -8,7 +8,6 @@
 #include "flint/fq_nmod_mat.h"
 #include "flint/fq_nmod_mpoly.h"
 
-#include "fq_nmod_poly_mat.h"
 #include "pivot_data.h"
 
 typedef struct
@@ -23,8 +22,8 @@ typedef struct
 
   fq_nmod_mat_t p_std_gram;
   fq_nmod_mat_t p_basis;
-  fq_nmod_mpoly_ctx_t p_q_std_ctx;
   fq_nmod_mpoly_t p_q_std;
+  fq_nmod_mpoly_ctx_t p_q_std_ctx; // polynomial ring for p_q_std
 
   // dimension of the radical
   slong rad_dim;
@@ -32,15 +31,12 @@ typedef struct
   slong aniso_dim;
   // the Witt index (number of hyperbolic planes)
   slong witt_index;
-
+  
   pivot_data_t pivots;
   slong k; // dimension of the isotropic subspace - in our case it will always be 2
   slong skew_dim;
   fq_nmod_mat_t p_skew;
-  slong* free_vars;
-  fq_nmod_t* params;
-  
-  fq_nmod_poly_mat_t p_isotropic_param;
+
   fq_nmod_mat_t iso_subspace;
   fmpz_mat_t X, Z, U, X_skew;
   
@@ -51,6 +47,7 @@ typedef nbr_data nbr_data_t[1];
 void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k);
 
 void nbr_data_clear(nbr_data_t nbr_man);
+void nbr_data_params_init(pivot_data_t pivots, const nbr_data_t nbr_man);
 
 /* void advance_nbr2_process(neighbor2_manager* nbr_man); */
 

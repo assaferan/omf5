@@ -141,6 +141,54 @@ void fq_nmod_mat_transpose(fq_nmod_mat_t mat_t, const fq_nmod_mat_t mat, const f
   return;
 }
 
+void fq_nmod_mat_rref_trans(fq_nmod_mat_t mat, fq_nmod_mat_t trans, const fq_nmod_ctx_t F)
+{
+  slong* P;
+  slong rank, row, col, n;
+  fq_nmod_mat_t LU, L_inv;
+
+  n = fq_nmod_mat_nrows(mat, F);
+  P = (slong*)malloc(n*sizeof(slong));
+  
+  fq_nmod_mat_init_set(LU, mat, F);
+  
+  rank = fq_nmod_mat_lu(P, LU, false, F); // returns L\U in LU such that PA = LU, P permutation matrix
+
+  // initializing L_inv to be 1
+  fq_nmod_mat_init(L_inv, n, n, F);
+  fq_nmod_mat_zero(L_inv,F);
+  for (row = 0; row < n; row++)
+    fq_nmod_one(fq_nmod_mat_entry(L_inv, row, row),F); 
+
+  // sets L_inv to L^(-1)
+  fq_nmod_mat_solve_tril(L_inv, LU, L_inv, 1, F);
+
+  // setting the transformation to be L^(-1)*P
+  assert((fq_nmod_mat_nrows(mat,F) == n) && (fq_nmod_mat_ncols(mat,F) == n));
+  
+  for (row = 0; row < n; row++) {
+    for (col = 0; col < n; col++) {
+      fq_nmod_set(fq_nmod_mat_entry(trans,row,col), fq_nmod_mat_entry(L_inv,row,P[col]),F);
+    }
+  }
+
+  // setting mat to be U
+  for (row = 0; row < n; row++) {
+    for (col = 0; col < row; col++) {
+      fq_nmod_zero(fq_nmod_mat_entry(mat,row,col), F);
+    }
+    for (col = row; col < n; col++) {
+      fq_nmod_set(fq_nmod_mat_entry(mat,row,col), fq_nmod_mat_entry(LU,row,col),F);
+    }
+  }
+
+  fq_nmod_mat_clear(LU, F);
+  fq_nmod_mat_clear(L_inv, F);
+  free(P);	      
+  return;
+}
+
+// !! TODO - reuse the code from above
 void fq_nmod_mat_kernel(fq_nmod_mat_t ker, const fq_nmod_mat_t mat, const fq_nmod_ctx_t F)
 {
   slong* P;
