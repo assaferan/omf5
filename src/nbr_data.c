@@ -1060,3 +1060,152 @@ void nbr_data_get_next_neighbor(nbr_data_t nbr_man)
   
   return;
 }
+
+void fmpz_quad_transform(fmpz_mat_t new_gram, const fmpz_mat_t gram, const fmpz_mat_t isom, slong scale)
+{
+  fmpz_mat_t isom_gram, isom_t;
+
+  fmpz_mat_init(isom_gram, N, N);
+  fmpz_mat_init(isom_t, N, N);
+  
+  fmpz_mat_transpose(isom_t, isom);
+  fmpz_mat_mul(isom_gram, isom, gram);
+  fmpz_mat_mul(new_gram, isom_gram, isom_t);
+
+  fmpz_mat_scalar_divexact_si(new_gram, new_gram, scale*scale);
+  
+  fmpz_mat_clear(isom_gram);
+  fmpz_mat_clear(isom_t);
+  
+  return;
+}
+// !! TODO - replace by the already implemented hnf in flint
+void fmpz_mat_hermite_form(fmpz_mat_t H, const fmpz_mat_t s, slong d)
+{
+  slong row, pivot, col, j;
+  fmpz_t a,b,x,y,g,q,q_a,q_b, prod1, prod2, scalar;
+  fmpz_mat_t g_h_prime, b_primes;
+
+  fmpz_init(a);
+  fmpz_init(b);
+  fmpz_init(x);
+  fmpz_init(y);
+  fmpz_init(g);
+  fmpz_init(q);
+  fmpz_init(q_a);
+  fmpz_init(q_b);
+  fmpz_init(prod1);
+  fmpz_init(prod2);
+  fmpz_init(scalar);
+
+  fmpz_mat_init(g_h_prime, 1, N);
+  fmpz_mat_init(b_primes, 1, N);
+  
+  fmpz_mat_one(H);
+  fmpz_mat_scalar_mul_si(H, H, d);
+  for (row = 0; row < N; row++) {
+    for (col = 0; col < N; col++) {
+      fmpz_set(fmpz_mat_entry(b_primes,0,col), fmpz_mat_entry(s, row, col));
+    }
+    // Here we compute the HNF of H and this row and store it in H
+    for (pivot = 0; pivot < N; pivot++) {
+      fmpz_set(a,fmpz_mat_entry(H,pivot,pivot));
+      fmpz_set(b,fmpz_mat_entry(b_primes,0,pivot));
+      fmpz_xgcd(g, x, y, a, b);
+      fmpz_divexact(q_a, a, g);
+      fmpz_divexact(q_b, b, g);
+      for (col = 0; col < N; col++) {
+	fmpz_mul(prod1, x, fmpz_mat_entry(H, pivot, col));
+	fmpz_mul(prod2, y, fmpz_mat_entry(b_primes, 0, col));
+	fmpz_add(fmpz_mat_entry(g_h_prime,0,col),prod1,prod2);
+      }
+      for (col = 0; col < N; col++) {
+	fmpz_mul(prod1, q_a, fmpz_mat_entry(b_primes, 0, col));
+	fmpz_mul(prod2, q_b, fmpz_mat_entry(H, pivot, col));
+	fmpz_sub(fmpz_mat_entry(b_primes,0,col),prod1,prod2);
+      }
+      for (j = pivot; j < N; j++) {
+	// !! TODO - check if this should be divexact
+	fmpz_tdiv_q(scalar, fmpz_mat_entry(b_primes, 0, j), fmpz_mat_entry(H, j, j));
+	for (col = 0; col < N; col++) {
+	  fmpz_mul(prod1, scalar, fmpz_mat_entry(H,j,col));
+	  fmpz_sub(fmpz_mat_entry(b_primes,0,col), fmpz_mat_entry(b_primes,0,col), prod1);
+	}
+      }
+      for (col = 0; col < N; col++)
+	fmpz_set(fmpz_mat_entry(H, pivot, col), fmpz_mat_entry(g_h_prime,0,col));
+    }
+    for (pivot = N-1; pivot > 0; pivot--) {
+      for (col = pivot; col < N; col++) {
+	fmpz_tdiv_q(q, fmpz_mat_entry(H, pivot-1, col), fmpz_mat_entry(H, col, col));
+	for (j = col; j < N; j++) {
+	  fmpz_mul(prod1, q, fmpz_mat_entry(H, col, j));
+	  fmpz_sub(fmpz_mat_entry(H, pivot-1, j), fmpz_mat_entry(H, pivot-1, j), prod1);
+	}
+      }
+    }
+  }
+
+  fmpz_mat_clear(b_primes);
+  fmpz_mat_clear(g_h_prime);
+
+  fmpz_clear(scalar);
+  fmpz_clear(prod2);
+  fmpz_clear(prod1);
+  fmpz_clear(a);
+  fmpz_clear(b);
+  fmpz_clear(x);
+  fmpz_clear(y);
+  fmpz_clear(g);
+  fmpz_clear(q);
+  fmpz_clear(q_a);
+  fmpz_clear(q_b);
+  fmpz_clear(prod1);
+  fmpz_clear(prod2);
+  return;
+}
+
+void nbr_data_build_neighbor(fmpz_mat_t nbr, fmpz_mat_t s, const nbr_data_t nbr_man)
+{
+  slong p, p2, p3;
+  slong i, j;
+  fmpz_mat_t hermite;
+
+  p = fmpz_get_si(fq_nmod_ctx_prime(nbr_man->GF));
+  p2 = p*p;
+  p3 = p2*p;
+
+  // fill the isomtery by the X,Z,U
+  // if lift_subspace was successful,
+  // <X,X>, <X,U>,<Z,Z>,<Z,U> in p^2 and <X,Z> = 1 mod p^2
+
+  // For now, we follow thw magma implementation
+  // start by scaling the basis
+
+  for (i = 0; i < nbr_man->k; i++)
+    for (j = 0; j < N; j++)
+      fmpz_set_si(fmpz_mat_entry(s,i,j),nmod_mat_entry(nbr_man->X_skew,i,j));
+
+  for (i = 0; i < nbr_man->k; i++)
+    for (j = 0; j < N; j++)
+      fmpz_set_si(fmpz_mat_entry(s,nbr_man->k+i,j), p2 * nmod_mat_entry(nbr_man->Z,i,j));
+
+  for (i = 0; i < N - 2  * nbr_man->k; i++)
+    for (j = 0; j < N; j++)
+      fmpz_set_si(fmpz_mat_entry(s,2*nbr_man->k+i,j), p * nmod_mat_entry(nbr_man->U,i,j));
+
+  fmpz_mat_init(hermite, N, N);
+
+  // !! TODO - replace by the already implemented hnf in flint
+  fmpz_mat_hermite_form(hermite, s, p3);
+
+  fmpz_mat_transpose(s, hermite);
+
+  // need to adjust determinant for s to be in SO
+  // This transforms using the isometry (and rescales already)
+  fmpz_quad_transform(nbr, nbr_man->q, s, p);
+
+  fmpz_mat_clear(hermite);
+  
+  return;
+}
