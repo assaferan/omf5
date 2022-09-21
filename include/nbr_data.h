@@ -38,7 +38,9 @@ typedef struct
   fq_nmod_mat_t p_skew;
 
   fq_nmod_mat_t iso_subspace;
-  fmpz_mat_t X, Z, U, X_skew;
+  nmod_mat_t X, Z, U, X_skew;
+  // fmpz_mat_t X, Z, U, X_skew;
+  bool is_done;
   
 } nbr_data;
 
@@ -48,6 +50,10 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k);
 
 void nbr_data_clear(nbr_data_t nbr_man);
 void nbr_data_params_init(pivot_data_t pivots, const nbr_data_t nbr_man);
+
+void nbr_data_next_isotropic_subspace(nbr_data_t nbr_man);
+
+void nbr_data_lift_subspace(nbr_data_t nbr_man);
 
 /* void advance_nbr2_process(neighbor2_manager* nbr_man); */
 

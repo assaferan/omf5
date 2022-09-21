@@ -96,6 +96,7 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
   pivot_data_init(nbr_man->pivots, N - nbr_man->rad_dim, nbr_man->aniso_dim, k);
   nbr_man->k = k;
   nbr_man->skew_dim = k*(k-1)/2;
+  nbr_man->is_done = false;
   
 #ifdef DEBUG
   fq_nmod_clear(value, nbr_man->GF);
@@ -139,6 +140,7 @@ void nbr_data_next_isotropic_subspace(nbr_data_t nbr_man)
       //  the isotropic subspaces again if needed.
       nbr_man->pivots->pivot_ptr = 0;
       fq_nmod_mat_clear(nbr_man->iso_subspace, nbr_man->GF);
+      nbr_man->is_done = true;
       return;
     }
     // Initialize the new pivot.
@@ -493,5 +495,412 @@ void nbr_data_params_init(pivot_data_t pivots, const nbr_data_t nbr_man)
 
   fq_nmod_mpoly_mat_clear(data, pivots->R);
   
+  return;
+}
+
+void nmod_mat_gram(nmod_mat_t gram, const nmod_mat_t B, const nmod_mat_t q, slong n)
+{
+  nmod_mat_t Bq, B_t;
+  slong i,j;
+  
+  nmod_mat_init(Bq, N, N, n);
+  nmod_mat_init(B_t, N, N, n);
+
+  nmod_mat_mul(Bq, B, q);
+  nmod_mat_transpose(B_t, B);
+  nmod_mat_mul(gram, Bq, B_t);
+
+  // !! TODO - this isn't necessary only for debugging versus magma
+  for (i = 0; i < N; i++)
+    for (j = 0; j < N; j++)
+      nmod_mat_entry(gram,i,j) %= n;
+  
+  nmod_mat_clear(B_t);
+  nmod_mat_clear(Bq);
+  return;
+}
+
+void nmod_mat_gram_fmpz_mat(nmod_mat_t gram, const nmod_mat_t B, const fmpz_mat_t q)
+{
+  fmpz_mat_t B_fmpz, Bq, B_t, gram_fmpz;
+  slong i,j;
+
+  fmpz_mat_init(B_fmpz, N, N);
+  fmpz_mat_init(gram_fmpz, N, N);
+  fmpz_mat_init(Bq, N, N);
+  fmpz_mat_init(B_t, N, N);
+
+  for (i = 0; i < N; i++)
+    for (j = 0; j < N; j++)
+      fmpz_set_si(fmpz_mat_entry(B_fmpz,i,j), nmod_mat_entry(B,i,j));
+
+  fmpz_mat_mul(Bq, B_fmpz, q);
+  fmpz_mat_transpose(B_t, B_fmpz);
+  fmpz_mat_mul(gram_fmpz, Bq, B_t);
+
+  for (i = 0; i < N; i++)
+    for (j = 0; j < N; j++)
+      nmod_mat_entry(gram, i, j) = fmpz_get_si(fmpz_mat_entry(gram_fmpz,i,j));
+  
+  fmpz_mat_clear(B_t);
+  fmpz_mat_clear(Bq);
+  fmpz_mat_clear(B_fmpz);
+  fmpz_mat_clear(gram_fmpz);
+  return;
+}
+  
+
+void nbr_data_lift_subspace(nbr_data_t nbr_man)
+{
+  slong p;
+  slong* pivots;
+  slong* paired;
+  slong num_pivots;
+  slong i, j, l, u_idx;
+  slong h_dim, delta, a, half, gram2, scalar;
+  fq_nmod_mat_t basis, basis_t, x, z, u;
+  bool* excluded;
+  nmod_mat_t B, X_new, Z_new;
+  // fmpz_mat_t B;
+  nmod_mat_t gram;
+
+#ifdef DEBUG
+  nmod_mat_t temp;
+#endif // DEBUG
+  
+  if (nbr_man->is_done) return;
+
+  p = fmpz_get_si(fq_nmod_ctx_prime(nbr_man->GF));
+
+  assert(nbr_man->pivots->pivot_ptr >= 1);
+
+  // Get the pivots for the bases of the isotropic subspaces.
+  pivots = nbr_man->pivots->pivots[nbr_man->pivots->pivot_ptr-1];
+  num_pivots = nbr_man->pivots->pivot_lens[nbr_man->pivots->pivot_ptr-1];
+
+#ifdef DEBUG_LEVEL_FULL
+  printf("before lifting, p_basis is \n");
+  fq_nmod_mat_print(nbr_man->p_basis, nbr_man->GF);
+  printf("iso_subspace is \n");
+  fq_nmod_mat_print(nbr_man->iso_subspace, nbr_man->GF);
+  printf("pivots = ");
+  for (i = 0; i < num_pivots; i++)
+    printf("%ld", pivots[i]);
+  printf("\n");
+#endif // DEBUG_LEVEL_FULL
+
+  fq_nmod_mat_init_set(basis, nbr_man->p_basis, nbr_man->GF);
+  // Set up the correct basis vectors.
+  for (i = 0; i < nbr_man->k; i++)
+    for (j = pivots[i] + 1; j < N; j++)
+      fq_nmod_mat_add_col(basis, pivots[i], j, fq_nmod_mat_entry(nbr_man->iso_subspace,i,j), nbr_man->GF);
+  
+#ifdef DEBUG_LEVEL_FULL
+  printf("the correct basis vectors are \n");
+  fq_nmod_mat_print(basis, nbr_man->GF);
+#endif // DEBUG_LEVEL_FULL
+
+  fq_nmod_mat_init(basis_t, fq_nmod_mat_ncols(basis, nbr_man->GF), fq_nmod_mat_nrows(basis, nbr_man->GF), nbr_man->GF);
+  fq_nmod_mat_transpose(basis_t, basis, nbr_man->GF);
+  
+  // Extract our target isotropic subspace modulo p
+  fq_nmod_mat_init(x, nbr_man->k, N, nbr_man->GF);
+  for (i = 0; i < nbr_man->k; i++)
+    for (j = 0; j < N; j++)
+      fq_nmod_set(fq_nmod_mat_entry(x,i,j), fq_nmod_mat_entry(basis_t, pivots[i],j), nbr_man->GF);
+
+#ifdef DEBUG_LEVEL_FULL
+  printf("x = ");
+  fq_nmod_mat_print(x, nbr_man->GF);
+#endif // DEBUG_LEVEL_FULL
+
+  // Extract the hyperbolic complement modulo p.
+  fq_nmod_mat_init(z, nbr_man->k, N, nbr_man->GF);
+  paired = (slong*)malloc((nbr_man->k)*sizeof(slong));
+  h_dim = 2 * nbr_man->witt_index;
+  for (i = 0 ; i < nbr_man->k; i++)
+    paired[i] = h_dim - 1 - pivots[nbr_man->k-1-i];
+  for (i = 0; i < nbr_man->k; i++)
+    for (j = 0; j < N; j++)
+      fq_nmod_set(fq_nmod_mat_entry(z,i,j), fq_nmod_mat_entry(basis_t, paired[i],j), nbr_man->GF);
+
+#ifdef DEBUG_LEVEL_FULL
+  printf("z = ");
+  fq_nmod_mat_print(z, nbr_man->GF);
+#endif // DEBUG_LEVEL_FULL
+
+  // Extract the remaining basis vectors.
+  excluded = (bool*)malloc(N * sizeof(bool));
+  for (i = 0; i < N; i++)
+    excluded[i] = true;
+  for (i = 0; i < nbr_man->k; i++) {
+    excluded[pivots[i]] = false;
+    excluded[paired[i]] = false;
+  }
+  fq_nmod_mat_init(u, N-2*nbr_man->k, N, nbr_man->GF);
+  u_idx = 0;
+  for (i = 0; i < N; i++)
+    if (excluded[i])
+       for (j = 0; j < N; j++)
+	 fq_nmod_set(fq_nmod_mat_entry(u,u_idx++,j), fq_nmod_mat_entry(basis_t, i,j), nbr_man->GF);
+
+#ifdef DEBUG_LEVEL_FULL
+  printf("u = ");
+  fq_nmod_mat_print(u, nbr_man->GF);
+#endif // DEBUG_LEVEL_FULL
+
+  // Convert to coordinates modulo p^2.
+  nmod_mat_init(nbr_man->X, nbr_man->k, N, p*p);
+  nmod_mat_init(nbr_man->Z, nbr_man->k, N, p*p);
+  nmod_mat_init(nbr_man->U, N-2*nbr_man->k, N, p*p);
+  nmod_mat_init(B, N, N, p*p);
+  // fmpz_mat_init(nbr_man->X, nbr_man->k, N);
+  // fmpz_mat_init(nbr_man->Z, nbr_man->k, N);
+  // fmpz_mat_init(nbr_man->U, N-2*nbr_man->k, N);
+  // fmpz_mat_init(B, N, N);
+  
+  // Build the coordinate matrix.
+  // !! TODO - the mod p is not necessary, good for debugging
+  for (i = 0; i < nbr_man->k; i++)
+    for (j = 0; j < N; j++) {
+      nmod_mat_entry(B,i,j) = nmod_mat_entry(nbr_man->X,i,j) = nmod_poly_get_coeff_ui(fq_nmod_mat_entry(x,i,j),0) % p;
+    }
+
+  for (i = 0; i < nbr_man->k; i++)
+    for (j = 0; j < N; j++)
+       nmod_mat_entry(B,nbr_man->k+i,j) =
+	 nmod_mat_entry(nbr_man->Z,i,j) = nmod_poly_get_coeff_ui(fq_nmod_mat_entry(z,i,j),0) % p;
+
+  for (i = 0; i < N-2*nbr_man->k; i++)
+    for (j = 0; j < N; j++)
+       nmod_mat_entry(B,2*nbr_man->k+i,j) =
+	 nmod_mat_entry(nbr_man->U,i,j) = nmod_poly_get_coeff_ui(fq_nmod_mat_entry(u,i,j),0) % p;
+
+#ifdef DEBUG_LEVEL_FULL
+  printf("X = ");
+  nmod_mat_print(nbr_man->X);
+  printf("Z = ");
+  nmod_mat_print(nbr_man->Z);
+  printf("U = ");
+  nmod_mat_print(nbr_man->U);
+#endif // DEBUG_LEVEL_FULL
+
+  // Compute the Gram matrix of the subspace with respect to the spaces
+  //  we will perform the following computations upon.
+
+  nmod_mat_init(gram, N, N, p*p);
+  nmod_mat_gram(gram, B, nbr_man->quot_gram, p*p);
+
+  // Lift Z so that it is in a hyperbolic pair with X modulo p^2.
+  nmod_mat_init(Z_new, nbr_man->k, N, p*p);
+  for (i = 0; i < nbr_man->k; i++) {
+    for (j = 0; j < N; j++)
+      nmod_mat_entry(Z_new,i,j) = nmod_mat_entry(nbr_man->Z,i,j);
+    for (j = 0; j < nbr_man->k; j++) {
+      delta = (i == j) ? 1 : 0;
+      // we split the operation due to signed type issues
+      a = nmod_mat_entry(gram, nbr_man->k-j-1, i + nbr_man->k);
+      // a nonnegative value with the same residue mod p*p
+      // !!! TODO - we might be able to get rid of that
+      a = (a / (p*p) + 1)*p*p-a+delta;
+      if (a >= (p*p))
+	a -= p*p;
+      for (l = 0; l < N; l++)
+        nmod_mat_entry(Z_new,i,l) += a * nmod_mat_entry(nbr_man->Z,j,l);
+    }
+  }
+
+  for (i = 0; i < nbr_man->k; i++)
+    for (j = 0; j < N; j++)
+      nmod_mat_entry(nbr_man->Z,i,j) = nmod_mat_entry(Z_new,i,j) % (p*p);
+
+#ifdef DEBUG_LEVEL_FULL
+  printf("after setting <X,Z> = 1\n");
+  printf("Z = ");
+  nmod_mat_print(nbr_man->Z);
+#endif // DEBUG_LEVEL_FULL
+
+#ifdef DEBUG
+  // Verify that X and Z form a hyperbolic pair.
+  // Compute the Gram matrix thusfar.
+  for (i = 0; i < nbr_man->k; i++)
+    for (j = 0; j < N; j++)
+      nmod_mat_entry(B,nbr_man->k+i,j) = nmod_mat_entry(nbr_man->Z,i,j);
+
+  nmod_mat_init(temp, nbr_man->k, nbr_man->k, p*p);
+  nmod_mat_gram(temp, B, nbr_man->quot_gram, p*p);
+  for (i = 0; i < nbr_man->k; i++)
+    for (j = 0; j < nbr_man->k; j++)
+      // This is beacuse negative % is negative
+      assert((nmod_mat_entry(temp, i, nbr_man->k+j) - ((i+j == nbr_man->k-1) ? 1 : 0)) % (p*p) == 0);	
+#endif // DEBUG
+
+  if (p == 2) {
+    for (i = 0; i < nbr_man->k; i++)
+      for (j = 0; j < N; j++)
+	nmod_mat_entry(B, nbr_man->k+i,j) = nmod_mat_entry(nbr_man->Z,i,j);
+    nmod_mat_clear(gram);
+    nmod_mat_init(gram, N, N, p*p*p);
+    nmod_mat_gram_fmpz_mat(gram, B, nbr_man->q);
+  }
+  // Lift X so that it is isotropic modulo p^2.
+  nmod_mat_init(X_new, nbr_man->k, N, p*p);
+  half = (p*p + 1)/2;
+  for (i = 0; i < nbr_man->k; i++) {
+    for (l = 0; l < N; l++)
+      nmod_mat_entry(X_new,i,l) = nmod_mat_entry(nbr_man->X,i,l);
+    gram2 = nmod_mat_entry(gram,i,i);
+    gram2 = gram2/2 + (((nmod_mat_entry(gram,i,i) % 2) == 0) ? 0 : half);
+    for (j = nbr_man->k-1-i; j < nbr_man->k; j++) {
+      scalar = (i+j == nbr_man->k-1) ? gram2 : nmod_mat_entry(gram,i, nbr_man->k-1-j);
+      scalar = (scalar / (p*p) + 1)*p*p-scalar;
+      if (scalar >= p*p)
+	scalar -= p*p;
+      for (l = 0; l < N; l++)
+	nmod_mat_entry(X_new,i,l) += scalar * nmod_mat_entry(nbr_man->Z, j, l);
+    }
+  }
+
+  // we are reducing to keep the sizes small
+  for (i = 0; i < nbr_man->k; i++)
+    for (j = 0; j < N; j++)
+      nmod_mat_entry(nbr_man->X,i,j) = nmod_mat_entry(X_new,i,j) % (p*p);
+  
+#ifdef DEBUG_LEVEL_FULL
+  printf("after setting <X,X> = 0\n");
+  printf("X = ");
+  nmod_mat_print(nbr_man->X);
+#endif // DEBUG_LEVEL_FULL
+
+#ifdef DEBUG
+  // Verify that X is isotropic modulo p^2.
+  for (i = 0; i < nbr_man->k; i++)
+    for (j = 0; j < N; j++)
+      nmod_mat_entry(B,i,j) = nmod_mat_entry(nbr_man->X,i,j);
+
+  // The Gram matrix on this basis.
+  nmod_mat_gram(temp,B,nbr_man->quot_gram,p*p);
+
+  // Verify all is well.
+  for ( i = 0; i < nbr_man->k; i++)
+    for ( j = 0; j < nbr_man->k; j++)
+      assert(nmod_mat_entry(temp,i,j) % (p*p) == 0);
+
+#endif // DEBUG
+
+  // Lift Z so that it is isotropic modulo p^2.
+  for (i = 0; i < nbr_man->k; i++) {
+    for (l = 0; l < N; l++)
+      nmod_mat_entry(Z_new, i, l) = nmod_mat_entry(nbr_man->Z, i, l);
+    for (j = nbr_man->k-1-i; j < nbr_man->k; j++) {
+      scalar = nmod_mat_entry(gram, nbr_man->k+i, 2*nbr_man->k-1-j);
+      if (i + j == nbr_man->k-1)
+	scalar = (scalar/2) + (((scalar % 2) == 0) ? 0 : half);
+      scalar = (scalar / (p*p) + 1)*p*p-scalar;
+      if (scalar >= p*p)
+	scalar -= p*p;
+      for (l = 0; l < N; l++)
+	nmod_mat_entry(Z_new,i,l) += scalar * nmod_mat_entry(nbr_man->X,j,l);
+    }
+  }
+
+  for (i = 0; i < nbr_man->k; i++)
+    for (j = 0; j < N; j++)
+      nmod_mat_entry(nbr_man->Z,i,j) = nmod_mat_entry(Z_new,i,j) % (p*p);
+
+#ifdef DEBUG_LEVEL_FULL
+  printf("after setting <Z,Z> = 0\n");
+  printf("Z = ");
+  nmod_mat_print(nbr_man->Z);
+#endif // DEBUG_LEVEL_FULL
+
+#ifdef DEBUG
+  // Verify that Z is isotropic modulo p^2.
+  for (i = 0; i < nbr_man->k; i++)
+    for (j = 0; j < N; j++)
+      nmod_mat_entry(B,nbr_man->k+i,j) = nmod_mat_entry(nbr_man->Z,i,j);
+
+  // The Gram matrix on this basis.
+  nmod_mat_gram(temp,B, nbr_man->quot_gram,p*p);
+
+  // Verify all is well.
+  for ( i = 0; i < nbr_man->k; i++)
+    for ( j = 0; j < nbr_man->k; j++)
+      assert(nmod_mat_entry(temp,nbr_man->k+i,nbr_man->k+j) % (p*p) == 0);
+
+#endif // DEBUG
+
+  // The Gram matrix thusfar.
+  for (i = 0; i < nbr_man->k; i++)
+    for (j = 0; j < N; j++)
+      nmod_mat_entry(B, i, j) = nmod_mat_entry(nbr_man->X,i,j);
+  
+  for (i = 0; i < nbr_man->k; i++)
+    for (j = 0; j < N; j++)
+      nmod_mat_entry(B, nbr_man->k + i, j) = nmod_mat_entry(nbr_man->Z,i,j);
+
+  nmod_mat_gram(gram,B, nbr_man->quot_gram,p*p);
+
+  // Make U orthogonal to X+Z.
+  for (i = 0; i < nbr_man->k; i++)
+    for (j = 0; j < N - 2*nbr_man->k; j++) {
+      // Clear components corresponding to X.
+      scalar = nmod_mat_entry(gram, 2*nbr_man->k-1-i, 2*nbr_man->k+j);
+      scalar = (scalar / (p*p) + 1)*p*p-scalar;
+      if (scalar >= p*p)
+	scalar -= p*p;
+      for (l = 0; l < N; l++)
+	nmod_mat_entry(nbr_man->U,j,l) += scalar * nmod_mat_entry(nbr_man->X,i,l);
+
+      // Clear components corresponding to Z.
+      scalar = nmod_mat_entry(gram, nbr_man->k-1-i, 2*nbr_man->k+j);
+      scalar = (scalar / (p*p) + 1)*p*p-scalar;
+      if (scalar >= p*p)
+	scalar -= p*p;
+      for (l = 0; l < N; l++)
+	nmod_mat_entry(nbr_man->U,j,l) += scalar * nmod_mat_entry(nbr_man->Z,i,l);
+    }
+
+  // make sure that all the entries of U are between 0 and p^2
+  for (i = 0; i < N - 2*nbr_man->k; i++)
+    for (j = 0; j < N; j++)
+      nmod_mat_entry(nbr_man->U,i,j) = nmod_mat_entry(nbr_man->U,i,j) % (p*p);
+
+#ifdef DEBUG_LEVEL_FULL
+  printf("after setting <U,X+Z> = 0\n");
+  printf("U = ");
+  nmod_mat_print(nbr_man->U);
+#endif // DEBUG_LEVEL_FULL
+
+#ifdef DEBUG
+  // Verify that U is now orthogonal to X+Z.
+  for (i = 0; i < N-2*nbr_man->k; i++)
+    for (j = 0; j < N; j++)
+      nmod_mat_entry(B,2*nbr_man->k+i,j) = nmod_mat_entry(nbr_man->U,i,j);
+
+  // The Gram matrix on this basis.
+  nmod_mat_gram(temp,B, nbr_man->quot_gram,p*p);
+
+  // Verify all is well.
+  for ( i = 0; i < 2*nbr_man->k; i++)
+    for ( j = 2*nbr_man->k; j < N; j++)
+      assert(nmod_mat_entry(temp,i,j) % (p*p) == 0);
+
+  nmod_mat_clear(temp);
+#endif // DEBUG
+
+  nmod_mat_clear(gram);
+  nmod_mat_clear(X_new);
+  nmod_mat_clear(Z_new);  
+  nmod_mat_clear(B);
+  // fmpz_mat_clear(B)
+  fq_nmod_mat_clear(u, nbr_man->GF);
+  free(excluded);
+  fq_nmod_mat_clear(z, nbr_man->GF);
+  free(paired);
+  fq_nmod_mat_clear(x, nbr_man->GF);
+  fq_nmod_mat_clear(basis_t, nbr_man->GF);
+  fq_nmod_mat_clear(basis, nbr_man->GF);
+
   return;
 }
