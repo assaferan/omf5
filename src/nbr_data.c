@@ -97,6 +97,11 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
   nbr_man->k = k;
   nbr_man->skew_dim = k*(k-1)/2;
   nbr_man->is_done = false;
+
+  nbr_data_next_isotropic_subspace(nbr_man);
+  nbr_data_lift_subspace(nbr_man);
+
+  nmod_mat_init_set(nbr_man->X_skew, nbr_man->X);
   
 #ifdef DEBUG
   fq_nmod_clear(value, nbr_man->GF);
@@ -108,6 +113,12 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
 
 void nbr_data_clear(nbr_data_t nbr_man)
 {
+  // !! TODO - these are set when lifting a subspace
+  nmod_mat_clear(nbr_man->X);
+  nmod_mat_clear(nbr_man->Z);
+  nmod_mat_clear(nbr_man->U);
+  // make sure we still need to clear them here
+  nmod_mat_clear(nbr_man->X_skew);
   pivot_data_clear(nbr_man->pivots);
   fq_nmod_mpoly_clear(nbr_man->p_q_std,nbr_man->p_q_std_ctx);
   fq_nmod_mpoly_ctx_clear(nbr_man->p_q_std_ctx);
