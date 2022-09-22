@@ -59,7 +59,8 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
 
   nbr_man->is_skew_init = true;
 
-#ifdef DEBUG
+  //#ifdef DEBUG
+#if (defined(DEBUG) && !defined(NBR_DATA))
   fq_nmod_quad_decompose(nbr_man->p_std_gram, nbr_man->p_basis, nbr_man->b, nbr_man->GF, true);
 #else
   fq_nmod_quad_decompose(nbr_man->p_std_gram, nbr_man->p_basis, nbr_man->b, nbr_man->GF, false);  
@@ -70,6 +71,7 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
   fq_nmod_poly_set_fq_nmod_quad(nbr_man->p_q_std, nbr_man->p_std_gram, nbr_man->GF, nbr_man->p_q_std_ctx);
 
 #ifdef DEBUG_LEVEL_FULL
+  // #if (defined(DEBUG_LEVEL_FULL) || defined(NBR_DATA))
   printf("Performed Witt Decomposition on\n");
   fq_nmod_mat_print_pretty(nbr_man->b,nbr_man->GF);
   printf("\n");
@@ -107,6 +109,7 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
   nbr_man->is_iso_subspace_init = false;
 
   nbr_data_next_isotropic_subspace(nbr_man);
+  
   nbr_data_lift_subspace(nbr_man);
 
   nmod_mat_init(nbr_man->X_skew, nbr_man->k, N, p_int*p_int);
@@ -608,7 +611,6 @@ void nmod_mat_gram_fmpz_mat(nmod_mat_t gram, const nmod_mat_t B, const fmpz_mat_
   fmpz_mat_clear(gram_fmpz);
   return;
 }
-  
 
 void nbr_data_lift_subspace(nbr_data_t nbr_man)
 {
@@ -639,6 +641,7 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
   num_pivots = nbr_man->pivots->pivot_lens[nbr_man->pivots->pivot_ptr-1];
 
 #ifdef DEBUG_LEVEL_FULL
+//#if (defined(DEBUG_LEVEL_FULL) || defined(NBR_DATA))
   printf("before lifting, p_basis is \n");
   fq_nmod_mat_print_pretty(nbr_man->p_basis, nbr_man->GF);
   printf("\n");
@@ -658,6 +661,7 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
       fq_nmod_mat_add_col(basis, pivots[i], j, fq_nmod_mat_entry(nbr_man->iso_subspace,i,j), nbr_man->GF);
   
 #ifdef DEBUG_LEVEL_FULL
+  // #if (defined(DEBUG_LEVEL_FULL) || defined(NBR_DATA))
   printf("the correct basis vectors are \n");
   fq_nmod_mat_print_pretty(basis, nbr_man->GF);
   printf("\n");
@@ -673,22 +677,30 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
       fq_nmod_set(fq_nmod_mat_entry(x,i,j), fq_nmod_mat_entry(basis_t, pivots[i],j), nbr_man->GF);
 
 #ifdef DEBUG_LEVEL_FULL
+  //#if (defined(DEBUG_LEVEL_FULL) || defined(NBR_DATA))
   printf("x = ");
   fq_nmod_mat_print_pretty(x, nbr_man->GF);
   printf("\n");
 #endif // DEBUG_LEVEL_FULL
 
   // Extract the hyperbolic complement modulo p.
+  //  printf("initializing z and paired...\n");
   fq_nmod_mat_init(z, nbr_man->k, N, nbr_man->GF);
   paired = (slong*)malloc((nbr_man->k)*sizeof(slong));
   h_dim = 2 * nbr_man->witt_index;
-  for (i = 0 ; i < nbr_man->k; i++)
+  // printf("h_dim = %ld\n", h_dim);
+  for (i = 0 ; i < nbr_man->k; i++) {
+    // printf("paired[%ld] = %ld - 1 - pivots[%ld]\n", i, h_dim, nbr_man->k-1-i);
     paired[i] = h_dim - 1 - pivots[nbr_man->k-1-i];
+  }
   for (i = 0; i < nbr_man->k; i++)
-    for (j = 0; j < N; j++)
+    for (j = 0; j < N; j++) {
+      // printf("z(%ld,%ld) = basis_t(%ld,%ld)\n", i, j, paired[i],j);
       fq_nmod_set(fq_nmod_mat_entry(z,i,j), fq_nmod_mat_entry(basis_t, paired[i],j), nbr_man->GF);
+    }
 
 #ifdef DEBUG_LEVEL_FULL
+  //#if (defined(DEBUG_LEVEL_FULL) || defined(NBR_DATA))
   printf("z = ");
   fq_nmod_mat_print_pretty(z, nbr_man->GF);
   printf("\n");
@@ -712,6 +724,7 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
     }
 
 #ifdef DEBUG_LEVEL_FULL
+  //#if (defined(DEBUG_LEVEL_FULL) || defined(NBR_DATA))
   printf("u = ");
   fq_nmod_mat_print_pretty(u, nbr_man->GF);
   printf("\n");
@@ -745,6 +758,7 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
 	 nmod_mat_entry(nbr_man->U,i,j) = nmod_poly_get_coeff_ui(fq_nmod_mat_entry(u,i,j),0) % p;
 
 #ifdef DEBUG_LEVEL_FULL
+  //#if (defined(DEBUG_LEVEL_FULL) || defined(NBR_DATA))
   printf("X = ");
   nmod_mat_print(nbr_man->X);
   printf("Z = ");
@@ -783,6 +797,7 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
       nmod_mat_entry(nbr_man->Z,i,j) = nmod_mat_entry(Z_new,i,j) % (p*p);
 
 #ifdef DEBUG_LEVEL_FULL
+  //#if (defined(DEBUG_LEVEL_FULL) || defined(NBR_DATA))
   printf("after setting <X,Z> = 1\n");
   printf("Z = ");
   nmod_mat_print(nbr_man->Z);
@@ -835,6 +850,7 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
       nmod_mat_entry(nbr_man->X,i,j) = nmod_mat_entry(X_new,i,j) % (p*p);
   
 #ifdef DEBUG_LEVEL_FULL
+  //#if (defined(DEBUG_LEVEL_FULL) || defined(NBR_DATA))
   printf("after setting <X,X> = 0\n");
   printf("X = ");
   nmod_mat_print(nbr_man->X);
@@ -877,6 +893,7 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
       nmod_mat_entry(nbr_man->Z,i,j) = nmod_mat_entry(Z_new,i,j) % (p*p);
 
 #ifdef DEBUG_LEVEL_FULL
+  //#if (defined(DEBUG_LEVEL_FULL) || defined(NBR_DATA))
   printf("after setting <Z,Z> = 0\n");
   printf("Z = ");
   nmod_mat_print(nbr_man->Z);
@@ -935,6 +952,7 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
       nmod_mat_entry(nbr_man->U,i,j) = nmod_mat_entry(nbr_man->U,i,j) % (p*p);
 
 #ifdef DEBUG_LEVEL_FULL
+  //#if (defined(DEBUG_LEVEL_FULL) || defined(NBR_DATA))
   printf("after setting <U,X+Z> = 0\n");
   printf("U = ");
   nmod_mat_print(nbr_man->U);

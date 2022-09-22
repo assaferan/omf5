@@ -329,7 +329,15 @@ bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q, con
 
   assert(dim >= 3);
 
+/* #ifdef NBR_DATA */
+/*   fq_nmod_mat_print_pretty(q,F); */
+/*   printf("\n"); */
+/* #endif // NBR_DATA */
+  
   // Check the diagonal
+/* #ifdef NBR_DATA */
+/*   printf("checking the diagonal...\n"); */
+/* #endif // NBR_DATA */
   for (i = start; i < N; i++)
     if (fq_nmod_is_zero(fq_nmod_mat_entry(q,i,i),F)) {
       fq_nmod_one(fq_nmod_mat_entry(vec,0,i),F);
@@ -337,7 +345,10 @@ bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q, con
       fq_nmod_mat_clear(q_copy,F);
       return true;
     }
-
+/* #ifdef NBR_DATA */
+/*   printf("Done!\n"); */
+/* #endif // NBR_DATA */
+  
   // isometry on the submatrix of 3 first variables
   fq_nmod_mat_init(basis,3,3,F);
   fq_nmod_mat_init(subM,3,3,F);
@@ -353,6 +364,10 @@ bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q, con
   fq_nmod_init(scalar,F);
 
   // clear the off-diagonal entries
+/* #ifdef NBR_DATA */
+/*   printf("Clearing off-diagonal entries...\n"); */
+/* #endif // NBR_DATA */
+
   for (i = 0; i < 2; i++)
     for (j = i+1; j < 3; j++) {
       fq_nmod_div(scalar, fq_nmod_mat_entry(subM,i,j), fq_nmod_mat_entry(subM,i,i), F);
@@ -360,9 +375,14 @@ bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q, con
       fq_nmod_mat_add_col(subM,j,i,scalar,F);
       fq_nmod_mat_add_row(subM,j,i,scalar,F);
       fq_nmod_mat_add_row(basis,j,i,scalar,F);
+/* #ifdef NBR_DATA */
+/*       fq_nmod_mat_print_pretty(subM, F); */
+/*       printf("\n"); */
+/* #endif // NBR_DATA */
       if (fq_nmod_is_zero(fq_nmod_mat_entry(subM,j,j),F)) {
 	for (k = 0; k < 3; k++)
-	  fq_nmod_set(fq_nmod_mat_entry(vec,0,start+k), fq_nmod_mat_entry(basis,j,k),F);
+	  fq_nmod_set(fq_nmod_mat_entry(vec,0,start+k),
+		      fq_nmod_mat_entry(basis,j,k),F);
 	fq_nmod_clear(scalar,F);
 	fq_nmod_mat_clear(subM,F);
 	fq_nmod_mat_clear(basis,F);
@@ -371,8 +391,14 @@ bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q, con
 	return true;
       }
     }
+/* #ifdef NBR_DATA */
+/*   printf("Done!\n"); */
+/* #endif // NBR_DATA */
 
   // Check if the first two variables alone are isotropic.
+/* #ifdef NBR_DATA */
+/*   printf("Checking if the first two variables are isotropic...\n"); */
+/* #endif // NBR_DATA */
   fq_nmod_init(d,F);
 
   fq_nmod_mul(d, fq_nmod_mat_entry(subM,0,0), fq_nmod_mat_entry(subM,1,1),F);
@@ -396,7 +422,14 @@ bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q, con
     return true;
   }
 
+/* #ifdef NBR_DATA */
+/*   printf("Done!\n"); */
+/* #endif // NBR_DATA */
+  
   if (deterministic) {
+/* #ifdef NBR_DATA */
+/*     printf("in deterministic\n"); */
+/* #endif // NBR_DATA */
     fmpz_init(p);
     fmpz_init(x);
     fmpz_init(y);
@@ -451,6 +484,16 @@ bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q, con
   fq_nmod_set(c,fq_nmod_mat_entry(subM,2,2),F);
 
   fq_nmod_mat_init(v,1,2,F);
+
+/* #ifdef NBR_DATA */
+/*   printf("a = "); */
+/*   fq_nmod_print(a,F); */
+/*   printf(", b = "); */
+/*   fq_nmod_print(b,F); */
+/*   printf(", c = "); */
+/*   fq_nmod_print(c,F); */
+/*   printf("\n"); */
+/* #endif // NBR_DATA */
   
   do {
     do {
@@ -459,23 +502,26 @@ bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q, con
 	  fq_nmod_randtest(fq_nmod_mat_entry(v,0,i),state,F);
       } while(fq_nmod_is_zero(fq_nmod_mat_entry(v,0,0),F) && fq_nmod_is_zero(fq_nmod_mat_entry(v,0,1),F));
       // d = -(a*v[0]*v[0] + b*v[1]*v[1])/c;
-      fq_nmod_sqr(fq_nmod_mat_entry(v,0,0),fq_nmod_mat_entry(v,0,0),F);
-      fq_nmod_sqr(fq_nmod_mat_entry(v,0,1),fq_nmod_mat_entry(v,0,1),F);
-      fq_nmod_mul(a,a,fq_nmod_mat_entry(v,0,0),F);
-      fq_nmod_mul(b,b,fq_nmod_mat_entry(v,0,1),F);
-      fq_nmod_add(d,a,b,F);
+      fq_nmod_sqr(scalar,fq_nmod_mat_entry(v,0,0),F);
+      fq_nmod_mul(d,a,scalar,F);
+      fq_nmod_sqr(scalar,fq_nmod_mat_entry(v,0,1),F);
+      fq_nmod_mul(scalar,b,scalar,F);
+      fq_nmod_add(d,d,scalar,F);
       fq_nmod_div(d,d,c,F);
       fq_nmod_neg(d,d,F);
     } while(!fq_nmod_is_square(d,F));
 
     fq_nmod_sqrt(d,d,F);
     nonzero = false;
+
     for (j = 0; j < 3; j++) {
-      // vec[start+j] = v[0]*basis(0,j) + v[1]*basis(1,j) + basis(2,j);
+      // vec[start+j] = v[0]*basis(0,j) + v[1]*basis(1,j) + d*basis(2,j);
       fq_nmod_mul(fq_nmod_mat_entry(vec,0,start+j),fq_nmod_mat_entry(v,0,0),fq_nmod_mat_entry(basis,0,j),F);
-      fq_nmod_mul(d,fq_nmod_mat_entry(v,0,1),fq_nmod_mat_entry(basis,1,j),F);
-      fq_nmod_add(fq_nmod_mat_entry(vec,0,start+j),fq_nmod_mat_entry(vec,0,start+j),d,F);
-      fq_nmod_add(fq_nmod_mat_entry(vec,0,start+j),fq_nmod_mat_entry(vec,0,start+j),fq_nmod_mat_entry(basis,2,j),F);
+      fq_nmod_mul(scalar,fq_nmod_mat_entry(v,0,1),fq_nmod_mat_entry(basis,1,j),F);
+      fq_nmod_add(fq_nmod_mat_entry(vec,0,start+j),fq_nmod_mat_entry(vec,0,start+j),scalar,F);
+      fq_nmod_mul(scalar,d,fq_nmod_mat_entry(basis,2,j),F);
+      fq_nmod_add(fq_nmod_mat_entry(vec,0,start+j),fq_nmod_mat_entry(vec,0,start+j),scalar,F);
+      nonzero = nonzero || (!fq_nmod_is_zero(fq_nmod_mat_entry(vec,0,start+j),F) );
     }
   } while(!nonzero);
   
@@ -581,13 +627,13 @@ void fq_nmod_quad_split_hyperbolic_plane(const fq_nmod_mat_t vec, fq_nmod_mat_t 
   fq_nmod_mat_swap_cols(gram,NULL,start+1,idx,F);
 
   // Normalize the second basis vector so the (0,1)-entry is 1.
+  fq_nmod_init(scalar,F);
   fq_nmod_inv(scalar,fq_nmod_mat_entry(gram,start,start+1),F);
   fq_nmod_mat_mul_row(basis,start+1,scalar,F);
   fq_nmod_mat_mul_row(gram,start+1,scalar,F);
   fq_nmod_mat_mul_col(gram,start+1,scalar,F);
 
   // Determine the appropriate scalar for clearing out the (1,1)-entry.
-  fq_nmod_init(scalar,F);
   if (fmpz_equal_si(p,2)) {
     fq_nmod_mat_init(row_vec,1,N,F);
     for (col = 0; col < N; col++)
@@ -759,6 +805,20 @@ void fq_nmod_quad_hyperbolize(fq_nmod_mat_t gram, fq_nmod_mat_t basis, const fq_
 
   // Attempt to split a hyperbolic plane from the form.
   fq_nmod_quad_split_hyperbolic_plane(vec,gram,basis,q,F,start);
+/* #ifdef NBR_DATA */
+/*   printf("Hyperbolizing q = \n"); */
+/*   fq_nmod_mat_print_pretty(q,F); */
+/*   printf("\n"); */
+/*   printf("When start = %ld, vec = \n", start); */
+/*   fq_nmod_mat_print_pretty(vec,F); */
+/*   printf("\n"); */
+/*   printf("After splitting a hyperbolic plane has gram = \n"); */
+/*   fq_nmod_mat_print_pretty(gram,F); */
+/*   printf("\n"); */
+/*   printf(" and basis = \n"); */
+/*   fq_nmod_mat_print_pretty(basis,F); */
+/*   printf("\n"); */
+/* #endif // NBR_DATA */
 
   // Determine how many dimensions we need to split off.
   lower_dim = fq_nmod_mat_is_zero_row(gram,0,F) ? 1 : 2;
@@ -778,6 +838,7 @@ void fq_nmod_quad_hyperbolize(fq_nmod_mat_t gram, fq_nmod_mat_t basis, const fq_
   }
 
 #ifdef DEBUG_LEVEL_FULL
+  //#if (defined(DEBUG_LEVEL_FULL) || defined(NBR_DATA))
   printf("After hyperbolize_form with start = %ld.\n", start);
   printf("Resulting gram matrix is \n");
   fq_nmod_mat_print_pretty(gram,F);

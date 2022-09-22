@@ -4,11 +4,11 @@
 #include "hash.h"
 #include "mass.h"
 #include "matrix_tools.h"
-#ifdef NDEBUG
+#ifndef NBR_DATA
 #include "neighbor.h"
 #else
 #include "nbr_data.h"
-#endif // NDEBUG
+#endif // NBR_DATA
 #include "typedefs.h"
 
 /* compute the genus of a quadratic form */
@@ -22,7 +22,7 @@ hash_table* get_genus_reps(matrix_TYP* Q)
   size_t genus_size;
   fmpz_t genus_size_fmpz;
   hash_table* genus;
-#ifdef NDEBUG
+#ifndef NBR_DATA
   neighbor_manager nbr_man;
   int i;
 #else
@@ -31,7 +31,7 @@ hash_table* get_genus_reps(matrix_TYP* Q)
 
   fmpz_mat_init(nbr_isom, N, N);
   fmpz_mat_init(nbr_fmpz, N, N);
-#endif // NDEBUG
+#endif // NBR_DATA
   
   /* until we implement the mass formula, have it fixed */
 
@@ -102,7 +102,7 @@ hash_table* get_genus_reps(matrix_TYP* Q)
       printf("current = %d\n", current);
 #endif // DEBUG_LEVEL_FULL
 
-#ifdef NDEBUG
+#ifndef NBR_DATA
       i = 0;
       
       /* Right now all the isotropic vectors are paritioned to p */
@@ -118,7 +118,7 @@ hash_table* get_genus_reps(matrix_TYP* Q)
 	while ((!(nbr_data_has_ended(nbr_man))) && fmpq_cmp(acc_mass, mass)) {
 	  nbr_data_build_neighbor(nbr_fmpz, nbr_isom, nbr_man);
 	  matrix_TYP_init_set_fmpz_mat(&nbr, nbr_fmpz);
-#endif // NDEBUG
+#endif // NBR_DATA
 	  
 #ifdef DEBUG_LEVEL_FULL
 	  printf("nbr = \n");
@@ -163,20 +163,20 @@ hash_table* get_genus_reps(matrix_TYP* Q)
 #endif // DEBUG_LEVEL_FULL
 	  }
 	  
-#ifdef NDEBUG
+#ifndef NBR_DATA
 	  advance_nbr_process(&nbr_man);
 #else
 	  nbr_data_get_next_neighbor(nbr_man);
-#endif // NDEBUG
+#endif // NBR_DATA
 	}
 	  
-#ifdef NDEBUG
+#ifndef NBR_DATA
 	i++;
 	free_nbr_process(&nbr_man);
 	}
 #else
 	nbr_data_clear(nbr_man);
-#endif // NDEBUG
+#endif // NBR_DATA
 	current++;
       }
      
@@ -187,10 +187,10 @@ hash_table* get_genus_reps(matrix_TYP* Q)
   fmpq_clear(mass_form);
   fmpz_clear(prime);
 
-#ifndef NDEBUG
+#ifdef NBR_DATA
   fmpz_mat_clear(nbr_fmpz);
   fmpz_mat_clear(nbr_isom);
-#endif // NDEBUG
+#endif // NBR_DATA
   
   return genus;
 }
