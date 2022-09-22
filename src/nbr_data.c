@@ -99,6 +99,7 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
   nbr_man->witt_index = (idx - 1) / 2;
 
   pivot_data_init(nbr_man->pivots, N - nbr_man->rad_dim, nbr_man->aniso_dim, k);
+  nbr_man->pivots->pivot_ptr = 0;
   nbr_man->k = k;
   nbr_man->skew_dim = k*(k-1)/2;
   nbr_man->is_done = false;
@@ -108,7 +109,9 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
   nbr_data_next_isotropic_subspace(nbr_man);
   nbr_data_lift_subspace(nbr_man);
 
-  nmod_mat_init_set(nbr_man->X_skew, nbr_man->X);
+  nmod_mat_init(nbr_man->X_skew, nbr_man->k, N, p_int*p_int);
+  if (!(nbr_man->is_done))
+    nmod_mat_set(nbr_man->X_skew, nbr_man->X);
   
 #ifdef DEBUG
   fq_nmod_clear(value, nbr_man->GF);
@@ -152,8 +155,10 @@ void nbr_data_next_isotropic_subspace(nbr_data_t nbr_man)
       // Reset the pivot pointer so that we can loop through
       //  the isotropic subspaces again if needed.
       nbr_man->pivots->pivot_ptr = 0;
-      if (nbr_man->is_iso_subspace_init)
+      if (nbr_man->is_iso_subspace_init) {
 	fq_nmod_mat_clear(nbr_man->iso_subspace, nbr_man->GF);
+	nbr_man->is_iso_subspace_init = false;
+      }
       nbr_man->is_done = true;
       return;
     }

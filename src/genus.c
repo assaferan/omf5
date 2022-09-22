@@ -18,12 +18,13 @@ hash_table* get_genus_reps(matrix_TYP* Q)
   matrix_TYP *nbr, *isom, *genus_rep, *s;
   fmpq_t mass, acc_mass, mass_form;
   fmpz_t prime;
-  int i, p, current, next_idx, key_num;
+  int p, current, next_idx, key_num;
   size_t genus_size;
   fmpz_t genus_size_fmpz;
   hash_table* genus;
 #ifdef NDEBUG
   neighbor_manager nbr_man;
+  int i;
 #else
   nbr_data_t nbr_man;
   fmpz_mat_t nbr_isom, nbr_fmpz;
@@ -59,7 +60,6 @@ hash_table* get_genus_reps(matrix_TYP* Q)
   
   add(genus, Q);
 
-  current = 0;
   next_idx = 1;
   
   aut_grp = automorphism_group(Q);
@@ -78,6 +78,7 @@ hash_table* get_genus_reps(matrix_TYP* Q)
   fmpz_set_ui(prime, 1);
   
   while (fmpq_cmp(acc_mass, mass)) {
+    current = 0;
 #ifdef DEBUG
     if (fmpq_cmp(acc_mass, mass) > 0) {
       printf("Error! Accumulated too much mass!\n");
@@ -100,6 +101,8 @@ hash_table* get_genus_reps(matrix_TYP* Q)
 #ifdef DEBUG_LEVEL_FULL
       printf("current = %d\n", current);
 #endif // DEBUG_LEVEL_FULL
+
+#ifdef NDEBUG
       i = 0;
       
       /* Right now all the isotropic vectors are paritioned to p */
@@ -107,7 +110,6 @@ hash_table* get_genus_reps(matrix_TYP* Q)
       
       while ((i < p) && fmpq_cmp(acc_mass, mass)) {
 	/* printf("i = %d\n", i); */
-#ifdef NDEBUG
 	init_nbr_process(&nbr_man, genus->keys[current], p, i);
 	while ((!(has_ended(&nbr_man))) && fmpq_cmp(acc_mass, mass)) {
 	  nbr = build_nb(&nbr_man);
@@ -168,19 +170,18 @@ hash_table* get_genus_reps(matrix_TYP* Q)
 #endif // NDEBUG
 	}
 	  
-	i++;
 #ifdef NDEBUG
+	i++;
 	free_nbr_process(&nbr_man);
+	}
 #else
 	nbr_data_clear(nbr_man);
 #endif // NDEBUG
+	current++;
       }
-
-      current++;
-    }
      
-  }
-
+    }
+    
   fmpq_clear(mass);
   fmpq_clear(acc_mass);
   fmpq_clear(mass_form);
