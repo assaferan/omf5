@@ -24,7 +24,7 @@
 void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
 {
   slong idx;
-  fmpz_t p;
+  fmpz_t p, tmp;
 #ifdef DEBUG
   fq_nmod_t value;
 #endif // DEBUG
@@ -38,6 +38,12 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
 
   fq_nmod_ctx_init(nbr_man->GF, p, 1, "1");
   fq_nmod_mat_init_set_fmpz_mat(nbr_man->b, nbr_man->q, nbr_man->GF);
+  if (p_int == 2) {
+    for (idx = 0; idx < N; idx++) {
+      fmpz_divexact_si(tmp, fmpz_mat_entry(nbr_man->q, idx, idx), 2); 
+      fq_nmod_set_fmpz(fq_nmod_mat_entry(nbr_man->b,idx,idx), tmp, nbr_man->GF);
+    }
+  }
   nmod_mat_init_set_fmpz_mat(nbr_man->quot_gram, nbr_man->q, p_int*p_int);
 
   fq_nmod_mat_init(nbr_man->vec, 1, N, nbr_man->GF);
@@ -148,6 +154,9 @@ void nbr_data_next_isotropic_subspace(nbr_data_t nbr_man)
   slong i, j, pos;
   bool all_zero;
   fq_nmod_t one;
+#ifdef DEBUG_LEVEL_FULL
+  const char* var_names[10] = {"x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10"};
+#endif // DEBUG_LEVEL_FULL
   
   if (nbr_man->pivots->num_params == 0) {
     // Move to the next pivot.
@@ -188,7 +197,7 @@ void nbr_data_next_isotropic_subspace(nbr_data_t nbr_man)
 
   for (i = 0; i < nbr_man->pivots->num_params; i++)
     // fq_nmod_set(fq_nmod_mat_entry(eval_list,0,i), nbr_man->pivots->params[i], nbr_man->GF);
-    fq_nmod_set(eval_list[i], nbr_man->pivots->params[i], nbr_man->GF);
+    fq_nmod_set(eval_list[nbr_man->pivots->free_vars[i]], nbr_man->pivots->params[i], nbr_man->GF);
 
   if (nbr_man->is_iso_subspace_init)
     fq_nmod_mat_clear(nbr_man->iso_subspace, nbr_man->GF);
@@ -202,6 +211,23 @@ void nbr_data_next_isotropic_subspace(nbr_data_t nbr_man)
 					 eval_list, nbr_man->pivots->R);
     }
   }
+
+#ifdef DEBUG_LEVEL_FULL
+  printf("params = ");
+  for (i = 0; i < nbr_man->pivots->num_params; i++)
+    fq_nmod_print_pretty(nbr_man->pivots->params[i], nbr_man->GF);
+  printf("\n");
+  printf("free vars = ");
+  for (i = 0; i < nbr_man->pivots->num_free_vars; i++)
+    printf("%ld ", nbr_man->pivots->free_vars[i]);
+  printf("\n");
+  printf("isotropic_param = ");
+  fq_nmod_mpoly_mat_print(nbr_man->pivots->p_isotropic_param, var_names, nbr_man->pivots->R);
+  printf("\n");
+  printf("isotropic_subspace = ");
+  fq_nmod_mat_print_pretty(nbr_man->iso_subspace, nbr_man->GF);
+  printf("\n");
+#endif // DEBUG_LEVEL_FULL
 
   if (nbr_man->pivots->num_free_vars != 0) {
     fq_nmod_init(one, nbr_man->GF);

@@ -1,12 +1,12 @@
 #ifndef __NBR_DATA_H__
 #define __NBR_DATA_H__
 
-#include "carat/matrix.h"
+#include <carat/matrix.h>
 
-#include "flint/fq_nmod.h"
-#include "flint/fq_nmod_vec.h"
-#include "flint/fq_nmod_mat.h"
-#include "flint/fq_nmod_mpoly.h"
+#include <flint/fq_nmod.h>
+#include <flint/fq_nmod_vec.h>
+#include <flint/fq_nmod_mat.h>
+#include <flint/fq_nmod_mpoly.h>
 
 #include "pivot_data.h"
 #include "typedefs.h"

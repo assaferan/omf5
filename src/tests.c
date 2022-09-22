@@ -1,9 +1,9 @@
 #include <time.h>
 
+#include "hecke.h"
 #include "arith.h"
 #include "genus.h"
 #include "hash.h"
-#include "hecke.h"
 #include "matrix_tools.h"
 #include "tests.h"
 

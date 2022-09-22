@@ -1,20 +1,45 @@
 #include <assert.h>
 
+#include <carat/matrix.h>
+
+#ifdef NBR_DATA
+#include <flint/fmpz_mat.h>
+#endif // NBR_DATA
+
+#ifdef NBR_DATA
+#include "nbr_data.h"
+#else
+#include "neighbor.h"
+#endif // NBR_DATA
+
 #include "arith.h"
 #include "hecke.h"
 #include "matrix_tools.h"
-#include "neighbor.h"
+
 #include "typedefs.h"
 
+#ifdef NBR_DATA
+int process_isotropic_vector(nbr_data_t nbr_man, int* T, const hash_table* genus, double* theta_time, double* isom_time, double* total_time, int* num_isom)
+#else
 int process_isotropic_vector(neighbor_manager* nbr_man, int* T, const hash_table* genus, double* theta_time, double* isom_time, double* total_time, int* num_isom)
+#endif // NBR_DATA
 {
 
   int i;
   clock_t cputime;
   matrix_TYP* nbr;
   //  matrix_TYP* s;
+
+#ifdef NBR_DATA
+  fmpz_mat_t nbr_fmpz, nbr_isom;
+  fmpz_mat_init(nbr_fmpz, N, N);
+  fmpz_mat_init(nbr_isom, N, N);
   
+  nbr_data_build_neighbor(nbr_fmpz, nbr_isom, nbr_man);
+  matrix_TYP_init_set_fmpz_mat(&nbr, nbr_fmpz);
+#else
   nbr = build_nb(nbr_man);
+#endif // NBR_DATA
   /* s = init_mat(5,5,"1"); */
   /* greedy(nbr, s, 5, 5); */
   /* free_mat(s); */
@@ -31,14 +56,24 @@ int process_isotropic_vector(neighbor_manager* nbr_man, int* T, const hash_table
 #endif // DEBUG
   
   T[i]++;
+
+#ifdef NBR_DATA
+  fmpz_mat_clear(nbr_fmpz);
+  fmpz_mat_clear(nbr_isom);
+#endif // NBR_DATA
   
   return 0;
 }
 
+// !! TODO - use i to cut the parameters to chunks, need to convert from a number to a vector in the parameter space
 int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const hash_table* genus, double* theta_time, double* isom_time, double* total_time, int* num_isom)
 {
-  matrix_TYP *Q; 
+  matrix_TYP *Q;
+#ifdef NBR_DATA
+  nbr_data_t nbr_man;
+#else
   neighbor_manager nbr_man;
+#endif // NBR_DATA
   int lc;
 
   lc = 0;
@@ -53,15 +88,29 @@ int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const hash_table*
   // print_mat(v);
 #endif // DEBUG_LEVEL_FULL
 
+#ifdef NBR_DATA
+  nbr_data_init(nbr_man, Q, p, 1);
+#else
   init_nbr_process(&nbr_man, Q, p, i);
+#endif // NBR_DATA
 
+#ifdef NBR_DATA
+  while (!(nbr_data_has_ended(nbr_man))) {
+    process_isotropic_vector(nbr_man, T, genus, theta_time, isom_time, total_time, num_isom);
+    nbr_data_get_next_neighbor(nbr_man);
+#else
   while (!(has_ended(&nbr_man))) {
     process_isotropic_vector(&nbr_man, T, genus, theta_time, isom_time, total_time, num_isom);
     advance_nbr_process(&nbr_man);
+#endif // NBR_DATA
     lc++;
   }
-  
+
+#ifdef NBR_DATA
+  nbr_data_clear(nbr_man);
+#else
   free_nbr_process(&nbr_man);
+#endif
  
   return lc;
 }
@@ -69,15 +118,21 @@ int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const hash_table*
 // assumes T is initialized to zeros
 void hecke_col(int* T, int p, int gen_idx, const hash_table* genus)
 {
+#ifndef NBR_DATA
   int num;
+#endif
   int num_isom, lc;
   double theta_time, isom_time, total_time;
   num_isom = lc = 0;
   theta_time = isom_time = total_time = 0;
-  
+
+#ifdef NBR_DATA
+  lc += process_neighbour_chunk(T, p, 0, gen_idx, genus, &theta_time, &isom_time, &total_time, &num_isom);
+#else
   for (num = 0; num < p; num++) {
     lc += process_neighbour_chunk(T, p, num, gen_idx, genus, &theta_time, &isom_time, &total_time, &num_isom);
   }
+#endif // NBR_DATA
 
 #ifdef DEBUG
   printf("theta_time = %f, isom_time = %f, total_time = %f, num_isom = %d / %d \n", theta_time/lc, isom_time/lc, total_time, num_isom, lc);

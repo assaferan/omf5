@@ -1,5 +1,8 @@
 #include <carat/matrix.h>
 
+#include <flint/fmpq.h>
+#include <flint/fmpz.h>
+
 #include "genus.h"
 #include "hash.h"
 #include "mass.h"

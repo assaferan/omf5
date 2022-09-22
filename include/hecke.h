@@ -3,11 +3,22 @@
 
 #include "carat/matrix.h"
 
-#include "genus.h"
-#include "matrix_tools.h"
-#include "neighbor.h"
+#include "antic/nf_elem.h"
 
+#include "genus.h"
+#include "hash.h"
+#include "matrix_tools.h"
+#ifdef NBR_DATA
+#include "nbr_data.h"
+#else
+#include "neighbor.h"
+#endif // NBR_DATA
+
+#ifdef NBR_DATA
+int process_isotropic_vector(nbr_data_t nbr_man, int* T, const hash_table* genus, double* theta_time, double* isom_time, double* total_time, int* num_isom);
+#else
 int process_isotropic_vector(neighbor_manager* nbr_man, int* T, const hash_table* genus, double* theta_time, double* isom_time, double* total_time, int* num_isom);
+#endif // NBR_DATA
 
 int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const hash_table* genus, double* theta_time, double* isom_time, double* total_time, int* num_isom);
 
