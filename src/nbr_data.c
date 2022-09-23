@@ -39,10 +39,12 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
   fq_nmod_ctx_init(nbr_man->GF, p, 1, "1");
   fq_nmod_mat_init_set_fmpz_mat(nbr_man->b, nbr_man->q, nbr_man->GF);
   if (p_int == 2) {
+    fmpz_init(tmp);
     for (idx = 0; idx < N; idx++) {
       fmpz_divexact_si(tmp, fmpz_mat_entry(nbr_man->q, idx, idx), 2); 
       fq_nmod_set_fmpz(fq_nmod_mat_entry(nbr_man->b,idx,idx), tmp, nbr_man->GF);
     }
+    fmpz_clear(tmp);
   }
   nmod_mat_init_set_fmpz_mat(nbr_man->quot_gram, nbr_man->q, p_int*p_int);
 

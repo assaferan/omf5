@@ -193,6 +193,7 @@ bool fq_nmod_quad_isotropic_vector_p2(fq_nmod_mat_t vec, const fq_nmod_mat_t q, 
   fq_nmod_init(d,F);
   fq_nmod_init(e,F);
   fq_nmod_init(f,F);
+  fq_nmod_init(g,F);
   
   fq_nmod_set(a,fq_nmod_mat_entry(q,start,start),F);
   fq_nmod_set(b,fq_nmod_mat_entry(q,start+1,start+1),F);
@@ -226,7 +227,8 @@ bool fq_nmod_quad_isotropic_vector_p2(fq_nmod_mat_t vec, const fq_nmod_mat_t q, 
   fq_nmod_set(fq_nmod_mat_entry(vec,0,start),g,F);
   fq_nmod_set(fq_nmod_mat_entry(vec,0,start+1),d,F);
   fq_nmod_one(fq_nmod_mat_entry(vec,0,start+2),F);
-  
+
+  fq_nmod_clear(g,F);
   fq_nmod_clear(f,F);
   fq_nmod_clear(e,F);
   fq_nmod_clear(d,F);
