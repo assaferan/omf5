@@ -61,6 +61,8 @@ int process_isotropic_vector(neighbor_manager* nbr_man, int* T, const hash_table
   fmpz_mat_clear(nbr_fmpz);
   fmpz_mat_clear(nbr_isom);
 #endif // NBR_DATA
+
+  free_mat(nbr);
   
   return 0;
 }
@@ -157,7 +159,7 @@ matrix_TYP* hecke_matrix(const hash_table* genus, int p)
 void get_hecke_ev(nf_elem_t e, const hash_table* genus, eigenvalues* evs, int p, int ev_idx)
 {
   int* a;
-  int num, k, pivot;
+  int num, i, pivot;
   nf_elem_t prod;
 #ifdef NBR_DATA
   fmpz_mat_t q;
@@ -187,9 +189,9 @@ void get_hecke_ev(nf_elem_t e, const hash_table* genus, eigenvalues* evs, int p,
   cputime = cpuclock / CLOCKS_PER_SEC;
 
   nf_elem_zero(e, evs->nfs[ev_idx]);
-  for (k = 0; k < evs->dim; k++) {
-    nf_elem_set_si(prod, a[k], evs->nfs[ev_idx]);
-    nf_elem_mul(prod, prod, evs->eigenvecs[ev_idx][k], evs->nfs[ev_idx]);
+  for (i = 0; i < evs->dim; i++) {
+    nf_elem_set_si(prod, a[i], evs->nfs[ev_idx]);
+    nf_elem_mul(prod, prod, evs->eigenvecs[ev_idx][i], evs->nfs[ev_idx]);
     nf_elem_add(e, e, prod, evs->nfs[ev_idx]);
   }
   nf_elem_div(e, e, evs->eigenvecs[ev_idx][pivot], evs->nfs[ev_idx]);
