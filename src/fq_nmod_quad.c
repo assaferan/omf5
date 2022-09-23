@@ -251,9 +251,10 @@ bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q, con
     for (col = 0; col < N - start; col++)
       fq_nmod_set(fq_nmod_mat_entry(sub_B, row, col), fq_nmod_mat_entry(q, start+row,start+col),F);
 
-  fq_nmod_mat_init_set(q_copy, q, F);
-  if ( (fmpz_cmp_si(fq_nmod_ctx_prime(F),2) != 0 ) && (fq_nmod_mat_rref(q_copy,F) < N) ) {
+  fq_nmod_mat_init_set(q_copy, sub_B, F);
+  if ( (fmpz_cmp_si(fq_nmod_ctx_prime(F),2) != 0 ) && (fq_nmod_mat_rref(q_copy,F) < N - start) ) {
     fq_nmod_mat_kernel(rad, sub_B, F);
+    assert(fq_nmod_mat_nrows(rad,F) > 0);
     for (i = 0; i < N - start; i++)
       fq_nmod_set(fq_nmod_mat_entry(vec,0,start+i), fq_nmod_mat_entry(rad,0,i), F);
     fq_nmod_mat_clear(rad, F);
@@ -805,23 +806,23 @@ void fq_nmod_quad_hyperbolize(fq_nmod_mat_t gram, fq_nmod_mat_t basis, const fq_
 
   // Attempt to split a hyperbolic plane from the form.
   fq_nmod_quad_split_hyperbolic_plane(vec,gram,basis,q,F,start);
-/* #ifdef NBR_DATA */
-/*   printf("Hyperbolizing q = \n"); */
-/*   fq_nmod_mat_print_pretty(q,F); */
-/*   printf("\n"); */
-/*   printf("When start = %ld, vec = \n", start); */
-/*   fq_nmod_mat_print_pretty(vec,F); */
-/*   printf("\n"); */
-/*   printf("After splitting a hyperbolic plane has gram = \n"); */
-/*   fq_nmod_mat_print_pretty(gram,F); */
-/*   printf("\n"); */
-/*   printf(" and basis = \n"); */
-/*   fq_nmod_mat_print_pretty(basis,F); */
-/*   printf("\n"); */
-/* #endif // NBR_DATA */
+#ifdef DEBUG_LEVEL_FULL
+  printf("Hyperbolizing q = \n");
+  fq_nmod_mat_print_pretty(q,F);
+  printf("\n");
+  printf("When start = %ld, vec = \n", start);
+  fq_nmod_mat_print_pretty(vec,F);
+  printf("\n");
+  printf("After splitting a hyperbolic plane has gram = \n");
+  fq_nmod_mat_print_pretty(gram,F);
+  printf("\n");
+  printf(" and basis = \n");
+  fq_nmod_mat_print_pretty(basis,F);
+  printf("\n");
+#endif // DEBUG_LEVEL_FULL
 
   // Determine how many dimensions we need to split off.
-  lower_dim = fq_nmod_mat_is_zero_row(gram,0,F) ? 1 : 2;
+  lower_dim = fq_nmod_mat_is_zero_row(gram,start,F) ? 1 : 2;
 
   if (dim > lower_dim) {
     // Split the hyperbolic plane from the form.

@@ -159,6 +159,10 @@ void get_hecke_ev(nf_elem_t e, const hash_table* genus, eigenvalues* evs, int p,
   int* a;
   int num, k, pivot;
   nf_elem_t prod;
+#ifdef NBR_DATA
+  fmpz_mat_t q;
+  fmpz_t disc;
+#endif // NBR_DATA
 
   nf_elem_init(e, evs->nfs[ev_idx]);
   nf_elem_init(prod, evs->nfs[ev_idx]);
@@ -189,6 +193,21 @@ void get_hecke_ev(nf_elem_t e, const hash_table* genus, eigenvalues* evs, int p,
     nf_elem_add(e, e, prod, evs->nfs[ev_idx]);
   }
   nf_elem_div(e, e, evs->eigenvecs[ev_idx][pivot], evs->nfs[ev_idx]);
+
+#ifdef NBR_DATA
+  // handling the case p divides the discriminant
+  if (genus->num_stored > 0) {
+    fmpz_mat_init_set_matrix_TYP(q, genus->keys[0]);
+    fmpz_init(disc);
+    fmpz_mat_det(disc, q);
+    fmpz_divexact_si(disc,disc,2);
+    if (fmpz_get_si(disc) % p == 0) {
+      nf_elem_add_si(e, e, 1, evs->nfs[ev_idx]);
+    }
+    fmpz_mat_clear(q);
+    fmpz_clear(disc);
+  }
+#endif // NBR_DATA
 
 #ifdef DEBUG
   printf("%4d ", p);
