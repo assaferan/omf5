@@ -144,43 +144,66 @@ void fq_nmod_mat_transpose(fq_nmod_mat_t mat_t, const fq_nmod_mat_t mat, const f
 void fq_nmod_mat_rref_trans(fq_nmod_mat_t mat, fq_nmod_mat_t trans, const fq_nmod_ctx_t F)
 {
   slong* P;
-  slong rank, row, col, n;
+  slong rank, row, col, nrows, ncols, pivot, prev_row;
   fq_nmod_mat_t LU, L_inv;
+  fq_nmod_t scalar;
 
-  n = fq_nmod_mat_nrows(mat, F);
-  P = (slong*)malloc(n*sizeof(slong));
+  nrows = fq_nmod_mat_nrows(mat, F);
+  ncols = fq_nmod_mat_ncols(mat, F);
+  P = (slong*)malloc(nrows*sizeof(slong));
   
   fq_nmod_mat_init_set(LU, mat, F);
   
   rank = fq_nmod_mat_lu(P, LU, false, F); // returns L\U in LU such that PA = LU, P permutation matrix
 
   // initializing L_inv to be 1
-  fq_nmod_mat_init(L_inv, n, n, F);
+  fq_nmod_mat_init(L_inv, nrows, nrows, F);
   fq_nmod_mat_zero(L_inv,F);
-  for (row = 0; row < n; row++)
+  for (row = 0; row < nrows; row++)
     fq_nmod_one(fq_nmod_mat_entry(L_inv, row, row),F); 
 
   // sets L_inv to L^(-1)
   fq_nmod_mat_solve_tril(L_inv, LU, L_inv, 1, F);
 
   // setting the transformation to be L^(-1)*P
-  assert((fq_nmod_mat_nrows(trans,F) == n) && (fq_nmod_mat_ncols(trans,F) == n));
+  assert((fq_nmod_mat_nrows(trans,F) == nrows) && (fq_nmod_mat_ncols(trans,F) == nrows));
   
-  for (row = 0; row < n; row++) {
-    for (col = 0; col < n; col++) {
+  for (row = 0; row < nrows; row++) {
+    for (col = 0; col < nrows; col++) {
       fq_nmod_set(fq_nmod_mat_entry(trans,row,col), fq_nmod_mat_entry(L_inv,row,P[col]),F);
     }
   }
 
   // setting mat to be U
-  for (row = 0; row < n; row++) {
+  for (row = 0; row < nrows; row++) {
     for (col = 0; col < row; col++) {
       fq_nmod_zero(fq_nmod_mat_entry(mat,row,col), F);
     }
-    for (col = row; col < n; col++) {
+    for (col = row; col < ncols; col++) {
       fq_nmod_set(fq_nmod_mat_entry(mat,row,col), fq_nmod_mat_entry(LU,row,col),F);
     }
   }
+
+#ifdef DEBUG_LEVEL_FULL
+  printf("Before zeroing above the pivots, get: \n");
+  fq_nmod_mat_print_pretty(mat,F);
+  printf("\n");
+#endif // DEBUG_LEVEL_FULL
+  
+  // zeroing above the pivots
+  fq_nmod_init(scalar, F);
+  for (row = 0; row < nrows; row++) {
+    for (pivot = 0; (pivot < ncols) && (fq_nmod_is_zero(fq_nmod_mat_entry(mat,row,pivot),F)); pivot++);
+    assert((pivot == ncols) || fq_nmod_is_one(fq_nmod_mat_entry(mat,row,pivot),F));
+    if (pivot < ncols) {
+      for (prev_row = 0; prev_row < row; prev_row++) {
+	fq_nmod_neg(scalar, fq_nmod_mat_entry(mat,prev_row,pivot), F);
+	fq_nmod_mat_add_row(mat,prev_row,row,scalar,F);
+	fq_nmod_mat_add_row(trans,prev_row,row,scalar,F);
+      }
+    }
+  }
+  fq_nmod_clear(scalar,F);
 
   fq_nmod_mat_clear(LU, F);
   fq_nmod_mat_clear(L_inv, F);

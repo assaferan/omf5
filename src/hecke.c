@@ -2,15 +2,10 @@
 
 #include <carat/matrix.h>
 
-#ifdef NBR_DATA
 #include <flint/fmpz_mat.h>
-#endif // NBR_DATA
 
-#ifdef NBR_DATA
 #include "nbr_data.h"
-#else
 #include "neighbor.h"
-#endif // NBR_DATA
 
 #include "arith.h"
 #include "hecke.h"
@@ -18,31 +13,19 @@
 
 #include "typedefs.h"
 
-#ifdef NBR_DATA
-int process_isotropic_vector(nbr_data_t nbr_man, int* T, const hash_table* genus, double* theta_time, double* isom_time, double* total_time, int* num_isom)
-#else
-int process_isotropic_vector(neighbor_manager* nbr_man, int* T, const hash_table* genus, double* theta_time, double* isom_time, double* total_time, int* num_isom)
-#endif // NBR_DATA
+int process_isotropic_vector_nbr_data(nbr_data_t nbr_man, int* T, const hash_table* genus,
+				      double* theta_time, double* isom_time, double* total_time, int* num_isom)
 {
-
   int i;
   clock_t cputime;
   matrix_TYP* nbr;
-  //  matrix_TYP* s;
 
-#ifdef NBR_DATA
   fmpz_mat_t nbr_fmpz, nbr_isom;
   fmpz_mat_init(nbr_fmpz, N, N);
   fmpz_mat_init(nbr_isom, N, N);
   
   nbr_data_build_neighbor(nbr_fmpz, nbr_isom, nbr_man);
   matrix_TYP_init_set_fmpz_mat(&nbr, nbr_fmpz);
-#else
-  nbr = build_nb(nbr_man);
-#endif // NBR_DATA
-  /* s = init_mat(5,5,"1"); */
-  /* greedy(nbr, s, 5, 5); */
-  /* free_mat(s); */
 
   cputime = clock();
   i = indexof(genus, nbr, 0, theta_time, isom_time, num_isom);
@@ -57,10 +40,37 @@ int process_isotropic_vector(neighbor_manager* nbr_man, int* T, const hash_table
   
   T[i]++;
 
-#ifdef NBR_DATA
   fmpz_mat_clear(nbr_fmpz);
   fmpz_mat_clear(nbr_isom);
-#endif // NBR_DATA
+
+  free_mat(nbr);
+  
+  return 0;
+}
+  
+int process_isotropic_vector(neighbor_manager* nbr_man, int* T, const hash_table* genus,
+			     double* theta_time, double* isom_time, double* total_time, int* num_isom)
+
+{
+
+  int i;
+  clock_t cputime;
+  matrix_TYP* nbr;
+
+  nbr = build_nb(nbr_man);
+
+  cputime = clock();
+  i = indexof(genus, nbr, 0, theta_time, isom_time, num_isom);
+  (*total_time) += clock() - cputime;
+
+#ifdef DEBUG
+  if ((i < 0) || (i > genus->num_stored)) {
+    printf("Error! Couldn't find element in genus!\n");
+    exit(-1);
+  }
+#endif // DEBUG
+  
+  T[i]++;
 
   free_mat(nbr);
   
@@ -68,73 +78,94 @@ int process_isotropic_vector(neighbor_manager* nbr_man, int* T, const hash_table
 }
 
 // !! TODO - use i to cut the parameters to chunks, need to convert from a number to a vector in the parameter space
-int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const hash_table* genus, double* theta_time, double* isom_time, double* total_time, int* num_isom)
+int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const hash_table* genus,
+			    double* theta_time, double* isom_time, double* total_time, int* num_isom)
 {
   matrix_TYP *Q;
-#ifdef NBR_DATA
-  nbr_data_t nbr_man;
-#else
   neighbor_manager nbr_man;
-#endif // NBR_DATA
   int lc;
 
   lc = 0;
 
   Q = genus->keys[gen_idx];
-  // v = get_isotropic_vector(Q, p);
 
 #ifdef DEBUG_LEVEL_FULL
   printf("initialized Q: \n");
   print_mat(Q);
-  // printf("isotropic vector: ");
-  // print_mat(v);
 #endif // DEBUG_LEVEL_FULL
 
-#ifdef NBR_DATA
-  nbr_data_init(nbr_man, Q, p, 1);
-#else
   init_nbr_process(&nbr_man, Q, p, i);
-#endif // NBR_DATA
 
-#ifdef NBR_DATA
-  while (!(nbr_data_has_ended(nbr_man))) {
-    process_isotropic_vector(nbr_man, T, genus, theta_time, isom_time, total_time, num_isom);
-    nbr_data_get_next_neighbor(nbr_man);
-#else
   while (!(has_ended(&nbr_man))) {
     process_isotropic_vector(&nbr_man, T, genus, theta_time, isom_time, total_time, num_isom);
     advance_nbr_process(&nbr_man);
-#endif // NBR_DATA
     lc++;
   }
 
-#ifdef NBR_DATA
-  nbr_data_clear(nbr_man);
-#else
   free_nbr_process(&nbr_man);
-#endif
+ 
+  return lc;
+}
+
+int process_neighbour_chunk_nbr_data(int* T, int p, int k, int gen_idx, const hash_table* genus,
+				     double* theta_time, double* isom_time, double* total_time, int* num_isom)
+{
+  matrix_TYP *Q;
+  nbr_data_t nbr_man;
+  int lc;
+
+  lc = 0;
+
+  Q = genus->keys[gen_idx];
+
+#ifdef DEBUG_LEVEL_FULL
+  printf("initialized Q: \n");
+  print_mat(Q);
+#endif // DEBUG_LEVEL_FULL
+
+  nbr_data_init(nbr_man, Q, p, k);
+
+  while (!(nbr_data_has_ended(nbr_man))) {
+    process_isotropic_vector_nbr_data(nbr_man, T, genus, theta_time, isom_time, total_time, num_isom);
+    nbr_data_get_next_neighbor(nbr_man);
+    lc++;
+  }
+
+  nbr_data_clear(nbr_man);
  
   return lc;
 }
 
 // assumes T is initialized to zeros
+
+void hecke_col_nbr_data(int* T, int p, int k, int gen_idx, const hash_table* genus)
+{
+  int num_isom, lc;
+  double theta_time, isom_time, total_time;
+  
+  num_isom = lc = 0;
+  theta_time = isom_time = total_time = 0;
+
+  lc += process_neighbour_chunk_nbr_data(T, p, k, gen_idx, genus, &theta_time, &isom_time, &total_time, &num_isom);
+
+#ifdef DEBUG
+  printf("theta_time = %f, isom_time = %f, total_time = %f, num_isom = %d / %d \n", theta_time/lc, isom_time/lc, total_time, num_isom, lc);
+#endif // DEBUG
+
+  return;
+}
+
 void hecke_col(int* T, int p, int gen_idx, const hash_table* genus)
 {
-#ifndef NBR_DATA
   int num;
-#endif
   int num_isom, lc;
   double theta_time, isom_time, total_time;
   num_isom = lc = 0;
   theta_time = isom_time = total_time = 0;
 
-#ifdef NBR_DATA
-  lc += process_neighbour_chunk(T, p, 0, gen_idx, genus, &theta_time, &isom_time, &total_time, &num_isom);
-#else
   for (num = 0; num < p; num++) {
     lc += process_neighbour_chunk(T, p, num, gen_idx, genus, &theta_time, &isom_time, &total_time, &num_isom);
   }
-#endif // NBR_DATA
 
 #ifdef DEBUG
   printf("theta_time = %f, isom_time = %f, total_time = %f, num_isom = %d / %d \n", theta_time/lc, isom_time/lc, total_time, num_isom, lc);
@@ -156,15 +187,78 @@ matrix_TYP* hecke_matrix(const hash_table* genus, int p)
   return hecke;
 }
 
+void get_hecke_ev_nbr_data(nf_elem_t e, const hash_table* genus, eigenvalues* evs, int p, int k, int ev_idx)
+{
+  int* a;
+  int num, i, pivot;
+  nf_elem_t prod;
+  fmpz_mat_t q;
+  fmpz_t disc;
+
+  nf_elem_init(e, evs->nfs[ev_idx]);
+  nf_elem_init(prod, evs->nfs[ev_idx]);
+  a = (int*)malloc(genus->num_stored * sizeof(int));
+  for (num = 0; num < genus->num_stored; num++)
+    a[num] = 0;
+
+  for (pivot = 0; pivot < evs->dim;) {
+    if (!(nf_elem_is_zero(evs->eigenvecs[ev_idx][pivot], evs->nfs[ev_idx]))) {
+      break;
+    }
+    pivot++;
+  }
+  clock_t cpuclock;
+  double cputime;
+  
+  cpuclock = clock();
+  
+  hecke_col_nbr_data(a, p, k, pivot, genus);
+
+  cpuclock = clock() - cpuclock;
+  cputime = cpuclock / CLOCKS_PER_SEC;
+
+  nf_elem_zero(e, evs->nfs[ev_idx]);
+  for (i = 0; i < evs->dim; i++) {
+    nf_elem_set_si(prod, a[i], evs->nfs[ev_idx]);
+    nf_elem_mul(prod, prod, evs->eigenvecs[ev_idx][i], evs->nfs[ev_idx]);
+    nf_elem_add(e, e, prod, evs->nfs[ev_idx]);
+  }
+  nf_elem_div(e, e, evs->eigenvecs[ev_idx][pivot], evs->nfs[ev_idx]);
+
+  // handling the case p divides the discriminant
+  if (genus->num_stored > 0) {
+    fmpz_mat_init_set_matrix_TYP(q, genus->keys[0]);
+    fmpz_init(disc);
+    fmpz_mat_det(disc, q);
+    fmpz_divexact_si(disc,disc,2);
+    if (fmpz_get_si(disc) % p == 0) {
+      nf_elem_add_si(e, e, 1, evs->nfs[ev_idx]);
+    }
+    fmpz_mat_clear(q);
+    fmpz_clear(disc);
+  }
+
+#ifdef DEBUG
+  printf("%4d ", p);
+  nf_elem_print_pretty(e, evs->nfs[ev_idx], "a");
+  printf(" - ");
+  for (num = 0; num < genus->num_stored; num++)
+    printf("%10d ", a[num]);
+  
+  printf("- %10f\n", cputime);
+#endif // DEBUG
+
+  nf_elem_clear(prod, evs->nfs[ev_idx]);
+  free(a);
+  
+  return;
+}
+
 void get_hecke_ev(nf_elem_t e, const hash_table* genus, eigenvalues* evs, int p, int ev_idx)
 {
   int* a;
   int num, i, pivot;
   nf_elem_t prod;
-#ifdef NBR_DATA
-  fmpz_mat_t q;
-  fmpz_t disc;
-#endif // NBR_DATA
 
   nf_elem_init(e, evs->nfs[ev_idx]);
   nf_elem_init(prod, evs->nfs[ev_idx]);
@@ -195,21 +289,6 @@ void get_hecke_ev(nf_elem_t e, const hash_table* genus, eigenvalues* evs, int p,
     nf_elem_add(e, e, prod, evs->nfs[ev_idx]);
   }
   nf_elem_div(e, e, evs->eigenvecs[ev_idx][pivot], evs->nfs[ev_idx]);
-
-#ifdef NBR_DATA
-  // handling the case p divides the discriminant
-  if (genus->num_stored > 0) {
-    fmpz_mat_init_set_matrix_TYP(q, genus->keys[0]);
-    fmpz_init(disc);
-    fmpz_mat_det(disc, q);
-    fmpz_divexact_si(disc,disc,2);
-    if (fmpz_get_si(disc) % p == 0) {
-      nf_elem_add_si(e, e, 1, evs->nfs[ev_idx]);
-    }
-    fmpz_mat_clear(q);
-    fmpz_clear(disc);
-  }
-#endif // NBR_DATA
 
 #ifdef DEBUG
   printf("%4d ", p);
