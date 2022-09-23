@@ -1,8 +1,8 @@
 #ifndef __HASH_H__
 #define __HASH_H__
 
-#include "carat/matrix.h"
-#include "flint/fmpq.h"
+#include <carat/matrix.h>
+#include <flint/fmpq.h>
 
 typedef uint64_t W64;
 typedef uint32_t W32;

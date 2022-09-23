@@ -5,6 +5,7 @@
 #include "arith.h"
 #include "matrix_tools.h"
 #include "neighbor.h"
+#include "typedefs.h"
 
 /* Compute one p-neighbour for Q_orig corresponding to vector x 
  * On error, return NULL.
@@ -49,7 +50,7 @@ matrix_TYP* build_nb(neighbor_manager* nbr_man)
       /* M[,1] = x~ */
       
       Q[0][0] = xQx;
-      for (col = 1; col < 5; col++)
+      for (col = 1; col < N; col++)
 	Q[0][col] = Qx[col];
 #ifdef DEBUG_LEVEL_FULL
       printf("put x as first vector, now Q = \n");
@@ -59,10 +60,10 @@ matrix_TYP* build_nb(neighbor_manager* nbr_man)
   else {
     if (x[1] == 1) {
       /* M[,2] = M[,1] ; M[,1] = x~ */
-      for (col = 2; col < 5; col++)
+      for (col = 2; col < N; col++)
 	Q[1][col] = Q[0][col];
       Q[1][1] = Q[0][0];
-      for (col = 2; col < 5; col++)
+      for (col = 2; col < N; col++)
 	Q[0][col] = Qx[col];
       Q[0][1] = Qx[0];
       Q[0][0] = xQx;
@@ -70,11 +71,11 @@ matrix_TYP* build_nb(neighbor_manager* nbr_man)
     else {
       if (x[2] == 1) {
 	/* M[,3] = M[,1] ; M[,1] = x~ */
-	for (col = 3; col < 5; col++)
+	for (col = 3; col < N; col++)
 	  Q[2][col] = Q[0][col];
 	Q[2][2] = Q[0][0];
 	Q[1][2] = Q[0][1];
-	for (col = 3; col < 5; col++)
+	for (col = 3; col < N; col++)
 	  Q[0][col] = Qx[col];
 	Q[0][2] = Qx[0];
 	Q[0][1] = Qx[1];
@@ -95,7 +96,7 @@ matrix_TYP* build_nb(neighbor_manager* nbr_man)
 	}
 	else {
 	  if (x[4] == 1) {
-	    /* M[,5] = M[,1] ; M[,1] = x~ */
+	    /* M[,N] = M[,1] ; M[,1] = x~ */
 	    Q[4][4] = Q[0][0];
 	    Q[3][4] = Q[0][3];
 	    Q[2][4] = Q[0][2];
@@ -301,14 +302,14 @@ matrix_TYP* build_nb(neighbor_manager* nbr_man)
 };
 
 /* find an isotropic vector for Q mod p */
-/* return a row vector 1x5 */
+/* return a row vector 1xN */
 matrix_TYP* get_isotropic_vector(matrix_TYP* Q, int p)
 {
   matrix_TYP *v, *Qx, *n_mat;
   int* x;
   int v1, v2, v3, v4, n;
   
-  v = init_mat(1,5,"");
+  v = init_mat(1,N,"");
   x = v->array.SZ[0];
 
   /* find one zero "v0" */
@@ -349,7 +350,7 @@ void update_pivot(int* v, int p, int i)
   if (pivot == 0)
     printf("Error! Got a vector with pivot 0! shouldn't have gotten here\n");
   
-  if (pivot == 5) {
+  if (pivot == N) {
     printf("Error! Got the zero vector!\n");
   }
   if (v[pivot] != 1)
@@ -416,7 +417,7 @@ matrix_TYP* get_next_isotropic_vector(neighbor_manager* nbr_man)
 #endif // DEBUG_LEVEL_FULL
       /* This differs from the gp script */
       /* modp_mat(tmp, p); */
-      for (j = 0; j < 5; j++)
+      for (j = 0; j < N; j++)
 	nbr_man->iso_vec->array.SZ[0][j] %= nbr_man->p;
 #ifdef DEBUG_LEVEL_FULL
       printf("n*v-t*w = ");
@@ -451,7 +452,7 @@ void init_nbr_process(neighbor_manager* nbr_man, matrix_TYP* Q, int p, int i)
   nbr_man->v = get_isotropic_vector(Q,p);
   nbr_man->b = mat_mul(nbr_man->v, Q);
   modp_mat(nbr_man->b,p);
-  nbr_man->w = init_mat(1,5, "");
+  nbr_man->w = init_mat(1,N, "");
   nbr_man->i = i;
   nbr_man->iso_j = 0;
   if (i == 0)

@@ -34,7 +34,7 @@ int main(int argc, char* argv[])
   max_args = 4;
   
   if (argc == 1) {
-    test_res = test_greedy() << 1;
+    test_res = test_greedy_overflow() << 1;
     test_res |= test_61();
     test_res <<= 1;
     test_res |= test_69();

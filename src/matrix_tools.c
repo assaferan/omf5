@@ -96,7 +96,7 @@ matrix_TYP* init_sym_matrix(const int* coeff_vec, const char* alg)
   if (strcmp(alg,"GG") == 0)
     return init_sym_matrix_GG(coeff_vec);
 
-  assert(FALSE);
+  assert(false);
   return NULL;
 }
 
@@ -825,7 +825,7 @@ void mat_irred_charpoly_eigenvector(nf_elem_t* evec, const fmpq_mat_t mat, const
   nf_elem_t *c, *u;
   fmpz_mat_t scaled_mat;
   fmpz_t *v, *vv;
-  BOOL is_zero;
+  bool is_zero;
   
   n = fmpq_poly_degree(f);
 
@@ -927,10 +927,10 @@ void mat_irred_charpoly_eigenvector(nf_elem_t* evec, const fmpq_mat_t mat, const
 	nf_elem_add(evec[j], evec[j], tmp, nf);
       }
     }
-    is_zero = TRUE;
+    is_zero = true;
     for (j = 0; j < n; j++) {
       if (!(nf_elem_is_zero(evec[j], nf))) {
-	is_zero = FALSE;
+	is_zero = false;
 	break;
       }
     }
@@ -1278,6 +1278,59 @@ void fmpq_mat_init_set_matrix_TYP(fmpq_mat_t M, const matrix_TYP* mat)
     for (col = 0; col  < mat->cols; col++)
       fmpq_set_si(fmpq_mat_entry(M, row, col), mat->array.SZ[row][col], 1);
 
+  return;
+}
+
+void fmpz_mat_init_set_matrix_TYP(fmpz_mat_t M, const matrix_TYP* mat)
+{
+  slong row, col;
+  
+  fmpz_mat_init(M, mat->rows, mat->cols);
+
+  for (row = 0; row < mat->rows; row++)
+    for (col = 0; col  < mat->cols; col++)
+      fmpz_set_si(fmpz_mat_entry(M, row, col), mat->array.SZ[row][col]);
+
+  return;
+}
+
+void matrix_TYP_init_set_fmpz_mat(matrix_TYP** M, const fmpz_mat_t mat)
+{
+  slong row, col;
+  
+  *M = init_mat(fmpz_mat_nrows(mat), fmpz_mat_ncols(mat), "");
+
+  for (row = 0; row < fmpz_mat_nrows(mat); row++)
+    for (col = 0; col  < fmpz_mat_ncols(mat); col++)
+      (*M)->array.SZ[row][col] = fmpz_get_si(fmpz_mat_entry(mat, row, col));
+
+  return;
+}
+
+void nmod_mat_init_set_fmpz_mat(nmod_mat_t dest, const fmpz_mat_t mat, mp_limb_t n)
+{
+  slong row, col;
+  slong q, r;
+
+  nmod_mat_init(dest, fmpz_mat_nrows(mat), fmpz_mat_ncols(mat), n);
+  
+  for (row = 0; row < fmpz_mat_nrows(mat); row++)
+    for (col = 0; col < fmpz_mat_ncols(mat); col++) {
+      // Here we have to make some effort, as the conversion is through unsigned
+      r = fmpz_get_si(fmpz_mat_entry(mat, row, col));
+      if (r < 0) {
+	q = (-r) / n;
+	r += (q+1) * n;
+      }
+      nmod_mat_entry(dest, row, col) =  r % n;
+    }
+
+#ifdef DEBUG_LEVEL_FULL
+  printf("Taking reisdues we obtain the form: \n");
+  nmod_mat_print_pretty(dest);
+  printf("\n");
+#endif // DEBUG_LEVEL_FULL  
+  
   return;
 }
 

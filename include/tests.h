@@ -5,7 +5,7 @@
 
 STATUS test_61();
 STATUS test_69();
-STATUS test_greedy();
+STATUS test_greedy_overflow();
 
 STATUS compute_eigenvectors(const int* Q_coeffs, const char* inp_type);
 

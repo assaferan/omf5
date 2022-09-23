@@ -1,9 +1,9 @@
 #include <time.h>
 
+#include "hecke.h"
 #include "arith.h"
 #include "genus.h"
 #include "hash.h"
-#include "hecke.h"
 #include "matrix_tools.h"
 #include "tests.h"
 
@@ -100,7 +100,7 @@ STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_i
 	free_eigenvalues(evs);
 	free_hash(genus);
 	free_mat(Q);
-	return FALSE;
+	return FAIL;
       }
     }
 
@@ -151,7 +151,7 @@ STATUS test_61()
 STATUS test_69()
 {
   int ps[25] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97};
-  int test_evs[25] = {-6, -5, 8, -12, 2, -35, 50, 22, -156, -85, -63, 152, -119, -332, 369, 500, -240, 88, 250, 597, -389, 234, -656, -342, -1342};
+  int test_evs[25] = {-6, -4, 8, -12, 2, -35, 50, 22, -155, -85, -63, 152, -119, -332, 369, 500, -240, 88, 250, 597, -389, 234, -656, -342, -1342};
   int Q_coeffs[15] = {2,0,2,0,0,2,1,0,0,2,0,0,1,0,12};
 
   return test(Q_coeffs, ps, test_evs, 25, 0, "A");
@@ -197,11 +197,12 @@ STATUS test_greedy_overflow()
   
   int Q1[15] = {8,2,26,2,5,292,3,13,-115,1956,298,69,-60,88,11166};
   int Q2[15] = {12,6,16,-4,-4,842,-5,-5,175,23596,-125,772,-5402,-1517,88494};
-  int red_Q[15] = {2,1,2,1,0,2,1,0,1,6,1,1,1,0,8};
+  int red_Q[15] = {2,0,2,1,1,2,0,1,0,6,1,1,1,1,8};
+  int red_Q2[15] = {2,1,2,1,0,2,1,0,1,6,1,1,1,0,8};
 
   ret = test_greedy(Q1, red_Q) << 1;
 
-  ret |= test_greedy(Q2, red_Q);
+  ret |= test_greedy(Q2, red_Q2);
 
   return ret;
 }

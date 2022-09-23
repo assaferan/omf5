@@ -1,10 +1,18 @@
 #include <carat/matrix.h>
 
+#include <flint/fmpq.h>
+#include <flint/fmpz.h>
+
 #include "genus.h"
 #include "hash.h"
 #include "mass.h"
 #include "matrix_tools.h"
+#ifndef NBR_DATA
 #include "neighbor.h"
+#else
+#include "nbr_data.h"
+#endif // NBR_DATA
+#include "typedefs.h"
 
 /* compute the genus of a quadratic form */
 hash_table* get_genus_reps(matrix_TYP* Q)
@@ -13,12 +21,21 @@ hash_table* get_genus_reps(matrix_TYP* Q)
   matrix_TYP *nbr, *isom, *genus_rep, *s;
   fmpq_t mass, acc_mass, mass_form;
   fmpz_t prime;
-  int i, p, current, next_idx, key_num;
+  int p, current, next_idx, key_num;
   size_t genus_size;
   fmpz_t genus_size_fmpz;
   hash_table* genus;
+#ifndef NBR_DATA
   neighbor_manager nbr_man;
+  int i;
+#else
+  nbr_data_t nbr_man;
+  fmpz_mat_t nbr_isom, nbr_fmpz;
 
+  fmpz_mat_init(nbr_isom, N, N);
+  fmpz_mat_init(nbr_fmpz, N, N);
+#endif // NBR_DATA
+  
   /* until we implement the mass formula, have it fixed */
 
   fmpq_init(mass);
@@ -46,7 +63,6 @@ hash_table* get_genus_reps(matrix_TYP* Q)
   
   add(genus, Q);
 
-  current = 0;
   next_idx = 1;
   
   aut_grp = automorphism_group(Q);
@@ -65,6 +81,7 @@ hash_table* get_genus_reps(matrix_TYP* Q)
   fmpz_set_ui(prime, 1);
   
   while (fmpq_cmp(acc_mass, mass)) {
+    current = 0;
 #ifdef DEBUG
     if (fmpq_cmp(acc_mass, mass) > 0) {
       printf("Error! Accumulated too much mass!\n");
@@ -87,6 +104,8 @@ hash_table* get_genus_reps(matrix_TYP* Q)
 #ifdef DEBUG_LEVEL_FULL
       printf("current = %d\n", current);
 #endif // DEBUG_LEVEL_FULL
+
+#ifndef NBR_DATA
       i = 0;
       
       /* Right now all the isotropic vectors are paritioned to p */
@@ -97,6 +116,13 @@ hash_table* get_genus_reps(matrix_TYP* Q)
 	init_nbr_process(&nbr_man, genus->keys[current], p, i);
 	while ((!(has_ended(&nbr_man))) && fmpq_cmp(acc_mass, mass)) {
 	  nbr = build_nb(&nbr_man);
+#else
+	nbr_data_init(nbr_man, genus->keys[current], p, 1);
+	while ((!(nbr_data_has_ended(nbr_man))) && fmpq_cmp(acc_mass, mass)) {
+	  nbr_data_build_neighbor(nbr_fmpz, nbr_isom, nbr_man);
+	  matrix_TYP_init_set_fmpz_mat(&nbr, nbr_fmpz);
+#endif // NBR_DATA
+	  
 #ifdef DEBUG_LEVEL_FULL
 	  printf("nbr = \n");
 	  print_mat(nbr);
@@ -140,22 +166,34 @@ hash_table* get_genus_reps(matrix_TYP* Q)
 #endif // DEBUG_LEVEL_FULL
 	  }
 	  
+#ifndef NBR_DATA
 	  advance_nbr_process(&nbr_man);
+#else
+	  nbr_data_get_next_neighbor(nbr_man);
+#endif // NBR_DATA
 	}
 	  
+#ifndef NBR_DATA
 	i++;
 	free_nbr_process(&nbr_man);
+	}
+#else
+	nbr_data_clear(nbr_man);
+#endif // NBR_DATA
+	current++;
       }
-
-      current++;
-    }
      
-  }
-
+    }
+    
   fmpq_clear(mass);
   fmpq_clear(acc_mass);
   fmpq_clear(mass_form);
   fmpz_clear(prime);
+
+#ifdef NBR_DATA
+  fmpz_mat_clear(nbr_fmpz);
+  fmpz_mat_clear(nbr_isom);
+#endif // NBR_DATA
   
   return genus;
 }

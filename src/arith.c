@@ -425,16 +425,16 @@ void bernoulli_number_chi(fmpq_t b_chi, ulong n, const fmpz_t d)
   return;
 }
 
-int fmpz_is_local_square(const fmpz_t a, const fmpz_t p)
+bool fmpz_is_local_square(const fmpz_t a, const fmpz_t p)
 {
   fmpz_t a0, a0_1;
   ulong v, i, w, ee;
   slong ok, ww;
   int res;
 
-  if (fmpz_is_zero(a)) return TRUE;
+  if (fmpz_is_zero(a)) return true;
   v = fmpz_valuation(a,p);
-  if (v % 2 == 1) return FALSE;
+  if (v % 2 == 1) return false;
   
   fmpz_init_set(a0,a);
   for (i = 0; i < v; i++)
@@ -466,13 +466,27 @@ int fmpz_is_local_square(const fmpz_t a, const fmpz_t p)
   return res;
 }
 
-int fmpq_is_local_square(const fmpq_t a, const fmpz_t p)
+bool fmpq_is_local_square(const fmpq_t a, const fmpz_t p)
 {
   return (fmpz_is_local_square(fmpq_numref(a), p)
 	  == fmpz_is_local_square(fmpq_denref(a), p));
 }
 
-int fmpq_is_integral(const fmpq_t r)
+// assumes q = p
+bool fq_is_square(const fq_t a, const fq_ctx_t F)
+{
+  fmpz_t a_lift;
+  slong legendre;
+  
+  fmpz_init(a_lift);
+  fq_trace(a_lift, a, F);
+  legendre = kronecker_symbol(a_lift, fq_ctx_prime(F));
+
+  fmpz_clear(a_lift);
+  return (legendre == -1) ? false : true;
+}
+
+bool fmpq_is_integral(const fmpq_t r)
 {
   return fmpz_divisible(fmpq_numref(r), fmpq_denref(r));
 }
@@ -508,3 +522,110 @@ int primes_up_to(int** ps, int bound)
   free(sieve);
   return num_ps;
 }
+
+// fq_sqrt seems to already exist
+
+/* void fq_sqrt(fq_t sqrt_a, const fq_t a, const fq_ctx_t F) */
+/* { */
+/*   fmpz_t p, q; */
+/*   fq_t z, b, c, r, t, t1; */
+/*   int i, j, m, s, e; */
+  
+/*   if (fq_is_one(a,F)) { */
+/*     fq_one(sqrt_a, F); */
+/*     return; */
+/*   } */
+/*   if (fq_is_zero(a,F)) { */
+/*     fq_zero(sqrt_a, F); */
+/*     return; */
+/*   } */
+
+/*   assert(is_square(a,F)); */
+
+/*   fmpz_init(p); */
+/*   fmpz_init(q); */
+
+/*   fmpz_set(p,fq_ctx_prime(F)); */
+/*   fmpz_sub_si(q,p,1); */
+  
+/*   s = 0; */
+/*   while (fmpz_is_even(q)) { */
+/*     fmpz_div_q_2exp(q, q, 1); */
+/*     s++; */
+/*   } */
+
+/*   if (s == 1) { */
+/*     fmpz_add_si(q, p, 1); */
+/*     fmpz_div_q_2exp(q, q, 4); */
+/*     fq_pow(sqrt_a, a, q, F); */
+/*     fmpz_clear(q); */
+/*     fmpz_clear(p); */
+/*     return; */
+/*   } */
+  
+/*   fq_init(z,F); */
+/*   fq_init(b,F); */
+/*   fq_init(c,F); */
+/*   fq_init(r,F); */
+/*   fq_init(t,F); */
+/*   fq_init(t1,F); */
+
+/*   // looking for a non-square */
+/*   fq_zero(z,F); */
+/*   while (fq_is_square(z,F)) */
+/*     fq_sub_one(z,z,F); */
+
+/*   m = s; */
+/*   fq_pow(c,z,q,F); */
+/*   fq_pow(t,a,q,F); */
+/*   fmpz_add_si(q,q,1); */
+/*   fmpz_div_q_2exp(q,q,1); */
+/*   fq_pow(r,a,q,F); */
+
+/*   // !! TODO - this is poorly written should have the is_one condition in the outer while loop */
+/*   while (true) { */
+/*     if (fq_is_one(t,F)) { */
+/*       fq_set(sqrt_a, r, F); */
+/*       fq_clear(t1,F); */
+/*       fq_clear(t,F); */
+/*       fq_clear(r,F); */
+/*       fq_clear(c,F); */
+/*       fq_clear(b,F); */
+/*       fq_clear(z,F); */
+/*       fmpz_clear(s); */
+/*       fmpz_clear(q); */
+/*       fmpz_clear(p); */
+/*       return; */
+/*     } */
+/*     i = 0; */
+/*     fq_set(t1, t, F); */
+/*     while (!fq_is_one(t1,F)) { */
+/*       fq_sqr(t1,t1,F); */
+/*       i++; */
+/*     } */
+
+/*     e = 1; */
+/*     for (j = 0; j < m-i-1; j++) */
+/*       e <<= 1; */
+
+/*     fq_pow(b,c,e,F); */
+/*     fq_mul(r,r,b,F); */
+/*     fq_sqr(c,b,F); */
+/*     fq_mul(t,t,c,F); */
+/*     m = i; */
+/*   } */
+
+/*   f1_clear(t1,F); */
+/*   fq_clear(t,F); */
+/*   fq_clear(r,F); */
+/*   fq_clear(c,F); */
+/*   fq_clear(b,F); */
+/*   fq_clear(z,F); */
+/*   fmpz_clear(s); */
+/*   fmpz_clear(q); */
+/*   fmpz_clear(p); */
+
+/*   assert(false); */
+  
+/*   return; */
+/* } */

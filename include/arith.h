@@ -3,8 +3,11 @@
 
 #include <flint/fmpz.h>
 #include <flint/fmpq.h>
+#include <flint/fq.h>
 
 #include "carat/typedef.h"
+
+#include "typedefs.h"
 
 int fmpz_valuation_unit(fmpz_t a, const fmpz_t x, const fmpz_t p);
 
@@ -31,11 +34,15 @@ slong kronecker_symbol(const fmpz_t a, const fmpz_t n);
 
 void bernoulli_number_chi(fmpq_t b_chi, ulong n, const fmpz_t d);
 
-int fmpz_is_local_square(const fmpz_t a, const fmpz_t p);
+bool fmpz_is_local_square(const fmpz_t a, const fmpz_t p);
 
-int fmpq_is_local_square(const fmpq_t a, const fmpz_t p);
+bool fmpq_is_local_square(const fmpq_t a, const fmpz_t p);
 
-int fmpq_is_integral(const fmpq_t r);
+bool fq_is_square(const fq_t a, const fq_ctx_t F);
+
+// void fq_sqrt(fq_t sqrt_a, const fq_t a, const fq_ctx_t F);
+
+bool fmpq_is_integral(const fmpq_t r);
 
 void fmpq_floor(fmpz_t res, const fmpq_t r);
 

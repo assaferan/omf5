@@ -1,20 +1,45 @@
 #include <assert.h>
 
+#include <carat/matrix.h>
+
+#ifdef NBR_DATA
+#include <flint/fmpz_mat.h>
+#endif // NBR_DATA
+
+#ifdef NBR_DATA
+#include "nbr_data.h"
+#else
+#include "neighbor.h"
+#endif // NBR_DATA
+
 #include "arith.h"
 #include "hecke.h"
 #include "matrix_tools.h"
-#include "neighbor.h"
+
 #include "typedefs.h"
 
+#ifdef NBR_DATA
+int process_isotropic_vector(nbr_data_t nbr_man, int* T, const hash_table* genus, double* theta_time, double* isom_time, double* total_time, int* num_isom)
+#else
 int process_isotropic_vector(neighbor_manager* nbr_man, int* T, const hash_table* genus, double* theta_time, double* isom_time, double* total_time, int* num_isom)
+#endif // NBR_DATA
 {
 
   int i;
   clock_t cputime;
   matrix_TYP* nbr;
   //  matrix_TYP* s;
+
+#ifdef NBR_DATA
+  fmpz_mat_t nbr_fmpz, nbr_isom;
+  fmpz_mat_init(nbr_fmpz, N, N);
+  fmpz_mat_init(nbr_isom, N, N);
   
+  nbr_data_build_neighbor(nbr_fmpz, nbr_isom, nbr_man);
+  matrix_TYP_init_set_fmpz_mat(&nbr, nbr_fmpz);
+#else
   nbr = build_nb(nbr_man);
+#endif // NBR_DATA
   /* s = init_mat(5,5,"1"); */
   /* greedy(nbr, s, 5, 5); */
   /* free_mat(s); */
@@ -31,14 +56,24 @@ int process_isotropic_vector(neighbor_manager* nbr_man, int* T, const hash_table
 #endif // DEBUG
   
   T[i]++;
+
+#ifdef NBR_DATA
+  fmpz_mat_clear(nbr_fmpz);
+  fmpz_mat_clear(nbr_isom);
+#endif // NBR_DATA
   
   return 0;
 }
 
+// !! TODO - use i to cut the parameters to chunks, need to convert from a number to a vector in the parameter space
 int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const hash_table* genus, double* theta_time, double* isom_time, double* total_time, int* num_isom)
 {
-  matrix_TYP *Q; 
+  matrix_TYP *Q;
+#ifdef NBR_DATA
+  nbr_data_t nbr_man;
+#else
   neighbor_manager nbr_man;
+#endif // NBR_DATA
   int lc;
 
   lc = 0;
@@ -53,15 +88,29 @@ int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const hash_table*
   // print_mat(v);
 #endif // DEBUG_LEVEL_FULL
 
+#ifdef NBR_DATA
+  nbr_data_init(nbr_man, Q, p, 1);
+#else
   init_nbr_process(&nbr_man, Q, p, i);
+#endif // NBR_DATA
 
+#ifdef NBR_DATA
+  while (!(nbr_data_has_ended(nbr_man))) {
+    process_isotropic_vector(nbr_man, T, genus, theta_time, isom_time, total_time, num_isom);
+    nbr_data_get_next_neighbor(nbr_man);
+#else
   while (!(has_ended(&nbr_man))) {
     process_isotropic_vector(&nbr_man, T, genus, theta_time, isom_time, total_time, num_isom);
     advance_nbr_process(&nbr_man);
+#endif // NBR_DATA
     lc++;
   }
-  
+
+#ifdef NBR_DATA
+  nbr_data_clear(nbr_man);
+#else
   free_nbr_process(&nbr_man);
+#endif
  
   return lc;
 }
@@ -69,15 +118,21 @@ int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const hash_table*
 // assumes T is initialized to zeros
 void hecke_col(int* T, int p, int gen_idx, const hash_table* genus)
 {
+#ifndef NBR_DATA
   int num;
+#endif
   int num_isom, lc;
   double theta_time, isom_time, total_time;
   num_isom = lc = 0;
   theta_time = isom_time = total_time = 0;
-  
+
+#ifdef NBR_DATA
+  lc += process_neighbour_chunk(T, p, 0, gen_idx, genus, &theta_time, &isom_time, &total_time, &num_isom);
+#else
   for (num = 0; num < p; num++) {
     lc += process_neighbour_chunk(T, p, num, gen_idx, genus, &theta_time, &isom_time, &total_time, &num_isom);
   }
+#endif // NBR_DATA
 
 #ifdef DEBUG
   printf("theta_time = %f, isom_time = %f, total_time = %f, num_isom = %d / %d \n", theta_time/lc, isom_time/lc, total_time, num_isom, lc);
@@ -104,6 +159,10 @@ void get_hecke_ev(nf_elem_t e, const hash_table* genus, eigenvalues* evs, int p,
   int* a;
   int num, k, pivot;
   nf_elem_t prod;
+#ifdef NBR_DATA
+  fmpz_mat_t q;
+  fmpz_t disc;
+#endif // NBR_DATA
 
   nf_elem_init(e, evs->nfs[ev_idx]);
   nf_elem_init(prod, evs->nfs[ev_idx]);
@@ -135,6 +194,21 @@ void get_hecke_ev(nf_elem_t e, const hash_table* genus, eigenvalues* evs, int p,
   }
   nf_elem_div(e, e, evs->eigenvecs[ev_idx][pivot], evs->nfs[ev_idx]);
 
+#ifdef NBR_DATA
+  // handling the case p divides the discriminant
+  if (genus->num_stored > 0) {
+    fmpz_mat_init_set_matrix_TYP(q, genus->keys[0]);
+    fmpz_init(disc);
+    fmpz_mat_det(disc, q);
+    fmpz_divexact_si(disc,disc,2);
+    if (fmpz_get_si(disc) % p == 0) {
+      nf_elem_add_si(e, e, 1, evs->nfs[ev_idx]);
+    }
+    fmpz_mat_clear(q);
+    fmpz_clear(disc);
+  }
+#endif // NBR_DATA
+
 #ifdef DEBUG
   printf("%4d ", p);
   nf_elem_print_pretty(e, evs->nfs[ev_idx], "a");
@@ -165,19 +239,19 @@ void get_hecke_fmpq_mat(fmpq_mat_t hecke_fmpq_mat, const hash_table* genus, int 
 }
 
 // TODO - get rid of the unnecessary recursion
-BOOL decomposition_finite_subspace(decomposition* decomp, const hash_table* genus, const fmpq_mat_t basis_V,
+bool decomposition_finite_subspace(decomposition* decomp, const hash_table* genus, const fmpq_mat_t basis_V,
 				   const int* ps, slong idx, slong num_ps)
 {
   slong i, dim_V, next_idx;
   fmpq_mat_t T, fT, W;
   fmpq_poly_t f;
   fmpq_poly_factor_t fac;
-  BOOL is_complete, is_complete_W;
+  bool is_complete, is_complete_W;
   fmpq_mat_t hecke_fmpq_mat;
 
   dim_V = fmpq_mat_nrows(basis_V);
   if (dim_V == 0) {
-    return TRUE;
+    return true;
   }
 
   if (idx >= num_ps) {
@@ -185,7 +259,7 @@ BOOL decomposition_finite_subspace(decomposition* decomp, const hash_table* genu
     decomp->bases = (fmpq_mat_t*)realloc(decomp->bases, (decomp->num)*sizeof(fmpq_mat_t));
     fmpq_mat_init(decomp->bases[decomp->num-1], dim_V, dim_V);
     fmpq_mat_one(decomp->bases[decomp->num-1]);
-    return FALSE;
+    return false;
   }
 
   fmpq_mat_init(T, dim_V, dim_V);
@@ -197,7 +271,7 @@ BOOL decomposition_finite_subspace(decomposition* decomp, const hash_table* genu
   fmpq_mat_charpoly(f, T);
   fmpq_poly_factor(fac, f);
 
-  is_complete = TRUE;
+  is_complete = true;
   for (i = 0; i < fac->num; i++) {
     fmpq_poly_evaluate_fmpq_mat(fT, &(fac->p[i]), T);
     kernel_on(W, fT, basis_V);
@@ -207,7 +281,7 @@ BOOL decomposition_finite_subspace(decomposition* decomp, const hash_table* genu
       (decomp->num)++;
       decomp->bases = (fmpq_mat_t*)realloc(decomp->bases, (decomp->num)*sizeof(fmpq_mat_t));
       fmpq_mat_init_set(decomp->bases[decomp->num-1], W);
-      is_complete_W = TRUE;
+      is_complete_W = true;
     }
     else {
       next_idx = (fmpq_mat_nrows(W) == dim_V) ? idx+1 : 0;
@@ -226,11 +300,11 @@ BOOL decomposition_finite_subspace(decomposition* decomp, const hash_table* genu
   return is_complete;
 }
 
-BOOL decomposition_finite(decomposition* decomp, const hash_table* genus, const int* ps, slong num_ps)
+bool decomposition_finite(decomposition* decomp, const hash_table* genus, const int* ps, slong num_ps)
 {
   fmpq_mat_t basis_M;
   slong dim;
-  BOOL is_complete;
+  bool is_complete;
   
   decomp->num = 0;
   decomp->bases = NULL;
@@ -255,9 +329,9 @@ decomposition* decompose(const hash_table* genus)
   slong bound, num_ps;
   int* ps;
   decomposition* decomp;
-  BOOL is_complete;
+  bool is_complete;
 
-  is_complete = FALSE;
+  is_complete = false;
   decomp = (decomposition*)malloc(sizeof(decomposition));
   bound = 10;
 
