@@ -104,6 +104,8 @@ STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_i
       }
     }
 
+    
+
 #ifdef DEBUG_LEVEL_FULL
     hecke = hecke_matrix(genus, ps[i]);
     print_mat(hecke);
@@ -123,6 +125,22 @@ STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_i
    
   }
 
+  printf("\n");
+
+  // we only go up to square root of what was asked for p
+  printf("traces of hecke eigenvalues T_p^2 are:\n");
+  for (i = 0; (i < num_evs) && (ps[i]*ps[i] < ps[num_evs-1]); i++) {
+    // printing T_p^2   
+    get_hecke_ev_nbr_data(ev, genus, evs, ps[i], 2, form_idx);
+    nf_elem_trace(trace, ev, evs->nfs[form_idx]);
+    fmpq_print(trace);
+    printf(" ");
+    fflush(stdout); //make sure to print every time it computes an eigenvalue
+    nf_elem_clear(ev, evs->nfs[form_idx]);
+  }
+  
+  printf("\n");
+  
   cpuclock_1 = clock();
   cpudiff = cpuclock_1 - cpuclock_0;
   cputime = cpudiff / CLOCKS_PER_SEC;

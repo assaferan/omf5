@@ -1,13 +1,14 @@
 #include "fq_nmod_mpoly.h"
-#include "typedefs.h"
 
 void fq_nmod_mpoly_quadratic_part(fq_nmod_mpoly_t quad, const fq_nmod_mpoly_t f, const fq_nmod_mpoly_ctx_t ctx)
 {
   slong i, j;
   ulong deg;
   fq_nmod_t coeff;
-  ulong exp[N];
+  ulong* exp;
 
+  exp = (ulong*)malloc((ctx->minfo->nvars)*sizeof(ulong));
+  
   // !! TODO - maube use get_term and get_exp instead
   fq_nmod_init(coeff, ctx->fqctx);
   fq_nmod_mpoly_zero(quad, ctx);
@@ -15,7 +16,7 @@ void fq_nmod_mpoly_quadratic_part(fq_nmod_mpoly_t quad, const fq_nmod_mpoly_t f,
   for (i = 0; i < f->length; i++) {
     fq_nmod_mpoly_get_term_exp_ui(exp, f, i, ctx);
     deg = 0;
-    for (j = 0; j < N; j++)
+    for (j = 0; j < ctx->minfo->nvars; j++)
       deg += exp[j];
     if (deg == 2) {
       fq_nmod_mpoly_get_coeff_fq_nmod_ui(coeff, f, exp, ctx);
@@ -23,6 +24,7 @@ void fq_nmod_mpoly_quadratic_part(fq_nmod_mpoly_t quad, const fq_nmod_mpoly_t f,
     }
   }
   fq_nmod_clear(coeff, ctx->fqctx);
+  free(exp);
   return;
 }
 

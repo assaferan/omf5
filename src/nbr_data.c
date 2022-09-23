@@ -274,7 +274,7 @@ void nbr_data_next_isotropic_subspace(nbr_data_t nbr_man)
 void nbr_data_params_init(pivot_data_t pivots, const nbr_data_t nbr_man)
 {
   slong* pivot;
-  slong rank, row, col, remove_idx, remove_size, rows, i, j, r, c, data_idx, vec_idx;
+  slong rank, row, col, remove_idx, remove_size, rows, i, j, c, data_idx, vec_idx;
   // Keep a list of non-free variables from which we will determine the
   //  free variables when we are done.
   slong* remove;
@@ -361,36 +361,40 @@ void nbr_data_params_init(pivot_data_t pivots, const nbr_data_t nbr_man)
   fq_nmod_mat_init(mat, rows, rank, nbr_man->GF);
 
   // fq_nmod_mpoly_mat_init(vec, 1, rows*N, pivots->R);
-  vec = (fq_nmod_mpoly_struct**)malloc(rows*N*sizeof(fq_nmod_mpoly_struct*));
-  for (i = 0; i < rows*N; i++) {
-    vec[i] = (fq_nmod_mpoly_struct*)malloc(sizeof(fq_nmod_mpoly_struct));
-    fq_nmod_mpoly_init(vec[i], pivots->R);
+  vec = (fq_nmod_mpoly_struct**)malloc(N*sizeof(fq_nmod_mpoly_struct*));
+  for (vec_idx = 0; vec_idx < N; vec_idx++) {
+    vec[vec_idx] = (fq_nmod_mpoly_struct*)malloc(sizeof(fq_nmod_mpoly_struct));
+    fq_nmod_mpoly_init(vec[vec_idx], pivots->R);
   }
   
   fq_nmod_mat_init(l, 1, rank, nbr_man->GF);
   fq_nmod_mpoly_init(f, pivots->R);
+
+#ifdef DEBUG_LEVEL_FULL
+  printf("isotropic_param = \n");
+  fq_nmod_mpoly_mat_print(pivots->p_isotropic_param, var_names, pivots->R);
+  printf("\n");
+#endif // DEBUG_LEVEL_FULL
   
   data_idx = 0;
-  vec_idx = 0;
   row = 0;
   for (i = 0; i < nbr_man->k; i++)
     for (j = i; j < nbr_man->k; j++) {
       // The appropriate vector that we want to be isotropic.
-      for (r = 0; r < N; r++) {
-	fq_nmod_mpoly_set(vec[vec_idx], fq_nmod_mpoly_mat_entry(pivots->p_isotropic_param,i,r), pivots->R);
+      for (vec_idx = 0; vec_idx < N; vec_idx++) {
+	fq_nmod_mpoly_set(vec[vec_idx], fq_nmod_mpoly_mat_entry(pivots->p_isotropic_param,i,vec_idx), pivots->R);
 	if (i != j)
 	  fq_nmod_mpoly_add(vec[vec_idx],
-			    vec[vec_idx], fq_nmod_mpoly_mat_entry(pivots->p_isotropic_param,j,r), pivots->R);
-	vec_idx++;
+			    vec[vec_idx], fq_nmod_mpoly_mat_entry(pivots->p_isotropic_param,j,vec_idx), pivots->R);
       }
 #ifdef DEBUG_LEVEL_FULL
       printf("Substituting vec = ");
-      for (i = 0; i < N; i++) {
-	fq_nmod_mpoly_print_pretty(vec[i], var_names, pivots->R);
+      for (vec_idx = 0; vec_idx < N; vec_idx++) {
+	fq_nmod_mpoly_print_pretty(vec[vec_idx], var_names, pivots->R);
 	printf(" ");
       }
       printf(" in q_std = ");
-      fq_nmod_mpoly_print_pretty(nbr_man->p_q_std, var_names, pivots->R);
+      fq_nmod_mpoly_print_pretty(nbr_man->p_q_std, var_names, nbr_man->p_q_std_ctx);
 #endif // DEBUG_LEVEL_FULL
       fq_nmod_mpoly_compose_fq_nmod_mpoly(f, nbr_man->p_q_std, vec, nbr_man->p_q_std_ctx, pivots->R);
 #ifdef DEBUG_LEVEL_FULL
@@ -410,8 +414,8 @@ void nbr_data_params_init(pivot_data_t pivots, const nbr_data_t nbr_man)
       // The other terms are linear
       // so fill in the matrix accordingly.
       fq_nmod_mpoly_linear_part(l, f, pivots->R);
-      for (r = 0; r < rank; r++)
-	fq_nmod_set(fq_nmod_mat_entry(mat, row, r), fq_nmod_mat_entry(l, 0, r), nbr_man->GF);
+      for (vec_idx = 0; vec_idx < rank; vec_idx++)
+	fq_nmod_set(fq_nmod_mat_entry(mat, row, vec_idx), fq_nmod_mat_entry(l, 0, vec_idx), nbr_man->GF);
       // Move on to the next row.
       row++;
       // Silly question. Isn't row == i?
@@ -427,7 +431,7 @@ void nbr_data_params_init(pivot_data_t pivots, const nbr_data_t nbr_man)
     printf(" ");
   }
   printf("\n");
-#endif
+#endif // DEBUG_LEVEL_FULL
 
   // Compute the Echelon form of the matrix.
   fq_nmod_mat_init(trans, rows, rows, nbr_man->GF);
@@ -438,7 +442,7 @@ void nbr_data_params_init(pivot_data_t pivots, const nbr_data_t nbr_man)
   printf("The matrix after echelon is mat = \n");
   fq_nmod_mat_print_pretty(mat, nbr_man->GF);
   printf("\n");
-#endif
+#endif // DEBUG_LEVEL_FULL
 
   // The evaluation list for replacing variables with their dependence
   //  relations.
@@ -489,27 +493,27 @@ void nbr_data_params_init(pivot_data_t pivots, const nbr_data_t nbr_man)
   // Verify that we didn't screw up somewhere along the line.
 #ifdef DEBUG_LEVEL_FULL
   printf("testing parametrization\n");
+  printf("p_isotropic_param = \n");
+  fq_nmod_mpoly_mat_print(pivots->p_isotropic_param, var_names, pivots->R);
+  printf("\n");
 #endif // DEBUG_LEVEL_FULL
-
-  vec_idx = 0;
   for (i = 0; i < nbr_man->k; i++)
     for (j = i; j < nbr_man->k; j++) {
-      for (r = 0; r < N; r++) {
-	fq_nmod_mpoly_set(vec[vec_idx], fq_nmod_mpoly_mat_entry(pivots->p_isotropic_param,i,r), pivots->R);
+      for (vec_idx = 0; vec_idx < N; vec_idx++) {
+	fq_nmod_mpoly_set(vec[vec_idx], fq_nmod_mpoly_mat_entry(pivots->p_isotropic_param,i,vec_idx), pivots->R);
 	if (i != j)
 	  fq_nmod_mpoly_add(vec[vec_idx],
-			    vec[vec_idx], fq_nmod_mpoly_mat_entry(pivots->p_isotropic_param,j,r), pivots->R);
-	vec_idx++;
+			    vec[vec_idx], fq_nmod_mpoly_mat_entry(pivots->p_isotropic_param,j,vec_idx), pivots->R);
       }
   
 #ifdef DEBUG_LEVEL_FULL
       printf("Substituting vec = ");
-      for (i = 0; i < N; i++) {
-	fq_nmod_mpoly_print_pretty(vec[i], var_names, pivots->R);
+      for (vec_idx = 0; vec_idx < N; vec_idx++) {
+	fq_nmod_mpoly_print_pretty(vec[vec_idx], var_names, pivots->R);
 	printf(" ");
       }
       printf(" in q_std = ");
-      fq_nmod_mpoly_print_pretty(nbr_man->p_q_std, var_names, pivots->R);
+      fq_nmod_mpoly_print_pretty(nbr_man->p_q_std, var_names, nbr_man->p_q_std_ctx);
 #endif // DEBUG_LEVEL_FULL
       
       fq_nmod_mpoly_compose_fq_nmod_mpoly(f, nbr_man->p_q_std, vec, nbr_man->p_q_std_ctx, pivots->R);
@@ -574,7 +578,7 @@ void nbr_data_params_init(pivot_data_t pivots, const nbr_data_t nbr_man)
   fq_nmod_mat_clear(l, nbr_man->GF);
   fq_nmod_mpoly_clear(f, pivots->R);
 
-  for (i = 0; i < rows*N; i++) {
+  for (i = 0; i < N; i++) {
     fq_nmod_mpoly_clear(vec[i], pivots->R);
     free(vec[i]);
   }
@@ -1019,13 +1023,20 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
   return;
 }
 
-void nbr_data_update_skew_matrix(nbr_data_t nbr_man, slong row, slong col)
+void nbr_data_update_skew_matrix(nbr_data_t nbr_man, slong* row, slong* col)
 {
   bool done;
   fq_nmod_t one;
 
   fq_nmod_init(one, nbr_man->GF);
   fq_nmod_one(one, nbr_man->GF);
+
+#ifdef DEBUG_LEVEL_FULL
+  printf("skew_matrix is: \n");
+  fq_nmod_mat_print_pretty(nbr_man->p_skew, nbr_man->GF);
+  printf("\n");
+  printf("Updating row = %ld, col = %ld..\n", *row, *col);
+#endif // DEBUG_LEVEL_FULL
   
   do {
     // Flag for determining whether we are done updating
@@ -1033,30 +1044,37 @@ void nbr_data_update_skew_matrix(nbr_data_t nbr_man, slong row, slong col)
     done = true;
      
     // Increment value of the (row,col) position.
-    fq_nmod_add(fq_nmod_mat_entry(nbr_man->p_skew,row,col), fq_nmod_mat_entry(nbr_man->p_skew,row,col), one, nbr_man->GF);
+    fq_nmod_add(fq_nmod_mat_entry(nbr_man->p_skew,*row,*col), fq_nmod_mat_entry(nbr_man->p_skew,*row,*col), one, nbr_man->GF);
       
     // Update the coefficient of the skew matrix reflected
     //  across the anti-diagonal.
-    fq_nmod_set(fq_nmod_mat_entry(nbr_man->p_skew, nbr_man->k-1-col, nbr_man->k-1-row),
-		fq_nmod_mat_entry(nbr_man->p_skew, row, col), nbr_man->GF);
-    fq_nmod_neg(fq_nmod_mat_entry(nbr_man->p_skew, nbr_man->k-1-col, nbr_man->k-1-row),
-		fq_nmod_mat_entry(nbr_man->p_skew, nbr_man->k-1-col, nbr_man->k-1-row), nbr_man->GF);
+    fq_nmod_set(fq_nmod_mat_entry(nbr_man->p_skew, nbr_man->k-1-(*col), nbr_man->k-1-(*row)),
+		fq_nmod_mat_entry(nbr_man->p_skew, *row, *col), nbr_man->GF);
+    fq_nmod_neg(fq_nmod_mat_entry(nbr_man->p_skew, nbr_man->k-1-(*col), nbr_man->k-1-(*row)),
+		fq_nmod_mat_entry(nbr_man->p_skew, nbr_man->k-1-(*col), nbr_man->k-1-(*row)), nbr_man->GF);
       
     // If we've rolled over, move on to the next position.
-    if (fq_nmod_is_zero(fq_nmod_mat_entry(nbr_man->p_skew,row,col),nbr_man->GF)) {
+    if (fq_nmod_is_zero(fq_nmod_mat_entry(nbr_man->p_skew,*row,*col),nbr_man->GF)) {
       // The next column of our skew matrix.
-      col++;
+      (*col)++;
       // Are we at the end of the column?
-      if (row+col == nbr_man->k-1) {
+      if ((*row)+(*col) == nbr_man->k-1) {
 	// Yes. Move to the next row.
-	row++;
+	(*row)++;
 	// And reset the column.
-	col = 0;
+	*col = 0;
       }
       // Indicate we should repeat another iteration.
       done = false;
     }
-  } while ((!done) && (row+col != nbr_man->k-1));
+  } while ((!done) && ((*row)+(*col) != nbr_man->k-1));
+
+#ifdef DEBUG_LEVEL_FULL
+  printf("skew_matrix is now: \n");
+  fq_nmod_mat_print_pretty(nbr_man->p_skew, nbr_man->GF);
+  printf("\n");
+  printf("Updated row = %ld, col = %ld..\n", *row, *col);
+#endif // DEBUG_LEVEL_FULL
   
   fq_nmod_clear(one, nbr_man->GF);
   return;
@@ -1141,7 +1159,7 @@ void nbr_data_get_next_neighbor(nbr_data_t nbr_man)
   col = 0;
   // Update the skew matrix (only for k >= 2).
   if (nbr_man->skew_dim != 0) {
-    nbr_data_update_skew_matrix(nbr_man, row, col);
+    nbr_data_update_skew_matrix(nbr_man, &row, &col);
   }
 
   // If we haven't rolled over, update the skew space and return...
