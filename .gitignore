@@ -25,5 +25,8 @@ src/A61_dbg_full
 src/omf5
 src/omf5_dbg
 src/omf5_dbg_full
+src/omf5_nbr_data
+src/omf5_nbr_data_dbg
+src/omf5_nbr_data_dbg_full
 *.Plo
 *.log

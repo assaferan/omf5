@@ -1,6 +1,140 @@
+#include <assert.h>
+
 #include <carat/typedef.h>
 
 #include "tests.h"
+
+bool handle_flag_int(const char* flag_name, const char* param_str, int* flag_val);
+int print_param_desc(char* argv[]);
+int parse_matrix(const char* mat_str, int* Q_coeffs);
+
+int main(int argc, char* argv[])
+{
+  int form_idx, prec;
+  int Q_coeffs[15];
+  STATUS test_res;
+  char* input_type;
+  int max_args;
+  bool do_tests, is_valid, is_prec, is_format, is_form_idx;
+  bool has_quad, has_format, has_prec, has_form_idx;
+  int i;
+
+  max_args = 6;
+  
+  if ((argc > max_args) || (argc == 1)) {
+    // print correct usage
+    return print_param_desc(argv);
+  }
+
+  do_tests = false;
+  has_quad = has_format = has_prec = has_form_idx = 0;
+  
+  for (i = 1; i < argc; i++) {
+    is_valid = false;
+    
+    // checkng to see if the flag is -tests
+    if (strcmp(argv[i], "-tests") == 0) {
+      do_tests = true;
+      is_valid = true;
+    }
+
+    // checking whether this is a matrix input
+    if (strncmp(argv[i], "-quad=", 6) == 0) {
+      is_valid = parse_matrix(argv[i]+6, Q_coeffs);
+      has_quad = is_valid;
+    }
+
+    // checking for format of the matrix input
+    if (strncmp(argv[i], "-format=", 8) == 0) {
+      input_type = argv[i]+8;
+      is_format = strncmp(input_type,"GG",2) || strncmp(input_type, "A", 1);
+      if (is_format)
+	has_format = true;
+      is_valid = (is_valid) || (is_format);
+    }
+
+    is_prec = handle_flag_int("prec", argv[i], &prec);
+    is_valid = (is_valid) || (is_prec);
+    if (is_prec)
+      has_prec = true;
+    
+    is_form_idx = handle_flag_int("form_idx", argv[i], &form_idx);
+    is_valid = (is_valid) || (is_form_idx);
+    if (is_form_idx)
+      has_form_idx = true;
+
+    if (!is_valid)
+      return print_param_desc(argv);
+  }
+
+  test_res = SUCCESS;
+  
+  if (do_tests) {
+    test_res <<= 1;
+    test_res |= test_greedy_overflow();
+    test_res <<= 1;
+    test_res |= test_61();
+    test_res <<= 1;
+    test_res |= test_69();
+    // return test_res;
+  }
+
+  if (has_quad && has_format) {
+    test_res <<= 1;
+    if (has_prec && has_form_idx)
+      test_res |= compute_eigenvalues_up_to(Q_coeffs, form_idx, prec, input_type);
+    else
+      test_res |= compute_eigenvectors(Q_coeffs, input_type);
+  }
+  else
+    if (!do_tests)
+      return print_param_desc(argv);
+  
+  
+  return test_res;
+}
+
+
+bool handle_flag_int(const char* flag_name, const char* param_str, int* flag_val)
+{
+  size_t param_len, flag_len;
+  char* full_flag_name;
+  
+
+  param_len = strlen(param_str);
+  flag_len = strlen(flag_name) + 2;
+  full_flag_name = (char*)malloc((flag_len+1)*sizeof(char));
+
+  if (full_flag_name == NULL) {
+    printf("Error, flag name is too long!\n");
+    return false;
+  }
+
+  strncpy(full_flag_name, "-", 2);
+  strncat(full_flag_name, flag_name, strlen(flag_name));
+  strncat(full_flag_name, "=", 1);
+
+  assert(flag_len == strlen(full_flag_name));
+  
+  if (strncmp(param_str, full_flag_name, flag_len) == 0) {
+    *flag_val = atoi(param_str + flag_len);
+    return true;
+  }
+
+  return false;
+}
+
+int print_param_desc(char* argv[])
+{
+  printf("Usage: %s [-tests] [-quad=Q] [-format=f] [-prec=L] [-form_idx=idx]\n", argv[0]);
+  printf("[Q] is the quinary quadratic form (lattice) given as 15 comma-separated integers in a format specified by f,\n");
+  printf("[f] is either 'GG' or 'A', the former for the format in Rama-Toranria webpage, the latter for the Magma format,\n");
+  printf("[L] is the preicision up to which to compute the hecke eigenvalues (a_p for p <= L and a_{p^2} for p^2 <= L),\n");
+  printf("[idx] is the index of the form in the decomposition to eigenvectors.\n");
+  printf("If either L or i is not supplied, only decomposes the space, and finds Hecke eigenvectors.\n");
+  printf("If the flag -tests is supplied, additionally runs standard tests.\n");
+  return -1;
+}
 
 int parse_matrix(const char* mat_str, int* Q_coeffs)
 {
@@ -19,56 +153,4 @@ int parse_matrix(const char* mat_str, int* Q_coeffs)
   }
   free(original);
   return (idx == 15);
-}
-
-int main(int argc, char* argv[])
-{
-  int form_idx, prec;
-  int Q_coeffs[15];
-  STATUS test_res;
-  char input_type[3];
-  int max_args;
-  int forbidden_args;
-
-  forbidden_args = 3;
-  max_args = 4;
-  
-  if (argc == 1) {
-    test_res = test_greedy_overflow() << 1;
-    test_res |= test_61();
-    test_res <<= 1;
-    test_res |= test_69();
-    return test_res;
-  }
-
-  if (argc > 1) {
-    if (strcmp(argv[argc-1], "GG") == 0) {
-      strcpy(input_type, "GG");
-      forbidden_args += 1;
-      max_args += 1;
-    }
-    else if (strcmp(argv[argc-1], "A") == 0) {
-      strcpy(input_type, "A");
-      forbidden_args += 1;
-      max_args += 1;
-    }
-    else
-      strcpy(input_type, "A");
-  }
-  
-  if (argc == max_args - 2) {
-    parse_matrix(argv[1], Q_coeffs);
-    return compute_eigenvectors(Q_coeffs, input_type);
-  }
-
-  if (argc == max_args) {
-    parse_matrix(argv[1], Q_coeffs);
-    form_idx = atoi(argv[2]);
-    prec = atoi(argv[3]);
-    return compute_eigenvalues_up_to(Q_coeffs, form_idx, prec, input_type);
-  }
-  
-  if ((argc > max_args) || (argc == forbidden_args))
-    return -1;
-
 }

@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <time.h>
 
 #include "hecke.h"
@@ -86,6 +87,8 @@ STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_i
   }
   // #endif // DEBUG
 
+  assert(form_idx < evs->num);
+  
   printf("traces of hecke eigenvalues are:\n");
   for (i = 0; i < num_evs; i++) {
     get_hecke_ev(ev, genus, evs, ps[i], form_idx);
