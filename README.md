@@ -57,13 +57,14 @@ It runs with command-line arguments as follows
 
 src/omf5 [-tests] [-quad=Q] [-format=f] [-prec=L] [-form_idx=idx]
 
-where the  arguments are
-[Q] - the quinary quadratic form (lattice) given as 15 comma-separated integers in a format specified by f, currently one of two.
-[f] - either 'GG' or 'A', the former for the format in Rama-Toranria webpage, the latter for the Magma format, as in the ModFrmAlg package.
-[L] - the preicision up to which to compute the hecke eigenvalues (a_p for p <= L and a_{p^2} for p^2 <= L).
-[idx]- the index of the form in the decomposition to eigenvectors.
-If either L or i is not supplied, only decomposes the space, and finds Hecke eigenvectors.
-If the flag -tests is supplied, additionally runs standard tests.
+where the  arguments are:
+
+    [Q] - the quinary quadratic form (lattice) given as 15 comma-separated integers in a format specified by f, currently one of two.
+    [f] - either 'GG' or 'A', the former for the format in Rama-Toranria webpage, the latter for the Magma format, as in the ModFrmAlg package.
+    [L] - the preicision up to which to compute the hecke eigenvalues (a_p for p <= L and a_{p^2} for p^2 <= L).
+    [idx]- the index of the form in the decomposition to eigenvectors.
+    If either L or i is not supplied, only decomposes the space, and finds Hecke eigenvectors.
+    If the flag -tests is supplied, additionally runs standard tests.
 
 ## Contribution
 
