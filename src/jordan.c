@@ -1,5 +1,10 @@
 #include <assert.h>
 
+#include <flint/fmpq.h>
+#include <flint/fmpq_mat.h>
+#include <flint/fmpz.h>
+#include <flint/fmpz_mat.h>
+
 #include "arith.h"
 #include "jordan.h"
 
