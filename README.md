@@ -31,10 +31,11 @@ The main (and develop) branch require the following libraries:
 - [antic](https://github.com/wbhart/antic)
 
 Installation of all the requirements on macOS can be done as follows, from a folder containing the above 3 libraries.
-> brew update && brew install autoconf automake libtool
-> cd flint2 && ./configure && make && make check && make install && cd ..
-> cd antic && ./configure && make && make install && make check && cd ..
-> cd carat && ./autogen.sh && ./configure && make && make install && cp libfunctions.a /usr/local/lib && cd ..
+
+    brew update && brew install autoconf automake libtool
+    cd flint2 && ./configure && make && make check && make install && cd ..
+    cd antic && ./configure && make && make install && make check && cd ..
+    cd carat && ./autogen.sh && ./configure && make && make install && cp libfunctions.a /usr/local/lib && cd ..
 
 ## Installation
 
