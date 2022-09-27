@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <time.h>
@@ -409,7 +410,7 @@ void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
   printf("v_int = \n");
   //  print_mat(v_int);
   for (i = 0; i < dim-1; i++)
-    printf("%lld ", v_int[i]);
+    printf("%" PRId64 " ", v_int[i]);
   printf("\n");
 #endif // DEBUG_LEVEL_FULL
   
@@ -427,7 +428,7 @@ void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
   printf("y_int = \n");
   //  print_mat(y_int);
   for (i = 0; i < dim-1; i++)
-    printf("%lld ", y_int[i]);
+    printf("%" PRId64 " ", y_int[i]);
   printf("\n");
 #endif // DEBUG_LEVEL_FULL
   
