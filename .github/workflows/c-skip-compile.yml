@@ -9,15 +9,11 @@ on:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
-
-    container: ${{ matrix.container }}
-    
     strategy: 
+      runs-on: ${{ matrix.on }}
       matrix:
-        include:
-        - container: ubuntu:hirsute
-          pip: pip
+        on: [ ubuntu-20.04, macos-10.15 ]
+        libflint: [ 2.8.4 ]
     steps:
     - name: Checkout 
       uses: actions/checkout@v3
@@ -33,12 +29,14 @@ jobs:
       with:
         repository: lbfm-rwth/carat
         path: carat    
+    - name: Setup conda
+      uses: conda-incubator/setup-miniconda@v2
+      with: { mamba-version: "*", channels: "conda-forge", channel-priority: true, python-version: "3.9" }
     - name: Install flint
-      shell: bash
-      run: | 
-        apt update 
-        export DEBIAN_FRONTEND=noninteractive
-        apt install -y pip libgmp-dev libmpfr-dev libflint-dev
+      shell: bash -l {0}
+      run: |
+          mamba install -y libflint=${{ matrix.libflint }} c-compiler gmp mpfr
+          conda list
     - name: Install antic
       run: cd antic && ./configure && make && make install && make check && cd ..
     - name: Install carat
