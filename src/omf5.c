@@ -100,8 +100,6 @@ bool handle_flag_int(const char* flag_name, const char* param_str, int* flag_val
   size_t flag_len;
   char* full_flag_name;
   
-
-  param_len = strlen(param_str);
   flag_len = strlen(flag_name) + 2;
   full_flag_name = (char*)malloc((flag_len+1)*sizeof(char));
 
