@@ -97,7 +97,7 @@ int main(int argc, char* argv[])
 
 bool handle_flag_int(const char* flag_name, const char* param_str, int* flag_val)
 {
-  size_t param_len, flag_len;
+  size_t flag_len;
   char* full_flag_name;
   
 
