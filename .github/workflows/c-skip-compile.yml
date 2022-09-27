@@ -26,10 +26,11 @@ jobs:
       with:
         repository: lbfm-rwth/carat
         path: carat
-    - name: Install autotools
-      run: apt update && apt install autoconf automake libtool
     - name: Install flint
-      run:  apt install -y libflint-dev
+      run: | 
+        apt update 
+        export DEBIAN_FRONTEND=noninteractive
+        apt install -y pip libgmp-dev libmpfr-dev libflint-dev
     - name: Install antic
       run: cd antic && ./configure && make && make install && make check && cd ..
     - name: Install carat
