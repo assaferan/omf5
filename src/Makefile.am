@@ -1,7 +1,7 @@
 bin_PROGRAMS = omf5 omf5_dbg omf5_dbg_full omf5_nbr_data omf5_nbr_data_dbg omf5_nbr_data_dbg_full
 lib_LTLIBRARIES = libomf5.la
 
-ALL_CFLAGS = -I ../include -Wall -Werror
+ALL_CFLAGS = -I ../include -I${GMP_PATH}/include -I${ANTIC_PATH}/include -Wall -Werror
 
 OPT_CFLAGS = -O3 -DNDEBUG -msse3 -mavx
 DBG_CFLAGS = -g -DDEBUG -fsanitize=address
@@ -10,7 +10,7 @@ OPT_CFLAGS += -fomit-frame-pointer
 # These are not supported on macOS
 
 if LINUX
-	AM_MSG_ERROR("Still beleives this is linux...")
+	AM_MSG_ERROR("Still believes this is linux...")
 	OPT_CFLAGS += -fvar-tracking-assignments-toggle
 	OPT_CFLAGS += -funroll-all-loops
         DBG_CFLAGS += -pg
@@ -26,7 +26,7 @@ DBG_CFLAGS += ${ALL_CFLAGS}
 DBG_FULL_CFLAGS = -DDEBUG_LEVEL_FULL
 DBG_FULL_CFLAGS += ${DBG_CFLAGS}
 
-ALL_LDFLAGS = -lfunctions -lgmp -lantic -lflint
+ALL_LDFLAGS = -L${GMP_PATH}/lib -L${ANTIC_PATH}/lib -lfunctions -lgmp -lantic -lflint
 
 DBG_LD_FLAGS = ${ALL_LDFLAGS}
 # DBG_LD_FLAGS += -fsanitize=leak
