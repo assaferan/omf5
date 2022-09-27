@@ -58,20 +58,26 @@ dnl Setting the locations of flint, antic and gmp
 dnl
 if test "${FLINT_PATH+set}" != set; then
      export FLINT_PATH="/usr/local/"
-     echo FLINT_PATH=${FLINT_PATH}
 fi
 if test "${ANTIC_PATH+set}" != set; then
      export ANTIC_PATH="/usr/local/"
-     echo ANTIC_PATH=${ANTIC_PATH}
 fi
 if test "${GMP_PATH+set}" != set; then
      export GMP_PATH="/usr/local/"
-     echo GMP_PATH=${GMP_PATH}
 fi
+if test "${CARAT_PATH+set}" != set; then
+     export CARAT_PATH="/usr/local/"
+fi
+
+echo FLINT_PATH=${FLINT_PATH}
+echo ANTIC_PATH=${ANTIC_PATH}
+echo GMP_PATH=${GMP_PATH}
+echo CARAT_PATH=${CARAT_PATH}
 
 AC_ARG_VAR(FLINT_PATH, [location of flint installation])
 AC_ARG_VAR(ANTIC_PATH, [location of antic installation])
 AC_ARG_VAR(GMP_PATH, [location of gmp installation])
+AC_ARG_VAR(CARAT_PATH, [location of carat installation])
 
 dnl
 dnl Finally, generate the Makefiles and output everything
