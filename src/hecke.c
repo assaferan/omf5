@@ -215,16 +215,20 @@ void get_hecke_ev_nbr_data(nf_elem_t e, const hash_table* genus, eigenvalues* ev
     }
     pivot++;
   }
+#ifdef DEBUG
   clock_t cpuclock;
   double cputime;
   
   cpuclock = clock();
+#endif // DEBUG
   
   hecke_col_nbr_data(a, p, k, pivot, genus, spinor_prime);
 
+#ifdef DEBUG
   cpuclock = clock() - cpuclock;
   cputime = cpuclock / CLOCKS_PER_SEC;
-
+#endif // DEBUG
+  
   nf_elem_zero(e, evs->nfs[ev_idx]);
   for (i = 0; i < evs->dim; i++) {
     nf_elem_set_si(prod, a[i], evs->nfs[ev_idx]);
