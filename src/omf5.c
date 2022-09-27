@@ -114,7 +114,7 @@ bool handle_flag_int(const char* flag_name, const char* param_str, int* flag_val
 
   strncpy(full_flag_name, "-", 2);
   strncat(full_flag_name, flag_name, MAX_STR_LEN);
-  strncat(full_flag_name, "=", 1);
+  strncat(full_flag_name, "=", 2);
 
   assert(flag_len == strlen(full_flag_name));
   
