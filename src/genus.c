@@ -21,7 +21,7 @@ hash_table* get_genus_reps(matrix_TYP* Q)
   matrix_TYP *nbr, *isom, *genus_rep, *s;
   fmpq_t mass, acc_mass, mass_form;
   fmpz_t prime;
-  int p, current, next_idx, key_num;
+  int p, current, key_num;
   size_t genus_size;
   fmpz_t genus_size_fmpz;
   hash_table* genus;
@@ -62,8 +62,6 @@ hash_table* get_genus_reps(matrix_TYP* Q)
   genus = create_hash(genus_size);
   
   add(genus, Q);
-
-  next_idx = 1;
   
   aut_grp = automorphism_group(Q);
 
