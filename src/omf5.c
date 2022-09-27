@@ -21,6 +21,7 @@ int main(int argc, char* argv[])
   bool has_quad, has_format, has_prec, has_form_idx;
   int i;
 
+  input_type = NULL;
   max_args = 6;
   
   if ((argc > max_args) || (argc == 1)) {
@@ -29,7 +30,7 @@ int main(int argc, char* argv[])
   }
 
   do_tests = false;
-  has_quad = has_format = has_prec = has_form_idx = 0;
+  has_quad = has_format = has_prec = has_form_idx = false;
   
   for (i = 1; i < argc; i++) {
     is_valid = false;
@@ -84,7 +85,8 @@ int main(int argc, char* argv[])
   if (has_quad && has_format) {
     test_res <<= 1;
     if (has_prec && has_form_idx)
-      test_res |= compute_eigenvalues_up_to(Q_coeffs, form_idx, prec, input_type);
+      test_res |= compute_eigenvalues_up_to(Q_coeffs, form_idx,
+					    prec, input_type);
     else
       test_res |= compute_eigenvectors(Q_coeffs, input_type);
   }
