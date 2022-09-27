@@ -649,19 +649,39 @@ void greedy(matrix_TYP* gram, matrix_TYP* s, int n, int dim)
   
 #ifdef DEBUG_LEVEL_FULL
   matrix_TYP *s0, *q0;
+  matrix_TYP *s_inv, *q_trans;
 #endif // DEBUG_LEVEL_FULL
 
 #ifdef DEBUG_LEVEL_FULL
   s0 = copy_mat(s);
   q0 = copy_mat(gram);
 #endif // DEBUG_LEVEL_FULL
-  
+
+#ifdef DEBUG_LEVEL_FULL
+  s_inv = mat_inv(s0);
+  s_inv = mat_muleq(s_inv, s);
+  q_trans = transform(s_inv, q0);
+  assert(cmp_mat(q_trans,gram) == 0);
+  free_mat(s_inv);
+  free_mat(q_trans);
+#endif // DEBUG_LEVEL_FULL
+    
   if (dim == 1) return;
 
   perm_norm = (int*)malloc(dim*sizeof(int));
   perm = (int*)malloc(n*sizeof(int));
   
   do {
+
+#ifdef DEBUG_LEVEL_FULL
+    s_inv = mat_inv(s0);
+    s_inv = mat_muleq(s_inv, s);
+    q_trans = transform(s_inv, q0);
+    assert(cmp_mat(q_trans,gram) == 0);
+    free_mat(s_inv);
+    free_mat(q_trans);
+#endif // DEBUG_LEVEL_FULL
+    
     for (i = 0; i < dim; i++) {
       perm_norm[i] = gram->array.SZ[i][i];
       perm[i] = i;
@@ -683,12 +703,17 @@ void greedy(matrix_TYP* gram, matrix_TYP* s, int n, int dim)
     
     // update gram
     gram = transform_eq(tmp, gram);
+    
+#ifdef DEBUG_LEVEL_FULL
+    s_inv = mat_inv(s0);
+    s_inv = mat_muleq(s_inv, s);
+    q_trans = transform(s_inv, q0);
+    assert(cmp_mat(q_trans,gram) == 0);
+    free_mat(s_inv);
+    free_mat(q_trans);
+#endif // DEBUG_LEVEL_FULL
 
     free_mat(tmp);
-    
-/* #ifdef DEBUG_LEVEL_FULL */
-/*     assert((s0.inverse()*s).transform(q0) == gram); */
-/* #endif // DEBUG_LEVEL_FULL */
 
     // !! - TODO - do we really need iso here
     // or could we simply pass s?
@@ -699,23 +724,33 @@ void greedy(matrix_TYP* gram, matrix_TYP* s, int n, int dim)
     //    s = s*iso;
     s = mat_muleq(s, iso);
 
+#ifdef DEBUG_LEVEL_FULL
+    s_inv = mat_inv(s0);
+    s_inv = mat_muleq(s_inv, s);
+    q_trans = transform(s_inv, q0);
+    assert(cmp_mat(q_trans,gram) == 0);
+    free_mat(s_inv);
+    free_mat(q_trans);
+#endif // DEBUG_LEVEL_FULL
+
     free_mat(iso);
     // !! TODO - one can use subgram to save computations
     // This transformation already happens inside greedy(dim-1)
     //     gram = iso.transform(gram);
-
-/* #ifdef DEBUG_LEVEL_FULL */
-/*     assert((s0.inverse()*s).transform(q0) == gram); */
-/* #endif // DEBUG_LEVEL_FULL */
     
     closest_lattice_vector(gram, s, dim);
 
-/* #ifdef DEBUG_LEVEL_FULL */
-/*     assert((s0.inverse()*s).transform(q0) == gram); */
-/* #endif // DEBUG_LEVEL_FULL */
+#ifdef DEBUG_LEVEL_FULL
+    s_inv = mat_inv(s0);
+    s_inv = mat_muleq(s_inv, s);
+    q_trans = transform(s_inv, q0);
+    assert(cmp_mat(q_trans,gram) == 0);
+    free_mat(s_inv);
+    free_mat(q_trans);
+#endif // DEBUG_LEVEL_FULL
     
   } while (gram->array.SZ[dim-1][dim-1] < gram->array.SZ[dim-2][dim-2]);
-
+  
   free(perm);
   free(perm_norm);
   
