@@ -40,6 +40,7 @@ jobs:
           mamba install -y libflint=${{ matrix.libflint }} c-compiler gmp mpfr
           conda list
     - name: Install antic
+      shell: bash -l {0}
       run: |
           cd antic
           ./configure --prefix=$CONDA_PREFIX --with-flint=$CONDA_PREFIX --with-gmp=$CONDA_PREFIX --with-mpfr=$CONDA_PREFIX
