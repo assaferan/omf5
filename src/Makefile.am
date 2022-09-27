@@ -7,10 +7,7 @@ OPT_CFLAGS = -O3 -DNDEBUG -msse3 -mavx
 DBG_CFLAGS = -g -DDEBUG -fsanitize=address
 OPT_CFLAGS += -fomit-frame-pointer
 
-# These are not supported on macOS
-
 if LINUX
-	AM_MSG_ERROR("Still believes this is linux...")
 	OPT_CFLAGS += -fvar-tracking-assignments-toggle
 	OPT_CFLAGS += -funroll-all-loops
         DBG_CFLAGS += -pg
@@ -81,7 +78,11 @@ omf5_nbr_data_dbg_full_LDFLAGS = ${DBG_LD_FLAGS}
 omf5_nbr_data_dbg_LDFLAGS = ${DBG_LD_FLAGS}
 
 OPT_LDFLAGS = ${ALL_LDFLAGS}
-OPT_LDFLAGS += -O3 -fPIC
+OPT_LDFLAGS += -O3
+
+if OSX
+	OPT_LDFLAGS += -fPIC
+endif
 
 omf5_LDFLAGS = ${OPT_LDFLAGS}
 libomf5_la_LDFLAGS = ${OPT_LDFLAGS}
