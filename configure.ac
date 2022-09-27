@@ -58,5 +58,13 @@ dnl Finally, generate the Makefiles and output everything
 dnl
 AC_CONFIG_FILES([Makefile src/Makefile])
 AM_PROG_CC_C_O
+
+AC_SEARCH_LIBS([], [flint], [
+AC_MSG_ERROR([unable to find the flint library])
+])
+
+AC_CHECK_HEADERS([flint.h],
+        [found_flint_headers=yes; break;])
+
 AC_SEARCH_LIBS([carat], [flint], [gmp])
 AC_OUTPUT()
