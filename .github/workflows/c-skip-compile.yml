@@ -9,7 +9,7 @@ on:
 jobs:
   build:
 
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout 
@@ -27,9 +27,9 @@ jobs:
         repository: lbfm-rwth/carat
         path: carat
     - name: Install autotools
-      run: brew update && brew install autoconf automake libtool
+      run: apt update && apt install autoconf automake libtool
     - name: Install flint
-      run:  brew install libflint-dev
+      run:  apt install -y libflint-dev
     - name: Install antic
       run: cd antic && ./configure && make && make install && make check && cd ..
     - name: Install carat
