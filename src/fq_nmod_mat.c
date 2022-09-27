@@ -144,7 +144,7 @@ void fq_nmod_mat_transpose(fq_nmod_mat_t mat_t, const fq_nmod_mat_t mat, const f
 void fq_nmod_mat_rref_trans(fq_nmod_mat_t mat, fq_nmod_mat_t trans, const fq_nmod_ctx_t F)
 {
   slong* P;
-  slong rank, row, col, nrows, ncols, pivot, prev_row;
+  slong row, col, nrows, ncols, pivot, prev_row;
   fq_nmod_mat_t LU, L_inv;
   fq_nmod_t scalar;
 
@@ -154,7 +154,7 @@ void fq_nmod_mat_rref_trans(fq_nmod_mat_t mat, fq_nmod_mat_t trans, const fq_nmo
   
   fq_nmod_mat_init_set(LU, mat, F);
   
-  rank = fq_nmod_mat_lu(P, LU, false, F); // returns L\U in LU such that PA = LU, P permutation matrix
+  fq_nmod_mat_lu(P, LU, false, F); // returns L\U in LU such that PA = LU, P permutation matrix
 
   // initializing L_inv to be 1
   fq_nmod_mat_init(L_inv, nrows, nrows, F);
