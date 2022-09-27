@@ -1,3 +1,7 @@
+Makefile
+Makefile.in
+src/Makefile
+src/Makefile.in
 .DS_Store
 *.lo
 *.la
@@ -11,8 +15,6 @@ cnf/*
 m4/*
 src/.deps/*
 src/.libs/*
-Makefile
-Makefile.in
 src/A61
 src/A61_dbg
 *.c#
@@ -30,3 +32,4 @@ src/omf5_nbr_data_dbg
 src/omf5_nbr_data_dbg_full
 *.Plo
 *.log
+omf5

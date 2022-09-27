@@ -40,6 +40,6 @@ jobs:
     - name: Install carat
       run: cd carat && ./autogen.sh && ./configure && make && make install && cp libfunctions.a /usr/local/lib && cd ..
     - name: build
-      run:  cd omf5 && ./autogen.sh && ./configure && make
+      run:  cd omf5 && make
     - name: test
-      run: ./omf5/src/omf5 -tests
+      run: ./omf5/omf5 -tests
