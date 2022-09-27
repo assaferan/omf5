@@ -1,4 +1,4 @@
-name: C/C++ CI
+name: Build all dependencies and omf5
 
 on:
   push:
@@ -42,4 +42,4 @@ jobs:
     - name: build
       run:  cd omf5 && ./autogen.sh && ./configure && make
     - name: test
-      run: ./omf5/src/omf5
+      run: ./omf5/src/omf5 -tests

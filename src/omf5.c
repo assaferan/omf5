@@ -4,6 +4,8 @@
 
 #include "tests.h"
 
+#define MAX_STR_LEN 256
+
 bool handle_flag_int(const char* flag_name, const char* param_str, int* flag_val);
 int print_param_desc(char* argv[]);
 int parse_matrix(const char* mat_str, int* Q_coeffs);
@@ -19,6 +21,7 @@ int main(int argc, char* argv[])
   bool has_quad, has_format, has_prec, has_form_idx;
   int i;
 
+  input_type = NULL;
   max_args = 6;
   
   if ((argc > max_args) || (argc == 1)) {
@@ -27,7 +30,7 @@ int main(int argc, char* argv[])
   }
 
   do_tests = false;
-  has_quad = has_format = has_prec = has_form_idx = 0;
+  has_quad = has_format = has_prec = has_form_idx = false;
   
   for (i = 1; i < argc; i++) {
     is_valid = false;
@@ -82,7 +85,8 @@ int main(int argc, char* argv[])
   if (has_quad && has_format) {
     test_res <<= 1;
     if (has_prec && has_form_idx)
-      test_res |= compute_eigenvalues_up_to(Q_coeffs, form_idx, prec, input_type);
+      test_res |= compute_eigenvalues_up_to(Q_coeffs, form_idx,
+					    prec, input_type);
     else
       test_res |= compute_eigenvectors(Q_coeffs, input_type);
   }
@@ -97,11 +101,9 @@ int main(int argc, char* argv[])
 
 bool handle_flag_int(const char* flag_name, const char* param_str, int* flag_val)
 {
-  size_t param_len, flag_len;
+  size_t flag_len;
   char* full_flag_name;
   
-
-  param_len = strlen(param_str);
   flag_len = strlen(flag_name) + 2;
   full_flag_name = (char*)malloc((flag_len+1)*sizeof(char));
 
@@ -111,12 +113,12 @@ bool handle_flag_int(const char* flag_name, const char* param_str, int* flag_val
   }
 
   strncpy(full_flag_name, "-", 2);
-  strncat(full_flag_name, flag_name, strlen(flag_name));
+  strncat(full_flag_name, flag_name, MAX_STR_LEN);
   strncat(full_flag_name, "=", 1);
 
   assert(flag_len == strlen(full_flag_name));
   
-  if (strncmp(param_str, full_flag_name, flag_len) == 0) {
+  if (strncmp(param_str, full_flag_name, MAX_STR_LEN) == 0) {
     *flag_val = atoi(param_str + flag_len);
     return true;
   }
@@ -145,7 +147,7 @@ int parse_matrix(const char* mat_str, int* Q_coeffs)
   idx = 0;
   len = strlen(mat_str);
   original = (char*)malloc((len+1)*sizeof(char));
-  strncpy(original, mat_str, len);
+  strncpy(original, mat_str, MAX_STR_LEN);
   token = strsep(&original, ",");
   while(token != NULL) {
     Q_coeffs[idx++] = atoi(token);

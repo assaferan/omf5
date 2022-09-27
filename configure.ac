@@ -5,8 +5,8 @@ dnl
 dnl
 dnl Setup autoconf
 dnl
-AC_PREREQ([2.71])
-AC_INIT([omf5],[1.0.0-beta.1],[TODO_ADD_GITHUB_PAGE],[omf5],[TODO_ADD_GITHUB_PAGE])
+AC_PREREQ([2.69])
+AC_INIT([omf5],[1.0.0-beta.1],[https://github.com/assaferan/omf5],[omf5],[https://github.com/assaferan/omf5])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([cnf])
 
@@ -58,5 +58,13 @@ dnl Finally, generate the Makefiles and output everything
 dnl
 AC_CONFIG_FILES([Makefile src/Makefile])
 AM_PROG_CC_C_O
-AC_SEARCH_LIBS([carat], [gmp])
+
+AC_SEARCH_LIBS([], [flint], [
+AC_MSG_ERROR([unable to find the flint library])
+])
+
+AC_CHECK_HEADERS([flint.h],
+        [found_flint_headers=yes; break;])
+
+AC_SEARCH_LIBS([carat], [flint], [gmp])
 AC_OUTPUT()
