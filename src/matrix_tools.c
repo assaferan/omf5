@@ -484,7 +484,7 @@ void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
 #ifdef DEBUG_LEVEL_FULL
   printf("x_closest = \n");
   for (i = 0; i < dim-1; i++)
-    printf("%4lld ", x_closest[i]);
+    printf("%4" PRId64 " ", x_closest[i]);
   printf("\n");
 #endif // DEBUG_LEVEL_FULL
   
