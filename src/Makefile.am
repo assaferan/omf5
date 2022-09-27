@@ -47,6 +47,7 @@ SOURCES += neighbor.c
 SOURCES += nf_mat.c
 SOURCES += orthogonalize.c
 SOURCES += pivot_data.c
+SOURCES += spinor.c
 SOURCES += tests.c
 SOURCES += qf_inv.c
 

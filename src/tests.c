@@ -91,7 +91,11 @@ STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_i
   
   printf("traces of hecke eigenvalues are:\n");
   for (i = 0; i < num_evs; i++) {
+#ifdef NBR_DATA
+    get_hecke_ev_nbr_data(ev, genus, evs, ps[i], 1, form_idx, 0);
+#else
     get_hecke_ev(ev, genus, evs, ps[i], form_idx);
+#endif
     nf_elem_trace(trace, ev, evs->nfs[form_idx]);
     fmpq_print(trace);
     // nf_elem_print_pretty(ev, evs->nfs[form_idx], "a");
@@ -115,7 +119,11 @@ STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_i
 
     printf("traces of all hecke eigenvalues are:\n");
     for (j = 0; j < evs->num; j++) {
+#ifdef NBR_DATA
+      get_hecke_ev_nbr_data(ev, genus, evs, ps[i], 1, j, 0);
+#else
       get_hecke_ev(ev, genus, evs, ps[i], j);
+#endif // NBR_DATA
       nf_elem_trace(trace, ev, evs->nfs[j]);
       // nf_elem_print_pretty(ev, evs->nfs[j], "a");
       fmpq_print(trace);
@@ -134,7 +142,7 @@ STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_i
   printf("traces of hecke eigenvalues T_p^2 are:\n");
   for (i = 0; (i < num_evs) && (ps[i]*ps[i] < ps[num_evs-1]); i++) {
     // printing T_p^2   
-    get_hecke_ev_nbr_data(ev, genus, evs, ps[i], 2, form_idx);
+      get_hecke_ev_nbr_data(ev, genus, evs, ps[i], 2, form_idx, 0);
     nf_elem_trace(trace, ev, evs->nfs[form_idx]);
     fmpq_print(trace);
     printf(" ");

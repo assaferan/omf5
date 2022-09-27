@@ -10,10 +10,11 @@
 #include "arith.h"
 #include "hecke.h"
 #include "matrix_tools.h"
+#include "spinor.h"
 
 #include "typedefs.h"
 
-int process_isotropic_vector_nbr_data(nbr_data_t nbr_man, int* T, const hash_table* genus,
+int process_isotropic_vector_nbr_data(nbr_data_t nbr_man, int* T, const hash_table* genus, slong spinor_prime,
 				      double* theta_time, double* isom_time, double* total_time, int* num_isom)
 {
   int i;
@@ -37,8 +38,13 @@ int process_isotropic_vector_nbr_data(nbr_data_t nbr_man, int* T, const hash_tab
     exit(-1);
   }
 #endif // DEBUG
-  
-  T[i]++;
+
+  if (spinor_prime == 0) {
+    T[i]++;
+  }
+  else {
+    T[i] += fmpz_mat_spinor_norm(nbr_man->q, nbr_isom, fq_nmod_ctx_prime(nbr_man->GF), spinor_prime);
+  }
 
   fmpz_mat_clear(nbr_fmpz);
   fmpz_mat_clear(nbr_isom);
@@ -107,7 +113,7 @@ int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const hash_table*
   return lc;
 }
 
-int process_neighbour_chunk_nbr_data(int* T, int p, int k, int gen_idx, const hash_table* genus,
+int process_neighbour_chunk_nbr_data(int* T, int p, int k, int gen_idx, const hash_table* genus, slong spinor_prime,
 				     double* theta_time, double* isom_time, double* total_time, int* num_isom)
 {
   matrix_TYP *Q;
@@ -126,7 +132,7 @@ int process_neighbour_chunk_nbr_data(int* T, int p, int k, int gen_idx, const ha
   nbr_data_init(nbr_man, Q, p, k);
 
   while (!(nbr_data_has_ended(nbr_man))) {
-    process_isotropic_vector_nbr_data(nbr_man, T, genus, theta_time, isom_time, total_time, num_isom);
+    process_isotropic_vector_nbr_data(nbr_man, T, genus, spinor_prime, theta_time, isom_time, total_time, num_isom);
     nbr_data_get_next_neighbor(nbr_man);
     lc++;
   }
@@ -138,7 +144,7 @@ int process_neighbour_chunk_nbr_data(int* T, int p, int k, int gen_idx, const ha
 
 // assumes T is initialized to zeros
 
-void hecke_col_nbr_data(int* T, int p, int k, int gen_idx, const hash_table* genus)
+void hecke_col_nbr_data(int* T, int p, int k, int gen_idx, const hash_table* genus, slong spinor_prime)
 {
   int num_isom, lc;
   double theta_time, isom_time, total_time;
@@ -146,7 +152,8 @@ void hecke_col_nbr_data(int* T, int p, int k, int gen_idx, const hash_table* gen
   num_isom = lc = 0;
   theta_time = isom_time = total_time = 0;
 
-  lc += process_neighbour_chunk_nbr_data(T, p, k, gen_idx, genus, &theta_time, &isom_time, &total_time, &num_isom);
+  lc += process_neighbour_chunk_nbr_data(T, p, k, gen_idx, genus, spinor_prime,
+					 &theta_time, &isom_time, &total_time, &num_isom);
 
 #ifdef DEBUG
   printf("theta_time = %f, isom_time = %f, total_time = %f, num_isom = %d / %d \n", theta_time/lc, isom_time/lc, total_time, num_isom, lc);
@@ -187,7 +194,8 @@ matrix_TYP* hecke_matrix(const hash_table* genus, int p)
   return hecke;
 }
 
-void get_hecke_ev_nbr_data(nf_elem_t e, const hash_table* genus, eigenvalues* evs, int p, int k, int ev_idx)
+void get_hecke_ev_nbr_data(nf_elem_t e, const hash_table* genus, eigenvalues* evs,
+			   int p, int k, int ev_idx, slong spinor_prime)
 {
   int* a;
   int num, i, pivot;
@@ -212,7 +220,7 @@ void get_hecke_ev_nbr_data(nf_elem_t e, const hash_table* genus, eigenvalues* ev
   
   cpuclock = clock();
   
-  hecke_col_nbr_data(a, p, k, pivot, genus);
+  hecke_col_nbr_data(a, p, k, pivot, genus, spinor_prime);
 
   cpuclock = clock() - cpuclock;
   cputime = cpuclock / CLOCKS_PER_SEC;
