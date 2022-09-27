@@ -54,17 +54,39 @@ LT_INIT
 LT_INIT
 
 dnl
+dnl Setting the locations of flint, antic and gmp
+dnl
+if test "${FLINT_PATH+set}" != set; then
+     export FLINT_PATH="/usr/local/"
+     echo FLINT_PATH=${FLINT_PATH}
+fi
+if test "${ANTIC_PATH+set}" != set; then
+     export ANTIC_PATH="/usr/local/"
+     echo ANTIC_PATH=${ANTIC_PATH}
+fi
+if test "${GMP_PATH+set}" != set; then
+     export GMP_PATH="/usr/local/"
+     echo GMP_PATH=${GMP_PATH}
+fi
+
+AC_ARG_VAR(FLINT_PATH, [location of flint installation])
+AC_ARG_VAR(ANTIC_PATH, [location of antic installation])
+AC_ARG_VAR(GMP_PATH, [location of gmp installation])
+
+dnl
 dnl Finally, generate the Makefiles and output everything
 dnl
 AC_CONFIG_FILES([Makefile src/Makefile])
 AM_PROG_CC_C_O
 
-AC_SEARCH_LIBS([], [flint], [
-AC_MSG_ERROR([unable to find the flint library])
-])
+dnl this doesn't seem to work
+dnl AC_SEARCH_LIBS([], [flint], [
+dnl AC_MSG_ERROR([unable to find the flint library])
+dnl ])
 
-AC_CHECK_HEADERS([flint.h],
-        [found_flint_headers=yes; break;])
+dnl This doesn't seem to work
+dnl AC_CHECK_HEADERS([flint.h],
+dnl        [found_flint_headers=yes; break;])
 
-AC_SEARCH_LIBS([carat], [flint], [gmp])
+AC_SEARCH_LIBS([gmp])
 AC_OUTPUT()
