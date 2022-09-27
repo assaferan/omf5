@@ -1,4 +1,0 @@
-SUBDIRS = src
-
-ACLOCAL_AMFLAGS = -lm -I m4
-
