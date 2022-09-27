@@ -4,6 +4,8 @@
 
 #include "tests.h"
 
+#define MAX_STR_LEN 256
+
 bool handle_flag_int(const char* flag_name, const char* param_str, int* flag_val);
 int print_param_desc(char* argv[]);
 int parse_matrix(const char* mat_str, int* Q_coeffs);
@@ -109,12 +111,12 @@ bool handle_flag_int(const char* flag_name, const char* param_str, int* flag_val
   }
 
   strncpy(full_flag_name, "-", 2);
-  strncat(full_flag_name, flag_name, strlen(flag_name));
+  strncat(full_flag_name, flag_name, MAX_STR_LEN);
   strncat(full_flag_name, "=", 1);
 
   assert(flag_len == strlen(full_flag_name));
   
-  if (strncmp(param_str, full_flag_name, flag_len) == 0) {
+  if (strncmp(param_str, full_flag_name, MAX_STR_LEN) == 0) {
     *flag_val = atoi(param_str + flag_len);
     return true;
   }
