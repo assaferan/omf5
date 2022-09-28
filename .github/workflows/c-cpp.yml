@@ -42,4 +42,4 @@ jobs:
     - name: build
       run:  cd omf5 && make
     - name: test
-      run: ./omf5/omf5 -tests
+      run: ./omf5/bin/omf5 -tests

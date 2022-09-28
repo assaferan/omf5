@@ -5,7 +5,18 @@
 
 #include "hash.h"
 
+typedef struct
+{
+  hash_table_t genus;
+
+  slong* dims;
+  slong total_dim;
+  
+} omf_space;
+
+typedef omf_space omf_space_t[1];
+
 /* compute the genus of a quadratic form */
-hash_table* get_genus_reps(matrix_TYP* Q);
+void get_genus_reps(hash_table_t table, matrix_TYP* Q);
 
 #endif // __GENUS_H__

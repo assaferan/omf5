@@ -5,8 +5,8 @@ dnl
 dnl
 dnl Setup autoconf
 dnl
-AC_PREREQ([2.71])
-AC_INIT([omf5],[1.0.0-beta.1],[TODO_ADD_GITHUB_PAGE],[omf5],[TODO_ADD_GITHUB_PAGE])
+AC_PREREQ([2.69])
+AC_INIT([omf5],[1.0.0-beta.1],[https://github.com/assaferan/omf5],[omf5],[https://github.com/assaferan/omf5])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([cnf])
 
@@ -54,9 +54,45 @@ LT_INIT
 LT_INIT
 
 dnl
+dnl Setting the locations of flint, antic and gmp
+dnl
+if test "${FLINT_PATH+set}" != set; then
+     export FLINT_PATH="/usr/local/"
+fi
+if test "${ANTIC_PATH+set}" != set; then
+     export ANTIC_PATH="/usr/local/"
+fi
+if test "${GMP_PATH+set}" != set; then
+     export GMP_PATH="/usr/local/"
+fi
+if test "${CARAT_PATH+set}" != set; then
+     export CARAT_PATH="/usr/local/"
+fi
+
+echo FLINT_PATH=${FLINT_PATH}
+echo ANTIC_PATH=${ANTIC_PATH}
+echo GMP_PATH=${GMP_PATH}
+echo CARAT_PATH=${CARAT_PATH}
+
+AC_ARG_VAR(FLINT_PATH, [location of flint installation])
+AC_ARG_VAR(ANTIC_PATH, [location of antic installation])
+AC_ARG_VAR(GMP_PATH, [location of gmp installation])
+AC_ARG_VAR(CARAT_PATH, [location of carat installation])
+
+dnl
 dnl Finally, generate the Makefiles and output everything
 dnl
 AC_CONFIG_FILES([Makefile src/Makefile])
 AM_PROG_CC_C_O
-AC_SEARCH_LIBS([carat], [gmp])
+
+dnl this doesn't seem to work
+dnl AC_SEARCH_LIBS([], [flint], [
+dnl AC_MSG_ERROR([unable to find the flint library])
+dnl ])
+
+dnl This doesn't seem to work
+dnl AC_CHECK_HEADERS([flint.h],
+dnl        [found_flint_headers=yes; break;])
+
+AC_SEARCH_LIBS([gmp])
 AC_OUTPUT()
