@@ -15,7 +15,7 @@
 #include "typedefs.h"
 
 /* compute the genus of a quadratic form */
-void get_genus_reps(hash_table_t genus, matrix_TYP* Q)
+void genus_init(genus_t genus, matrix_TYP* Q)
 {
   bravais_TYP *aut_grp;
   matrix_TYP *nbr, *isom, *genus_rep, *s;
@@ -24,6 +24,7 @@ void get_genus_reps(hash_table_t genus, matrix_TYP* Q)
   int p, current, key_num;
   size_t genus_size;
   fmpz_t genus_size_fmpz;
+  hash_table_t slow_genus;
 
 #ifndef NBR_DATA
   neighbor_manager nbr_man;
@@ -59,9 +60,9 @@ void get_genus_reps(hash_table_t genus, matrix_TYP* Q)
     
   genus_size = (4 * genus_size) / 3; // load factor
 
-  hash_table_init(genus, genus_size);
+  hash_table_init(slow_genus, genus_size);
   
-  hash_table_add(genus, Q);
+  hash_table_add(slow_genus, Q);
   
   aut_grp = automorphism_group(Q);
 
@@ -98,7 +99,7 @@ void get_genus_reps(hash_table_t genus, matrix_TYP* Q)
     }
     while (!p_mat_det(Q, p));
 
-    while ((current < genus->num_stored) && fmpq_cmp(acc_mass, mass)){
+    while ((current < slow_genus->num_stored) && fmpq_cmp(acc_mass, mass)){
 #ifdef DEBUG_LEVEL_FULL
       printf("current = %d\n", current);
 #endif // DEBUG_LEVEL_FULL
@@ -111,11 +112,11 @@ void get_genus_reps(hash_table_t genus, matrix_TYP* Q)
       
       while ((i < p) && fmpq_cmp(acc_mass, mass)) {
 	/* printf("i = %d\n", i); */
-	init_nbr_process(&nbr_man, genus->keys[current], p, i);
+	init_nbr_process(&nbr_man, slow_genus->keys[current], p, i);
 	while ((!(has_ended(&nbr_man))) && fmpq_cmp(acc_mass, mass)) {
 	  nbr = build_nb(&nbr_man);
 #else
-	nbr_data_init(nbr_man, genus->keys[current], p, 1);
+	nbr_data_init(nbr_man, slow_genus->keys[current], p, 1);
 	while ((!(nbr_data_has_ended(nbr_man))) && fmpq_cmp(acc_mass, mass)) {
 	  nbr_data_build_neighbor(nbr_fmpz, nbr_isom, nbr_man);
 	  matrix_TYP_init_set_fmpz_mat(&nbr, nbr_fmpz);
@@ -129,13 +130,13 @@ void get_genus_reps(hash_table_t genus, matrix_TYP* Q)
 	  key_num = -1;
 	  isom = NULL;
 	  // just something that is not NULL
-	  genus_rep = genus->keys[current];
+	  genus_rep = slow_genus->keys[current];
       
 	  while ((genus_rep != NULL) && (isom == NULL)) {
 #ifdef DEBUG_LEVEL_FULL
 	    printf("checking if it is already in the genus...\n");
 #endif // DEBUG_LEVEL_FULL
-	    genus_rep = hash_table_get_key(genus, nbr, &key_num);
+	    genus_rep = hash_table_get_key(slow_genus, nbr, &key_num);
 	    if (genus_rep != NULL) {
 #ifdef DEBUG_LEVEL_FULL
 	      printf("Found candidate :\n");
@@ -153,7 +154,7 @@ void get_genus_reps(hash_table_t genus, matrix_TYP* Q)
 	    s = init_mat(5,5,"1");
 	    greedy(nbr, s, 5, 5);
 	    free_mat(s);
-	    hash_table_add(genus, nbr);
+	    hash_table_add(slow_genus, nbr);
 	    aut_grp = automorphism_group(nbr);
 	    fmpq_set_si(mass_form, 1, aut_grp->order);
 	    fmpq_add(acc_mass, acc_mass, mass_form);
@@ -192,7 +193,14 @@ void get_genus_reps(hash_table_t genus, matrix_TYP* Q)
   fmpz_mat_clear(nbr_fmpz);
   fmpz_mat_clear(nbr_isom);
 #endif // NBR_DATA
+
+  hash_table_recalibrate(genus->genus_reps, slow_genus);
   
   return;
 }
 
+void genus_clear(genus_t genus)
+{
+  hash_table_clear(genus->genus_reps);
+  return;
+}

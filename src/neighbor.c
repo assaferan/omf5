@@ -1,3 +1,5 @@
+#include <assert.h>
+
 #ifdef DEBUG
 #include "carat/symm.h"
 #endif // DEBUG
@@ -16,6 +18,7 @@ matrix_TYP* build_nb(neighbor_manager* nbr_man)
   matrix_TYP *Q_mat, *Qx_mat, *xQx_mat;
   int q, y, row, col, *x, **Q, *Qx, xQx;
   int a1, a2, a3, a4;
+  slong n;
 
 #ifdef DEBUG
   int is_definite;
@@ -45,12 +48,15 @@ matrix_TYP* build_nb(neighbor_manager* nbr_man)
   xQx_mat = mat_mul(Qx_mat, tr_pose(nbr_man->iso_vec));
 
   xQx = xQx_mat->array.SZ[0][0];
+
+  n = Q_mat->rows;
+  assert(n == Q_mat->cols);
   
   if (x[0] == 1) {
       /* M[,1] = x~ */
       
       Q[0][0] = xQx;
-      for (col = 1; col < N; col++)
+      for (col = 1; col < n; col++)
 	Q[0][col] = Qx[col];
 #ifdef DEBUG_LEVEL_FULL
       printf("put x as first vector, now Q = \n");
@@ -60,10 +66,10 @@ matrix_TYP* build_nb(neighbor_manager* nbr_man)
   else {
     if (x[1] == 1) {
       /* M[,2] = M[,1] ; M[,1] = x~ */
-      for (col = 2; col < N; col++)
+      for (col = 2; col < n; col++)
 	Q[1][col] = Q[0][col];
       Q[1][1] = Q[0][0];
-      for (col = 2; col < N; col++)
+      for (col = 2; col < n; col++)
 	Q[0][col] = Qx[col];
       Q[0][1] = Qx[0];
       Q[0][0] = xQx;
@@ -71,11 +77,11 @@ matrix_TYP* build_nb(neighbor_manager* nbr_man)
     else {
       if (x[2] == 1) {
 	/* M[,3] = M[,1] ; M[,1] = x~ */
-	for (col = 3; col < N; col++)
+	for (col = 3; col < n; col++)
 	  Q[2][col] = Q[0][col];
 	Q[2][2] = Q[0][0];
 	Q[1][2] = Q[0][1];
-	for (col = 3; col < N; col++)
+	for (col = 3; col < n; col++)
 	  Q[0][col] = Qx[col];
 	Q[0][2] = Qx[0];
 	Q[0][1] = Qx[1];
@@ -96,7 +102,7 @@ matrix_TYP* build_nb(neighbor_manager* nbr_man)
 	}
 	else {
 	  if (x[4] == 1) {
-	    /* M[,N] = M[,1] ; M[,1] = x~ */
+	    /* M[,n] = M[,1] ; M[,1] = x~ */
 	    Q[4][4] = Q[0][0];
 	    Q[3][4] = Q[0][3];
 	    Q[2][4] = Q[0][2];
@@ -109,6 +115,8 @@ matrix_TYP* build_nb(neighbor_manager* nbr_man)
 	  }
 	  else {
 	    printf("BAD\n");
+	    free_mat(Qx_mat);
+	    free_mat(xQx_mat);
 	    return NULL;
 	  }
 	}
@@ -118,6 +126,8 @@ matrix_TYP* build_nb(neighbor_manager* nbr_man)
  
   if (Q[0][0] % nbr_man->p) {
     printf("NOT 0 mod p\n");
+    free_mat(Qx_mat);
+    free_mat(xQx_mat);
     return NULL;
   }
   
@@ -167,6 +177,8 @@ matrix_TYP* build_nb(neighbor_manager* nbr_man)
 	  /* a singular zero, return Q as-is*/
 	  /* Re-symmetrize */
 	  resymmetrize(Q);
+	  free_mat(Qx_mat);
+	  free_mat(xQx_mat);
 	  return Q_mat;
 	}
       }
@@ -298,18 +310,21 @@ matrix_TYP* build_nb(neighbor_manager* nbr_man)
   
 #endif // DEBUG
 
+  free_mat(Qx_mat);
+  free_mat(xQx_mat);
+  
   return Q_mat;
 };
 
 /* find an isotropic vector for Q mod p */
-/* return a row vector 1xN */
+/* return a row vector 1xn */
 matrix_TYP* get_isotropic_vector(matrix_TYP* Q, int p)
 {
   matrix_TYP *v, *Qx, *n_mat;
   int* x;
   int v1, v2, v3, v4, n;
-  
-  v = init_mat(1,N,"");
+
+  v = init_mat(1,Q->rows,"");
   x = v->array.SZ[0];
 
   /* find one zero "v0" */
@@ -338,7 +353,7 @@ matrix_TYP* get_isotropic_vector(matrix_TYP* Q, int p)
 }
 
 /* update the pivot vector v */
-void update_pivot(int* v, int p, int i)
+void update_pivot(int* v, int p, int i, int n)
 {
   int pivot, lsb;
   
@@ -350,7 +365,7 @@ void update_pivot(int* v, int p, int i)
   if (pivot == 0)
     printf("Error! Got a vector with pivot 0! shouldn't have gotten here\n");
   
-  if (pivot == N) {
+  if (pivot == n) {
     printf("Error! Got the zero vector!\n");
   }
   if (v[pivot] != 1)
@@ -417,7 +432,7 @@ matrix_TYP* get_next_isotropic_vector(neighbor_manager* nbr_man)
 #endif // DEBUG_LEVEL_FULL
       /* This differs from the gp script */
       /* modp_mat(tmp, p); */
-      for (j = 0; j < N; j++)
+      for (j = 0; j < nbr_man->iso_vec->cols; j++)
 	nbr_man->iso_vec->array.SZ[0][j] %= nbr_man->p;
 #ifdef DEBUG_LEVEL_FULL
       printf("n*v-t*w = ");
@@ -452,7 +467,7 @@ void init_nbr_process(neighbor_manager* nbr_man, matrix_TYP* Q, int p, int i)
   nbr_man->v = get_isotropic_vector(Q,p);
   nbr_man->b = mat_mul(nbr_man->v, Q);
   modp_mat(nbr_man->b,p);
-  nbr_man->w = init_mat(1,N, "");
+  nbr_man->w = init_mat(1,Q->rows, "");
   nbr_man->i = i;
   nbr_man->iso_j = 0;
   if (i == 0)
@@ -466,7 +481,7 @@ void init_nbr_process(neighbor_manager* nbr_man, matrix_TYP* Q, int p, int i)
     while ((w[0] == 0) && (nbr_man->iso_vec == NULL)) {
       nbr_man->iso_vec = get_next_isotropic_vector(nbr_man);
       if (nbr_man->iso_vec == NULL)
-	  update_pivot(w, nbr_man->p, nbr_man->i);
+	update_pivot(w, nbr_man->p, nbr_man->i,Q->rows);
     }
   }
   
@@ -491,7 +506,7 @@ void advance_nbr_process(neighbor_manager* nbr_man)
     
     // update to next pivot
     if (nbr_man->iso_j == 0) {
-      update_pivot(w, nbr_man->p, nbr_man->i);
+      update_pivot(w, nbr_man->p, nbr_man->i, nbr_man->Q->rows);
     }
   }
 
@@ -507,7 +522,7 @@ void advance_nbr_process(neighbor_manager* nbr_man)
 	
       // update to next pivot
       if (nbr_man->iso_j == 0) {
-	update_pivot(w, nbr_man->p, nbr_man->i);
+	update_pivot(w, nbr_man->p, nbr_man->i, nbr_man->Q->rows);
       }
     }
   }
