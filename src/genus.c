@@ -15,7 +15,7 @@
 #include "typedefs.h"
 
 /* compute the genus of a quadratic form */
-hash_table* get_genus_reps(matrix_TYP* Q)
+void get_genus_reps(hash_table_t genus, matrix_TYP* Q)
 {
   bravais_TYP *aut_grp;
   matrix_TYP *nbr, *isom, *genus_rep, *s;
@@ -24,7 +24,7 @@ hash_table* get_genus_reps(matrix_TYP* Q)
   int p, current, key_num;
   size_t genus_size;
   fmpz_t genus_size_fmpz;
-  hash_table* genus;
+
 #ifndef NBR_DATA
   neighbor_manager nbr_man;
   int i;
@@ -59,9 +59,9 @@ hash_table* get_genus_reps(matrix_TYP* Q)
     
   genus_size = (4 * genus_size) / 3; // load factor
 
-  genus = create_hash(genus_size);
+  hash_table_init(genus, genus_size);
   
-  add(genus, Q);
+  hash_table_add(genus, Q);
   
   aut_grp = automorphism_group(Q);
 
@@ -83,7 +83,7 @@ hash_table* get_genus_reps(matrix_TYP* Q)
 #ifdef DEBUG
     if (fmpq_cmp(acc_mass, mass) > 0) {
       printf("Error! Accumulated too much mass!\n");
-      return genus;
+      return;
     }
 #endif // DEBUG
     /* !! TODO - we don't really need to restrict to good primes here, */
@@ -135,7 +135,7 @@ hash_table* get_genus_reps(matrix_TYP* Q)
 #ifdef DEBUG_LEVEL_FULL
 	    printf("checking if it is already in the genus...\n");
 #endif // DEBUG_LEVEL_FULL
-	    genus_rep = get_key(genus, nbr, &key_num);
+	    genus_rep = hash_table_get_key(genus, nbr, &key_num);
 	    if (genus_rep != NULL) {
 #ifdef DEBUG_LEVEL_FULL
 	      printf("Found candidate :\n");
@@ -153,7 +153,7 @@ hash_table* get_genus_reps(matrix_TYP* Q)
 	    s = init_mat(5,5,"1");
 	    greedy(nbr, s, 5, 5);
 	    free_mat(s);
-	    add(genus, nbr);
+	    hash_table_add(genus, nbr);
 	    aut_grp = automorphism_group(nbr);
 	    fmpq_set_si(mass_form, 1, aut_grp->order);
 	    fmpq_add(acc_mass, acc_mass, mass_form);
@@ -193,6 +193,6 @@ hash_table* get_genus_reps(matrix_TYP* Q)
   fmpz_mat_clear(nbr_isom);
 #endif // NBR_DATA
   
-  return genus;
+  return;
 }
 

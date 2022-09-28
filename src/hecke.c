@@ -14,7 +14,7 @@
 
 #include "typedefs.h"
 
-int process_isotropic_vector_nbr_data(nbr_data_t nbr_man, int* T, const hash_table* genus, slong spinor_prime,
+int process_isotropic_vector_nbr_data(nbr_data_t nbr_man, int* T, const hash_table_t genus, slong spinor_prime,
 				      double* theta_time, double* isom_time, double* total_time, int* num_isom)
 {
   int i;
@@ -29,7 +29,7 @@ int process_isotropic_vector_nbr_data(nbr_data_t nbr_man, int* T, const hash_tab
   matrix_TYP_init_set_fmpz_mat(&nbr, nbr_fmpz);
 
   cputime = clock();
-  i = indexof(genus, nbr, 0, theta_time, isom_time, num_isom);
+  i = hash_table_indexof(genus, nbr, 0, theta_time, isom_time, num_isom);
   (*total_time) += clock() - cputime;
 
 #ifdef DEBUG
@@ -54,7 +54,7 @@ int process_isotropic_vector_nbr_data(nbr_data_t nbr_man, int* T, const hash_tab
   return 0;
 }
   
-int process_isotropic_vector(neighbor_manager* nbr_man, int* T, const hash_table* genus,
+int process_isotropic_vector(neighbor_manager* nbr_man, int* T, const hash_table_t genus,
 			     double* theta_time, double* isom_time, double* total_time, int* num_isom)
 
 {
@@ -66,7 +66,7 @@ int process_isotropic_vector(neighbor_manager* nbr_man, int* T, const hash_table
   nbr = build_nb(nbr_man);
 
   cputime = clock();
-  i = indexof(genus, nbr, 0, theta_time, isom_time, num_isom);
+  i = hash_table_indexof(genus, nbr, 0, theta_time, isom_time, num_isom);
   (*total_time) += clock() - cputime;
 
 #ifdef DEBUG
@@ -84,7 +84,7 @@ int process_isotropic_vector(neighbor_manager* nbr_man, int* T, const hash_table
 }
 
 // !! TODO - use i to cut the parameters to chunks, need to convert from a number to a vector in the parameter space
-int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const hash_table* genus,
+int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const hash_table_t genus,
 			    double* theta_time, double* isom_time, double* total_time, int* num_isom)
 {
   matrix_TYP *Q;
@@ -113,7 +113,7 @@ int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const hash_table*
   return lc;
 }
 
-int process_neighbour_chunk_nbr_data(int* T, int p, int k, int gen_idx, const hash_table* genus, slong spinor_prime,
+int process_neighbour_chunk_nbr_data(int* T, int p, int k, int gen_idx, const hash_table_t genus, slong spinor_prime,
 				     double* theta_time, double* isom_time, double* total_time, int* num_isom)
 {
   matrix_TYP *Q;
@@ -144,7 +144,7 @@ int process_neighbour_chunk_nbr_data(int* T, int p, int k, int gen_idx, const ha
 
 // assumes T is initialized to zeros
 
-void hecke_col_nbr_data(int* T, int p, int k, int gen_idx, const hash_table* genus, slong spinor_prime)
+void hecke_col_nbr_data(int* T, int p, int k, int gen_idx, const hash_table_t genus, slong spinor_prime)
 {
   int num_isom, lc;
   double theta_time, isom_time, total_time;
@@ -162,7 +162,7 @@ void hecke_col_nbr_data(int* T, int p, int k, int gen_idx, const hash_table* gen
   return;
 }
 
-void hecke_col(int* T, int p, int gen_idx, const hash_table* genus)
+void hecke_col(int* T, int p, int gen_idx, const hash_table_t genus)
 {
   int num;
   int num_isom, lc;
@@ -181,7 +181,7 @@ void hecke_col(int* T, int p, int gen_idx, const hash_table* genus)
   return;
 }
 
-matrix_TYP* hecke_matrix(const hash_table* genus, int p)
+matrix_TYP* hecke_matrix(const hash_table_t genus, int p)
 {
   matrix_TYP* hecke;
   int gen_idx;
@@ -194,7 +194,7 @@ matrix_TYP* hecke_matrix(const hash_table* genus, int p)
   return hecke;
 }
 
-void get_hecke_ev_nbr_data(nf_elem_t e, const hash_table* genus, eigenvalues* evs,
+void get_hecke_ev_nbr_data(nf_elem_t e, const hash_table_t genus, eigenvalues* evs,
 			   int p, int k, int ev_idx, slong spinor_prime)
 {
   int* a;
@@ -266,7 +266,7 @@ void get_hecke_ev_nbr_data(nf_elem_t e, const hash_table* genus, eigenvalues* ev
   return;
 }
 
-void get_hecke_ev(nf_elem_t e, const hash_table* genus, eigenvalues* evs, int p, int ev_idx)
+void get_hecke_ev(nf_elem_t e, const hash_table_t genus, eigenvalues* evs, int p, int ev_idx)
 {
   int* a;
   int num, i, pivot;
@@ -322,7 +322,7 @@ void get_hecke_ev(nf_elem_t e, const hash_table* genus, eigenvalues* evs, int p,
   return;
 }
 
-void get_hecke_fmpq_mat(fmpq_mat_t hecke_fmpq_mat, const hash_table* genus, int p)
+void get_hecke_fmpq_mat(fmpq_mat_t hecke_fmpq_mat, const hash_table_t genus, int p)
 {
   matrix_TYP* hecke_mat;
    
@@ -336,7 +336,7 @@ void get_hecke_fmpq_mat(fmpq_mat_t hecke_fmpq_mat, const hash_table* genus, int 
 }
 
 // TODO - get rid of the unnecessary recursion
-bool decomposition_finite_subspace(decomposition* decomp, const hash_table* genus, const fmpq_mat_t basis_V,
+bool decomposition_finite_subspace(decomposition* decomp, const hash_table_t genus, const fmpq_mat_t basis_V,
 				   const int* ps, slong idx, slong num_ps)
 {
   slong i, dim_V, next_idx;
@@ -397,7 +397,7 @@ bool decomposition_finite_subspace(decomposition* decomp, const hash_table* genu
   return is_complete;
 }
 
-bool decomposition_finite(decomposition* decomp, const hash_table* genus, const int* ps, slong num_ps)
+bool decomposition_finite(decomposition* decomp, const hash_table_t genus, const int* ps, slong num_ps)
 {
   fmpq_mat_t basis_M;
   slong dim;
@@ -421,7 +421,7 @@ bool decomposition_finite(decomposition* decomp, const hash_table* genus, const 
   return is_complete;
 }
 
-decomposition* decompose(const hash_table* genus)
+decomposition* decompose(const hash_table_t genus)
 {
   slong bound, num_ps;
   int* ps;
@@ -442,7 +442,7 @@ decomposition* decompose(const hash_table* genus)
   return decomp;
 }
 
-eigenvalues* hecke_eigenforms(const hash_table* genus)
+eigenvalues* hecke_eigenforms(const hash_table_t genus)
 {
   fmpq_mat_t T;
   slong i;
