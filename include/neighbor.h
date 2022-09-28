@@ -36,7 +36,7 @@ matrix_TYP* get_isotropic_vector(matrix_TYP* Q, int p);
 matrix_TYP* get_next_isotropic_vector(neighbor_manager* nbr_man);
 
 /* update the pivot vector v */
-void update_pivot(int* v, int p, int i);
+void update_pivot(int* v, int p, int i, int n);
 
 /* get the next isotropic vector */
 void update_isotropic_vector(matrix_TYP*Q, int p, matrix_TYP* v);

@@ -6,9 +6,7 @@
 #include <carat/matrix.h>
 #include <flint/fmpq.h>
 
-typedef uint64_t W64;
-typedef uint32_t W32;
-typedef uint16_t W16;
+#include "typedefs.h"
 
 // We do not anticipate more than 2^32 forms in the genus...
 // Maybe changing to W16 could improve that, have to check
