@@ -25,6 +25,7 @@ void genus_init(genus_t genus, matrix_TYP* Q)
   size_t genus_size;
   fmpz_t genus_size_fmpz;
   hash_table_t slow_genus;
+  fmpz_mat_t q_fmpz;
 
 #ifndef NBR_DATA
   neighbor_manager nbr_man;
@@ -61,8 +62,11 @@ void genus_init(genus_t genus, matrix_TYP* Q)
   genus_size = (4 * genus_size) / 3; // load factor
 
   hash_table_init(slow_genus, genus_size);
-  
   hash_table_add(slow_genus, Q);
+
+  fmpz_mat_init_set_matrix_TYP(q_fmpz, Q);
+  spinor_init(genus->spinor, q_fmpz);
+  fmpz_mat_clear(q_fmpz);
   
   aut_grp = automorphism_group(Q);
 
@@ -201,6 +205,7 @@ void genus_init(genus_t genus, matrix_TYP* Q)
 
 void genus_clear(genus_t genus)
 {
+  spinor_clear(genus->spinor);
   hash_table_clear(genus->genus_reps);
   return;
 }
