@@ -110,7 +110,8 @@ double get_isom_cost(const hash_table_t table, double* red_cost)
   return isom_cost;
 }
 
-double get_total_cost(hash_table_t table, W32 theta_prec, double isom_cost, double red_isom_cost, fmpq_t* wt_cnts)
+double get_total_cost(const hash_table_t table, W32 theta_prec, double isom_cost, double red_isom_cost, fmpq_t* wt_cnts,
+		      W32* counts, hash_t* vals, bool* red_on_isom, const fmpq_t* probs)
 {
   hash_t i, offset, idx;
   double theta_cost, total_cost;
@@ -118,34 +119,34 @@ double get_total_cost(hash_table_t table, W32 theta_prec, double isom_cost, doub
   
   for (i = 0; i < 2*table->capacity; i++) {
     fmpq_zero(wt_cnts[i]);
-    table->counts[i] = 0;
+    counts[i] = 0;
   }
   
   theta_cost = 0;
   for (offset = 0; offset < table->num_stored; offset++) {
     cputime = clock();
-    table->vals[offset] = hash_form(table->keys[offset], theta_prec);
+    vals[offset] = hash_form(table->keys[offset], theta_prec);
     theta_cost += (clock() - cputime);
-    idx = table->vals[offset] & table->mask;
-    fmpq_add(wt_cnts[idx], wt_cnts[idx], table->probs[offset]);
-    table->counts[table->vals[offset] & table->mask]++;
+    idx = vals[offset] & table->mask;
+    fmpq_add(wt_cnts[idx], wt_cnts[idx], probs[offset]);
+    counts[vals[offset] & table->mask]++;
   }
   theta_cost /= table->num_stored;
     
   total_cost = 0;
   for (i = 0; i < 2 * table->capacity; i++) {
-    total_cost += table->counts[i] * fmpq_get_d(wt_cnts[i]);
+    total_cost += counts[i] * fmpq_get_d(wt_cnts[i]);
   }
   total_cost -= 1;
   printf("Expecting average number of %f calls to is_isometric.\n", total_cost);
 
-  table->red_on_isom = TRUE;
+  *red_on_isom = true;
   for (offset = 0; offset < table->num_stored; offset++)
-    table->red_on_isom &= (table->counts[table->vals[offset] & table->mask] == 1);
+    *red_on_isom &= (counts[vals[offset] & table->mask] == 1);
 
-  table->red_on_isom = !(table->red_on_isom);
+  *red_on_isom = !(*red_on_isom);
 
-  if (table->red_on_isom)
+  if (*red_on_isom)
     total_cost *= red_isom_cost;
   else
     total_cost *= isom_cost;
@@ -160,7 +161,7 @@ double get_total_cost(hash_table_t table, W32 theta_prec, double isom_cost, doub
 // we postpone doing that.
 
 // table is not const, since we're using it and clearing it in the end
-void hash_table_recalibrate(hash_table_t new_table, hash_table_t table)
+void hash_table_recalibrate(hash_table_t new_table, const hash_table_t table)
 {
   hash_t offset, i;
   W32 theta_prec;
@@ -172,6 +173,8 @@ void hash_table_recalibrate(hash_table_t new_table, hash_table_t table)
 
   fmpq_init(mass);
   fmpq_zero(mass);
+
+  hash_table_init(new_table, table->capacity);
   
   wt_cnts = (fmpq_t*) malloc(2*table->capacity*sizeof(fmpq_t));
   for (i = 0; i < 2 * table->capacity; i++) {
@@ -183,7 +186,7 @@ void hash_table_recalibrate(hash_table_t new_table, hash_table_t table)
   }
 
   for (offset = 0; offset < table->num_stored; offset++) {
-    fmpq_div(table->probs[offset], table->probs[offset], mass);
+    fmpq_div(new_table->probs[offset], table->probs[offset], mass);
   }
   
   // first we check the cost of checking isometries with random neighbors
@@ -203,22 +206,26 @@ void hash_table_recalibrate(hash_table_t new_table, hash_table_t table)
   while (total_cost < old_cost) {
     theta_prec++;
     old_cost = total_cost;
-    total_cost = get_total_cost(table, theta_prec, isom_cost, red_isom_cost + greedy_cost, wt_cnts);
+    total_cost = get_total_cost(table, theta_prec, isom_cost, red_isom_cost + greedy_cost, wt_cnts,
+				new_table->counts, new_table->vals, &(new_table->red_on_isom), new_table->probs);
   }
   // we are now passed the peak, have to go back one
   theta_prec--;
 
   // #ifdef DEBUG
-  printf("Recalibrated with theta_prec = %u and red_on_isom = %d \n", theta_prec, table->red_on_isom);
+  printf("Recalibrated with theta_prec = %u and red_on_isom = %d \n", theta_prec, new_table->red_on_isom);
   // #endif // DEBUG
   
-  hash_table_init(new_table, table->capacity);
   new_table->theta_prec = theta_prec;
-  new_table->red_on_isom = table->red_on_isom;
+
+  // revert the used counts
+  for (i = 0; i < 2*new_table->capacity; i++) {
+    new_table->counts[i] = 0;
+  }
+  
+  // adding all keys
   for (offset = 0; offset < table->num_stored; offset++)
     hash_table_add(new_table, table->keys[offset]);
-
-  hash_table_clear(table);
   
   return;
 }
