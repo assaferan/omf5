@@ -9,12 +9,18 @@ on:
 jobs:
   build:
 
-    runs-on: ${{ matrix.on }}
+    runs-on: ${{ matrix.os }}
     
     strategy: 
       
       matrix:
-        on: [ ubuntu-20.04, macos-10.15 ]
+        os: [ ubuntu-20.04, macos-10.15 ]
+        include:
+          - pkg_man: brew
+            os: macos-10.15
+          - pkg_man: apt-get
+            os: ubuntu-20.04
+        
 
     steps:
     - name: Checkout 
@@ -37,7 +43,7 @@ jobs:
         repository: lbfm-rwth/carat
         path: carat
     - name: Install autotools
-      run: brew update && brew install autoconf automake libtool
+      run: ${{ matrix.pkg_man }} update && ${{ matrix.pkg_man }} install autoconf automake libtool
     - name: Install flint
       run:  cd flint2 && ./configure && make && make check && make install && cd ..
     - name: Install antic
