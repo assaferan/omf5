@@ -22,6 +22,14 @@ jobs:
             os: ubuntu-20.04
           - add_pkgs: libmpfr-dev
             os: ubuntu-20.04
+          - make_install: make install
+            os: macos-10.15
+          - make_install: sudo make install
+            os: ubuntu-20.04
+          - cp_cmd: cp
+            os: macos-10.15
+          - cp_cmd: sudo cp
+            os: ubuntu-20.04
             
     steps:
     - name: Checkout 
@@ -44,14 +52,36 @@ jobs:
         repository: lbfm-rwth/carat
         path: carat
     - name: Install autotools
-      run: ${{ matrix.pkg_man }} update && ${{ matrix.pkg_man }} install autoconf automake libtool ${{ matrix.add_pkgs }}
+      run: |
+          ${{ matrix.pkg_man }} update
+          ${{ matrix.pkg_man }} install autoconf automake libtool ${{ matrix.add_pkgs }}
     - name: Install flint
-      run:  cd flint2 && ./configure && make && make check && make install && cd ..
+      run:  | 
+          cd flint2
+          ./configure
+          make
+          make check
+          ${{ matrix.make_install }}
+          cd ..
     - name: Install antic
-      run: cd antic && ./configure && make && make install && make check && cd ..
+      run: |
+          cd antic
+          ./configure && make
+          ${{ matrix.make_install }}
+          make check
+          cd ..
     - name: Install carat
-      run: cd carat && ./autogen.sh && ./configure && make && make install && cp libfunctions.a /usr/local/lib && cd ..
+      run: |
+          cd carat
+          ./autogen.sh
+          ./configure
+          make
+          ${{ matrix.make_install }}
+          ${{ matrix.cp_cmd }} libfunctions.a /usr/local/lib
+          cd ..
     - name: build
-      run:  cd omf5 && make
+      run:  |
+          cd omf5
+          make
     - name: test
       run: ./omf5/bin/omf5 -tests
