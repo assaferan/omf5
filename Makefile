@@ -1,7 +1,7 @@
 VPATH = src
 CC = clang
-CFLAGS = -I${GMP_PATH}/include -I${ANTIC_PATH}/include -Iinclude
-LDFLAGS = -L${GMP_PATH}/lib -L${ANTIC_PATH}/lib -lgmp -lflint -lantic -lfunctions
+CFLAGS = -I${GMP_PATH}/include -I${ANTIC_PATH}/include -I${CARAT_PATH}/include -Iinclude
+LDFLAGS = -L${GMP_PATH}/lib -L${ANTIC_PATH}/lib -L${CARAT_PATH} -lgmp -lflint -lantic -lfunctions
 
 OPT_CFLAGS = -DNDEBUG -O3 -msse3 -mavx -fomit-frame-pointer
 
