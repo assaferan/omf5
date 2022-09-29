@@ -18,7 +18,7 @@ jobs:
         include:
           - pkg_man: brew
             os: macos-10.15
-          - pkg_man: apt-get
+          - pkg_man: sudo apt-get
             os: ubuntu-20.04
         
 
