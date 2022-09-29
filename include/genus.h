@@ -12,15 +12,14 @@ typedef struct
   spinor_t spinor;
   
   slong* dims;
-  slong total_dim;
-
-  slong* prime_divisors;
-  slong num_prime_divisors;
-
   slong* conductors;
+  slong* num_auts;
   slong num_conductors;
-
+  
   slong** lut_positions;
+
+  matrix_TYP** isoms; // isometries corresponding to the genus representatives
+  slong* isom_primes; // the denominators for the isometries
   
 } genus_struct;
 

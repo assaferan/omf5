@@ -18,7 +18,7 @@ typedef struct {
 
 typedef spinor spinor_t[1];
 
-void spinor_init(spinor_t spinor, const fmpz_mat_t q, slong* primes, slong num_primes);
+void spinor_init(spinor_t spinor, const fmpz_mat_t q);
 void spinor_clear(spinor_t spinor);
 
 W64 spinor_norm(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom);

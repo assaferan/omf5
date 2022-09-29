@@ -25,7 +25,7 @@ typedef struct {
   hash_t capacity;
   W32 theta_prec;
 
-  int red_on_isom;
+  bool red_on_isom;
 } hash_table;
 
 typedef hash_table hash_table_t[1];
@@ -35,7 +35,7 @@ hash_t hash_form(matrix_TYP* Q, W32 theta_prec);
 
 void hash_table_init(hash_table_t table, hash_t hash_size);
 
-void hash_table_recalibrate(hash_table_t new_table, hash_table_t old_table);
+void hash_table_recalibrate(hash_table_t new_table, const hash_table_t old_table);
 
 void hash_table_clear(hash_table_t table);
 

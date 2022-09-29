@@ -11,39 +11,44 @@
 #include "spinor.h"
 #include "typedefs.h"
 
-void spinor_init(spinor_t spinor, const fmpz_mat_t q, slong* primes, slong num_primes)
+void spinor_init(spinor_t spinor, const fmpz_mat_t q)
 {
   slong prime_idx, idx, n;
-  fmpz_t p, tmp;
-  fq_nmod_ctx_t F;
+  fmpz_t tmp, det;
   fq_nmod_mat_t q_p;
+  fmpz_factor_t bad_primes;
 
   n = fmpz_mat_nrows(q);
   assert(n == fmpz_mat_ncols(q));
-    
-  spinor->num_primes = num_primes;
-  spinor->twist = (1LL << num_primes) - 1;
-  spinor->rads = (fq_nmod_mat_t*)malloc(num_primes * sizeof(fq_nmod_mat_t));
-  spinor->fields = (fq_nmod_ctx_t*)malloc(num_primes * sizeof(fq_nmod_ctx_t));
 
-  fmpz_init(p);
-  for (prime_idx = 0; prime_idx < num_primes; prime_idx++) {
-    fmpz_set_si(p, primes[prime_idx]);
-    fq_nmod_ctx_init(spinor->fields[prime_idx], p, 1, "1");
+  fmpz_init(det);
+  fmpz_mat_det(det, q);
+  fmpz_divexact_si(det, det, 2);
+  fmpz_factor_init(bad_primes);
+  fmpz_factor(bad_primes, det);
+  fmpz_clear(det);
+  
+  spinor->num_primes = bad_primes->num;
+  spinor->twist = (1LL << (bad_primes->num)) - 1;
+  spinor->rads = (fq_nmod_mat_t*)malloc((bad_primes->num) * sizeof(fq_nmod_mat_t));
+  spinor->fields = (fq_nmod_ctx_t*)malloc((bad_primes->num) * sizeof(fq_nmod_ctx_t));
+
+  // !! TODO - when n is not squarefree take only the ones with odd exponents
+  for (prime_idx = 0; prime_idx < bad_primes->num; prime_idx++) {
+    fq_nmod_ctx_init(spinor->fields[prime_idx], &(bad_primes->p[prime_idx]), 1, "1");
     fq_nmod_mat_init_set_fmpz_mat(q_p, q, spinor->fields[prime_idx]);
-    if (primes[prime_idx] == 2) {
+    if (fmpz_equal_si(&(bad_primes->p[prime_idx]),2)) {
       fmpz_init(tmp);
       for (idx = 0; idx < n; idx++) {
 	fmpz_divexact_si(tmp, fmpz_mat_entry(q, idx, idx), 2); 
-	fq_nmod_set_fmpz(fq_nmod_mat_entry(q_p,idx,idx), tmp, F);
+	fq_nmod_set_fmpz(fq_nmod_mat_entry(q_p,idx,idx), tmp, spinor->fields[prime_idx]);
       }
       fmpz_clear(tmp);
     }
-    fq_nmod_mat_kernel(spinor->rads[prime_idx], q_p, F);
+    fq_nmod_mat_kernel(spinor->rads[prime_idx], q_p, spinor->fields[prime_idx]);
     fq_nmod_mat_clear(q_p, spinor->fields[prime_idx]);
   }
-  fmpz_clear(p);
-  
+  fmpz_factor_clear(bad_primes);
   return;
 }
 
