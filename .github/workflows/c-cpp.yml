@@ -20,8 +20,9 @@ jobs:
             os: macos-10.15
           - pkg_man: sudo apt-get
             os: ubuntu-20.04
-        
-
+          - add_pkgs: libmpfr-dev
+            os: ubuntu-20.04
+            
     steps:
     - name: Checkout 
       uses: actions/checkout@v3
@@ -43,7 +44,7 @@ jobs:
         repository: lbfm-rwth/carat
         path: carat
     - name: Install autotools
-      run: ${{ matrix.pkg_man }} update && ${{ matrix.pkg_man }} install autoconf automake libtool
+      run: ${{ matrix.pkg_man }} update && ${{ matrix.pkg_man }} install autoconf automake libtool ${{ matrix.add_pkgs }}
     - name: Install flint
       run:  cd flint2 && ./configure && make && make check && make install && cd ..
     - name: Install antic
