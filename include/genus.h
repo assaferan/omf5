@@ -13,13 +13,12 @@ typedef struct
   
   slong* dims;
   slong* conductors;
-  slong* num_auts;
-  slong num_conductors;
-  
+  slong** num_auts;
   slong** lut_positions;
+  slong num_conductors;
 
   matrix_TYP** isoms; // isometries corresponding to the genus representatives
-  slong* isom_primes; // the denominators for the isometries
+  slong* isom_denoms; // the denominators for the isometries
   
 } genus_struct;
 

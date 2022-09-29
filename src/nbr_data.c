@@ -61,6 +61,15 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
 #ifdef DEBUG
   fq_nmod_init(value, nbr_man->GF);
   fq_nmod_quad_evaluate(value, nbr_man->b, nbr_man->vec, nbr_man->GF);
+  printf("b = \n");
+  fq_nmod_mat_print_pretty(nbr_man->b, nbr_man->GF);
+  printf("\n");
+  printf("vec = \n");
+  fq_nmod_mat_print_pretty(nbr_man->vec, nbr_man->GF);
+  printf("\n");
+  printf("value = ");
+  fq_nmod_print(value, nbr_man->GF);
+  printf("\n");
   assert(fq_nmod_is_zero(value, nbr_man->GF));
 #endif // DEBUG  
 

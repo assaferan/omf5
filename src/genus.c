@@ -12,6 +12,33 @@
 #include "neighbor.h"
 #include "typedefs.h"
 
+int bitcounts[256] = {
+  0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 1, 2, 2, 3, 2, 3, 3, 4, 2,
+  3, 3, 4, 3, 4, 4, 5, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3,
+  3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3,
+  4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 2, 3, 3, 4,
+  3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5,
+  6, 6, 7, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4,
+  4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5,
+  6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 2, 3, 3, 4, 3, 4, 4, 5,
+  3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 3,
+  4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 4, 5, 5, 6, 5, 6, 6, 7, 5, 6,
+  6, 7, 6, 7, 7, 8
+};
+
+int popcnt(W64 x)
+{
+  if (x <= 0xff) return bitcounts[x];
+  
+  int count = 0;
+  while (x)
+    {
+      count += bitcounts[x&0xff];
+      x >>= 8;
+    }
+  return count;
+}
+
 // !! TODO - switch to use transform
 bool is_isometry(matrix_TYP* s, matrix_TYP* q1, matrix_TYP* q2, int denom)
 {
@@ -73,13 +100,15 @@ void genus_init(genus_t genus, matrix_TYP* Q)
   fmpq_t mass, acc_mass, mass_form;
   fmpz_t prime;
   int p, current, key_num;
-  size_t genus_size, genus_idx;
+  size_t genus_size, genus_idx, gen_idx;
   fmpz_t genus_size_fmpz;
   hash_table_t slow_genus;
   fmpz_mat_t q_fmpz;
   size_t c, mask, bits;
   slong value;
   int n;
+  bool* ignore;
+  W64 vals;
   
 #ifndef NBR_DATA
   neighbor_manager nbr_man;
@@ -128,9 +157,9 @@ void genus_init(genus_t genus, matrix_TYP* Q)
   fmpz_mat_clear(q_fmpz);
 
   genus->isoms = (matrix_TYP**)malloc((slow_genus->capacity) * sizeof(matrix_TYP*));
-  genus->isom_primes = (slong*)malloc((slow_genus->capacity) * sizeof(slong));
+  genus->isom_denoms = (slong*)malloc((slow_genus->capacity) * sizeof(slong));
 
-  genus->isom_primes[0] = 1;
+  genus->isom_denoms[0] = 1;
   genus->isoms[0] = init_mat(n, n, "1");
   
   // initializing the conductors
@@ -239,15 +268,23 @@ void genus_init(genus_t genus, matrix_TYP* Q)
 	    printf("no Isometry found, adding neighbor...\n");
 #endif // DEBUG_LEVEL_FULL
 #ifdef NBR_DATA
-	    matrix_TYP_init_set_fmpz_mat(&(genus->isoms[slow_genus->num_stored]), nbr_isom);
+	    matrix_TYP_init_set_fmpz_mat(&s, nbr_isom);
 #else
 	    // !! TODO - should complete here with the isometry for the neighbor
-	    genus->isoms[slow_genus->num_stored] = init_mat(n,n,"1");
+	    s = init_mat(n,n,"1");
 #endif // NBR_DATA
-	    assert(is_isometry(genus->isoms[slow_genus->num_stored], slow_genus->keys[current], nbr, p));
-	    greedy(nbr, genus->isoms[slow_genus->num_stored], n, n);
-	    assert(is_isometry(genus->isoms[slow_genus->num_stored], slow_genus->keys[current], nbr, p));
-	    genus->isom_primes[slow_genus->num_stored] = p;
+	    assert(is_isometry(s, slow_genus->keys[current], nbr, p));
+	    greedy(nbr, s, n, n);
+	    assert(is_isometry(s, slow_genus->keys[current], nbr, p));
+	    // The genus rep isometries were initialized only to contain the
+	    // isometry between the parent and its child, we now want to update
+	    // these isometries so that they are rational isometries between the
+	    // "mother" quadratic form and the genus rep.
+	    genus->isoms[slow_genus->num_stored] = mat_mul(genus->isoms[current], s);
+	    genus->isom_denoms[slow_genus->num_stored] = p * genus->isom_denoms[current];
+	    assert(is_isometry(genus->isoms[slow_genus->num_stored], Q,
+			       nbr, genus->isom_denoms[slow_genus->num_stored]));
+	    free_mat(s);
 	    hash_table_add(slow_genus, nbr);
 	    aut_grp = automorphism_group(nbr);
 	    fmpq_set_si(mass_form, 1, aut_grp->order);
@@ -294,10 +331,60 @@ void genus_init(genus_t genus, matrix_TYP* Q)
       for (genus_idx = 0; genus_idx < genus->genus_reps->num_stored; genus_idx++)
 	genus->lut_positions[c][genus_idx] = -1;
     }
-    genus->num_auts = (slong*)malloc((genus->num_conductors)*sizeof(slong));
+    genus->num_auts = (slong**)malloc((genus->num_conductors)*sizeof(slong*));
 
     assert(genus->genus_reps->num_stored > 0);
+
+    ignore = (bool*)malloc((genus->num_conductors)*sizeof(bool));
+    for (c = 0; c < genus->num_conductors; c++)
+      genus->num_auts[c] = (slong*)malloc((genus->genus_reps->num_stored)*sizeof(slong));
     
+    for (genus_idx = 0; genus_idx < genus->genus_reps->num_stored; genus_idx++) {
+      // Determine which subspaces this representative contributes.
+      aut_grp = automorphism_group(genus->genus_reps->keys[genus_idx]);
+      
+      for (c = 0; c < genus->num_conductors; c++)
+	ignore[c] = false;
+
+      for (gen_idx = 0; gen_idx < aut_grp->gen_no; gen_idx++) {
+	assert(is_isometry(aut_grp->gen[gen_idx],
+			   genus->genus_reps->keys[genus_idx],
+			   genus->genus_reps->keys[genus_idx], 1));
+	s = mat_inv(genus->isoms[genus_idx]);
+	s = mat_mul(aut_grp->gen[gen_idx], s);
+	s = mat_mul(genus->isoms[genus_idx], s);
+	assert(is_isometry(s, Q, Q, 1));
+	// kgv remembers the denominator
+	vals = spinor_norm(genus->spinor, s, s->kgv);
+	// !! TODO - we can break the loop after we find one, right?
+	for (c = 0; c < genus->num_conductors; c++)
+	  if (!ignore[c] && (popcnt(vals & c) & 1))
+	    ignore[c] = true;
+	free_mat(s);
+      }
+
+      for (c = 0; c < genus->num_conductors; c++) {
+	if (!ignore[c]) {
+	  genus->lut_positions[c][genus_idx] = genus->dims[c];
+	  genus->num_auts[c][genus->dims[c]] = aut_grp->order;
+	}
+	genus->dims[c] += (ignore[c] ? 0 : 1);
+      }
+    }
+
+#ifdef DEBUG
+    printf("The possible conductors are: \n");
+    for (c = 0; c < genus->num_conductors; c++)
+      printf("%ld ", genus->conductors[c]);
+    printf("\n");
+    printf("The corresponding dimensions are: ");
+    for (c = 0; c < genus->num_conductors; c++)
+      printf("%ld ", genus->dims[c]);
+    printf("\n");
+#endif // DEBUG
+    
+    // should also deallocate aut_grp somehow - not clear how to do that
+    free(ignore);
     fmpq_clear(mass);
     fmpq_clear(acc_mass);
     fmpq_clear(mass_form);
@@ -314,11 +401,13 @@ void genus_init(genus_t genus, matrix_TYP* Q)
 void genus_clear(genus_t genus)
 {
   size_t c;
-
+  
+  for (c = 0; c < genus->num_conductors; c++)
+    free(genus->num_auts[c]);
   for (c = 0; c < genus->genus_reps->num_stored; c++)
     free_mat(genus->isoms[c]);
   free(genus->isoms);
-  free(genus->isom_primes);
+  free(genus->isom_denoms);
   free(genus->num_auts);
   for (c = 0; c < genus->num_conductors; c++)
     free(genus->lut_positions[c]);

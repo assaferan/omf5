@@ -8,6 +8,7 @@
 #include <flint/fq_nmod_mat.h>
 
 #include "fq_nmod_mat.h"
+#include "matrix_tools.h"
 #include "spinor.h"
 #include "typedefs.h"
 
@@ -88,12 +89,28 @@ W64 spinor_compute_vals(const spinor_t spinor, const fq_nmod_t* a)
   return val;
 }
 
+W64 spinor_norm(const spinor_t spinor, matrix_TYP* mat, int denom)
+{
+  fmpz_mat_t mat_fmpz;
+  fmpz_t denom_fmpz;
+  W64 val;
+
+  fmpz_init_set_si(denom_fmpz, denom);
+  fmpz_mat_init_set_matrix_TYP(mat_fmpz, mat);
+  
+  val = spinor_norm_fmpz_mat(spinor, mat_fmpz, denom_fmpz);
+
+  fmpz_mat_clear(mat_fmpz);
+  fmpz_clear(denom_fmpz);
+  return val;
+}
+
 // Here mat/denom is the isometry, and we're computing the spinor norm at all spinor primes
-W64 spinor_norm(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom)
+W64 spinor_norm_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom)
 {
   fq_nmod_ctx_t F;
   fq_nmod_t denom_p;
-  fq_nmod_mat_t mat_p, rad_mat;
+  fq_nmod_mat_t mat_p, mat_p_t, rad_mat;
   slong idx, row, col, pivot, prime_idx, n;
   fmpz_t det; // for some reason det is not implemented for fq_nmod_mat. we reduce the det mod p instead
   fq_nmod_t det_p;
@@ -109,6 +126,7 @@ W64 spinor_norm(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom)
   fmpz_mat_det(det, mat);
   for (prime_idx = 0; prime_idx < spinor->num_primes; prime_idx++) {
     fq_nmod_mat_init_set_fmpz_mat(mat_p, mat, spinor->fields[prime_idx]);
+    fq_nmod_mat_init(mat_p_t, n, n, spinor->fields[prime_idx]);
     fq_nmod_init(denom_p, spinor->fields[prime_idx]);
     fq_nmod_set_fmpz(denom_p, denom, spinor->fields[prime_idx]);
     // at the moment, when mat has scale divisible by p (at the bad primes)
@@ -147,11 +165,13 @@ W64 spinor_norm(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom)
     printf("scale (inverse) =  \n");
     fq_nmod_print_pretty(denom_p, spinor->fields[prime_idx]);
     printf("\n");
-#endif
+#endif // DEBUG_LEVEL_FULL
     
     fq_nmod_mat_init(rad_mat, fq_nmod_mat_nrows(spinor->rads[prime_idx], spinor->fields[prime_idx]),
 		     fq_nmod_mat_ncols(mat_p, spinor->fields[prime_idx]), spinor->fields[prime_idx]);
-    fq_nmod_mat_mul(rad_mat, spinor->rads[prime_idx], mat_p, spinor->fields[prime_idx]);
+    // we need to transpose, given the direction of our isometries
+    fq_nmod_mat_transpose(mat_p_t, mat_p, spinor->fields[prime_idx]);
+    fq_nmod_mat_mul(rad_mat, spinor->rads[prime_idx], mat_p_t, spinor->fields[prime_idx]);
 
     // for now assume rad is a single vector (we choose our lattices this way)
     // !! TODO !! -  modify to determinant so it will work in the general case
@@ -184,6 +204,7 @@ W64 spinor_norm(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom)
 
     fq_nmod_mat_clear(rad_mat, spinor->fields[prime_idx]);
     fq_nmod_clear(denom_p, spinor->fields[prime_idx]);
+    fq_nmod_mat_clear(mat_p_t, spinor->fields[prime_idx]);
     fq_nmod_mat_clear(mat_p, spinor->fields[prime_idx]);
   }
   fmpz_clear(det);

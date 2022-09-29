@@ -3,6 +3,8 @@ CC = clang
 CFLAGS = -I${GMP_PATH}/include -I${ANTIC_PATH}/include -Iinclude
 LDFLAGS = -L${GMP_PATH}/lib -L${ANTIC_PATH}/lib -lgmp -lflint -lantic -lfunctions
 
+OPT_CFLAGS = -DNDEBUG -O3 -msse3 -mavx -fomit-frame-pointer
+
 DBG_CFLAGS = -g -DDEBUG #-fsanitize=address
 
 DBG_FULL_CFLAGS = -DDEBUG_LEVEL_FULL $(DBG_CFLAGS)
@@ -32,7 +34,7 @@ NBR_DATA_DBG_FULL_TARGET = ${TARGET}_dbg_full
 all: ${TARGET} ${DBG_TARGET} ${DBG_FULL_TARGET} ${TARGET}_nbr_data ${TARGET}_nbr_data_dbg ${TARGET}_nbr_data_dbg_full
 
 ${TARGET_DIR}/%.o : %.c
-	$(CC) $(CFLAGS) -c $(patsubst $(TARGET_DIR)/%.o, $(VPATH)/%.c, $@) -o $@
+	$(CC) $(CFLAGS) $(OPT_CFLAGS) -c $(patsubst $(TARGET_DIR)/%.o, $(VPATH)/%.c, $@) -o $@
 
 ${TARGET_DIR}/%_dbg.o : %.c
 	$(CC) $(CFLAGS) $(DBG_CFLAGS) -c $(patsubst $(TARGET_DIR)/%_dbg.o, $(VPATH)/%.c, $@) -o $@
@@ -41,7 +43,7 @@ ${TARGET_DIR}/%_dbg_full.o : %.c
 	$(CC) $(CFLAGS) $(DBG_FULL_CFLAGS) -c $(patsubst $(TARGET_DIR)/%_dbg_full.o, $(VPATH)/%.c, $@) -o $@
 
 ${TARGET_DIR}/%_nbr_data.o : %.c
-	$(CC) $(CFLAGS) -DNBR_DATA -c $(patsubst $(TARGET_DIR)/%_nbr_data.o, $(VPATH)/%.c, $@) -o $@
+	$(CC) $(CFLAGS) $(OPT_CFLAGS) -DNBR_DATA -c $(patsubst $(TARGET_DIR)/%_nbr_data.o, $(VPATH)/%.c, $@) -o $@
 
 ${TARGET_DIR}/%_nbr_data_dbg.o : %.c
 	$(CC) $(CFLAGS) -DNBR_DATA $(DBG_CFLAGS) -c $(patsubst $(TARGET_DIR)/%_nbr_data_dbg.o, $(VPATH)/%.c, $@) -o $@
