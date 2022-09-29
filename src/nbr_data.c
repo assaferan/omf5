@@ -1209,8 +1209,10 @@ void fmpz_quad_transform(fmpz_mat_t new_gram, const fmpz_mat_t gram, const fmpz_
   fmpz_mat_init(isom_t, n, n);
   
   fmpz_mat_transpose(isom_t, isom);
-  fmpz_mat_mul(isom_gram, isom, gram);
-  fmpz_mat_mul(new_gram, isom_gram, isom_t);
+  //  fmpz_mat_mul(isom_gram, isom, gram);
+  // fmpz_mat_mul(new_gram, isom_gram, isom_t);
+  fmpz_mat_mul(isom_gram, isom_t, gram);
+  fmpz_mat_mul(new_gram, isom_gram, isom);
 
   fmpz_mat_scalar_divexact_si(new_gram, new_gram, scale*scale);
   
@@ -1308,11 +1310,11 @@ void fmpz_mat_hermite_form(fmpz_mat_t H, const fmpz_mat_t s, slong d)
   return;
 }
 
-void nbr_data_build_neighbor(fmpz_mat_t nbr, fmpz_mat_t hermite, const nbr_data_t nbr_man)
+void nbr_data_build_neighbor(fmpz_mat_t nbr, fmpz_mat_t s, const nbr_data_t nbr_man)
 {
   slong p, p2, p3;
   slong i, j, n;
-  fmpz_mat_t s;
+  fmpz_mat_t hermite;
 
   p = fmpz_get_si(fq_nmod_ctx_prime(nbr_man->GF));
   p2 = p*p;
@@ -1321,12 +1323,12 @@ void nbr_data_build_neighbor(fmpz_mat_t nbr, fmpz_mat_t hermite, const nbr_data_
   n = fmpz_mat_nrows(nbr_man->q);
   assert(n == fmpz_mat_ncols(nbr_man->q));
   
-  fmpz_mat_init(s, n, n);
+  fmpz_mat_init(hermite, n, n);
   // fill the isomtery by the X,Z,U
   // if lift_subspace was successful,
   // <X,X>, <X,U>,<Z,Z>,<Z,U> in p^2 and <X,Z> = 1 mod p^2
 
-  // For now, we follow thw magma implementation
+  // For now, we follow the magma implementation
   // start by scaling the basis
 
   for (i = 0; i < nbr_man->k; i++)
@@ -1356,13 +1358,13 @@ void nbr_data_build_neighbor(fmpz_mat_t nbr, fmpz_mat_t hermite, const nbr_data_
   printf("\n");
 #endif // DEBUG_LEVEL_FULL
 
-  // fmpz_mat_transpose(s, hermite);
+  fmpz_mat_transpose(s, hermite);
 
   // need to adjust determinant for s to be in SO
   // This transforms using the isometry (and rescales already)
-  fmpz_quad_transform(nbr, nbr_man->q, hermite, p);
+  fmpz_quad_transform(nbr, nbr_man->q, s, p);
 
-  fmpz_mat_clear(s);
+  fmpz_mat_clear(hermite);
   
   return;
 }

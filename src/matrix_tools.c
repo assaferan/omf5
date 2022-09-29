@@ -353,6 +353,7 @@ Z64* voronoi_bounds(int dim)
   return bounds; 
 }
 
+// !! TODO - this is leaky. Should fix that, but make sure timing is not severly comrpomised
 matrix_TYP* transform(matrix_TYP* g, matrix_TYP* Q)
 {
   return mat_mul(tr_pose(g), mat_mul(Q, g));

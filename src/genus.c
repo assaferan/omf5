@@ -12,10 +12,57 @@
 #include "neighbor.h"
 #include "typedefs.h"
 
+// !! TODO - switch to use transform
 bool is_isometry(matrix_TYP* s, matrix_TYP* q1, matrix_TYP* q2, int denom)
 {
-  // !! TODO - complete here !!
-  return true;
+  matrix_TYP *s_t, *scaled_q2;
+  matrix_TYP *q1_s, *s_t_q1_s;
+  // matrix_TYP *q1_s_t, *s_q1_s_t;
+  bool ret;
+
+#ifdef DEBUG_LEVEL_FULL
+  printf("s = \n");
+  print_mat(s);
+  printf("\n");
+  printf("q1 = \n");
+  print_mat(q1);
+  printf("\n");
+  printf("q2 = \n");
+  print_mat(q2);
+  printf("\n");
+  printf("denom = %d\n", denom);
+#endif // DEBUG_LEVEL_FULL
+  
+  s_t = tr_pose(s);
+  
+  q1_s = mat_mul(q1, s);
+  s_t_q1_s = mat_mul(s_t, q1_s);
+
+  // q1_s_t = mat_mul(q1, s_t);
+  // s_q1_s_t = mat_mul(s, q1_s_t);
+  
+#ifdef DEBUG_LEVEL_FULL
+  printf("st_q1_s = \n");
+  print_mat(s_t_q1_s);
+  // printf("s_q1_st = \n");
+  // print_mat(s_q1_s_t);
+  printf("\n");
+#endif // DEBUG_LEVEL_FULL
+  
+  scaled_q2 = copy_mat(q2);
+  iscal_mul(scaled_q2, denom*denom);
+
+  ret = (cmp_mat(s_t_q1_s,scaled_q2) == 0);
+
+  // ret = (cmp_mat(s_q1_s_t,scaled_q2) == 0);
+  
+  free(scaled_q2);
+  free_mat(s_t);
+  free_mat(s_t_q1_s);
+  free_mat(q1_s);
+  // free_mat(s_q1_s_t);
+  // free_mat(q1_s_t);
+  return ret;
 }
 
 /* compute the genus of a quadratic form */
@@ -40,13 +87,15 @@ void genus_init(genus_t genus, matrix_TYP* Q)
 #else
   nbr_data_t nbr_man;
   fmpz_mat_t nbr_isom, nbr_fmpz;
-  
-  fmpz_mat_init(nbr_isom, n, n);
-  fmpz_mat_init(nbr_fmpz, n, n);
 #endif // NBR_DATA
 
   n = Q->rows;
   assert(n == Q->cols);
+
+#ifdef NBR_DATA
+  fmpz_mat_init(nbr_isom, n, n);
+  fmpz_mat_init(nbr_fmpz, n, n);
+#endif // NBR_DATA
   
   /* until we implement the mass formula, have it fixed */
 
@@ -195,6 +244,7 @@ void genus_init(genus_t genus, matrix_TYP* Q)
 	    // !! TODO - should complete here with the isometry for the neighbor
 	    genus->isoms[slow_genus->num_stored] = init_mat(n,n,"1");
 #endif // NBR_DATA
+	    assert(is_isometry(genus->isoms[slow_genus->num_stored], slow_genus->keys[current], nbr, p));
 	    greedy(nbr, genus->isoms[slow_genus->num_stored], n, n);
 	    assert(is_isometry(genus->isoms[slow_genus->num_stored], slow_genus->keys[current], nbr, p));
 	    genus->isom_primes[slow_genus->num_stored] = p;
