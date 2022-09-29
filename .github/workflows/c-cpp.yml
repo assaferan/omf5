@@ -9,7 +9,12 @@ on:
 jobs:
   build:
 
-    runs-on: macos-latest
+    runs-on: ${{ matrix.on }}
+    
+    strategy: 
+      
+      matrix:
+        on: [ ubuntu-20.04, macos-10.15 ]
 
     steps:
     - name: Checkout 
