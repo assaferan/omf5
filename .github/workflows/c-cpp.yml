@@ -88,6 +88,8 @@ jobs:
           cd omf5
           make CARAT_PATH=../carat CC=${{ matrix.cc_cmd }}
     - name: ld_path
-      run: export LD_LIBRARY_PATH="/usr/local/lib:../flint2:../antic:../carat"
+      run: |
+           export LD_LIBRARY_PATH="./flint2:/usr/local/lib:../flint2:../antic:../carat"
+           echo "LD_LIBRARY_PATH="${LD_LIBRARY_PATH}
     - name: test
       run: ./omf5/bin/omf5 -tests
