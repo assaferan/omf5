@@ -16,10 +16,10 @@ jobs:
       matrix:
         os: [ ubuntu-20.04, macos-10.15 ]
         include:
-	  - cc_cmd: clang
-	    os: macos-10.15
-	  - cc_cmd: gcc
-	    os: ubuntu-20.04
+          - cc_cmd: clang
+            os: macos-10.15
+          - cc_cmd: gcc
+            os: ubuntu-20.04
           - pkg_man: brew
             os: macos-10.15
           - pkg_man: sudo apt-get
