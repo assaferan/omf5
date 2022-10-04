@@ -30,6 +30,10 @@ jobs:
             os: macos-10.15
           - cp_cmd: sudo cp
             os: ubuntu-20.04
+	  - cc: clang
+	    os: macos-10.15
+	  - cc: gcc
+	    os: ubuntu-20.04
             
     steps:
     - name: Checkout 
@@ -82,6 +86,6 @@ jobs:
     - name: build
       run:  |
           cd omf5
-          make CARAT_PATH=../carat
+          make CARAT_PATH=../carat CC=${{matrix.cc}}
     - name: test
       run: ./omf5/bin/omf5 -tests

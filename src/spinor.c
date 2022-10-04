@@ -70,7 +70,9 @@ W64 spinor_compute_vals(const spinor_t spinor, const fq_nmod_t* a)
 {
   W64 val, mask;
   slong i;
+#ifdef DEBUG
   fq_nmod_t neg;
+#endif // DEBUG
 
   val = 0;
   mask = 1;
@@ -108,7 +110,6 @@ W64 spinor_norm(const spinor_t spinor, matrix_TYP* mat, int denom)
 // Here mat/denom is the isometry, and we're computing the spinor norm at all spinor primes
 W64 spinor_norm_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom)
 {
-  fq_nmod_ctx_t F;
   fq_nmod_t denom_p;
   fq_nmod_mat_t mat_p, mat_p_t, rad_mat;
   slong idx, row, col, pivot, prime_idx, n;
