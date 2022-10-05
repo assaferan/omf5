@@ -90,8 +90,9 @@ jobs:
     - name: ld_path
       run: |
            export LD_LIBRARY_PATH=`pwd`/flint2
+           export LIBRARY_PATH=`pwd`/flint2
            echo "LD_LIBRARY_PATH="${LD_LIBRARY_PATH}
-           echo "listing ./flint2/libflint*"
-           echo `ls ./flint2/libflint*`
+           echo "listing "${LD_LIBRARY_PATH}
+           echo `ls ${LD_LIBRARY_PATH}/libflint*`
     - name: test
       run: ./omf5/bin/omf5 -tests
