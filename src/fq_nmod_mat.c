@@ -217,9 +217,9 @@ void fq_nmod_mat_kernel(fq_nmod_mat_t ker, const fq_nmod_mat_t mat, const fq_nmo
   slong* P;
   slong rank, row, col, n;
   fq_nmod_mat_t LU, L_inv;
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
   fq_nmod_mat_t zero;
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
 
   n = fq_nmod_mat_nrows(mat, F);
   P = (slong*)malloc(n*sizeof(slong));
@@ -246,7 +246,7 @@ void fq_nmod_mat_kernel(fq_nmod_mat_t ker, const fq_nmod_mat_t mat, const fq_nmo
     }
   }
 
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
   fq_nmod_mat_init(zero, fq_nmod_mat_nrows(ker,F), fq_nmod_mat_ncols(mat,F),F);
   fq_nmod_mat_mul(zero, ker, mat, F);
   printf("ker = \n");
@@ -265,7 +265,7 @@ void fq_nmod_mat_kernel(fq_nmod_mat_t ker, const fq_nmod_mat_t mat, const fq_nmo
   printf("\n");
   assert(fq_nmod_mat_is_zero(zero, F));
   fq_nmod_mat_clear(zero,F);
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
 
   fq_nmod_mat_clear(LU, F);
   fq_nmod_mat_clear(L_inv, F);

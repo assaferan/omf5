@@ -58,7 +58,7 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
   fq_nmod_quad_isotropic_vector(nbr_man->vec, nbr_man->b, nbr_man->GF, 0, false);
 #endif // DEBUG
 
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
   fq_nmod_init(value, nbr_man->GF);
   fq_nmod_quad_evaluate(value, nbr_man->b, nbr_man->vec, nbr_man->GF);
   printf("b = \n");
@@ -71,7 +71,7 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
   fq_nmod_print(value, nbr_man->GF);
   printf("\n");
   assert(fq_nmod_is_zero(value, nbr_man->GF));
-#endif // DEBUG  
+#endif // DEBUG_LEVEL_FULL
 
   fq_nmod_mat_init(nbr_man->p_std_gram, n, n, nbr_man->GF);
   fq_nmod_mat_init(nbr_man->p_basis, n, n, nbr_man->GF);
