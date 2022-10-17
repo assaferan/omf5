@@ -96,7 +96,7 @@ bool is_isometry(matrix_TYP* s, matrix_TYP* q1, matrix_TYP* q2, int denom)
 void genus_init(genus_t genus, matrix_TYP* Q)
 {
   bravais_TYP *aut_grp;
-  matrix_TYP *nbr, *isom, *genus_rep;
+  matrix_TYP *nbr, *isom, *genus_rep, *s;
   fmpq_t mass, acc_mass, mass_form;
   fmpz_t prime;
   int p, current, key_num;
