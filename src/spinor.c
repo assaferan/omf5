@@ -69,7 +69,9 @@ W64 spinor_compute_vals(const spinor_t spinor, const fq_nmod_t* a)
 {
   W64 val, mask;
   slong i;
+#ifdef DEBUG
   fq_nmod_t neg;
+#endif //DEBUG
 
   val = 0;
   mask = 1;
