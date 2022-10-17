@@ -2,6 +2,15 @@ Makefile
 Makefile.in
 src/Makefile
 src/Makefile.in
+*.py~
+*.sage.py
+bin/*.o
+bin/omf5
+bin/omf5_dbg
+bin/omf5_dbg_full
+bin/omf5_nbr_data
+bin/omf5_nbr_data_dbg
+bin/omf5_nbr_data_dbg_full
 .DS_Store
 *.lo
 *.la

@@ -6,16 +6,14 @@
 #include <carat/matrix.h>
 #include <flint/fmpq.h>
 
-typedef uint64_t W64;
-typedef uint32_t W32;
-typedef uint16_t W16;
+#include "typedefs.h"
 
 // We do not anticipate more than 2^32 forms in the genus...
 // Maybe changing to W16 could improve that, have to check
 
 typedef W32 hash_t;
 
-struct hash_table_t {
+typedef struct {
   matrix_TYP** keys;
   hash_t* vals;
   hash_t* key_ptr;
@@ -27,33 +25,31 @@ struct hash_table_t {
   hash_t capacity;
   W32 theta_prec;
 
-  int red_on_isom;
-};
+  bool red_on_isom;
+} hash_table;
 
-typedef struct hash_table_t hash_table;
+typedef hash_table hash_table_t[1];
 
 /* hash the form Q into an index between 0 and hash_size */
 hash_t hash_form(matrix_TYP* Q, W32 theta_prec);
 
-hash_table* create_hash(hash_t hash_size);
+void hash_table_init(hash_table_t table, hash_t hash_size);
 
-hash_table* recalibrate_hash(hash_table* table);
+void hash_table_recalibrate(hash_table_t new_table, const hash_table_t old_table);
 
-void free_hash(hash_table* table);
+void hash_table_clear(hash_table_t table);
 
-int add(hash_table* table, matrix_TYP* key);
+int hash_table_add(hash_table_t table, matrix_TYP* key);
 
-matrix_TYP* get_key(hash_table* table, matrix_TYP* key, int* index);
+matrix_TYP* hash_table_get_key(const hash_table_t table, matrix_TYP* key, int* index);
 
-int exists(hash_table* table, matrix_TYP* key, int check_isom);
+int hash_table_exists(const hash_table_t table, matrix_TYP* key, int check_isom);
 
-int indexof(const hash_table* table, matrix_TYP* key, int check_isom, double* theta_time, double* isom_time, int* num_isom);
+int hash_table_indexof(const hash_table_t table, matrix_TYP* key, int check_isom, double* theta_time, double* isom_time, int* num_isom);
 
-void expand(hash_table* table);
+void hash_table_expand(hash_table_t table);
 
-int _add(hash_table* table, matrix_TYP* key, hash_t val, int do_push_back);
-
-int insert(hash_table* table, matrix_TYP* key, hash_t val,
-	   int index, int do_push_back);
+int hash_table_insert(hash_table_t table, matrix_TYP* key, hash_t val,
+		      int index, int do_push_back);
 
 #endif // __HASH_H__

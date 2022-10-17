@@ -12,6 +12,11 @@
 // different performance times
 hash_t hash_vec(const int* vec, unsigned int n);
 
+int _add(hash_table_t table, matrix_TYP* key, hash_t val, int do_push_back);
+
+// This should be the declaration, but for some reason short_vectors doesn't restrict the pointer to be constant
+// Since we don't want to copy the matrix, we leave it at that.
+// hash_t hash_form(const matrix_TYP* Q, W32 theta_prec)
 hash_t hash_form(matrix_TYP* Q, W32 theta_prec)
 {
   hash_t x;
@@ -29,12 +34,9 @@ hash_t hash_form(matrix_TYP* Q, W32 theta_prec)
   return x;
 }
 
-hash_table* create_hash(hash_t hash_size)
+void hash_table_init(hash_table_t table, hash_t hash_size)
 {
-  hash_table* table;
   hash_t i, log_hash_size, n;
-
-  table = (hash_table*) malloc(sizeof(hash_table));
 
   log_hash_size = 0;
   n = hash_size;
@@ -60,10 +62,10 @@ hash_table* create_hash(hash_t hash_size)
     table->counts[i] = 0;
   }
   
-  return table;
+  return;
 }
 
-double get_isom_cost(hash_table* table, double* red_cost)
+double get_isom_cost(const hash_table_t table, double* red_cost)
 {
   double isom_cost;
   clock_t cputime;
@@ -108,7 +110,8 @@ double get_isom_cost(hash_table* table, double* red_cost)
   return isom_cost;
 }
 
-double get_total_cost(hash_table* table, W32 theta_prec, double isom_cost, double red_isom_cost, fmpq_t* wt_cnts)
+double get_total_cost(const hash_table_t table, W32 theta_prec, double isom_cost, double red_isom_cost, fmpq_t* wt_cnts,
+		      W32* counts, hash_t* vals, bool* red_on_isom, const fmpq_t* probs)
 {
   hash_t i, offset, idx;
   double theta_cost, total_cost;
@@ -116,34 +119,34 @@ double get_total_cost(hash_table* table, W32 theta_prec, double isom_cost, doubl
   
   for (i = 0; i < 2*table->capacity; i++) {
     fmpq_zero(wt_cnts[i]);
-    table->counts[i] = 0;
+    counts[i] = 0;
   }
   
   theta_cost = 0;
   for (offset = 0; offset < table->num_stored; offset++) {
     cputime = clock();
-    table->vals[offset] = hash_form(table->keys[offset], theta_prec);
+    vals[offset] = hash_form(table->keys[offset], theta_prec);
     theta_cost += (clock() - cputime);
-    idx = table->vals[offset] & table->mask;
-    fmpq_add(wt_cnts[idx], wt_cnts[idx], table->probs[offset]);
-    table->counts[table->vals[offset] & table->mask]++;
+    idx = vals[offset] & table->mask;
+    fmpq_add(wt_cnts[idx], wt_cnts[idx], probs[offset]);
+    counts[vals[offset] & table->mask]++;
   }
   theta_cost /= table->num_stored;
     
   total_cost = 0;
   for (i = 0; i < 2 * table->capacity; i++) {
-    total_cost += table->counts[i] * fmpq_get_d(wt_cnts[i]);
+    total_cost += counts[i] * fmpq_get_d(wt_cnts[i]);
   }
   total_cost -= 1;
   printf("Expecting average number of %f calls to is_isometric.\n", total_cost);
 
-  table->red_on_isom = TRUE;
+  *red_on_isom = true;
   for (offset = 0; offset < table->num_stored; offset++)
-    table->red_on_isom &= (table->counts[table->vals[offset] & table->mask] == 1);
+    *red_on_isom &= (counts[vals[offset] & table->mask] == 1);
 
-  table->red_on_isom = !(table->red_on_isom);
+  *red_on_isom = !(*red_on_isom);
 
-  if (table->red_on_isom)
+  if (*red_on_isom)
     total_cost *= red_isom_cost;
   else
     total_cost *= isom_cost;
@@ -157,9 +160,9 @@ double get_total_cost(hash_table* table, W32 theta_prec, double isom_cost, doubl
 // only then going over them. Since this is not a critical path,
 // we postpone doing that.
 
-hash_table* recalibrate_hash(hash_table* table)
+// table is not const, since we're using it and clearing it in the end
+void hash_table_recalibrate(hash_table_t new_table, const hash_table_t table)
 {
-  hash_table* new_table;
   hash_t offset, i;
   W32 theta_prec;
   double greedy_cost, red_isom_cost, isom_cost;
@@ -170,6 +173,8 @@ hash_table* recalibrate_hash(hash_table* table)
 
   fmpq_init(mass);
   fmpq_zero(mass);
+
+  hash_table_init(new_table, table->capacity);
   
   wt_cnts = (fmpq_t*) malloc(2*table->capacity*sizeof(fmpq_t));
   for (i = 0; i < 2 * table->capacity; i++) {
@@ -181,7 +186,7 @@ hash_table* recalibrate_hash(hash_table* table)
   }
 
   for (offset = 0; offset < table->num_stored; offset++) {
-    fmpq_div(table->probs[offset], table->probs[offset], mass);
+    fmpq_div(new_table->probs[offset], table->probs[offset], mass);
   }
   
   // first we check the cost of checking isometries with random neighbors
@@ -201,34 +206,39 @@ hash_table* recalibrate_hash(hash_table* table)
   while (total_cost < old_cost) {
     theta_prec++;
     old_cost = total_cost;
-    total_cost = get_total_cost(table, theta_prec, isom_cost, red_isom_cost + greedy_cost, wt_cnts);
+    total_cost = get_total_cost(table, theta_prec, isom_cost, red_isom_cost + greedy_cost, wt_cnts,
+				new_table->counts, new_table->vals, &(new_table->red_on_isom), new_table->probs);
   }
   // we are now passed the peak, have to go back one
   theta_prec--;
 
   // #ifdef DEBUG
-  printf("Recalibrated with theta_prec = %u and red_on_isom = %d \n", theta_prec, table->red_on_isom);
+  printf("Recalibrated with theta_prec = %u and red_on_isom = %d \n", theta_prec, new_table->red_on_isom);
   // #endif // DEBUG
   
-  new_table = create_hash(table->capacity);
   new_table->theta_prec = theta_prec;
-  new_table->red_on_isom = table->red_on_isom;
-  for (offset = 0; offset < table->num_stored; offset++)
-    add(new_table, table->keys[offset]);
 
-  free_hash(table);
+  // revert the used counts
+  for (i = 0; i < 2*new_table->capacity; i++) {
+    new_table->counts[i] = 0;
+  }
   
-  return new_table;
+  // adding all keys
+  for (offset = 0; offset < table->num_stored; offset++)
+    hash_table_add(new_table, table->keys[offset]);
+  
+  return;
 }
 
-int insert(hash_table* table, matrix_TYP* key, hash_t val,
-	   int index, int do_push_back)
+// key is non-const to prevent copying the matrices
+int hash_table_insert(hash_table_t table, matrix_TYP* key, hash_t val,
+		      int index, int do_push_back)
 {
   int offset;
   bravais_TYP* aut_grp;
   
   if (table->num_stored == table->capacity) {
-    expand(table);
+    hash_table_expand(table);
     return _add(table, key, val, do_push_back);
   }
 
@@ -248,7 +258,7 @@ int insert(hash_table* table, matrix_TYP* key, hash_t val,
   return 1; 
 }
 
-int _add(hash_table* table, matrix_TYP* key, hash_t val, int do_push_back)
+int _add(hash_table_t table, matrix_TYP* key, hash_t val, int do_push_back)
 {
   int offset, i;
   hash_t index;
@@ -258,7 +268,7 @@ int _add(hash_table* table, matrix_TYP* key, hash_t val, int do_push_back)
   while (i <= table->counts[val & table->mask]) {
     offset = table->key_ptr[index];
     if (offset == -1) 
-      return insert(table, key, val, index, do_push_back);
+      return hash_table_insert(table, key, val, index, do_push_back);
     // we first check equal hashes before testing an isometry
     if ((table->vals[offset] & table->mask) == (val & table->mask)) {
       i++;
@@ -275,18 +285,18 @@ int _add(hash_table* table, matrix_TYP* key, hash_t val, int do_push_back)
     index = (index + 1) & table->mask;
     offset = table->key_ptr[index];
   }
-  return insert(table, key, val, index, do_push_back);
+  return hash_table_insert(table, key, val, index, do_push_back);
   
 }
 
-int add(hash_table* table, matrix_TYP* key)
+int hash_table_add(hash_table_t table, matrix_TYP* key)
 {
   return _add(table, key, hash_form(key, table->theta_prec), 1);
 }
 
 /* a modified version of exists to be able to run over all with the same
 hash value */
-matrix_TYP* get_key(hash_table* table, matrix_TYP* key, int* index)
+matrix_TYP* hash_table_get_key(const hash_table_t table, matrix_TYP* key, int* index)
 {
   int offset;
   hash_t value;
@@ -312,7 +322,7 @@ matrix_TYP* get_key(hash_table* table, matrix_TYP* key, int* index)
   return table->keys[offset];
 }
 
-int exists(hash_table* table, matrix_TYP* key, int check_isom)
+int hash_table_exists(const hash_table_t table, matrix_TYP* key, int check_isom)
 {
   int offset, i;
   hash_t index, value;
@@ -341,7 +351,7 @@ int exists(hash_table* table, matrix_TYP* key, int check_isom)
   return 0;
 }
 
-int indexof(const hash_table* table, matrix_TYP* key, int check_isom, double* theta_time, double* isom_time, int* num_isom)
+int hash_table_indexof(const hash_table_t table, matrix_TYP* key, int check_isom, double* theta_time, double* isom_time, int* num_isom)
 {
   int offset, i;
   hash_t index, value;
@@ -388,7 +398,7 @@ int indexof(const hash_table* table, matrix_TYP* key, int check_isom, double* th
   return -1;
 }
 
-void expand(hash_table* table)
+void hash_table_expand(hash_table_t table)
 {
   int i, stored;
   
@@ -420,9 +430,10 @@ void expand(hash_table* table)
   for (i=0; i<stored; i++)
     _add(table, table->keys[i], table->vals[i], 0);
 
+  return;
 }
 
-void free_hash(hash_table* table)
+void hash_table_clear(hash_table_t table)
 {
   hash_t i;
   
@@ -433,7 +444,8 @@ void free_hash(hash_table* table)
     fmpq_clear(table->probs[i]);
   free(table->probs);
   free(table->counts);
-  free(table);
+
+  return;
 }
 
 /*************************************************************************************

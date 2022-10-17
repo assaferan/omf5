@@ -3,15 +3,16 @@
 
 #include <stdint.h>
 
-// We fix the rank to be hardcoded
-#define N 5
-
 typedef int STATUS;
 
 #define SUCCESS 0
 #define FAIL    1
 
 typedef int64_t Z64;
+
+typedef uint64_t W64;
+typedef uint32_t W32;
+typedef uint16_t W16;
 
 typedef int bool;
 
