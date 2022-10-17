@@ -5,7 +5,7 @@ LDFLAGS = -L${FLINT_PATH}/lib -L${GMP_PATH}/lib -L${ANTIC_PATH}/lib -L${CARAT_PA
 
 OPT_CFLAGS = -DNDEBUG -O3 -msse3 -mavx -fomit-frame-pointer
 
-DBG_CFLAGS = -g -DDEBUG #-fsanitize=address
+DBG_CFLAGS = -g -DDEBUG -Wall #-fsanitize=address
 
 DBG_FULL_CFLAGS = -DDEBUG_LEVEL_FULL $(DBG_CFLAGS)
 
@@ -52,22 +52,22 @@ ${TARGET_DIR}/%_nbr_data_dbg_full.o : %.c
 	$(CC) $(CFLAGS) -DNBR_DATA $(DBG_FULL_CFLAGS) -c $(patsubst $(TARGET_DIR)/%_nbr_data_dbg_full.o, $(VPATH)/%.c, $@) -o $@
 
 ${TARGET} : $(OBJECTS)
-	 $(CC) $(OBJECTS) -o ${TARGET} $(LDFLAGS)
+	 $(CC) $(OBJECTS) $(LDFLAGS) -o ${TARGET}
 
 ${DBG_TARGET}: $(DBG_OBJECTS)
-	 $(CC) $(DBG_OBJECTS) -o ${DBG_TARGET} $(LDFLAGS)
+	 $(CC) $(DBG_OBJECTS) $(LDFLAGS) -o ${DBG_TARGET}
 
 ${DBG_FULL_TARGET}: $(DBG_FULL_OBJECTS)
-	 $(CC) $(DBG_FULL_OBJECTS) -o ${DBG_FULL_TARGET} $(LDFLAGS)
+	 $(CC) $(DBG_FULL_OBJECTS) $(LDFLAGS) -o ${DBG_FULL_TARGET}
 
 ${TARGET}_nbr_data : $(NBR_DATA_OBJECTS)
-	 $(CC) $(NBR_DATA_OBJECTS) -o ${TARGET}_nbr_data $(LDFLAGS)
+	 $(CC) $(NBR_DATA_OBJECTS) $(LDFLAGS) -o ${TARGET}_nbr_data
 
 ${TARGET}_nbr_data_dbg: $(NBR_DATA_DBG_OBJECTS)
-	 $(CC) $(NBR_DATA_DBG_OBJECTS) -o ${TARGET}_nbr_data_dbg $(LDFLAGS)
+	 $(CC) $(NBR_DATA_DBG_OBJECTS) $(LDFLAGS) -o ${TARGET}_nbr_data_dbg
 
 ${TARGET}_nbr_data_dbg_full: $(NBR_DATA_DBG_FULL_OBJECTS)
-	 $(CC) $(NBR_DATA_DBG_FULL_OBJECTS) -o ${TARGET}_nbr_data_dbg_full $(LDFLAGS)
+	 $(CC) $(NBR_DATA_DBG_FULL_OBJECTS) $(LDFLAGS) -o ${TARGET}_nbr_data_dbg_full
 
 clean :
 	rm -f ${TARGET_DIR}/*.o ${TARGET}

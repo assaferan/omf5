@@ -96,7 +96,7 @@ bool is_isometry(matrix_TYP* s, matrix_TYP* q1, matrix_TYP* q2, int denom)
 void genus_init(genus_t genus, matrix_TYP* Q)
 {
   bravais_TYP *aut_grp;
-  matrix_TYP *nbr, *isom, *genus_rep, *s;
+  matrix_TYP *nbr, *isom, *genus_rep;
   fmpq_t mass, acc_mass, mass_form;
   fmpz_t prime;
   int p, current, key_num;
@@ -126,7 +126,10 @@ void genus_init(genus_t genus, matrix_TYP* Q)
   fmpz_mat_init(nbr_fmpz, n, n);
 #endif // NBR_DATA
   
-  /* until we implement the mass formula, have it fixed */
+#ifdef NBR_DATA
+  fmpz_mat_init(nbr_isom, n, n);
+  fmpz_mat_init(nbr_fmpz, n, n);
+#endif // NBR_DATA
 
   fmpq_init(mass);
   get_mass(mass, Q);
