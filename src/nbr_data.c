@@ -606,7 +606,7 @@ void nmod_mat_gram(nmod_mat_t gram, const nmod_mat_t B, const nmod_mat_t q, slon
   slong i,j,n;
 
   n = nmod_mat_nrows(B);
-  assert(n = nmod_mat_ncols(B));
+  assert(n == nmod_mat_ncols(B));
   
   nmod_mat_init(Bq, n, n, pp);
   nmod_mat_init(B_t, n, n, pp);
