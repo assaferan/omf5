@@ -118,7 +118,7 @@ bool handle_flag_int(const char* flag_name, const char* param_str, int* flag_val
 
   assert(flag_len == strlen(full_flag_name));
   
-  if (strncmp(param_str, full_flag_name, MAX_STR_LEN) == 0) {
+  if (strncmp(param_str, full_flag_name, flag_len) == 0) {
     *flag_val = atoi(param_str + flag_len);
     free(full_flag_name);
     return true;
@@ -149,7 +149,7 @@ int parse_matrix(const char* mat_str, int* Q_coeffs)
   idx = 0;
   len = strlen(mat_str);
   original = (char*)malloc((len+1)*sizeof(char));
-  strncpy(original, mat_str, MAX_STR_LEN);
+  memcpy(original, mat_str, len+1);
   token = strsep(&original, ",");
   while(token != NULL) {
     Q_coeffs[idx++] = atoi(token);
