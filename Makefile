@@ -3,7 +3,7 @@ CC = clang
 CFLAGS = -I${GMP_PATH}/include -I${ANTIC_PATH}/include -Iinclude
 LDFLAGS = -L${GMP_PATH}/lib -L${ANTIC_PATH}/lib -lgmp -lflint -lantic -lfunctions
 
-DBG_CFLAGS = -g -DDEBUG #-fsanitize=address
+DBG_CFLAGS = -g -DDEBUG -Wall #-fsanitize=address
 
 DBG_FULL_CFLAGS = -DDEBUG_LEVEL_FULL $(DBG_CFLAGS)
 

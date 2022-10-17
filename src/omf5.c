@@ -120,9 +120,11 @@ bool handle_flag_int(const char* flag_name, const char* param_str, int* flag_val
   
   if (strncmp(param_str, full_flag_name, MAX_STR_LEN) == 0) {
     *flag_val = atoi(param_str + flag_len);
+    free(full_flag_name);
     return true;
   }
 
+  free(full_flag_name);
   return false;
 }
 
