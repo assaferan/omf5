@@ -66,6 +66,46 @@ where the  arguments are:
     If either L or i is not supplied, only decomposes the space, and finds Hecke eigenvectors.
     If the flag -tests is supplied, additionally runs standard tests.
 
+Example runs:
+
+1. Decomposition:
+> src/omf5 -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG
+Expected cost of isometries is 72.425000
+Expected cost of reduced isometries is 441.550000
+Expecting average number of 1.354839 calls to is_isometric.
+Expecting average number of 0.129032 calls to is_isometric.
+Expecting average number of 0.000000 calls to is_isometric.
+Expecting average number of -0.000000 calls to is_isometric.
+Recalibrated with theta_prec = 3 and red_on_isom = 0 
+computing genus took 0.000000
+computing eigenvectors took 0.000000
+eigenvectors are:
+0 -4 0 3 12 6 -6 -12 over Number field with defining polynomial x+7
+1 1 1 1 1 1 1 1 over Number field with defining polynomial x-15
+-4*a^5+88*a^4-704*a^3+2548*a^2-4224*a+2584 a^5-24*a^4+212*a^3-842*a^2+1459*a-870 3*a^4-45*a^3+228*a^2-441*a+255 2*a^4-39*a^3+256*a^2-679*a+620 2*a^4-46*a^3+338*a^2-886*a+592 -4*a^4+75*a^3-479*a^2+1205*a-925 -4*a^4+80*a^3-565*a^2+1628*a-1571 -a^5+28*a^4-302*a^3+1522*a^2-3447*a+2728 over Number field with defining polynomial x^6-29*x^5+322*x^4-1714*x^3+4471*x^2-5205*x+2026
+traces of hecke eigenvalues are:
+
+traces of hecke eigenvalues T_p^2 are:
+
+computing eigenvalues took 0.000000
+
+2. Hecke eigenvalues:
+> src/omf5 -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -form_idx=0 -prec=100
+Expected cost of isometries is 70.025000
+Expected cost of reduced isometries is 442.337500
+Expecting average number of 1.354839 calls to is_isometric.
+Expecting average number of 0.129032 calls to is_isometric.
+Expecting average number of 0.000000 calls to is_isometric.
+Expecting average number of -0.000000 calls to is_isometric.
+Recalibrated with theta_prec = 3 and red_on_isom = 0 
+computing genus took 0.000000
+computing eigenvectors took 0.000000
+traces of hecke eigenvalues are:
+-7 -3 3 -9 -4 -3 37 -75 10 212 -6 -88 -3 547 -147 -108 -45 145 -632 -650 859 -978 931 -571 453 
+traces of hecke eigenvalues T_p^2 are:
+7 -9 -9 -42 
+computing eigenvalues took 124.000000
+
 ## Contribution
 
 If you want to help develop this project, please create your own fork on Github and submit a pull request. I will do my best to integrate any additional useful features as necessary. Alternatively, submit a patch to me via email at assaferan@gmail.com.
