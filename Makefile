@@ -50,22 +50,22 @@ ${TARGET_DIR}/%_nbr_data_dbg_full.o : %.c
 	$(CC) $(CFLAGS) -DNBR_DATA $(DBG_FULL_CFLAGS) -c $(patsubst $(TARGET_DIR)/%_nbr_data_dbg_full.o, $(VPATH)/%.c, $@) -o $@
 
 ${TARGET} : $(OBJECTS)
-	 $(CC) $(LDFLAGS) $(OBJECTS) -o ${TARGET}
+	 $(CC) $(OBJECTS) $(LDFLAGS) -o ${TARGET}
 
 ${DBG_TARGET}: $(DBG_OBJECTS)
-	 $(CC) $(LDFLAGS) $(DBG_OBJECTS) -o ${DBG_TARGET}
+	 $(CC) $(DBG_OBJECTS) $(LDFLAGS) -o ${DBG_TARGET}
 
 ${DBG_FULL_TARGET}: $(DBG_FULL_OBJECTS)
-	 $(CC) $(LDFLAGS) $(DBG_FULL_OBJECTS) -o ${DBG_FULL_TARGET}
+	 $(CC) $(DBG_FULL_OBJECTS) $(LDFLAGS) -o ${DBG_FULL_TARGET}
 
 ${TARGET}_nbr_data : $(NBR_DATA_OBJECTS)
-	 $(CC) $(LDFLAGS) $(NBR_DATA_OBJECTS) -o ${TARGET}_nbr_data
+	 $(CC) $(NBR_DATA_OBJECTS) $(LDFLAGS) -o ${TARGET}_nbr_data
 
 ${TARGET}_nbr_data_dbg: $(NBR_DATA_DBG_OBJECTS)
-	 $(CC) $(LDFLAGS) $(NBR_DATA_DBG_OBJECTS) -o ${TARGET}_nbr_data_dbg
+	 $(CC) $(NBR_DATA_DBG_OBJECTS) $(LDFLAGS) -o ${TARGET}_nbr_data_dbg
 
 ${TARGET}_nbr_data_dbg_full: $(NBR_DATA_DBG_FULL_OBJECTS)
-	 $(CC) $(LDFLAGS) $(NBR_DATA_DBG_FULL_OBJECTS) -o ${TARGET}_nbr_data_dbg_full
+	 $(CC) $(NBR_DATA_DBG_FULL_OBJECTS) $(LDFLAGS) -o ${TARGET}_nbr_data_dbg_full
 
 clean :
 	rm -f ${TARGET_DIR}/*.o ${TARGET}
