@@ -2,6 +2,7 @@
 
 #include "hash.h"
 #include "matrix_tools.h"
+#include "nbr_data.h"
 #include "neighbor.h"
 
 // TODO : We should be able to determine thes in a smarter way
@@ -70,38 +71,75 @@ double get_isom_cost(const hash_table_t table, double* red_cost)
   double isom_cost;
   clock_t cputime;
   hash_t idx, offset, i;
+  
+#ifdef NBR_DATA
+  nbr_data_t nbr_man;
+  fmpz_mat_t nbr_fmpz, nbr_isom;
+#else
   neighbor_manager nbr_man;
+#endif // NBR_DATA
+  
   matrix_TYP* s;
   matrix_TYP* nbr;
+  int n;
 
 #define NUM_ISOMS 10
+
+  n = table->keys[0]->rows;
+  
+#ifdef NBR_DATA
+  fmpz_mat_init(nbr_isom, n, n);
+  fmpz_mat_init(nbr_fmpz, n, n);
+#endif // NBR_DATA
 
   isom_cost = 0;
   if (red_cost != NULL)
     *red_cost = 0;
   idx = 0;
   for (offset = 0; offset < table->num_stored; offset++) {
+#ifdef NBR_DATA
+    nbr_data_init(nbr_man, table->keys[offset], 3, 1);
+#else
     init_nbr_process(&nbr_man, table->keys[offset], 3, idx);
+#endif // NBR_DATA
     for (i = 0; i <  NUM_ISOMS; i++) {
+#ifdef NBR_DATA
+      nbr_data_build_neighbor(nbr_fmpz, nbr_isom, nbr_man);
+      matrix_TYP_init_set_fmpz_mat(&nbr, nbr_fmpz);
+#else
       nbr = build_nb(&nbr_man);
+#endif // NBR_DATA
       if (red_cost != NULL) {
-	s = init_mat(5,5,"1");
+	s = init_mat(n,n,"1");
 	cputime = clock();
-	greedy(nbr, s, 5, 5);
+	greedy(nbr, s, n, n);
 	(*red_cost) += (clock() - cputime);
 	free_mat(s);
       }
       cputime = clock();
       is_isometric(table->keys[i % table->num_stored], nbr);
       isom_cost += (clock() - cputime);
+#ifdef NBR_DATA
+      nbr_data_get_next_neighbor(nbr_man);
+      if (nbr_data_has_ended(nbr_man)) {
+	idx++;
+	nbr_data_clear(nbr_man);
+	nbr_data_init(nbr_man, table->keys[offset], 3, 1);
+      }
+#else
       advance_nbr_process(&nbr_man);
       if (has_ended(&nbr_man)) {
 	idx++;
 	free_nbr_process(&nbr_man);
 	init_nbr_process(&nbr_man, table->keys[offset], 3, idx);
       }
+#endif // NBR_DATA
     }
+#ifdef NBR_DATA
+    nbr_data_clear(nbr_man);
+#else
     free_nbr_process(&nbr_man);
+#endif // NBR_DATA
   }
   isom_cost /= (NUM_ISOMS * table->num_stored);
   if (red_cost != NULL)
