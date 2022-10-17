@@ -25,9 +25,9 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
 {
   slong idx, n;
   fmpz_t p, tmp;
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
   fq_nmod_t value;
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
 
   n = q->rows;
   assert(n == q->cols);
@@ -134,9 +134,9 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
   if (!(nbr_man->is_done))
     nmod_mat_set(nbr_man->X_skew, nbr_man->X);
   
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
   fq_nmod_clear(value, nbr_man->GF);
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
   fmpz_clear(p);
   
   return;
