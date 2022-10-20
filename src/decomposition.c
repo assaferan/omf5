@@ -27,9 +27,11 @@ bool decomposition_finite_subspace(decomposition_t decomp, const genus_t genus, 
   fmpq_poly_factor_t fac;
   bool is_complete, is_complete_W;
 
+#ifdef DEBUG
   printf("decomposing subspace with basis ");
   fmpq_mat_print(basis_V);
   printf("idx = %ld, ps[idx] = %d, num_ps = %ld\n", idx, ps[idx], num_ps);
+#endif // DEBUG
   
   dim_V = fmpq_mat_nrows(basis_V);
   if (dim_V == 0) {
@@ -47,20 +49,29 @@ bool decomposition_finite_subspace(decomposition_t decomp, const genus_t genus, 
   fmpq_mat_init(T, dim_V, dim_V);
   fmpq_mat_init(fT, dim_V, dim_V);
   fmpq_poly_init(f);
+#ifdef DEBUG
   printf("idx = %ld\n",idx);
   printf("decomp->hecke[idx] = %ld\n", (long)decomp->hecke[idx]);
+#endif // DEBUG
   if (idx >= decomp->num_primes) {
+#ifdef DEBUG
     printf("computing more hecke operators\n");
+#endif // DEBUG
     (decomp->num_primes)++;
     decomp->hecke[idx] = (fmpq_mat_t*)malloc((genus->num_conductors)*sizeof(fmpq_mat_t));
     get_hecke_fmpq_mat_all_conductors(decomp->hecke[idx], genus, ps[idx], 1);
   }
+#ifdef DEBUG
   printf("idx = %ld, hecke operator is", idx);
   fmpq_mat_print(decomp->hecke[idx][c]);
   printf("restricting hecke operator to space\n");
+#endif // DEBUG
   restrict_mat(T, decomp->hecke[idx][c], basis_V);
+#ifdef DEBUG
   printf("restricted matrix is");
   fmpq_mat_print(T);
+#endif // DEBUG
+  
   fmpq_mat_charpoly(f, T);
   fmpq_poly_factor(fac, f);
 
@@ -128,7 +139,9 @@ void decompose(decomposition_t decomp, const genus_t genus, slong c)
   
   while (!(is_complete)) {
     num_ps = primes_up_to(&ps, bound);
+#ifdef DEBUG
     printf("trying to decompose with bound = %ld\n", bound);
+#endif // DEBUG
     is_complete = decomposition_finite(decomp, genus, ps, num_ps, c);
     free(ps);
     bound *= 2;
