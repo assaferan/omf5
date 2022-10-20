@@ -40,8 +40,8 @@ STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_i
   cputime = cpudiff / CLOCKS_PER_SEC;
   
   printf("computing genus took %f\n", cputime);
-  
-  evs = hecke_eigenforms(genus);
+
+  evs = hecke_eigenforms_all_conductors(genus)[0];
 
   cpuclock_1 = clock();
   cpudiff = cpuclock_1 - cpuclock_0;
@@ -49,7 +49,6 @@ STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_i
   
   printf("computing eigenvectors took %f\n", cputime);
   
-  // #ifdef DEBUG
   if (num_evs == 0) {
     printf("eigenvectors are:\n");
     for (i = 0; i < evs->num; i++) {
@@ -72,7 +71,6 @@ STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_i
       printf("\n");
     }
   }
-  // #endif // DEBUG
 
   assert(form_idx < evs->num);
   

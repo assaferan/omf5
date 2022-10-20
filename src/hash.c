@@ -1,6 +1,8 @@
-#include "carat/symm.h"
+#include <assert.h>
+#include <carat/symm.h>
 
 #include "hash.h"
+#include "isometry.h"
 #include "matrix_tools.h"
 #include "nbr_data.h"
 #include "neighbor.h"
@@ -17,7 +19,6 @@ int _add(hash_table_t table, matrix_TYP* key, hash_t val, int do_push_back);
 
 // This should be the declaration, but for some reason short_vectors doesn't restrict the pointer to be constant
 // Since we don't want to copy the matrix, we leave it at that.
-// hash_t hash_form(const matrix_TYP* Q, W32 theta_prec)
 hash_t hash_form(matrix_TYP* Q, W32 theta_prec)
 {
   hash_t x;
@@ -29,7 +30,6 @@ hash_t hash_form(matrix_TYP* Q, W32 theta_prec)
     short_vectors(Q, norm, norm, 0, 1, &(num_short[norm/2 - 1]));
   }
 
-  // x = num_short[0] - num_short[1] + num_short[2] ;
   x = hash_vec(num_short, theta_prec);
 
   return x;
@@ -423,6 +423,58 @@ int hash_table_indexof(const hash_table_t table, matrix_TYP* key, int check_isom
 	  (*isom_time) += clock() - cputime;
 	  return offset;
 	}
+	(*isom_time) += clock() - cputime;
+      }
+    }
+
+    index = (index + 1) & table->mask;
+  }
+
+  printf("Error! Key not found!\n");
+  exit(-1);
+
+  return -1;
+}
+
+int hash_table_index_and_isom(const hash_table_t table, matrix_TYP* key, matrix_TYP** isom,
+			      double* theta_time, double* isom_time, int* num_isom)
+{
+  int offset, i;
+  hash_t index, value;
+  clock_t cputime;
+  matrix_TYP* s;
+
+  cputime = clock();
+  value = hash_form(key, table->theta_prec);
+  (*theta_time) += clock() - cputime;
+  index = value & table->mask;
+  i = 0;
+  while (i < table->counts[value & table->mask]) {
+    offset = table->key_ptr[index];
+    if (offset == -1) {
+      printf("Error! Key not found!\n");
+      return -1;
+    }
+    if ((table->vals[offset] & table->mask) == (value & table->mask)) {
+      i++;
+      if (table->vals[offset] == value) {
+	(*num_isom)++;
+	cputime = clock();
+	if (table->red_on_isom) {
+	  s = init_mat(5,5,"1");
+	  greedy(key, s, 5, 5);
+	}
+	if ((*isom = tr_pose(is_isometric(key, table->keys[offset])))) {
+	  if (table->red_on_isom) {
+	    *isom = mat_mul(s, *isom);
+	    free_mat(s);
+	  }
+	  assert(is_isometry(*isom, key, table->keys[offset], 1));
+	  (*isom_time) += clock() - cputime;
+	  return offset;
+	}
+	if (table->red_on_isom)
+	  free_mat(s);
 	(*isom_time) += clock() - cputime;
       }
     }

@@ -42,13 +42,6 @@ fmpq_poly_factor_struct;
 
 typedef fmpq_poly_factor_struct fmpq_poly_factor_t[1];
 
-struct decomposition_t {
-  fmpq_mat_t* bases;
-  int num;
-};
-
-typedef struct decomposition_t decomposition;
-
 struct eigenvalues_t {
   nf_t* nfs;
   nf_elem_t* eigenvals;

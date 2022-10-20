@@ -107,6 +107,22 @@ W64 spinor_norm(const spinor_t spinor, matrix_TYP* mat, int denom)
   return val;
 }
 
+W64 spinor_norm_isom(const spinor_t spinor, isometry_t isom)
+{
+  fmpz_mat_t mat_fmpz;
+  fmpz_t denom_fmpz;
+  W64 val;
+
+  fmpz_init_set_si(denom_fmpz, isom->s->kgv);
+  fmpz_mat_init_set_matrix_TYP(mat_fmpz, isom->s);
+  
+  val = spinor_norm_fmpz_mat(spinor, mat_fmpz, denom_fmpz);
+
+  fmpz_mat_clear(mat_fmpz);
+  fmpz_clear(denom_fmpz);
+  return val;
+}
+
 // Here mat/denom is the isometry, and we're computing the spinor norm at all spinor primes
 W64 spinor_norm_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom)
 {

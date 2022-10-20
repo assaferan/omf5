@@ -1031,6 +1031,8 @@ void restrict_mat(fmpq_mat_t res_T, const fmpq_mat_t T, const fmpq_mat_t basis_W
     return;
   }
 
+  assert(fmpq_mat_ncols(T) > 0);
+  assert(fmpq_mat_nrows(basis_W) > 0);
   fmpq_mat_init(BA, fmpq_mat_nrows(basis_W), fmpq_mat_ncols(T));
   fmpq_mat_init(BA_t, fmpq_mat_ncols(T), fmpq_mat_nrows(basis_W));
   fmpq_mat_mul(BA, basis_W, T);
@@ -1039,8 +1041,10 @@ void restrict_mat(fmpq_mat_t res_T, const fmpq_mat_t T, const fmpq_mat_t basis_W
   fmpq_mat_init(B_t, fmpq_mat_ncols(basis_W), fmpq_mat_nrows(basis_W));
   fmpq_mat_transpose(B_t, basis_W);
   // transofrming to square matrices so flint will be able to solve it
+  assert(fmpq_mat_ncols(B_t) > 0);
   fmpq_mat_init(B_B_t, fmpq_mat_ncols(B_t), fmpq_mat_ncols(B_t));
   fmpq_mat_mul(B_B_t, basis_W, B_t);
+  assert(fmpq_mat_ncols(BA_t) > 0);
   fmpq_mat_init(B_BA_t, fmpq_mat_ncols(B_t), fmpq_mat_ncols(BA_t));
   fmpq_mat_mul(B_BA_t, basis_W, BA_t);
   

@@ -31,6 +31,7 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
 
   n = q->rows;
   assert(n == q->cols);
+  assert(k > 0); // no perestroika operators in odd dimension
   
   fmpz_init_set_si(p, p_int);
   fmpz_mat_init_set_matrix_TYP(nbr_man->q, q);

@@ -5,6 +5,7 @@
 
 #include <antic/nf_elem.h>
 
+#include "decomposition.h"
 #include "genus.h"
 #include "matrix_tools.h"
 #include "nbr_data.h"
@@ -35,6 +36,10 @@ void get_hecke_ev(nf_elem_t e, const genus_t genus, eigenvalues* evs, int p, int
 
 matrix_TYP* hecke_matrix(const genus_t genus, int p);
 
-eigenvalues* hecke_eigenforms(const genus_t genus);
+void get_hecke_fmpq_mat_all_conductors(fmpq_mat_t* hecke_fmpq_mat, const genus_t genus, int p, int k);
+
+eigenvalues* hecke_eigenforms(const decomposition_t D, const genus_t genus, slong c);
+
+eigenvalues** hecke_eigenforms_all_conductors(const genus_t genus);
 
 #endif // __HECKE_H__

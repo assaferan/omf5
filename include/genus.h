@@ -4,6 +4,7 @@
 #include <carat/matrix.h>
 
 #include "hash.h"
+#include "isometry.h"
 #include "spinor.h"
 
 typedef struct
@@ -17,8 +18,9 @@ typedef struct
   slong** lut_positions;
   slong num_conductors;
 
-  matrix_TYP** isoms; // isometries corresponding to the genus representatives
-  slong* isom_denoms; // the denominators for the isometries
+  isometry_t* isoms; // isometries corresponding to the genus representatives
+  // matrix_TYP** isoms; // isometries corresponding to the genus representatives
+  // slong* isom_denoms; // the denominators for the isometries
   
 } genus_struct;
 

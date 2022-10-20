@@ -47,6 +47,9 @@ int hash_table_exists(const hash_table_t table, matrix_TYP* key, int check_isom)
 
 int hash_table_indexof(const hash_table_t table, matrix_TYP* key, int check_isom, double* theta_time, double* isom_time, int* num_isom);
 
+int hash_table_index_and_isom(const hash_table_t table, matrix_TYP* key, matrix_TYP** isom,
+			      double* theta_time, double* isom_time, int* num_isom);
+
 void hash_table_expand(hash_table_t table);
 
 int hash_table_insert(hash_table_t table, matrix_TYP* key, hash_t val,
