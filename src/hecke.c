@@ -565,7 +565,7 @@ eigenvalues* hecke_eigenforms(const decomposition_t D, const genus_t genus, slon
   
   evs = (eigenvalues*)malloc(sizeof(eigenvalues));
 
-  eigenvalues_init(&evs, D->num[c], genus->genus_reps->num_stored);
+  eigenvalues_init(&evs, D->num[c], genus->dims[c]);
   
   for (i = 0; i < D->num[c]; i++) {
     get_eigenvector(evs->eigenvecs[i], evs->nfs[i], D->hecke[0][c], D->bases[c][i]);
