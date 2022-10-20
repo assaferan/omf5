@@ -400,7 +400,7 @@ matrix_TYP* hecke_matrix(const genus_t genus, int p)
   return hecke;
 }
 
-void get_hecke_ev_nbr_data(nf_elem_t e, const genus_t genus, eigenvalues* evs,
+void get_hecke_ev_nbr_data(nf_elem_t e, const genus_t genus, const eigenvalues* evs,
 			   int p, int k, int ev_idx)
 {
   int* a;
@@ -472,7 +472,7 @@ void get_hecke_ev_nbr_data(nf_elem_t e, const genus_t genus, eigenvalues* evs,
   return;
 }
 
-void get_hecke_ev(nf_elem_t e, const genus_t genus, eigenvalues* evs, int p, int ev_idx)
+void get_hecke_ev(nf_elem_t e, const genus_t genus, const eigenvalues* evs, int p, int ev_idx)
 {
   int* a;
   int num, i, pivot;

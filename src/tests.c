@@ -7,13 +7,104 @@
 #include "matrix_tools.h"
 #include "tests.h"
 
+void print_eigenvectors(const eigenvalues* evs)
+{
+  int i, j;
+  slong deg;
+  
+  printf("eigenvectors are:\n");
+  for (i = 0; i < evs->num; i++) {
+    deg = fmpq_poly_degree(evs->nfs[i]->pol);
+    if (deg < 10) {
+      for (j = 0; j < evs->dim; j++) {
+	nf_elem_print_pretty(evs->eigenvecs[i][j], evs->nfs[i], "a");
+	printf(" ");
+      }
+    }
+    else
+      printf("a vector of length %d ", evs->dim);
+    printf("over ");
+    if (deg < 10) {
+      nf_print(evs->nfs[i]);
+    }
+    else {
+      printf("a number field of degree %ld", deg);
+    }
+    printf("\n");
+  }
+
+  return;
+}
+
+STATUS test_eigenvalues(const genus_t genus, const eigenvalues* evs,
+			int num_evs, int form_idx, const int* ps, const int* test_evs)
+{
+  int i;
+  nf_elem_t ev;
+  fmpq_t trace;
+#ifdef DEBUG_LEVEL_FULL
+  int j;
+  matrix_TYP* hecke;
+#endif // DEBUG_LEVEL_FULL
+
+  fmpq_init(trace);
+  
+  printf("traces of hecke eigenvalues are:\n");
+  for (i = 0; i < num_evs; i++) {
+#ifdef NBR_DATA
+    get_hecke_ev_nbr_data(ev, genus, evs, ps[i], 1, form_idx);
+#else
+    get_hecke_ev(ev, genus, evs, ps[i], form_idx);
+#endif
+    nf_elem_trace(trace, ev, evs->nfs[form_idx]);
+    fmpq_print(trace);
+    // nf_elem_print_pretty(ev, evs->nfs[form_idx], "a");
+    printf(" ");
+    fflush(stdout); //make sure to print every time it computes an eigenvalue
+    nf_elem_clear(ev, evs->nfs[form_idx]);
+    if (test_evs != NULL) {
+      if (!nf_elem_equal_si(ev, test_evs[i], evs->nfs[form_idx])) {
+	fmpq_clear(trace);
+	return FAIL;
+      }
+    }
+    
+#ifdef DEBUG_LEVEL_FULL
+    hecke = hecke_matrix(genus, ps[i]);
+    print_mat(hecke);
+    
+    printf("traces of all hecke eigenvalues are:\n");
+    for (j = 0; j < evs->num; j++) {
+#ifdef NBR_DATA
+      get_hecke_ev_nbr_data(ev, genus, evs, ps[i], 1, j);
+#else
+      get_hecke_ev(ev, genus, evs, ps[i], j);
+#endif // NBR_DATA
+      nf_elem_trace(trace, ev, evs->nfs[j]);
+      // nf_elem_print_pretty(ev, evs->nfs[j], "a");
+      fmpq_print(trace);
+      printf(" ");
+      nf_elem_clear(ev, evs->nfs[j]);
+    }
+    printf("\n");
+    free_mat(hecke);
+#endif // DEBUG_LEVEL_FULL
+   
+  }
+
+  printf("\n");
+
+  fmpq_clear(trace);
+  return SUCCESS;
+}
+
 /* Run with test_evs = NULL to just print all the eigenvalues.
    Run with num_evs = 0 to print all the eigenvectors          */
 
-STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_idx, const char* inp_type)
+STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs,
+	    int form_idx, const char* inp_type)
 {
   int i;
-  int j;
 
   genus_t genus;
   clock_t cpuclock_0, cpuclock_1, cpudiff;
@@ -21,12 +112,8 @@ STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_i
   fmpq_t trace;
 
   matrix_TYP* Q; //, *hecke;
-#ifdef DEBUG_LEVEL_FULL
-  matrix_TYP* hecke;
-#endif // DEBUG_LEVEL_FULL
   eigenvalues* evs;
   nf_elem_t ev;
-  slong deg;
 
   fmpq_init(trace);
   
@@ -50,78 +137,17 @@ STATUS test(const int* Q_coeffs, int* ps, int* test_evs, int num_evs, int form_i
   printf("computing eigenvectors took %f\n", cputime);
   
   if (num_evs == 0) {
-    printf("eigenvectors are:\n");
-    for (i = 0; i < evs->num; i++) {
-      deg = fmpq_poly_degree(evs->nfs[i]->pol);
-      if (deg < 10) {
-	  for (j = 0; j < evs->dim; j++) {
-	    nf_elem_print_pretty(evs->eigenvecs[i][j], evs->nfs[i], "a");
-	    printf(" ");
-	  }
-      }
-      else
-	printf("a vector of length %d ", evs->dim);
-      printf("over ");
-      if (deg < 10) {
-	nf_print(evs->nfs[i]);
-      }
-      else {
-	printf("a number field of degree %ld", deg);
-      }
-      printf("\n");
-    }
+    print_eigenvectors(evs);
   }
 
   assert(form_idx < evs->num);
-  
-  printf("traces of hecke eigenvalues are:\n");
-  for (i = 0; i < num_evs; i++) {
-#ifdef NBR_DATA
-    get_hecke_ev_nbr_data(ev, genus, evs, ps[i], 1, form_idx);
-#else
-    get_hecke_ev(ev, genus, evs, ps[i], form_idx);
-#endif
-    nf_elem_trace(trace, ev, evs->nfs[form_idx]);
-    fmpq_print(trace);
-    // nf_elem_print_pretty(ev, evs->nfs[form_idx], "a");
-    printf(" ");
-    fflush(stdout); //make sure to print every time it computes an eigenvalue
-    nf_elem_clear(ev, evs->nfs[form_idx]);
-    if (test_evs != NULL) {
-      if (!nf_elem_equal_si(ev, test_evs[i], evs->nfs[form_idx])) {
-	free_eigenvalues(evs);
-	genus_clear(genus);
-	free_mat(Q);
-	return FAIL;
-      }
-    }
 
-    
-
-#ifdef DEBUG_LEVEL_FULL
-    hecke = hecke_matrix(genus, ps[i]);
-    print_mat(hecke);
-
-    printf("traces of all hecke eigenvalues are:\n");
-    for (j = 0; j < evs->num; j++) {
-#ifdef NBR_DATA
-      get_hecke_ev_nbr_data(ev, genus, evs, ps[i], 1, j);
-#else
-      get_hecke_ev(ev, genus, evs, ps[i], j);
-#endif // NBR_DATA
-      nf_elem_trace(trace, ev, evs->nfs[j]);
-      // nf_elem_print_pretty(ev, evs->nfs[j], "a");
-      fmpq_print(trace);
-      printf(" ");
-      nf_elem_clear(ev, evs->nfs[j]);
-    }
-    printf("\n");
-    free_mat(hecke);
-#endif // DEBUG_LEVEL_FULL
-   
+  if (test_eigenvalues(genus, evs, num_evs, form_idx, ps, test_evs) == FAIL) { 
+    free_eigenvalues(evs);
+    genus_clear(genus);
+    free_mat(Q);
+    return FAIL;
   }
-
-  printf("\n");
 
   // we only go up to square root of what was asked for p
   printf("traces of hecke eigenvalues T_p^2 are:\n");

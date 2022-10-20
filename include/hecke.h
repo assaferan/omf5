@@ -30,9 +30,9 @@ void hecke_col_nbr_data(int* T, int p, int k, int gen_idx, const genus_t genus);
 
 void hecke_col(int* T, int p, int gen_idx, const genus_t genus);
 
-void get_hecke_ev_nbr_data(nf_elem_t e, const genus_t genus, eigenvalues* evs, int p, int k, int ev_idx);
+void get_hecke_ev_nbr_data(nf_elem_t e, const genus_t genus, const eigenvalues* evs, int p, int k, int ev_idx);
 
-void get_hecke_ev(nf_elem_t e, const genus_t genus, eigenvalues* evs, int p, int ev_idx);
+void get_hecke_ev(nf_elem_t e, const genus_t genus, const eigenvalues* evs, int p, int ev_idx);
 
 matrix_TYP* hecke_matrix(const genus_t genus, int p);
 
