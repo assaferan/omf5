@@ -412,8 +412,8 @@ void get_hecke_ev_nbr_data(nf_elem_t e, const genus_t genus, const eigenvalues* 
 
   nf_elem_init(e, evs->nfs[ev_idx]);
   nf_elem_init(prod, evs->nfs[ev_idx]);
-  a = (int*)malloc(genus->genus_reps->num_stored * sizeof(int));
-  for (num = 0; num < genus->genus_reps->num_stored; num++)
+  a = (int*)malloc(evs->dim * sizeof(int));
+  for (num = 0; num < evs->dim; num++)
     a[num] = 0;
 
   for (pivot = 0; pivot < evs->dim;) {
@@ -472,6 +472,122 @@ void get_hecke_ev_nbr_data(nf_elem_t e, const genus_t genus, const eigenvalues* 
   
   return;
 }
+
+
+void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
+					  const eigenvalues* evs,
+					  int p, int k, int ev_idx, slong ev_cond)
+{
+  int** hecke;
+  int num, i, pivot, num_nbrs,spin_idx;
+  slong c, npos, rpos, gen_idx;
+  nf_elem_t prod;
+  fmpz_mat_t q;
+  fmpz_t disc;
+  slong* lut;
+  int* row;
+  W64* spin_vals;
+  W64 r;
+#ifdef DEBUG
+  clock_t cpuclock;
+  double cputime;
+  
+  cpuclock = clock();
+#endif // DEBUG
+  
+  nf_elem_init(e, evs->nfs[ev_idx]);
+  nf_elem_init(prod, evs->nfs[ev_idx]);
+
+  for (pivot = 0; pivot < evs->dim;) {
+    if (!(nf_elem_is_zero(evs->eigenvecs[ev_idx][pivot], evs->nfs[ev_idx]))) {
+      break;
+    }
+    pivot++;
+  }
+
+  for (gen_idx = 0; gen_idx < genus->dims[0];) {
+    if (pivot == genus->lut_positions[ev_cond][gen_idx])
+      break;
+    gen_idx++;
+  }
+  
+  hecke = (int**)malloc(genus->num_conductors * sizeof(int*));
+  
+  for (c = 0; c < genus->num_conductors; c++) {
+    hecke[c] = (int*)malloc(genus->dims[c] * sizeof(int));
+    for (i = 0; i < genus->dims[c]; i++)
+      hecke[c][i] = 0;
+  }
+  
+  num_nbrs = p*p*p+p*p+p+1;
+  if (k == 2) {
+    num_nbrs *= p;
+  }
+  assert((k == 1) || (k == 2));
+  spin_vals = (W64*)malloc(num_nbrs*sizeof(W64));
+  hecke_col_nbr_data_all_conductors(spin_vals, p, k, gen_idx, genus);
+
+  for (c = 0; c < genus->num_conductors; c++) {
+    lut = genus->lut_positions[c];
+    npos = lut[gen_idx];
+    if (unlikely(npos==-1)) continue;
+    row = hecke[c];
+    for (spin_idx = 0; spin_idx < num_nbrs; spin_idx++) {
+      r = spin_vals[spin_idx] >> (genus->spinor->num_primes);
+      rpos = lut[r];
+      if (unlikely(rpos==-1)) continue;
+      row[rpos] += char_val(spin_vals[spin_idx] & c);
+    }
+  }
+
+  free(spin_vals);
+
+#ifdef DEBUG
+  cpuclock = clock() - cpuclock;
+  cputime = cpuclock / CLOCKS_PER_SEC;
+#endif // DEBUG
+  
+  nf_elem_zero(e, evs->nfs[ev_idx]);
+  for (i = 0; i < evs->dim; i++) {
+    nf_elem_set_si(prod, hecke[ev_cond][i], evs->nfs[ev_idx]);
+    nf_elem_mul(prod, prod, evs->eigenvecs[ev_idx][i], evs->nfs[ev_idx]);
+    nf_elem_add(e, e, prod, evs->nfs[ev_idx]);
+  }
+  nf_elem_div(e, e, evs->eigenvecs[ev_idx][pivot], evs->nfs[ev_idx]);
+
+  // handling the case p divides the discriminant
+  if (genus->genus_reps->num_stored > 0) {
+    fmpz_mat_init_set_matrix_TYP(q, genus->genus_reps->keys[0]);
+    fmpz_init(disc);
+    fmpz_mat_det(disc, q);
+    fmpz_divexact_si(disc,disc,2);
+    if (fmpz_get_si(disc) % p == 0) {
+      nf_elem_add_si(e, e, 1, evs->nfs[ev_idx]);
+    }
+    fmpz_mat_clear(q);
+    fmpz_clear(disc);
+  }
+
+#ifdef DEBUG
+  printf("%4d ", p);
+  nf_elem_print_pretty(e, evs->nfs[ev_idx], "a");
+  printf(" - ");
+  for (num = 0; num < genus->genus_reps->num_stored; num++)
+    printf("%10d ", hecke[ev_cond][num]);
+  
+  printf("- %10f\n", cputime);
+#endif // DEBUG
+
+  nf_elem_clear(prod, evs->nfs[ev_idx]);
+
+  for (c = 0; c < genus->num_conductors; c++)
+    free(hecke[c]);
+
+  free(hecke);
+  
+  return;
+}
+
 
 void get_hecke_ev(nf_elem_t e, const genus_t genus, const eigenvalues* evs, int p, int ev_idx)
 {

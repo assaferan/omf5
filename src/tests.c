@@ -38,7 +38,7 @@ void print_eigenvectors(const eigenvalues* evs)
 
 STATUS test_eigenvalues(const genus_t genus, const eigenvalues* evs,
 			int num_evs, int form_idx, const int* ps,
-			const int* test_evs, int k)
+			const int* test_evs, int k, int c)
 {
   int i;
   nf_elem_t ev;
@@ -53,10 +53,10 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues* evs,
   printf("traces of hecke eigenvalues of T_{p^%d} are:\n", k);
   for (i = 0; i < num_evs; i++) {
     if (k == 2)
-      get_hecke_ev_nbr_data(ev, genus, evs, ps[i], k, form_idx);
+      get_hecke_ev_nbr_data_all_conductors(ev, genus, evs, ps[i], k, form_idx, c);
     else {
 #ifdef NBR_DATA
-      get_hecke_ev_nbr_data(ev, genus, evs, ps[i], k, form_idx);
+      get_hecke_ev_nbr_data_all_conductors(ev, genus, evs, ps[i], k, form_idx, c);
 #else
       get_hecke_ev(ev, genus, evs, ps[i], form_idx);
 #endif
@@ -121,14 +121,10 @@ STATUS test(const example_t ex)
   genus_t genus;
   clock_t cpuclock_0, cpuclock_1, cpudiff;
   double cputime;
-  // fmpq_t trace;
 
-  matrix_TYP* Q; //, *hecke;
+  matrix_TYP* Q;
   eigenvalues** evs;
-  // nf_elem_t ev;
   const int* test_evs = NULL;
-
-  // fmpq_init(trace);
   
   cpuclock_0 = clock();
 
@@ -169,7 +165,7 @@ STATUS test(const example_t ex)
 	if (ex->num_conductors != 0)
 	  test_evs = ex->test_evs[c][form_idx][k];
 	if (test_eigenvalues(genus, evs[c], ex->num_ps[k], form_idx,
-			     ex->ps[k], test_evs, k+1) == FAIL) {
+			     ex->ps[k], test_evs, k+1, c) == FAIL) {
 	  for (c2 = 0; c2 < genus->num_conductors; c2++)
 	    free_eigenvalues(evs[c2]);
 	  free(evs);
@@ -186,7 +182,6 @@ STATUS test(const example_t ex)
   
   printf("computing eigenvalues took %f\n", cputime);
 
-  // fmpq_clear(trace);
   for (c = 0; c < genus->num_conductors; c++)
     free_eigenvalues(evs[c]);
   free(evs);
