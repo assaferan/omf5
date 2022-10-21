@@ -677,15 +677,22 @@ void get_hecke_fmpq_mat_all_conductors(fmpq_mat_t* hecke_fmpq_mat, const genus_t
 
 eigenvalues* hecke_eigenforms(const decomposition_t D, const genus_t genus, slong c)
 {
-  slong i;
+  slong i, p_idx;
   eigenvalues* evs;
+  bool ev_init;
   
   evs = (eigenvalues*)malloc(sizeof(eigenvalues));
 
   eigenvalues_init(&evs, D->num[c], genus->dims[c]);
   
   for (i = 0; i < D->num[c]; i++) {
-    get_eigenvector(evs->eigenvecs[i], evs->nfs[i], D->hecke[0][c], D->bases[c][i]);
+    p_idx = 0;
+    ev_init = false;
+    do {
+      ev_init = get_eigenvector_on_subspace(evs->eigenvecs[i], evs->nfs[i],
+					    D->hecke[p_idx][c], D->bases[c][i]);
+      p_idx++;
+    } while (!ev_init);
     nf_elem_init(evs->eigenvals[i], evs->nfs[i]);
     nf_elem_gen(evs->eigenvals[i], evs->nfs[i]);
   }

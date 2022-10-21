@@ -32,16 +32,6 @@ matrix_TYP* minkowski_reduce(matrix_TYP* Q);
 
 void greedy(matrix_TYP* gram, matrix_TYP* s, int n, int dim);
 
-typedef struct
-{
-  fmpq_poly_struct *p;
-  slong *exp;
-  slong num;
-}
-fmpq_poly_factor_struct;
-
-typedef fmpq_poly_factor_struct fmpq_poly_factor_t[1];
-
 struct eigenvalues_t {
   nf_t* nfs;
   nf_elem_t* eigenvals;
@@ -54,7 +44,7 @@ typedef struct eigenvalues_t eigenvalues;
 
 void eigenvalues_init(eigenvalues** evs, slong num, slong dim);
 
-void get_eigenvector(nf_elem_t* evec, nf_t nf, const fmpq_mat_t T, const fmpq_mat_t basis_W);
+bool get_eigenvector_on_subspace(nf_elem_t* evec, nf_t nf, const fmpq_mat_t T, const fmpq_mat_t basis_W);
 
 eigenvalues* get_eigenvalues(matrix_TYP* mat);
 
@@ -68,12 +58,6 @@ void fq_nmod_mat_init_set_fmpz_mat(fq_nmod_mat_t dest, const fmpz_mat_t mat, con
 
 void restrict_mat(fmpq_mat_t res_T, const fmpq_mat_t T, const fmpq_mat_t basis_W);
 
-void fmpq_poly_factor(fmpq_poly_factor_t factors, const fmpq_poly_t f);
-
-void fmpq_poly_evaluate_fmpq_mat(fmpq_mat_t res, const fmpq_poly_t poly, const fmpq_mat_t a);
-
 void kernel_on(fmpq_mat_t ker, const fmpq_mat_t A, const fmpq_mat_t B);
-
-void fmpq_poly_factor_free(fmpq_poly_factor_t factors);
 
 #endif // __MATRIX_TOOLS_H__

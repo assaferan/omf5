@@ -3,6 +3,7 @@
 
 #include "arith.h"
 #include "decomposition.h"
+#include "fmpq_poly.h"
 #include "genus.h"
 #include "hecke.h"
 
@@ -97,7 +98,7 @@ bool decomposition_finite_subspace(decomposition_t decomp, const genus_t genus, 
   fmpq_mat_clear(W);
   fmpq_mat_clear(fT);
   fmpq_mat_clear(T);
-  fmpq_poly_factor_free(fac);
+  fmpq_poly_factor_clear(fac);
   fmpq_poly_clear(f);
   
   return is_complete;
