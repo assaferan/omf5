@@ -133,7 +133,7 @@ bool nf_elem_is_square(const nf_elem_t x, const nf_t K)
   fmpq_poly_factor(fac, min_poly);
 
   for (i = 0; i < fac->num; i++) {
-    if (fmpq_poly_degree(&(fac->p[i])) == 1) {
+    if (fac->num > 1) { // Theorem 1.4 from Landau's paper
       is_sqr = true;
       break;
     }

@@ -292,7 +292,8 @@ void hecke_col(int* T, int p, int gen_idx, const genus_t genus)
   return;
 }
 
-void hecke_col_nbr_data_all_conductors(W64* spin_vals, int p, int k, int gen_idx, const genus_t genus)
+// Returns the number of neighbours processed
+int hecke_col_nbr_data_all_conductors(W64* spin_vals, int p, int k, int gen_idx, const genus_t genus)
 {
   int num_isom, lc;
   double theta_time, isom_time, total_time;
@@ -307,7 +308,7 @@ void hecke_col_nbr_data_all_conductors(W64* spin_vals, int p, int k, int gen_idx
   printf("theta_time = %f, isom_time = %f, total_time = %f, num_isom = %d / %d \n", theta_time/lc, isom_time/lc, total_time, num_isom, lc);
 #endif // DEBUG
 
-  return;
+  return lc;
 }
 
 int char_vals[256] = {
@@ -367,7 +368,8 @@ matrix_TYP** hecke_matrices_all_conductors(const genus_t genus, int p, int k)
   spin_vals = (W64*)malloc(num_nbrs*sizeof(W64));
   
   for (gen_idx = 0; gen_idx < genus->genus_reps->num_stored; gen_idx++) {
-    hecke_col_nbr_data_all_conductors(spin_vals, p, k, gen_idx, genus);
+    // These are equal when the prime is good
+    num_nbrs = hecke_col_nbr_data_all_conductors(spin_vals, p, k, gen_idx, genus);
     for (c = 0; c < genus->num_conductors; c++) {
       lut = genus->lut_positions[c];
       npos = lut[gen_idx];
@@ -525,7 +527,7 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
   }
   assert((k == 1) || (k == 2));
   spin_vals = (W64*)malloc(num_nbrs*sizeof(W64));
-  hecke_col_nbr_data_all_conductors(spin_vals, p, k, gen_idx, genus);
+  num_nbrs = hecke_col_nbr_data_all_conductors(spin_vals, p, k, gen_idx, genus);
 
   for (c = 0; c < genus->num_conductors; c++) {
     lut = genus->lut_positions[c];

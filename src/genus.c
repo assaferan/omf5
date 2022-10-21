@@ -334,7 +334,7 @@ void genus_init(genus_t genus, matrix_TYP* Q)
       }
     }
 
-#ifdef DEBUG
+    // #ifdef DEBUG
     printf("The possible conductors are: \n");
     for (c = 0; c < genus->num_conductors; c++)
       printf("%ld ", genus->conductors[c]);
@@ -343,7 +343,7 @@ void genus_init(genus_t genus, matrix_TYP* Q)
     for (c = 0; c < genus->num_conductors; c++)
       printf("%ld ", genus->dims[c]);
     printf("\n");
-#endif // DEBUG
+    // #endif // DEBUG
     
     // should also deallocate aut_grp somehow - not clear how to do that
     free(ignore);

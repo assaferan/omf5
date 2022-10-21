@@ -461,8 +461,9 @@ int hash_table_index_and_isom(const hash_table_t table, matrix_TYP* key, matrix_
       if (table->vals[offset] == value) {
 	(*num_isom)++;
 	cputime = clock();
-	if ((table->red_on_isom) && (key_copy == NULL)) {
+	if (key_copy == NULL)
 	  key_copy = copy_mat(key);
+	if (table->red_on_isom) {
 	  s = init_mat(5,5,"1");
 	  greedy(key_copy, s, 5, 5);
 	  assert(is_isometry(s, key, key_copy, 1));
