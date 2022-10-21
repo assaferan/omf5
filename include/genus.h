@@ -11,6 +11,7 @@ typedef struct
 {
   hash_table_t genus_reps;
   spinor_t spinor;
+  fmpz_t disc;
   
   slong* dims;
   slong* conductors;
@@ -19,8 +20,6 @@ typedef struct
   slong num_conductors;
 
   isometry_t* isoms; // isometries corresponding to the genus representatives
-  // matrix_TYP** isoms; // isometries corresponding to the genus representatives
-  // slong* isom_denoms; // the denominators for the isometries
   
 } genus_struct;
 

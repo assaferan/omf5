@@ -79,6 +79,8 @@ void genus_init(genus_t genus, matrix_TYP* Q)
   fmpz_mat_init(nbr_fmpz, n, n);
 #endif // NBR_DATA
 
+  fmpz_init(genus->disc);
+
   fmpq_init(mass);
   get_mass(mass, Q);
   
@@ -104,16 +106,14 @@ void genus_init(genus_t genus, matrix_TYP* Q)
   hash_table_add(slow_genus, Q);
 
   fmpz_mat_init_set_matrix_TYP(q_fmpz, Q);
+  fmpz_mat_det(genus->disc, q_fmpz);
+  fmpz_divexact_si(genus->disc, genus->disc, 2);
   spinor_init(genus->spinor, q_fmpz);
   fmpz_mat_clear(q_fmpz);
 
   genus->isoms = (isometry_t*)malloc((slow_genus->capacity) * sizeof(isometry_t));
-  // genus->isoms = (matrix_TYP**)malloc((slow_genus->capacity) * sizeof(matrix_TYP*));
-  // genus->isom_denoms = (slong*)malloc((slow_genus->capacity) * sizeof(slong));
 
   isometry_init(genus->isoms[0], init_mat(n, n, "1"), 1);
-  // genus->isom_denoms[0] = 1;
-  //genus->isoms[0] = init_mat(n, n, "1");
   
   // initializing the conductors
   
@@ -225,10 +225,10 @@ void genus_init(genus_t genus, matrix_TYP* Q)
 #else
 	    // !! TODO - should complete here with the isometry for the neighbor
 	    isometry_init(s, init_mat(n,n, "1"), 1);
-	    // s = init_mat(n,n,"1");
+	    
 #endif // NBR_DATA
 	    assert(isometry_is_isom(s, slow_genus->keys[current], nbr));
-	    //assert(is_isometry(s, slow_genus->keys[current], nbr, p));
+	    
 	    greedy(nbr, s->s, n, n);
 	    s->s_inv = mat_inv(s->s);
 	    assert(isometry_is_isom(s, slow_genus->keys[current], nbr));
@@ -240,13 +240,11 @@ void genus_init(genus_t genus, matrix_TYP* Q)
 	    isometry_init(genus->isoms[slow_genus->num_stored], s->s, 1);
 	    isometry_mul(genus->isoms[slow_genus->num_stored], genus->isoms[current],
 			 genus->isoms[slow_genus->num_stored]);
-	    // genus->isoms[slow_genus->num_stored] = mat_mul(genus->isoms[current], s);
-	    // genus->isom_denoms[slow_genus->num_stored] = p * genus->isom_denoms[current];
+	  
 	    assert(isometry_is_isom(genus->isoms[slow_genus->num_stored], Q, nbr));
-	    //  assert(is_isometry(genus->isoms[slow_genus->num_stored], Q,
-	    // nbr, genus->isom_denoms[slow_genus->num_stored]));
+	    
 	    isometry_clear(s);
-	    // free_mat(s);
+	    
 	    hash_table_add(slow_genus, nbr);
 	    aut_grp = automorphism_group(nbr);
 	    fmpq_set_si(mass_form, 1, aut_grp->order);
@@ -315,20 +313,16 @@ void genus_init(genus_t genus, matrix_TYP* Q)
 	isometry_inv(s, genus->isoms[genus_idx]);
 	isometry_mul_mat_left(s, aut_grp->gen[gen_idx], s);
 	isometry_mul(s, genus->isoms[genus_idx], s);
-	// s = mat_inv(genus->isoms[genus_idx]);
-	// s = mat_mul(aut_grp->gen[gen_idx], s);
-	// s = mat_mul(genus->isoms[genus_idx], s);
+	
 	assert(isometry_is_isom(s, Q, Q));
-	// assert(is_isometry(s, Q, Q, 1));
-	// kgv remembers the denominator
-	// vals = spinor_norm(genus->spinor, s, s->kgv);
+	
 	vals = spinor_norm_isom(genus->spinor, s);
 	// !! TODO - we can break the loop after we find one, right?
 	for (c = 0; c < genus->num_conductors; c++)
 	  if (!ignore[c] && (popcnt(vals & c) & 1))
 	    ignore[c] = true;
 	isometry_clear(s);
-	// free_mat(s);
+	
       }
 
       for (c = 0; c < genus->num_conductors; c++) {
@@ -368,15 +362,16 @@ void genus_init(genus_t genus, matrix_TYP* Q)
 
 void genus_clear(genus_t genus)
 {
-  size_t c;
+  slong c;
+
+  fmpz_clear(genus->disc);
   
   for (c = 0; c < genus->num_conductors; c++)
     free(genus->num_auts[c]);
   for (c = 0; c < genus->genus_reps->num_stored; c++)
-    //    free_mat(genus->isoms[c]);
     isometry_clear(genus->isoms[c]);
   free(genus->isoms);
-  // free(genus->isom_denoms);
+ 
   free(genus->num_auts);
   for (c = 0; c < genus->num_conductors; c++)
     free(genus->lut_positions[c]);

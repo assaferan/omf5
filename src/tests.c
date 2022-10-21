@@ -1,13 +1,14 @@
 #include <assert.h>
 #include <time.h>
 
+#include "eigenvalues.h"
 #include "hecke.h"
 #include "arith.h"
 #include "genus.h"
 #include "matrix_tools.h"
 #include "tests.h"
 
-void print_eigenvectors(const eigenvalues* evs)
+void print_eigenvectors(const eigenvalues_t evs)
 {
   int i, j;
   slong deg;
@@ -22,7 +23,7 @@ void print_eigenvectors(const eigenvalues* evs)
       }
     }
     else
-      printf("a vector of length %d ", evs->dim);
+      printf("a vector of length %ld ", evs->dim);
     printf("over ");
     if (deg < 10) {
       nf_print(evs->nfs[i]);
@@ -36,7 +37,7 @@ void print_eigenvectors(const eigenvalues* evs)
   return;
 }
 
-STATUS test_eigenvalues(const genus_t genus, const eigenvalues* evs,
+STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
 			int num_evs, int form_idx, const int* ps,
 			const int* test_evs, int k, int c)
 {
@@ -123,7 +124,7 @@ STATUS test(const example_t ex)
   double cputime;
 
   matrix_TYP* Q;
-  eigenvalues** evs;
+  eigenvalues_t* evs;
   const int* test_evs = NULL;
   
   cpuclock_0 = clock();
@@ -160,18 +161,21 @@ STATUS test(const example_t ex)
       print_eigenvectors(evs[c]);
   
   for (c = 0; c < genus->num_conductors; c++) {
+    eigenvalues_set_lifts(evs[c], 2, c, genus);
     for (form_idx = 0; form_idx < evs[c]->num; form_idx++)
-      for (k = 0; k < 2; k++) {
-	if (ex->num_conductors != 0)
-	  test_evs = ex->test_evs[c][form_idx][k];
-	if (test_eigenvalues(genus, evs[c], ex->num_ps[k], form_idx,
-			     ex->ps[k], test_evs, k+1, c) == FAIL) {
-	  for (c2 = 0; c2 < genus->num_conductors; c2++)
-	    free_eigenvalues(evs[c2]);
-	  free(evs);
-	  genus_clear(genus);
-	  free_mat(Q);
-	  return FAIL;
+      if (!(evs[c]->is_lift[form_idx])) {
+	for (k = 0; k < 2; k++) {
+	  if (ex->num_conductors != 0)
+	    test_evs = ex->test_evs[c][form_idx][k];
+	  if (test_eigenvalues(genus, evs[c], ex->num_ps[k], form_idx,
+			       ex->ps[k], test_evs, k+1, c) == FAIL) {
+	    for (c2 = 0; c2 < genus->num_conductors; c2++)
+	      eigenvalues_clear(evs[c2]);
+	    free(evs);
+	    genus_clear(genus);
+	    free_mat(Q);
+	    return FAIL;
+	  }
 	}
       }
   }
@@ -183,7 +187,7 @@ STATUS test(const example_t ex)
   printf("computing eigenvalues took %f\n", cputime);
 
   for (c = 0; c < genus->num_conductors; c++)
-    free_eigenvalues(evs[c]);
+    eigenvalues_clear(evs[c]);
   free(evs);
 
   genus_clear(genus);

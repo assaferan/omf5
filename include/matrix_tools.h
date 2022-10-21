@@ -32,23 +32,7 @@ matrix_TYP* minkowski_reduce(matrix_TYP* Q);
 
 void greedy(matrix_TYP* gram, matrix_TYP* s, int n, int dim);
 
-struct eigenvalues_t {
-  nf_t* nfs;
-  nf_elem_t* eigenvals;
-  nf_elem_t** eigenvecs; 
-  int num;
-  int dim;
-};
-
-typedef struct eigenvalues_t eigenvalues;
-
-void eigenvalues_init(eigenvalues** evs, slong num, slong dim);
-
 bool get_eigenvector_on_subspace(nf_elem_t* evec, nf_t nf, const fmpq_mat_t T, const fmpq_mat_t basis_W);
-
-eigenvalues* get_eigenvalues(matrix_TYP* mat);
-
-void free_eigenvalues(eigenvalues* evs);
 
 void fmpq_mat_init_set_matrix_TYP(fmpq_mat_t M, const matrix_TYP* mat);
 void fmpz_mat_init_set_matrix_TYP(fmpz_mat_t M, const matrix_TYP* mat);
