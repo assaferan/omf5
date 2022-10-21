@@ -443,6 +443,7 @@ int hash_table_index_and_isom(const hash_table_t table, matrix_TYP* key, matrix_
   hash_t index, value;
   clock_t cputime;
   matrix_TYP* s;
+  matrix_TYP* key_copy = NULL;
 
   cputime = clock();
   value = hash_form(key, table->theta_prec);
@@ -460,21 +461,23 @@ int hash_table_index_and_isom(const hash_table_t table, matrix_TYP* key, matrix_
       if (table->vals[offset] == value) {
 	(*num_isom)++;
 	cputime = clock();
-	if (table->red_on_isom) {
+	if ((table->red_on_isom) && (key_copy == NULL)) {
+	  key_copy = copy_mat(key);
 	  s = init_mat(5,5,"1");
-	  greedy(key, s, 5, 5);
+	  greedy(key_copy, s, 5, 5);
+	  assert(is_isometry(s, key, key_copy, 1));
 	}
-	if ((*isom = tr_pose(is_isometric(key, table->keys[offset])))) {
+	if ((*isom = is_isometric(key_copy, table->keys[offset]))) {
+	  *isom = tr_pose(*isom);
+	  assert(is_isometry(*isom, key_copy, table->keys[offset], 1));
 	  if (table->red_on_isom) {
 	    *isom = mat_mul(s, *isom);
+	    assert(is_isometry(*isom, key, table->keys[offset], 1));
 	    free_mat(s);
 	  }
-	  assert(is_isometry(*isom, key, table->keys[offset], 1));
 	  (*isom_time) += clock() - cputime;
 	  return offset;
 	}
-	if (table->red_on_isom)
-	  free_mat(s);
 	(*isom_time) += clock() - cputime;
       }
     }
@@ -482,6 +485,9 @@ int hash_table_index_and_isom(const hash_table_t table, matrix_TYP* key, matrix_
     index = (index + 1) & table->mask;
   }
 
+  if ((table->red_on_isom) && (key_copy != NULL))
+    free_mat(s);
+  
   printf("Error! Key not found!\n");
   exit(-1);
 

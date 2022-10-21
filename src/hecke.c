@@ -81,7 +81,8 @@ int process_isotropic_vector_nbr_data_all_conductors(nbr_data_t nbr_man, W64* sp
   nbr_data_build_neighbor(nbr_fmpz, nbr_isom, nbr_man);
   matrix_TYP_init_set_fmpz_mat(&nbr, nbr_fmpz);
   isometry_init_fmpz_mat(s_nbr, nbr_isom, fmpz_get_si(fq_nmod_ctx_prime(nbr_man->GF)));
-
+  assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx], nbr));
+  
   cputime = clock();
   i = hash_table_index_and_isom(genus->genus_reps, nbr, &hash_isom, theta_time, isom_time, num_isom);
   (*total_time) += clock() - cputime;
