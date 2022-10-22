@@ -44,4 +44,7 @@ void restrict_mat(fmpq_mat_t res_T, const fmpq_mat_t T, const fmpq_mat_t basis_W
 
 void kernel_on(fmpq_mat_t ker, const fmpq_mat_t A, const fmpq_mat_t B);
 
+void fmpq_mat_kernel(fmpq_mat_t ker, const fmpq_mat_t mat);
+void fmpq_mat_left_kernel(fmpq_mat_t ker, const fmpq_mat_t mat);
+
 #endif // __MATRIX_TOOLS_H__

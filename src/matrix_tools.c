@@ -1177,8 +1177,10 @@ void fmpq_mat_kernel(fmpq_mat_t ker, const fmpq_mat_t mat)
   fmpq_mat_get_fmpz_mat_matwise(num, den, mat);
   rank = fmpz_mat_nullspace(int_ker, num);
 
-  fmpz_mat_content(mat_gcd, int_ker);
-  fmpz_mat_scalar_divexact_fmpz(int_ker, int_ker, mat_gcd);
+  if (rank != 0) {
+    fmpz_mat_content(mat_gcd, int_ker);
+    fmpz_mat_scalar_divexact_fmpz(int_ker, int_ker, mat_gcd);
+  }
   
   //fmpq_mat_init(ker, fmpq_mat_ncols(mat), rank);
   fmpq_mat_init(ker, rank, fmpq_mat_ncols(mat)); 
@@ -1192,6 +1194,8 @@ void fmpq_mat_kernel(fmpq_mat_t ker, const fmpq_mat_t mat)
   fmpz_mat_clear(num);
   fmpz_clear(mat_gcd);
   fmpz_clear(den);
+
+  return;
 }
 
 // not sure now if we are doing left kernel or right kernel. 
