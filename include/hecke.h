@@ -29,7 +29,7 @@ int process_neighbour_chunk_nbr_data(int* T, int p, int k, int gen_idx, const ge
 
 void hecke_col_nbr_data(int* T, int p, int k, int gen_idx, const genus_t genus);
 
-int hecke_col_nbr_data_all_conductors(W64* spin_vals, int p, int k, int gen_idx, const genus_t genus);
+int hecke_col_nbr_data_all_conductors(W64** spin_vals, int p, int k, int gen_idx, const genus_t genus);
 
 void hecke_col(int* T, int p, int gen_idx, const genus_t genus);
 

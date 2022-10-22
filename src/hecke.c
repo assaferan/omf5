@@ -17,6 +17,54 @@
 #define likely(x)   __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
 
+slong number_of_isotropic_subspaces(slong q, slong r, slong a, slong f, slong k)
+{
+  fmpz_t q_z, prod1, prod;
+  slong i, num;
+
+  fmpz_init_set_si(q_z,q);
+  fmpz_init(prod1);
+  fmpz_init(prod);
+
+  fmpz_pow_ui(prod, q_z, k*f);
+  
+  for (i = 1; i <= k; i++) {
+    fmpz_pow_ui(prod1, q_z, r-i+1);
+    fmpz_sub_si(prod1, prod1, 1);
+    fmpz_mul(prod, prod, prod1);
+    fmpz_pow_ui(prod1, q_z, r+a-i);
+    fmpz_add_si(prod1, prod1, 1);
+    fmpz_mul(prod, prod, prod1);
+  }
+
+  for (i = 1; i <= k; i++) {
+    fmpz_pow_ui(prod1, q_z, i);
+    fmpz_sub_si(prod1, prod1, 1);
+    fmpz_divexact(prod, prod, prod1);
+  }
+
+  num = fmpz_get_si(prod);
+  
+  fmpz_clear(q_z);
+  fmpz_clear(prod1);
+  fmpz_clear(prod);
+  
+  return num;
+}
+
+slong number_of_neighbors(const nbr_data_t nbr_man)
+{
+  slong p, num;
+
+  p = fmpz_get_si(fq_nmod_ctx_prime(nbr_man->GF));
+  num = number_of_isotropic_subspaces(p, nbr_man->witt_index, nbr_man->aniso_dim,
+				      nbr_man->rad_dim, nbr_man->k);
+  if (nbr_man->k == 2)
+    num *= p;
+
+  return num;
+}
+
 int process_isotropic_vector_nbr_data(nbr_data_t nbr_man, int* T, const genus_t genus,
 				      double* theta_time, double* isom_time, double* total_time, int* num_isom)
 {
@@ -188,7 +236,7 @@ int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const genus_t gen
   return lc;
 }
 
-int process_neighbour_chunk_nbr_data_all_conductors(W64* spin_vals, int p, int k, int gen_idx,
+int process_neighbour_chunk_nbr_data_all_conductors(W64** spin_vals, int p, int k, int gen_idx,
 						    const genus_t genus,
 						    double* theta_time, double* isom_time,
 						    double* total_time,
@@ -196,6 +244,7 @@ int process_neighbour_chunk_nbr_data_all_conductors(W64* spin_vals, int p, int k
 {
   matrix_TYP *Q;
   nbr_data_t nbr_man;
+  slong num_nbrs;
   int lc;
 
   lc = 0;
@@ -210,15 +259,18 @@ int process_neighbour_chunk_nbr_data_all_conductors(W64* spin_vals, int p, int k
   assert(k > 0);
   
   nbr_data_init(nbr_man, Q, p, k);
+  num_nbrs = number_of_neighbors(nbr_man);
+  *spin_vals = (W64*)malloc(num_nbrs*sizeof(W64));
 
   while (!(nbr_data_has_ended(nbr_man))) {
-    process_isotropic_vector_nbr_data_all_conductors(nbr_man, &(spin_vals[lc]), genus,
+    process_isotropic_vector_nbr_data_all_conductors(nbr_man, &((*spin_vals)[lc]), genus,
 						     theta_time, isom_time, total_time,
 						     num_isom, gen_idx);
     nbr_data_get_next_neighbor(nbr_man);
     lc++;
   }
 
+  assert(lc == num_nbrs);
   nbr_data_clear(nbr_man);
  
   return lc;
@@ -293,7 +345,7 @@ void hecke_col(int* T, int p, int gen_idx, const genus_t genus)
 }
 
 // Returns the number of neighbours processed
-int hecke_col_nbr_data_all_conductors(W64* spin_vals, int p, int k, int gen_idx, const genus_t genus)
+int hecke_col_nbr_data_all_conductors(W64** spin_vals, int p, int k, int gen_idx, const genus_t genus)
 {
   int num_isom, lc;
   double theta_time, isom_time, total_time;
@@ -301,7 +353,7 @@ int hecke_col_nbr_data_all_conductors(W64* spin_vals, int p, int k, int gen_idx,
   num_isom = lc = 0;
   theta_time = isom_time = total_time = 0;
 
-  lc += process_neighbour_chunk_nbr_data_all_conductors(&(spin_vals[lc]), p, k, gen_idx, genus,
+  lc += process_neighbour_chunk_nbr_data_all_conductors(spin_vals, p, k, gen_idx, genus,
 							&theta_time, &isom_time, &total_time, &num_isom);
 
 #ifdef DEBUG
@@ -360,16 +412,17 @@ matrix_TYP** hecke_matrices_all_conductors(const genus_t genus, int p, int k)
     hecke_ptr[c] = 0;
   }
 
+  /*
   num_nbrs = p*p*p+p*p+p+1;
   if (k == 2) {
     num_nbrs *= p;
   }
+  */
   assert((k == 1) || (k == 2));
-  spin_vals = (W64*)malloc(num_nbrs*sizeof(W64));
+  // spin_vals = (W64*)malloc(num_nbrs*sizeof(W64));
   
   for (gen_idx = 0; gen_idx < genus->genus_reps->num_stored; gen_idx++) {
-    // These are equal when the prime is good
-    num_nbrs = hecke_col_nbr_data_all_conductors(spin_vals, p, k, gen_idx, genus);
+    num_nbrs = hecke_col_nbr_data_all_conductors(&spin_vals, p, k, gen_idx, genus);
     for (c = 0; c < genus->num_conductors; c++) {
       lut = genus->lut_positions[c];
       npos = lut[gen_idx];
@@ -521,14 +574,16 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
     for (i = 0; i < genus->dims[c]; i++)
       hecke[c][i] = 0;
   }
-  
+
+  /*
   num_nbrs = p*p*p+p*p+p+1;
   if (k == 2) {
     num_nbrs *= p;
   }
+  */
   assert((k == 1) || (k == 2));
-  spin_vals = (W64*)malloc(num_nbrs*sizeof(W64));
-  num_nbrs = hecke_col_nbr_data_all_conductors(spin_vals, p, k, gen_idx, genus);
+  // spin_vals = (W64*)malloc(num_nbrs*sizeof(W64));
+  num_nbrs = hecke_col_nbr_data_all_conductors(&spin_vals, p, k, gen_idx, genus);
 
   for (c = 0; c < genus->num_conductors; c++) {
     lut = genus->lut_positions[c];
