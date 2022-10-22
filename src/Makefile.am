@@ -29,6 +29,9 @@ DBG_LD_FLAGS = ${ALL_LDFLAGS}
 # DBG_LD_FLAGS += -fsanitize=leak
 
 SOURCES = arith.c
+SOURCES += decomposition.c
+SOURCES += eigenvalues.c
+SOURCES += fmpq_poly.c
 SOURCES += fq_nmod_mat.c
 SOURCES += fq_nmod_mpoly.c
 SOURCES += fq_nmod_mpoly_mat.c
@@ -36,6 +39,7 @@ SOURCES += fq_nmod_quad.c
 SOURCES += genus.c
 SOURCES += hash.c
 SOURCES += hecke.c
+SOURCES += isometry.c
 SOURCES += jordan.c
 SOURCES += mass.c
 SOURCES += matrix_tools.c
