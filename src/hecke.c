@@ -481,7 +481,7 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
 					  int p, int k, int ev_idx, slong ev_cond)
 {
   int** hecke;
-  int num, i, pivot, num_nbrs,spin_idx;
+  int i, pivot, num_nbrs,spin_idx;
   slong c, npos, rpos, gen_idx;
   nf_elem_t prod;
   fmpz_mat_t q;
@@ -491,6 +491,7 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
   W64* spin_vals;
   W64 r;
 #ifdef DEBUG
+  int num;
   clock_t cpuclock;
   double cputime;
   
