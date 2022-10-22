@@ -306,7 +306,7 @@ bool get_aniso_vec(fmpq_mat_t x, const fmpq_mat_t BM, const fmpq_mat_t A)
 
   dim = fmpq_mat_nrows(A);
   assert(dim == fmpq_mat_ncols(A));
-  assert(dim = fmpq_mat_ncols(BM));
+  assert(dim == fmpq_mat_ncols(BM));
   dim_B = fmpq_mat_nrows(BM);
 
   fmpq_mat_init(A_res, dim_B, dim_B);
