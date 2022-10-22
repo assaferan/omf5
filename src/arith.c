@@ -43,6 +43,7 @@ int fmpz_valuation(const fmpz_t x, const fmpz_t p)
   fmpz_t a;
   int a_val;
 
+  assert(!fmpz_is_zero(x));
   fmpz_init(a);
 
   a_val = fmpz_valuation_unit(a,x,p);
@@ -54,6 +55,7 @@ int fmpz_valuation(const fmpz_t x, const fmpz_t p)
 
 int fmpq_valuation(const fmpq_t x, const fmpz_t p)
 {
+  assert(!fmpq_is_zero(x));
   return fmpz_valuation(fmpq_numref(x), p) - fmpz_valuation(fmpq_denref(x), p);
 }
 

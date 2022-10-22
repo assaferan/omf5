@@ -1,0 +1,97 @@
+name: Build all dependencies and omf5
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+
+    runs-on: ${{ matrix.os }}
+    
+    strategy: 
+      
+      matrix:
+        os: [ ubuntu-20.04, macos-10.15 ]
+        include:
+          - cc_cmd: clang
+            os: macos-10.15
+          - cc_cmd: gcc
+            os: ubuntu-20.04
+          - pkg_man: brew
+            os: macos-10.15
+          - pkg_man: sudo apt-get
+            os: ubuntu-20.04
+          - add_pkgs: libmpfr-dev
+            os: ubuntu-20.04
+          - make_install: make install
+            os: macos-10.15
+          - make_install: sudo make install
+            os: ubuntu-20.04
+          - cp_cmd: cp
+            os: macos-10.15
+          - cp_cmd: sudo cp
+            os: ubuntu-20.04
+            
+    steps:
+    - name: Checkout 
+      uses: actions/checkout@v3
+      with:
+          path: omf5
+    - name: Checkout flint
+      uses: actions/checkout@v3
+      with:
+        repository: wbhart/flint2
+        path: flint2
+    - name: Checkout antic
+      uses: actions/checkout@v3
+      with:
+        repository: wbhart/antic
+        path: antic
+    - name: Checkout carat
+      uses: actions/checkout@v3
+      with:
+        repository: lbfm-rwth/carat
+        path: carat
+    - name: Install autotools
+      run: |
+          ${{ matrix.pkg_man }} update
+          ${{ matrix.pkg_man }} install autoconf automake libtool ${{ matrix.add_pkgs }}
+    - name: Install flint
+      run:  | 
+          cd flint2
+          ./configure
+          make
+          make check
+          ${{ matrix.make_install }}
+          cd ..
+    - name: Install antic
+      run: |
+          cd antic
+          ./configure && make
+          ${{ matrix.make_install }}
+          make check
+          cd ..
+    - name: Install carat
+      run: |
+          cd carat
+          ./autogen.sh
+          ./configure
+          make
+          ${{ matrix.make_install }}
+          ${{ matrix.cp_cmd }} libfunctions.a /usr/local/lib
+          cd ..
+    - name: build
+      run:  |
+          cd omf5
+          make CARAT_PATH=../carat CC=${{ matrix.cc_cmd }}
+    - name: ld_path and test
+      run: |
+           export LD_LIBRARY_PATH=`pwd`/flint2
+           export LIBRARY_PATH=`pwd`/flint2
+           echo "LD_LIBRARY_PATH="${LD_LIBRARY_PATH}
+           echo "listing "${LD_LIBRARY_PATH}
+           echo `ls ${LD_LIBRARY_PATH}/libflint*`
+           ./omf5/bin/omf5 -tests

@@ -4,10 +4,13 @@
 #include <flint/fq_nmod.h>
 #include <flint/fq_nmod_mat.h>
 
+#include "isometry.h"
 #include "typedefs.h"
 
 typedef struct {
 
+  fmpz_mat_t Q;
+  
   fq_nmod_mat_t* rads;
   fq_nmod_ctx_t* fields;
 
@@ -21,6 +24,10 @@ typedef spinor spinor_t[1];
 void spinor_init(spinor_t spinor, const fmpz_mat_t q);
 void spinor_clear(spinor_t spinor);
 
-W64 spinor_norm(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom);
+W64 spinor_norm_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom);
+
+W64 spinor_norm(const spinor_t spinor, matrix_TYP* mat, int denom);
+W64 spinor_norm_isom(const spinor_t spinor, isometry_t isom);
+W64 spinor_norm_cd_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom);
 
 #endif // __SPINOR_H__

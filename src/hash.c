@@ -1,7 +1,10 @@
-#include "carat/symm.h"
+#include <assert.h>
+#include <carat/symm.h>
 
 #include "hash.h"
+#include "isometry.h"
 #include "matrix_tools.h"
+#include "nbr_data.h"
 #include "neighbor.h"
 
 // TODO : We should be able to determine thes in a smarter way
@@ -16,7 +19,6 @@ int _add(hash_table_t table, matrix_TYP* key, hash_t val, int do_push_back);
 
 // This should be the declaration, but for some reason short_vectors doesn't restrict the pointer to be constant
 // Since we don't want to copy the matrix, we leave it at that.
-// hash_t hash_form(const matrix_TYP* Q, W32 theta_prec)
 hash_t hash_form(matrix_TYP* Q, W32 theta_prec)
 {
   hash_t x;
@@ -28,7 +30,6 @@ hash_t hash_form(matrix_TYP* Q, W32 theta_prec)
     short_vectors(Q, norm, norm, 0, 1, &(num_short[norm/2 - 1]));
   }
 
-  // x = num_short[0] - num_short[1] + num_short[2] ;
   x = hash_vec(num_short, theta_prec);
 
   return x;
@@ -70,38 +71,75 @@ double get_isom_cost(const hash_table_t table, double* red_cost)
   double isom_cost;
   clock_t cputime;
   hash_t idx, offset, i;
+  
+#ifdef NBR_DATA
+  nbr_data_t nbr_man;
+  fmpz_mat_t nbr_fmpz, nbr_isom;
+#else
   neighbor_manager nbr_man;
+#endif // NBR_DATA
+  
   matrix_TYP* s;
   matrix_TYP* nbr;
+  int n;
 
 #define NUM_ISOMS 10
+
+  n = table->keys[0]->rows;
+  
+#ifdef NBR_DATA
+  fmpz_mat_init(nbr_isom, n, n);
+  fmpz_mat_init(nbr_fmpz, n, n);
+#endif // NBR_DATA
 
   isom_cost = 0;
   if (red_cost != NULL)
     *red_cost = 0;
   idx = 0;
   for (offset = 0; offset < table->num_stored; offset++) {
+#ifdef NBR_DATA
+    nbr_data_init(nbr_man, table->keys[offset], 3, 1);
+#else
     init_nbr_process(&nbr_man, table->keys[offset], 3, idx);
+#endif // NBR_DATA
     for (i = 0; i <  NUM_ISOMS; i++) {
+#ifdef NBR_DATA
+      nbr_data_build_neighbor(nbr_fmpz, nbr_isom, nbr_man);
+      matrix_TYP_init_set_fmpz_mat(&nbr, nbr_fmpz);
+#else
       nbr = build_nb(&nbr_man);
+#endif // NBR_DATA
       if (red_cost != NULL) {
-	s = init_mat(5,5,"1");
+	s = init_mat(n,n,"1");
 	cputime = clock();
-	greedy(nbr, s, 5, 5);
+	greedy(nbr, s, n, n);
 	(*red_cost) += (clock() - cputime);
 	free_mat(s);
       }
       cputime = clock();
       is_isometric(table->keys[i % table->num_stored], nbr);
       isom_cost += (clock() - cputime);
+#ifdef NBR_DATA
+      nbr_data_get_next_neighbor(nbr_man);
+      if (nbr_data_has_ended(nbr_man)) {
+	idx++;
+	nbr_data_clear(nbr_man);
+	nbr_data_init(nbr_man, table->keys[offset], 3, 1);
+      }
+#else
       advance_nbr_process(&nbr_man);
       if (has_ended(&nbr_man)) {
 	idx++;
 	free_nbr_process(&nbr_man);
 	init_nbr_process(&nbr_man, table->keys[offset], 3, idx);
       }
+#endif // NBR_DATA
     }
+#ifdef NBR_DATA
+    nbr_data_clear(nbr_man);
+#else
     free_nbr_process(&nbr_man);
+#endif // NBR_DATA
   }
   isom_cost /= (NUM_ISOMS * table->num_stored);
   if (red_cost != NULL)
@@ -392,6 +430,65 @@ int hash_table_indexof(const hash_table_t table, matrix_TYP* key, int check_isom
     index = (index + 1) & table->mask;
   }
 
+  printf("Error! Key not found!\n");
+  exit(-1);
+
+  return -1;
+}
+
+int hash_table_index_and_isom(const hash_table_t table, matrix_TYP* key, matrix_TYP** isom,
+			      double* theta_time, double* isom_time, int* num_isom)
+{
+  int offset, i;
+  hash_t index, value;
+  clock_t cputime;
+  matrix_TYP* s;
+  matrix_TYP* key_copy = NULL;
+
+  cputime = clock();
+  value = hash_form(key, table->theta_prec);
+  (*theta_time) += clock() - cputime;
+  index = value & table->mask;
+  i = 0;
+  while (i < table->counts[value & table->mask]) {
+    offset = table->key_ptr[index];
+    if (offset == -1) {
+      printf("Error! Key not found!\n");
+      return -1;
+    }
+    if ((table->vals[offset] & table->mask) == (value & table->mask)) {
+      i++;
+      if (table->vals[offset] == value) {
+	(*num_isom)++;
+	cputime = clock();
+	if (key_copy == NULL)
+	  key_copy = copy_mat(key);
+	if (table->red_on_isom) {
+	  s = init_mat(5,5,"1");
+	  greedy(key_copy, s, 5, 5);
+	  assert(is_isometry(s, key, key_copy, 1));
+	}
+	if ((*isom = is_isometric(key_copy, table->keys[offset]))) {
+	  *isom = tr_pose(*isom);
+	  assert(is_isometry(*isom, key_copy, table->keys[offset], 1));
+	  if (table->red_on_isom) {
+	    *isom = mat_mul(s, *isom);
+	    assert(is_isometry(*isom, key, table->keys[offset], 1));
+	    free_mat(s);
+	  }
+	  (*isom_time) += clock() - cputime;
+	  return offset;
+	}
+	(*isom_time) += clock() - cputime;
+      }
+    }
+
+    index = (index + 1) & table->mask;
+  }
+
+  if ((table->red_on_isom) && (key_copy != NULL))
+    free_mat(s);
+  
   printf("Error! Key not found!\n");
   exit(-1);
 

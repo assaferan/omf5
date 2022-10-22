@@ -4,22 +4,22 @@
 #include <carat/matrix.h>
 
 #include "hash.h"
+#include "isometry.h"
 #include "spinor.h"
 
 typedef struct
 {
   hash_table_t genus_reps;
   spinor_t spinor;
+  fmpz_t disc;
   
   slong* dims;
   slong* conductors;
-  slong* num_auts;
-  slong num_conductors;
-  
+  slong** num_auts;
   slong** lut_positions;
+  slong num_conductors;
 
-  matrix_TYP** isoms; // isometries corresponding to the genus representatives
-  slong* isom_primes; // the denominators for the isometries
+  isometry_t* isoms; // isometries corresponding to the genus representatives
   
 } genus_struct;
 

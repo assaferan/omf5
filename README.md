@@ -52,10 +52,10 @@ Or all at once:
 
 ## Usage
 
-The executable is src/omf5.
+The executable is bin/omf5.
 It runs with command-line arguments as follows
 
-src/omf5 [-tests] [-quad=Q] [-format=f] [-prec=L] [-form_idx=idx]
+bin/omf5 [-tests] [-quad=Q] [-format=f] [-prec=L] [-form_idx=idx]
 
 where the  arguments are:
 
