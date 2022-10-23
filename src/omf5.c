@@ -12,13 +12,13 @@ int parse_matrix(const char* mat_str, int* Q_coeffs);
 
 int main(int argc, char* argv[])
 {
-  int form_idx, prec;
+  int form_idx, prec, p;
   int Q_coeffs[15];
   STATUS test_res;
   char* input_type;
   int max_args;
-  bool do_tests, is_valid, is_prec, is_format, is_form_idx;
-  bool has_quad, has_format, has_prec, has_form_idx;
+  bool do_tests, is_valid, is_prec, is_format, is_form_idx, is_p;
+  bool has_quad, has_format, has_prec, has_form_idx, has_p;
   int i;
 
   input_type = NULL;
@@ -60,6 +60,11 @@ int main(int argc, char* argv[])
     is_valid = (is_valid) || (is_prec);
     if (is_prec)
       has_prec = true;
+
+    is_p = handle_flag_int("p", argv[i], &p);
+    is_valid = (is_valid) || (is_p);
+    if (is_p)
+      has_p = true;
     
     is_form_idx = handle_flag_int("form_idx", argv[i], &form_idx);
     is_valid = (is_valid) || (is_form_idx);
@@ -85,10 +90,13 @@ int main(int argc, char* argv[])
   if (has_quad && has_format) {
     test_res <<= 1;
     if (has_prec && has_form_idx)
-      test_res |= compute_eigenvalues_up_to(Q_coeffs, form_idx,
+      test_res |= compute_eigenvalues_up_to(Q_coeffs,form_idx,
 					    prec, input_type);
     else
-      test_res |= compute_eigenvectors(Q_coeffs, input_type);
+      if (has_p)
+	test_res |= compute_eigenvalues(Q_coeffs, p, input_type);
+      else
+	test_res |= compute_eigenvectors(Q_coeffs, input_type);
   }
   else
     if (!do_tests)

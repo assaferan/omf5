@@ -179,10 +179,15 @@ double get_total_cost(const hash_table_t table, W32 theta_prec, double isom_cost
   printf("Expecting average number of %f calls to is_isometric.\n", total_cost);
 
   *red_on_isom = true;
+
+  // !! TODO - for large p this seems necessary to prevent overflow
+  // check also if changing to 64-bit helps
+  /*
   for (offset = 0; offset < table->num_stored; offset++)
     *red_on_isom &= (counts[vals[offset] & table->mask] == 1);
 
   *red_on_isom = !(*red_on_isom);
+  */
 
   if (*red_on_isom)
     total_cost *= red_isom_cost;
