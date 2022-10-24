@@ -129,7 +129,7 @@ int process_isotropic_vector_nbr_data_all_conductors(nbr_data_t nbr_man, W64* sp
   nbr_data_build_neighbor(nbr_fmpz, nbr_isom, nbr_man);
   matrix_TYP_init_set_fmpz_mat(&nbr, nbr_fmpz);
   isometry_init_fmpz_mat(s_nbr, nbr_isom, fmpz_get_si(fq_nmod_ctx_prime(nbr_man->GF)));
-  assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx], nbr));
+  assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx]->array.SZ, nbr->array.SZ));
   
   cputime = clock();
   i = hash_table_index_and_isom(genus->genus_reps, nbr, &hash_isom, theta_time, isom_time, num_isom);
@@ -145,9 +145,9 @@ int process_isotropic_vector_nbr_data_all_conductors(nbr_data_t nbr_man, W64* sp
   // TODO - compute only the upper half, and complete using hermitian property
   // Determine which subspaces this representative contributes.
 
-  assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx], nbr));
-  assert(isometry_is_isom(genus->isoms[gen_idx], genus->genus_reps->keys[0],
-			  genus->genus_reps->keys[gen_idx]));
+  assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx]->array.SZ, nbr->array.SZ));
+  assert(isometry_is_isom(genus->isoms[gen_idx], genus->genus_reps->keys[0]->array.SZ,
+			  genus->genus_reps->keys[gen_idx]->array.SZ));
   isometry_mul(s_nbr, genus->isoms[gen_idx], s_nbr);
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[0], nbr));
   assert(is_isometry(hash_isom, nbr, genus->genus_reps->keys[i], 1));

@@ -181,7 +181,7 @@ double get_total_cost(const hash_table_t table, W32 theta_prec, double isom_cost
   *red_on_isom = true;
 
   // !! TODO - for large p this seems necessary to prevent overflow
-  // check also if changing to 64-bit helps
+  // check also if changing to 64-bit helpa
   /*
   for (offset = 0; offset < table->num_stored; offset++)
     *red_on_isom &= (counts[vals[offset] & table->mask] == 1);

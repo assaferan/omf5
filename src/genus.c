@@ -57,6 +57,7 @@ void genus_init(genus_t genus, matrix_TYP* Q)
   int n;
   bool* ignore;
   W64 vals;
+  square_matrix_t nbr_sm, isom_sm, q;
   
 #ifndef NBR_DATA
   neighbor_manager nbr_man;
@@ -113,7 +114,7 @@ void genus_init(genus_t genus, matrix_TYP* Q)
 
   genus->isoms = (isometry_t*)malloc((slow_genus->capacity) * sizeof(isometry_t));
 
-  isometry_init(genus->isoms[0], init_mat(n, n, "1"), 1);
+  isometry_init(genus->isoms[0]);
   
   // initializing the conductors
   
@@ -135,6 +136,8 @@ void genus_init(genus_t genus, matrix_TYP* Q)
   
   aut_grp = automorphism_group(Q);
 
+  q = Q->array.SZ;
+  
   fmpq_init(mass_form);
   fmpq_init(acc_mass);
   fmpq_set_si(acc_mass, 1, aut_grp->order);
@@ -221,27 +224,31 @@ void genus_init(genus_t genus, matrix_TYP* Q)
 	    printf("no Isometry found, adding neighbor...\n");
 #endif // DEBUG_LEVEL_FULL
 #ifdef NBR_DATA
-	    isometry_init_fmpz_mat(s, nbr_isom, p);
+	    isometry_init_set_fmpz_mat(s, nbr_isom, p);
 #else
 	    // !! TODO - should complete here with the isometry for the neighbor
-	    isometry_init(s, init_mat(n,n, "1"), 1);
+	    isometry_init(s);
 	    
 #endif // NBR_DATA
-	    assert(isometry_is_isom(s, slow_genus->keys[current], nbr));
+	    square_matrix_set_matrix_TYP(nbr_sm, nbr);
+#ifdef DEBUG
+	    square_matrix_set_matrix_TYP(isom_sm, slow_genus->keys[current]);
+	    assert(isometry_is_isom(s, isom_sm, nbr_sm));
+#endif // DEBUG
 	    
-	    greedy(nbr, s->s, n, n);
-	    s->s_inv = mat_inv(s->s);
-	    assert(isometry_is_isom(s, slow_genus->keys[current], nbr));
-	    //assert(is_isometry(s, slow_genus->keys[current], nbr, p));
+	    greedy(nbr_sm, s, n);
+#ifdef DEBUG
+	    square_matrix_set_matrix_TYP(isom_sm, slow_genus->keys[current]);
+	    assert(isometry_is_isom(s, isom_sm, nbr_sm));
+#endif // DEBUG
+
 	    // The genus rep isometries were initialized only to contain the
 	    // isometry between the parent and its child, we now want to update
 	    // these isometries so that they are rational isometries between the
 	    // "mother" quadratic form and the genus rep.
-	    isometry_init(genus->isoms[slow_genus->num_stored], s->s, 1);
-	    isometry_mul(genus->isoms[slow_genus->num_stored], genus->isoms[current],
-			 genus->isoms[slow_genus->num_stored]);
-	  
-	    assert(isometry_is_isom(genus->isoms[slow_genus->num_stored], Q, nbr));
+	    isometry_mul(genus->isoms[slow_genus->num_stored], genus->isoms[current], s);
+	    
+	    assert(isometry_is_isom(genus->isoms[slow_genus->num_stored], q, nbr_sm));
 	    
 	    isometry_clear(s);
 	    
@@ -307,14 +314,14 @@ void genus_init(genus_t genus, matrix_TYP* Q)
 	ignore[c] = false;
 
       for (gen_idx = 0; gen_idx < aut_grp->gen_no; gen_idx++) {
-	assert(is_isometry(aut_grp->gen[gen_idx],
-			   genus->genus_reps->keys[genus_idx],
-			   genus->genus_reps->keys[genus_idx], 1));
+	/* assert(is_isometry(aut_grp->gen[gen_idx], */
+	/* 		   genus->genus_reps->keys[genus_idx], */
+	/* 		   genus->genus_reps->keys[genus_idx], 1)); */
 	isometry_inv(s, genus->isoms[genus_idx]);
-	isometry_mul_mat_left(s, aut_grp->gen[gen_idx], s);
+	isometry_mul_mat_left(s, aut_grp->gen[gen_idx], 1, s);
 	isometry_mul(s, genus->isoms[genus_idx], s);
 	
-	assert(isometry_is_isom(s, Q, Q));
+	assert(isometry_is_isom(s, q, q));
 	
 	vals = spinor_norm_isom(genus->spinor, s);
 	// !! TODO - we can break the loop after we find one, right?

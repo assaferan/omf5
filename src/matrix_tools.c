@@ -253,17 +253,11 @@ matrix_TYP* minkowski_reduce(matrix_TYP* Q)
   return red2;
 }
 
-matrix_TYP* adjugate(matrix_TYP* Q, int dim)
+void adjugate(square_matrix_t b, const square_matrix_t a, int dim)
 {
   // We will use this only for dim <= 4
   // and we write it down explicitly for each case
   // !! TODO - This is not the most effective way to do this
-  matrix_TYP* adj;
-  int** a, **b;
-
-  adj = init_mat(dim, dim, "");
-  a = Q->array.SZ;
-  b = adj->array.SZ;
   
   switch(dim) {
   case 1:
@@ -340,7 +334,7 @@ matrix_TYP* adjugate(matrix_TYP* Q, int dim)
     printf("Error! Trying to find adjugate of matrix of size %d!\n", dim);
   }
 
-  return adj;
+  return;
 }
 
 Z64* voronoi_bounds(int dim)
@@ -374,9 +368,10 @@ matrix_TYP* transform_eq(matrix_TYP* g, matrix_TYP* Q)
 }
 
 // right now using integer arithmetic. Should probably run faster with floating point arithmetic
-void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
+void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
 {
-  matrix_TYP *H_int, *g, *min_g, *x_gram;
+  isometry_t g, min_g;
+  square_matrix_t H_int, x_gram;
 
   int **q;
   Z64 *voronoi, *x, *x_min, *x_max, *x_num, *x_closest;
@@ -385,21 +380,17 @@ void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
   Z64 *y_int, *v_int;
   Z64 tmp, det;
 
-  n = Q->rows;
-
 #ifdef DEBUG_LEVEL_FULL
   printf("finding closest_lattice_vector with gram:\n");
-  print_mat(Q);
+  square_matrix_print(q);
 #endif // DEBUG_LEVEL_FULL
   
   // v_int = init_mat(1, dim-1, "");
   v_int = (Z64 *)malloc((dim-1)*sizeof(Z64));
-  g = init_mat(n, n, "1");
-  min_g = init_mat(n, n, "");
-  g->flags.Symmetric = g->flags.Scalar = g->flags.Diagonal = 0;
-  H_int = adjugate(Q, dim-1);
-  
-  q = Q->array.SZ;
+  isometry_init(g);
+  isometry_init(min_g);
+
+  adjugate(H_int, q, dim-1);
   
   for (i = 0; i < dim-1; i++) {
     v_int[i] = q[i][dim-1];
@@ -407,7 +398,7 @@ void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
 
 #ifdef DEBUG_LEVEL_FULL
   printf("H_int = \n");
-  print_mat(H_int);
+  square_matrix_print(H_int);
 
   printf("v_int = \n");
   //  print_mat(v_int);
@@ -424,7 +415,7 @@ void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
 
   for (i = 0; i < dim-1; i++)
     for (j = 0; j < dim-1; j++)
-      y_int[i] += H_int->array.SZ[i][j] * v_int[j];
+      y_int[i] += H_int[i][j] * v_int[j];
 
 #ifdef DEBUG_LEVEL_FULL
   printf("y_int = \n");
@@ -443,7 +434,7 @@ void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
   
   det = 0;
   for (i = 0; i < dim - 1; i++) {
-    tmp = H_int->array.SZ[0][i];
+    tmp = H_int[0][i];
     det += tmp*q[i][0];
   }
   det = llabs(det);
@@ -473,11 +464,19 @@ void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
       tmp /= x_num[j];
     }
     for ( i = 0; i < dim-1; i++)
-      g->array.SZ[i][dim-1] = -x[i];
-    x_gram = transform(g,Q);
-    if (x_gram->array.SZ[dim-1][dim-1] < min_dist) {
-      min_dist = x_gram->array.SZ[dim-1][dim-1];
-      min_g = copy_mat(g);
+      g->s[i][dim-1] = -x[i];
+    for ( i = 0; i < dim-1; i++)
+      g->s_inv[i][dim-1] = x[i];
+
+#ifdef DEBUG
+    square_matrix_mul(x_gram, g->s, g->s_inv);
+    assert(square_matrix_is_one(x_gram));
+#endif // DEBUG
+
+    isometry_transform_gram(x_gram, g, q);
+    if (x_gram[dim-1][dim-1] < min_dist) {
+      min_dist = x_gram[dim-1][dim-1];
+      square_matrix_set(min_g, g);
       for (j = 0; j < dim-1; j++)
 	x_closest[j] = x[j];
     }
@@ -489,21 +488,21 @@ void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
     printf("%4" PRId64 " ", x_closest[i]);
   printf("\n");
 #endif // DEBUG_LEVEL_FULL
-  
-  iso = mat_muleq(iso, min_g);
-  Q = transform_eq(min_g, Q);
+
+  isometry_mul(g,iso,min_g);
+  isometry_init_set(iso, g);
+
+  isometry_transform_gram(q, min_g, q);
+
 #ifdef DEBUG_LEVEL_FULL
   printf("returning isometry: \n");
-  print_mat(iso);
+  square_matrix_print(iso->s);
   printf("transformed gram to: \n");
-  print_mat(Q);
+  square_matrix_print(q);
 #endif // DEBUG_LEVEL_FULL
 
   //  free_mat(v_int);
   free(v_int);
-  free_mat(g);
-  free_mat(min_g);
-  free_mat(H_int);
   free(y_int);
   free(x);
   free(x_min);
@@ -618,21 +617,31 @@ void sort(int* values, int* pos, int n)
   return;
 }
 
-void updatePerm(matrix_TYP* isom, int* perm)
+void updatePerm(isometry_t isom, int* perm)
 {
-  matrix_TYP* temp;
-  int i,j,n;
+  square_matrix_t temp;
+  int i,j;
+  
+  for ( i = 0; i < N; i++)
+    for ( j = 0; j < N; j++)
+      temp[i][j] = isom->s[i][j];
+  
+  for ( i = 0; i < N; i++)
+    for ( j = 0; j < N; j++)
+      isom->s[perm[i]][j] = temp[i][j];
 
-  n = isom->cols;
-  temp = init_mat(n,n,"");
-  for ( i = 0; i < n; i++)
-    for ( j = 0; j < n; j++)
-      temp->array.SZ[i][j] = isom->array.SZ[i][j];
-  for ( i = 0; i < n; i++)
-    for ( j = 0; j < n; j++)
-      isom->array.SZ[perm[i]][j] = temp->array.SZ[i][j];
+  for ( i = 0; i < N; i++)
+    for ( j = 0; j < N; j++)
+      temp[i][j] = isom->s_inv[i][j];
 
-  free_mat(temp);
+  for ( i = 0; i < N; i++)
+    for ( j = 0; j < N; j++)
+      isom->s_inv[i][j] = temp[i][perm[j]];
+
+#ifdef DEBUG
+  square_matrix_mul(temp, isom->s, isom->s_inv);
+  assert(square_matrix_is_one(temp));
+#endif // DEBUG
   
   return;
 }
@@ -642,100 +651,86 @@ void updatePerm(matrix_TYP* isom, int* perm)
 // we supply a parameter defining the level of recursion
 // and use only this part of the matrices
 // All containers will have size n, but we will only use dim entries
-void greedy(matrix_TYP* gram, matrix_TYP* s, int n, int dim)
+void greedy(square_matrix_t gram, isometry_t s, int dim)
 {
-  matrix_TYP* tmp, *iso;
+  isometry_t tmp, iso;
   int* perm_norm;
   int* perm;
   int i;
   
 #ifdef DEBUG_LEVEL_FULL
-  matrix_TYP *s0, *q0;
-  matrix_TYP *s_inv, *q_trans;
+  isometry_t s0, s0_inv, s0_inv_s;
+  square_matrix_t q0, q_trans;
 #endif // DEBUG_LEVEL_FULL
 
 #ifdef DEBUG_LEVEL_FULL
-  s0 = copy_mat(s);
-  q0 = copy_mat(gram);
+  isometry_init_set(s0, s);
+  square_matrix_set(q0, gram);
 #endif // DEBUG_LEVEL_FULL
 
 #ifdef DEBUG_LEVEL_FULL
-  s_inv = mat_inv(s0);
-  s_inv = mat_muleq(s_inv, s);
-  q_trans = transform(s_inv, q0);
-  assert(cmp_mat(q_trans,gram) == 0);
-  free_mat(s_inv);
-  free_mat(q_trans);
+  isometry_inv(s0_inv, s0);
+  isometry_mul(s0_inv_s, s0_inv, s);
+  assert(isometry_is_isom(s0_inv_s, q0, q_trans));
 #endif // DEBUG_LEVEL_FULL
     
   if (dim == 1) return;
 
   perm_norm = (int*)malloc(dim*sizeof(int));
-  perm = (int*)malloc(n*sizeof(int));
+  perm = (int*)malloc(N*sizeof(int));
   
   do {
 
 #ifdef DEBUG_LEVEL_FULL
-    s_inv = mat_inv(s0);
-    s_inv = mat_muleq(s_inv, s);
-    q_trans = transform(s_inv, q0);
-    assert(cmp_mat(q_trans,gram) == 0);
-    free_mat(s_inv);
-    free_mat(q_trans);
+  isometry_inv(s0_inv, s0);
+  isometry_mul(s0_inv_s, s0_inv, s);
+  assert(isometry_is_isom(s0_inv_s, q0, q_trans));
 #endif // DEBUG_LEVEL_FULL
     
     for (i = 0; i < dim; i++) {
-      perm_norm[i] = gram->array.SZ[i][i];
+      perm_norm[i] = gram[i][i];
       perm[i] = i;
     }
     sort(perm_norm, perm, dim);
 
     // this is to make sure we do not touch these rows
-    for ( i = dim; i < n; i++)
+    for ( i = dim; i < N; i++)
       perm[i] = i;
 
-     // temp isometry
-    tmp = init_mat(n,n,"1");
-    tmp->flags.Scalar = tmp->flags.Diagonal = tmp->flags.Symmetric = 0;
+    // temp isometry
+    isometry_init(tmp);
     
     updatePerm(tmp, perm);
 
     // update isometry s = s*tmp;
-    s = mat_muleq(s, tmp);
+    isometry_mul(iso, s, tmp);
+    isometry_init_set(s, iso);
     
     // update gram
-    gram = transform_eq(tmp, gram);
+    isometry_transform_gram(gram, tmp, gram);
     
 #ifdef DEBUG_LEVEL_FULL
-    s_inv = mat_inv(s0);
-    s_inv = mat_muleq(s_inv, s);
-    q_trans = transform(s_inv, q0);
-    assert(cmp_mat(q_trans,gram) == 0);
-    free_mat(s_inv);
-    free_mat(q_trans);
+    isometry_inv(s0_inv, s0);
+    isometry_mul(s0_inv_s, s0_inv, s);
+    assert(isometry_is_isom(s0_inv_s, q0, q_trans));
 #endif // DEBUG_LEVEL_FULL
-
-    free_mat(tmp);
-
+  
     // !! - TODO - do we really need iso here
     // or could we simply pass s?
-    iso = init_mat(n,n,"1");
-    iso->flags.Scalar = iso->flags.Diagonal = iso->flags.Symmetric = 0;
-    greedy(gram, iso, n, dim-1);
+
+    isometry_init(iso);
+    greedy(gram, iso, dim-1);
 
     //    s = s*iso;
-    s = mat_muleq(s, iso);
+    isometry_mul(tmp, s, iso);
+    isometry_init_set(s, tmp);
 
 #ifdef DEBUG_LEVEL_FULL
-    s_inv = mat_inv(s0);
-    s_inv = mat_muleq(s_inv, s);
-    q_trans = transform(s_inv, q0);
-    assert(cmp_mat(q_trans,gram) == 0);
-    free_mat(s_inv);
-    free_mat(q_trans);
+    isometry_inv(s0_inv, s0);
+    isometry_mul(s0_inv_s, s0_inv, s);
+    assert(isometry_is_isom(s0_inv_s, q0, q_trans));
 #endif // DEBUG_LEVEL_FULL
 
-    free_mat(iso);
     // !! TODO - one can use subgram to save computations
     // This transformation already happens inside greedy(dim-1)
     //     gram = iso.transform(gram);
@@ -743,15 +738,12 @@ void greedy(matrix_TYP* gram, matrix_TYP* s, int n, int dim)
     closest_lattice_vector(gram, s, dim);
 
 #ifdef DEBUG_LEVEL_FULL
-    s_inv = mat_inv(s0);
-    s_inv = mat_muleq(s_inv, s);
-    q_trans = transform(s_inv, q0);
-    assert(cmp_mat(q_trans,gram) == 0);
-    free_mat(s_inv);
-    free_mat(q_trans);
+    isometry_inv(s0_inv, s0);
+    isometry_mul(s0_inv_s, s0_inv, s);
+    assert(isometry_is_isom(s0_inv_s, q0, q_trans));
 #endif // DEBUG_LEVEL_FULL
     
-  } while (gram->array.SZ[dim-1][dim-1] < gram->array.SZ[dim-2][dim-2]);
+  } while (gram[dim-1][dim-1] < gram[dim-2][dim-2]);
   
   free(perm);
   free(perm_norm);
