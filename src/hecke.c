@@ -722,6 +722,7 @@ void get_hecke_fmpq_mat_all_conductors(fmpq_mat_t* hecke_fmpq_mat, const genus_t
     fmpq_mat_transpose(hecke_fmpq_mat[c], hecke_fmpq_mat[c]);
     free_mat(hecke_matrices[c]);
   }
+  free(hecke_matrices);
   
   return;
 }

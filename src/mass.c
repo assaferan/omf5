@@ -164,6 +164,7 @@ void _combine(fmpq_t mass, const square_matrix_t q, fmpz_t p)
 
   fmpq_mul(mass, mass, lf);
 
+  free(ms);
   fmpq_clear(denom);
   fmpq_clear(tmp1);
   fmpq_clear(tmp2);

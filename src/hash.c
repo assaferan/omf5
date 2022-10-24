@@ -36,6 +36,7 @@ hash_t hash_form(const square_matrix_t q, W32 theta_prec)
   x = hash_vec(num_short, theta_prec);
 
   free_mat(Q);
+  free(num_short);
   
   return x;
 }

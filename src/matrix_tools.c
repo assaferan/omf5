@@ -504,6 +504,7 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
   free(x_max);
   free(x_num);
   free(x_closest);
+  free(voronoi);
   return;
 }
 
