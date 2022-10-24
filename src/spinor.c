@@ -15,7 +15,7 @@
 
 void spinor_init(spinor_t spinor, const fmpz_mat_t q)
 {
-  slong prime_idx /*, idx, n */;
+  slong prime_idx /*, idx */ ,  n;
   fmpz_t /* tmp, */ det;
   fq_nmod_mat_t q_p;
   fmpz_factor_t bad_primes;
