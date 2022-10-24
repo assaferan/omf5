@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <inttypes.h>
 
 #ifdef DEBUG
 #include <carat/symm.h>
@@ -170,7 +171,7 @@ void nbr_process_build_nb(square_matrix_t Q, const neighbor_manager_t nbr_man)
   if (a1 < 0)
     a1 += nbr_man->p;
 #ifdef DEBUG_LEVEL_FULL
-  printf("q = %lld, a1 = %lld (y = %lld)\n", q, a1, y);
+  printf("q = %" PRId64 ", a1 = %" PRId64 " (y = %"  PRId64 ")\n", q, a1, y);
 #endif // DEBUG_LEVEL_FULL
   
   Q[0][0] += a1*(2*Q[0][4]+nbr_man->p*a1*Q[4][4]);
@@ -374,7 +375,7 @@ bool get_next_isotropic_vector(neighbor_manager_t nbr_man)
   printf("w = ");
   vector_print(nbr_man->w);
 
-  printf("n = %lld, t = %lld\n", n, t);
+  printf("n = %" PRId64 ", t = %" PRId64 "\n", n, t);
 #endif // DEBUG_LEVEL_FULL
     
   if (n) {
@@ -400,7 +401,7 @@ bool get_next_isotropic_vector(neighbor_manager_t nbr_man)
     else
       vector_lin_comb(nbr_man->iso_vec, nbr_man->v, nbr_man->w, 1, nbr_man->iso_j);
 #ifdef DEBUG_LEVEL_FULL
-    printf("v+%lld*w = ", nbr_man->iso_j);
+    printf("v+%" PRId64 "*w = ", nbr_man->iso_j);
     vector_print(nbr_man->iso_vec);
 #endif // DEBUG_LEVEL_FULL
     if (!t)
@@ -737,7 +738,7 @@ void nbr_process_build_nb_and_isom(square_matrix_t Q, isometry_t s, const neighb
     a1 += nbr_man->p;
 
 #ifdef DEBUG_LEVEL_FULL
-  printf("q = %lld, a1 = %lld (y = %lld)\n", q, a1, y);
+  printf("q = %"  PRId64 ", a1 = %"  PRId64 "(y = %" PRId64 ")\n", q, a1, y);
 #endif // DEBUG_LEVEL_FULL
   
   Q[0][0] += a1*(2*Q[0][4]+nbr_man->p*a1*Q[4][4]);
