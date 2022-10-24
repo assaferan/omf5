@@ -4,13 +4,16 @@
 #include <antic/nf.h>
 #include <antic/nf_elem.h>
 
-#include "carat/matrix.h"
+#include <carat/matrix.h>
 
-#include "flint/fmpz_mat.h"
-#include "flint/fmpq_mat.h"
-#include "flint/fmpq_poly.h"
-#include "flint/fq_nmod.h"
-#include "flint/fq_nmod_mat.h"
+#include <flint/fmpz_mat.h>
+#include <flint/fmpq_mat.h>
+#include <flint/fmpq_poly.h>
+#include <flint/fq_nmod.h>
+#include <flint/fq_nmod_mat.h>
+
+#include "isometry.h"
+#include "square_matrix.h"
 
 /* function to initialize a symmetric matrix from a vector of coefficients */
 matrix_TYP* init_sym_matrix(const int* coeff_vec, const char* inp_type);
@@ -30,7 +33,7 @@ matrix_TYP* is_isometric(matrix_TYP* Q1, matrix_TYP* Q2);
 
 matrix_TYP* minkowski_reduce(matrix_TYP* Q);
 
-void greedy(matrix_TYP* gram, matrix_TYP* s, int n, int dim);
+void greedy(square_matrix_t gram, isometry_t s, int dim);
 
 bool get_eigenvector_on_subspace(nf_elem_t* evec, nf_t nf, const fmpq_mat_t T, const fmpq_mat_t basis_W);
 
