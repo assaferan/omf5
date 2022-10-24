@@ -15,13 +15,10 @@
 
 void spinor_init(spinor_t spinor, const fmpz_mat_t q)
 {
-  slong prime_idx /*, idx */ ,  n;
+  slong prime_idx /*, idx */;
   fmpz_t /* tmp, */ det;
   fq_nmod_mat_t q_p;
   fmpz_factor_t bad_primes;
-
-  n = fmpz_mat_nrows(q);
-  assert(n == fmpz_mat_ncols(q));
 
   fmpz_init(det);
   fmpz_mat_det(det, q);
