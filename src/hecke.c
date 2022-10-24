@@ -373,7 +373,10 @@ matrix_TYP** hecke_matrices_all_conductors(const genus_t genus, int p, int k)
   matrix_TYP** hecke;
   nbr_data_t nbr_man;
   int gen_idx, rpos;
-  slong c, npos, num_nbrs, spin_idx, nnbrs;
+  slong c, npos, num_nbrs, spin_idx;
+#ifdef DEBUG
+  slong nnbrs;
+#endif // DEBUG
   int* row;
   slong* lut;
   W64* spin_vals;
@@ -396,8 +399,12 @@ matrix_TYP** hecke_matrices_all_conductors(const genus_t genus, int p, int k)
   nbr_data_clear(nbr_man);
   
   for (gen_idx = 0; gen_idx < genus->genus_reps->num_stored; gen_idx++) {
+#ifdef DEBUG
     nnbrs = hecke_col_nbr_data_all_conductors(spin_vals, p, k, gen_idx, genus);
     assert(nnbrs == num_nbrs);
+#else
+    hecke_col_nbr_data_all_conductors(spin_vals, p, k, gen_idx, genus);
+#endif // DEBUG
     for (c = 0; c < genus->num_conductors; c++) {
       lut = genus->lut_positions[c];
       npos = lut[gen_idx];
@@ -510,7 +517,11 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
 {
   nbr_data_t nbr_man;
   int** hecke;
-  int i, pivot, num_nbrs, nnbrs, spin_idx;
+  int i, pivot;
+  slong num_nbrs, spin_idx;
+#ifdef DEBUG
+  slong nnbrs;
+#endif // DEBUG
   slong c, npos, rpos, gen_idx;
   nf_elem_t prod;
   fmpz_mat_t q;
@@ -556,9 +567,12 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
   nbr_data_clear(nbr_man);
 
   spin_vals = (W64*)malloc(num_nbrs*sizeof(W64));
+#ifdef DEBUG
   nnbrs = hecke_col_nbr_data_all_conductors(spin_vals, p, k, gen_idx, genus);
-
   assert(num_nbrs == nnbrs);
+#else
+  hecke_col_nbr_data_all_conductors(spin_vals, p, k, gen_idx, genus);
+#endif // DEBUG
   
   for (c = 0; c < genus->num_conductors; c++) {
     lut = genus->lut_positions[c];
