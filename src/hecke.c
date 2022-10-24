@@ -265,7 +265,7 @@ int process_neighbour_chunk_nbr_data_all_conductors(W64** spin_vals, int p, int 
 
   assert(lc == num_nbrs);
   nbr_data_clear(nbr_man);
- 
+
   return lc;
 }
 

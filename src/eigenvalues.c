@@ -139,6 +139,7 @@ bool nf_elem_is_square(const nf_elem_t x, const nf_t K)
     }
   }
 
+  fmpq_poly_factor_clear(fac);
   fmpq_poly_clear(x2);
   fmpq_poly_clear(min_poly);
   fmpq_mat_clear(x_reg);

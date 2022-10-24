@@ -272,7 +272,8 @@ void hash_table_recalibrate(hash_table_t new_table, const hash_table_t table)
   // adding all keys
   for (offset = 0; offset < table->num_stored; offset++)
     hash_table_add(new_table, table->keys[offset]);
-  
+
+  free(wt_cnts);
   return;
 }
 
