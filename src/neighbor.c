@@ -123,13 +123,16 @@ matrix_TYP* build_nb(neighbor_manager* nbr_man)
       }
     }
   }
- 
+
+  assert(!(Q[0][0] % nbr_man->p));
+  /*
   if (Q[0][0] % nbr_man->p) {
     printf("NOT 0 mod p\n");
     free_mat(Qx_mat);
     free_mat(xQx_mat);
     return NULL;
   }
+  */
   
   if (!(Q[0][4] % nbr_man->p)) {
     if (Q[0][3] % nbr_man->p) {

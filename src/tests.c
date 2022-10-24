@@ -54,15 +54,11 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
   
   printf("traces of hecke eigenvalues of T_{p^%d} are:\n", k);
   for (i = 0; i < num_evs; i++) {
-    if (k == 2)
-      get_hecke_ev_nbr_data_all_conductors(ev, genus, evs, ps[i], k, form_idx, c);
-    else {
-#ifdef NBR_DATA
-      get_hecke_ev_nbr_data_all_conductors(ev, genus, evs, ps[i], k, form_idx, c);
-#else
+    if (c == 0)
       get_hecke_ev(ev, genus, evs, ps[i], form_idx);
-#endif
-    }
+    else
+      get_hecke_ev_nbr_data_all_conductors(ev, genus, evs, ps[i], k, form_idx, c);
+    
     nf_elem_trace(trace, ev, evs->nfs[form_idx]);
     fmpq_print(trace);
     // nf_elem_print_pretty(ev, evs->nfs[form_idx], "a");
@@ -84,15 +80,10 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
     }
     printf("traces of all hecke eigenvalues are:\n");
     for (j = 0; j < evs->num; j++) {
-      if (k == 1) {
-#ifdef NBR_DATA
-	get_hecke_ev_nbr_data(ev, genus, evs, ps[i], k, j);
-#else
+      if (c == 0)
 	get_hecke_ev(ev, genus, evs, ps[i], j);
-#endif // NBR_DATA
-      }
       else
-	get_hecke_ev_nbr_data(ev, genus, evs, ps[i], k, j);
+	get_hecke_ev_nbr_data_all_conductors(ev, genus, evs, ps[i], k, j, c);
       nf_elem_trace(trace, ev, evs->nfs[j]);
       // nf_elem_print_pretty(ev, evs->nfs[j], "a");
       fmpq_print(trace);
@@ -121,11 +112,12 @@ STATUS test(const example_t ex)
   slong c, c2;
 
   genus_t genus;
-  clock_t cpuclock_0, cpuclock_1, cpudiff;
-  double cputime;
+  clock_t cpuclock_0, cpuclock_1;
+  double cputime, cpudiff;
 
   matrix_TYP* Q;
   eigenvalues_t* evs;
+  bool has_spinor = false;
   const int* test_evs = NULL;
   
   cpuclock_0 = clock();
@@ -146,6 +138,17 @@ STATUS test(const example_t ex)
     for (c = 0; c < ex->num_conductors; c++)
       assert(genus->dims[c] == ex->dims[c]);
 
+  for (c = 1; c < genus->num_conductors; c++)
+    if (genus->dims[c] != 0)
+      has_spinor = true;
+
+  // !! TODO - complete a fast lane here
+  /*
+  if (has_spinor)
+    evs = hecke_eigenforms_all_conductors(genus);
+  else
+    evs = hecke_eigenforms(genus);
+  */
   evs = hecke_eigenforms_all_conductors(genus);
 
   cpuclock_1 = clock();
@@ -162,15 +165,25 @@ STATUS test(const example_t ex)
       printf("For conductor %ld, ", genus->conductors[c]);
       print_eigenvectors(evs[c]);
     }
+
+  has_spinor = false;
+  for (c = 0; c < genus->num_conductors; c++) {
+    eigenvalues_set_lifts(evs[c], 2, c, genus);
+    if (c != 0)
+      for (form_idx = 0; form_idx < evs[c]->num; form_idx++)
+	if (!(evs[c]->is_lift[form_idx]))
+	  has_spinor = true;
+  }
   
   for (c = 0; c < genus->num_conductors; c++) {
-    printf("For conductor %ld, ", genus->conductors[c]);
+    printf("For conductor %ld:\n", genus->conductors[c]);
     eigenvalues_set_lifts(evs[c], 2, c, genus);
     for (form_idx = 0; form_idx < evs[c]->num; form_idx++)
       if (!(evs[c]->is_lift[form_idx])) {
 	for (k = 0; k < 2; k++) {
 	  if (ex->num_conductors != 0)
 	    test_evs = ex->test_evs[c][form_idx][k];
+	  cpuclock_0 = clock();
 	  if (test_eigenvalues(genus, evs[c], ex->num_ps[k], form_idx,
 			       ex->ps[k], test_evs, k+1, c) == FAIL) {
 	    for (c2 = 0; c2 < genus->num_conductors; c2++)
@@ -180,15 +193,14 @@ STATUS test(const example_t ex)
 	    free_mat(Q);
 	    return FAIL;
 	  }
+	  cpuclock_1 = clock();
+	  cpudiff = cpuclock_1 - cpuclock_0;
+	  cputime = cpudiff / CLOCKS_PER_SEC;
+	  // printf("cpudiff = %f, clocks_per_sec = %d\n", cpudiff, CLOCKS_PER_SEC);
+	  printf("computing eigenvalues for k = %d, took %f sec\n", k+1, cputime);
 	}
       }
   }
-  
-  cpuclock_1 = clock();
-  cpudiff = cpuclock_1 - cpuclock_0;
-  cputime = cpudiff / CLOCKS_PER_SEC;
-  
-  printf("computing eigenvalues took %f\n", cputime);
 
   for (c = 0; c < genus->num_conductors; c++)
     eigenvalues_clear(evs[c]);
