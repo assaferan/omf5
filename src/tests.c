@@ -142,14 +142,11 @@ STATUS test(const example_t ex)
     if (genus->dims[c] != 0)
       has_spinor = true;
 
-  // !! TODO - complete a fast lane here
-  /*
   if (has_spinor)
     evs = hecke_eigenforms_all_conductors(genus);
   else
-    evs = hecke_eigenforms(genus);
-  */
-  evs = hecke_eigenforms_all_conductors(genus);
+    // !!TODO - change it to be faster when there is no spinor
+    evs = hecke_eigenforms_all_conductors(genus);
 
   cpuclock_1 = clock();
   cpudiff = cpuclock_1 - cpuclock_0;
@@ -177,7 +174,6 @@ STATUS test(const example_t ex)
   
   for (c = 0; c < genus->num_conductors; c++) {
     printf("For conductor %ld:\n", genus->conductors[c]);
-    // eigenvalues_set_lifts(evs[c], 2, c, genus);
     for (form_idx = 0; form_idx < evs[c]->num; form_idx++)
       if (!(evs[c]->is_lift[form_idx])) {
 	for (k = 0; k < 2; k++) {
