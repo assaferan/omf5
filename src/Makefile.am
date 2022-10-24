@@ -23,7 +23,7 @@ DBG_CFLAGS += ${ALL_CFLAGS}
 DBG_FULL_CFLAGS = -DDEBUG_LEVEL_FULL
 DBG_FULL_CFLAGS += ${DBG_CFLAGS}
 
-ALL_LDFLAGS = -L${GMP_PATH}/lib -L${ANTIC_PATH}/lib -L${FLINT_PATH}/lib -lfunctions -lgmp -lantic -lflint
+ALL_LDFLAGS = -L${GMP_PATH}/lib -L${ANTIC_PATH}/lib -L${FLINT_PATH}/lib -lfunctions -lgmp -lantic -lflint -lm
 
 DBG_LD_FLAGS = ${ALL_LDFLAGS}
 # DBG_LD_FLAGS += -fsanitize=leak
