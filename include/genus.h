@@ -6,6 +6,7 @@
 #include "hash.h"
 #include "isometry.h"
 #include "spinor.h"
+#include "square_matrix.h"
 
 typedef struct
 {
@@ -26,7 +27,7 @@ typedef struct
 typedef genus_struct genus_t[1];
 
 /* compute the genus of a quadratic form */
-void genus_init(genus_t genus, matrix_TYP* Q);
+void genus_init(genus_t genus, const square_matrix_t Q);
 
 void genus_clear(genus_t genus);
 

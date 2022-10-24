@@ -26,10 +26,6 @@
  * may also consider other implementations such as flint or eigen
 */
 
-/* For now, we use N = 5 hard coded */
-
-#define N 5
-
 /* function to initialize a symmetric matrix */
 matrix_TYP* init_sym_matrix_A(const int* coeff_vec)
 {
@@ -37,11 +33,11 @@ matrix_TYP* init_sym_matrix_A(const int* coeff_vec)
   matrix_TYP* Q_mat;
   int** Q;
   
-  Q_mat = init_mat(N,N,"");
+  Q_mat = init_mat(QF_RANK,QF_RANK,"");
   Q = Q_mat->array.SZ;
   row = 0;
   col = 0;
-  for (idx = 0; idx < N*(N+1)/2; idx++)
+  for (idx = 0; idx < QF_RANK*(QF_RANK+1)/2; idx++)
     {
       Q[row][col] = coeff_vec[idx];
       row++;
@@ -50,8 +46,8 @@ matrix_TYP* init_sym_matrix_A(const int* coeff_vec)
 	col++;
       }
     }
-  for (row = 0; row < N-1; row++)
-    for (col = row+1; col < N; col++)
+  for (row = 0; row < QF_RANK-1; row++)
+    for (col = row+1; col < QF_RANK; col++)
       Q[col][row] = Q[row][col];
 
   return Q_mat;
@@ -63,24 +59,24 @@ matrix_TYP* init_sym_matrix_GG(const int* coeff_vec)
   matrix_TYP* Q_mat;
   int** Q;
   
-  Q_mat = init_mat(N,N,"");
+  Q_mat = init_mat(QF_RANK,QF_RANK,"");
   Q = Q_mat->array.SZ;
   row = 0;
   col = 0;
-  for (idx = 0; idx < N*(N+1)/2; idx++)
+  for (idx = 0; idx < QF_RANK*(QF_RANK+1)/2; idx++)
     {
       Q[row][col] = coeff_vec[idx];
       col++;
-      if (col >= N) {
+      if (col >= QF_RANK) {
 	row++;
 	col = row;
       }
     }
-  for (row = 0; row < N; row++)
+  for (row = 0; row < QF_RANK; row++)
     for (col = 0; col < row; col++)
       Q[row][col] = Q[col][row];
 
-  for (row = 0; row < N; row++)
+  for (row = 0; row < QF_RANK; row++)
     Q[row][row] *= 2;
 
 #ifdef DEBUG
@@ -169,15 +165,15 @@ int swap(int** Q, int row1, int col1, int row2, int col2)
 
 /* resymmetrizing a matrix after working with upper triangular part */
 
-int resymmetrize(int **Q)
+void resymmetrize(Z64 **Q)
 {
   int row, col;
   
-  for (row = 0; row < N-1; row++)
-    for (col = row+1; col < N; col++)
+  for (row = 0; row < QF_RANK-1; row++)
+    for (col = row+1; col < QF_RANK; col++)
       Q[col][row] = Q[row][col];
 
-  return 0;
+  return;
 }
 
 bravais_TYP* automorphism_group(matrix_TYP* Q)
@@ -201,27 +197,27 @@ bravais_TYP* automorphism_group(matrix_TYP* Q)
   return grp;
 }
 
-matrix_TYP* is_isometric(matrix_TYP* Q1, matrix_TYP* Q2)
-{
-  int i, Qmax;
-  matrix_TYP *SV1, *SV2, *isom;
-  int options[6] = {0};
+/* matrix_TYP* is_isometric(matrix_TYP* Q1, matrix_TYP* Q2) */
+/* { */
+/*   int i, Qmax; */
+/*   matrix_TYP *SV1, *SV2, *isom; */
+/*   int options[6] = {0}; */
   
-  Qmax = Q1->array.SZ[0][0];
-  for(i=1;i < Q1->cols;i++) {
-    if(Q1->array.SZ[i][i] > Qmax)
-      Qmax = Q1->array.SZ[i][i];
-  }
-  SV1 = short_vectors(Q1, Qmax, 0, 0, 0, &i);
-  SV2 = short_vectors(Q2, Qmax, 0, 0, 0, &i);
+/*   Qmax = Q1->array.SZ[0][0]; */
+/*   for(i=1;i < Q1->cols;i++) { */
+/*     if(Q1->array.SZ[i][i] > Qmax) */
+/*       Qmax = Q1->array.SZ[i][i]; */
+/*   } */
+/*   SV1 = short_vectors(Q1, Qmax, 0, 0, 0, &i); */
+/*   SV2 = short_vectors(Q2, Qmax, 0, 0, 0, &i); */
 
-  isom = isometry(&Q1, &Q2, 1, SV1, SV2, NULL, 0, options);
+/*   isom = isometry(&Q1, &Q2, 1, SV1, SV2, NULL, 0, options); */
   
-  free_mat(SV1);
-  free_mat(SV2);
+/*   free_mat(SV1); */
+/*   free_mat(SV2); */
 
-  return isom;
-}
+/*   return isom; */
+/* } */
 
 matrix_TYP* minkowski_reduce(matrix_TYP* Q)
 {
@@ -230,7 +226,7 @@ matrix_TYP* minkowski_reduce(matrix_TYP* Q)
   /* printf("Trying to minkowski reduce: \n"); */
   /* print_mat(Q); */
   
-  T1 = init_mat(N, N, "");
+  T1 = init_mat(QF_RANK, QF_RANK, "");
   red1 = pair_red(Q, T1);
   
 #ifdef DEBUG_LEVEL_FULL
@@ -238,7 +234,7 @@ matrix_TYP* minkowski_reduce(matrix_TYP* Q)
   print_mat(red1);
 #endif // DEBUG_LEVEL_FULL
   
-  T2 = init_mat(N, N, "1");
+  T2 = init_mat(QF_RANK, QF_RANK, "1");
   red2 = mink_red(red1, T2);
 
 #ifdef DEBuG_LEVEL_FULL
@@ -359,8 +355,8 @@ matrix_TYP* transform_eq(matrix_TYP* g, matrix_TYP* Q)
   int i,j;
   
   Q = mat_muleq(Q,g);
-  for (i = 0; i < N-1; i++)
-    for (j = i+1; j < N; j++) {
+  for (i = 0; i < QF_RANK-1; i++)
+    for (j = i+1; j < QF_RANK; j++) {
       swap(Q->array.SZ, i, j, j, i);
     }
   return mat_muleq(Q, g);
@@ -373,9 +369,8 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
   isometry_t g, min_g;
   square_matrix_t H_int, x_gram;
 
-  int **q;
   Z64 *voronoi, *x, *x_min, *x_max, *x_num, *x_closest;
-  int i,j, num_xs, x_idx, min_dist, n;
+  int i,j, num_xs, x_idx, min_dist;
 
   Z64 *y_int, *v_int;
   Z64 tmp, det;
@@ -476,7 +471,7 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
     isometry_transform_gram(x_gram, g, q);
     if (x_gram[dim-1][dim-1] < min_dist) {
       min_dist = x_gram[dim-1][dim-1];
-      square_matrix_set(min_g, g);
+      isometry_init_set(min_g, g);
       for (j = 0; j < dim-1; j++)
 	x_closest[j] = x[j];
     }
@@ -622,21 +617,21 @@ void updatePerm(isometry_t isom, int* perm)
   square_matrix_t temp;
   int i,j;
   
-  for ( i = 0; i < N; i++)
-    for ( j = 0; j < N; j++)
+  for ( i = 0; i < QF_RANK; i++)
+    for ( j = 0; j < QF_RANK; j++)
       temp[i][j] = isom->s[i][j];
   
-  for ( i = 0; i < N; i++)
-    for ( j = 0; j < N; j++)
+  for ( i = 0; i < QF_RANK; i++)
+    for ( j = 0; j < QF_RANK; j++)
       isom->s[perm[i]][j] = temp[i][j];
 
-  for ( i = 0; i < N; i++)
-    for ( j = 0; j < N; j++)
+  for ( i = 0; i < QF_RANK; i++)
+    for ( j = 0; j < QF_RANK; j++)
       temp[i][j] = isom->s_inv[i][j];
 
-  for ( i = 0; i < N; i++)
-    for ( j = 0; j < N; j++)
-      isom->s_inv[i][j] = temp[i][perm[j]];
+  for ( i = 0; i < QF_RANK; i++)
+    for ( j = 0; j < QF_RANK; j++)
+      isom->s_inv[i][j] = temp[perm[i]][j];
 
 #ifdef DEBUG
   square_matrix_mul(temp, isom->s, isom->s_inv);
@@ -655,36 +650,29 @@ void greedy(square_matrix_t gram, isometry_t s, int dim)
 {
   isometry_t tmp, iso;
   int* perm_norm;
-  int* perm;
+  int perm[QF_RANK];
   int i;
   
 #ifdef DEBUG_LEVEL_FULL
   isometry_t s0, s0_inv, s0_inv_s;
-  square_matrix_t q0, q_trans;
+  square_matrix_t q0;
 #endif // DEBUG_LEVEL_FULL
 
 #ifdef DEBUG_LEVEL_FULL
   isometry_init_set(s0, s);
   square_matrix_set(q0, gram);
 #endif // DEBUG_LEVEL_FULL
-
-#ifdef DEBUG_LEVEL_FULL
-  isometry_inv(s0_inv, s0);
-  isometry_mul(s0_inv_s, s0_inv, s);
-  assert(isometry_is_isom(s0_inv_s, q0, q_trans));
-#endif // DEBUG_LEVEL_FULL
     
   if (dim == 1) return;
 
   perm_norm = (int*)malloc(dim*sizeof(int));
-  perm = (int*)malloc(N*sizeof(int));
   
   do {
 
 #ifdef DEBUG_LEVEL_FULL
   isometry_inv(s0_inv, s0);
   isometry_mul(s0_inv_s, s0_inv, s);
-  assert(isometry_is_isom(s0_inv_s, q0, q_trans));
+  assert(isometry_is_isom(s0_inv_s, q0, gram));
 #endif // DEBUG_LEVEL_FULL
     
     for (i = 0; i < dim; i++) {
@@ -694,7 +682,7 @@ void greedy(square_matrix_t gram, isometry_t s, int dim)
     sort(perm_norm, perm, dim);
 
     // this is to make sure we do not touch these rows
-    for ( i = dim; i < N; i++)
+    for ( i = dim; i < QF_RANK; i++)
       perm[i] = i;
 
     // temp isometry
@@ -712,7 +700,7 @@ void greedy(square_matrix_t gram, isometry_t s, int dim)
 #ifdef DEBUG_LEVEL_FULL
     isometry_inv(s0_inv, s0);
     isometry_mul(s0_inv_s, s0_inv, s);
-    assert(isometry_is_isom(s0_inv_s, q0, q_trans));
+    assert(isometry_is_isom(s0_inv_s, q0, gram));
 #endif // DEBUG_LEVEL_FULL
   
     // !! - TODO - do we really need iso here
@@ -728,7 +716,7 @@ void greedy(square_matrix_t gram, isometry_t s, int dim)
 #ifdef DEBUG_LEVEL_FULL
     isometry_inv(s0_inv, s0);
     isometry_mul(s0_inv_s, s0_inv, s);
-    assert(isometry_is_isom(s0_inv_s, q0, q_trans));
+    assert(isometry_is_isom(s0_inv_s, q0, gram));
 #endif // DEBUG_LEVEL_FULL
 
     // !! TODO - one can use subgram to save computations
@@ -740,12 +728,11 @@ void greedy(square_matrix_t gram, isometry_t s, int dim)
 #ifdef DEBUG_LEVEL_FULL
     isometry_inv(s0_inv, s0);
     isometry_mul(s0_inv_s, s0_inv, s);
-    assert(isometry_is_isom(s0_inv_s, q0, q_trans));
+    assert(isometry_is_isom(s0_inv_s, q0, gram));
 #endif // DEBUG_LEVEL_FULL
     
   } while (gram[dim-1][dim-1] < gram[dim-2][dim-2]);
   
-  free(perm);
   free(perm_norm);
   
   return;

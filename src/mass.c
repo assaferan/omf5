@@ -84,7 +84,7 @@ void diagonal_join(fmpq_mat_t joined, const jordan_data_t jordan)
   return;
 }
 
-void _combine(fmpq_t mass, const matrix_TYP* q, fmpz_t p)
+void _combine(fmpq_t mass, const square_matrix_t q, fmpz_t p)
 {
   assert(!fmpz_equal_si(p,2));
 
@@ -96,7 +96,8 @@ void _combine(fmpq_t mass, const matrix_TYP* q, fmpz_t p)
   ulong* ms;
   ulong i, j, m, t, v, n;
 
-  n = q->rows;
+  n = QF_RANK;
+  
   fmpq_init(e);
   fmpq_init(f);
   fmpq_init(tmp1);
@@ -138,7 +139,7 @@ void _combine(fmpq_t mass, const matrix_TYP* q, fmpz_t p)
   // size_t v = Math<R>::valuation(q.discriminant(), p);
   for (i = 0; i < n; i++)
     for (j = 0; j < n; j++)
-      fmpz_set_si(fmpz_mat_entry(q_mat, i, j), q->array.SZ[i][j]);
+      fmpz_set_si(fmpz_mat_entry(q_mat, i, j), q[i][j]);
 
   fmpz_mat_det(d, q_mat);
   v = fmpz_valuation(d, p);
@@ -179,10 +180,9 @@ void _combine(fmpq_t mass, const matrix_TYP* q, fmpz_t p)
   return;
 }
 
-void get_mass(fmpq_t mass, const matrix_TYP* q)
+void get_mass(fmpq_t mass, const square_matrix_t q)
 {
-  int n = q->rows;
-  int r = n / 2;
+  int r = QF_RANK / 2;
   qf_inv_t witt;
   fmpz_t det, two, two_i, mass_two, six, disc, r_Z;
   fmpz_mat_t hasse, B, Q;
@@ -202,10 +202,10 @@ void get_mass(fmpq_t mass, const matrix_TYP* q)
   fmpz_init_set_si(six,6);
   fmpz_factor_init(fac);
 
-  fmpz_mat_init(Q, q->rows, q->cols);
-  for (i = 0; i < q->rows; i++)
-    for (j = 0; j < q->cols; j++)
-      fmpz_set_si(fmpz_mat_entry(Q, i, j), q->array.SZ[i][j]);
+  fmpz_mat_init(Q, QF_RANK, QF_RANK);
+  for (i = 0; i < QF_RANK; i++)
+    for (j = 0; j < QF_RANK; j++)
+      fmpz_set_si(fmpz_mat_entry(Q, i, j), q[i][j]);
 
   invariants(det, witt, Q);
 
@@ -260,14 +260,14 @@ void get_mass(fmpq_t mass, const matrix_TYP* q)
   // mass from infinity and 2
   fmpq_set_si(mass, 1, 1 << r);
 
-  for (i = 1; i < n / 2 + n % 2; i++) {
+  for (i = 1; i < QF_RANK / 2 + QF_RANK % 2; i++) {
     fmpz_set_si(two_i, -2*i);
     bernoulli_number(bernoulli, 2*i);
     fmpq_div_fmpz(bernoulli, bernoulli, two_i);
     fmpq_mul(mass, mass, bernoulli);
   }
 
-  if (n % 2 == 1) {	 
+  if (QF_RANK % 2 == 1) {	 
     if (val2 % 2 == 1) {
       fmpz_set_si(mass_two, (1 << r) + (has_two ? -1 : 1));
       fmpq_mul_fmpz(mass, mass, mass_two); 
@@ -275,7 +275,7 @@ void get_mass(fmpq_t mass, const matrix_TYP* q)
       has_two = false;
     }
     else if (has_two) {
-      fmpz_set_si(mass_two, (1 << (n-1))-1);
+      fmpz_set_si(mass_two, (1 << (QF_RANK-1))-1);
       fmpq_mul_fmpz(mass, mass, mass_two);
       fmpq_div_fmpz(mass, mass, six);
     }
@@ -357,8 +357,4 @@ void get_mass(fmpq_t mass, const matrix_TYP* q)
   
   return;
 
-  /* for (Integer<R> p : B) */
-  /*   mass *= Genus<R,n>::_combine(q,p); */
-     
-  /* return mass.abs(); */
 }

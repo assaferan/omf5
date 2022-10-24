@@ -17,7 +17,7 @@
 int process_isotropic_vector_nbr_data(nbr_data_t nbr_man, int* T, const genus_t genus, 
 				      double* theta_time, double* isom_time, double* total_time, int* num_isom);
 
-int process_isotropic_vector(neighbor_manager* nbr_man, int* T, const genus_t genus,
+int process_isotropic_vector(neighbor_manager_t nbr_man, int* T, const genus_t genus,
 			     double* theta_time, double* isom_time, double* total_time, int* num_isom);
 
 

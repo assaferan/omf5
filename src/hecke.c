@@ -70,19 +70,16 @@ int process_isotropic_vector_nbr_data(nbr_data_t nbr_man, int* T, const genus_t 
 {
   int i;
   clock_t cputime;
-  matrix_TYP* nbr;
+  square_matrix_t nbr;
   fmpz_mat_t nbr_fmpz, nbr_isom;
-  slong n;
 
   assert(genus->genus_reps->num_stored > 0);
-  n = genus->genus_reps->keys[0]->rows;
-  assert(n == genus->genus_reps->keys[0]->cols);
   
-  fmpz_mat_init(nbr_fmpz, n, n);
-  fmpz_mat_init(nbr_isom, n, n);
+  fmpz_mat_init(nbr_fmpz, QF_RANK, QF_RANK);
+  fmpz_mat_init(nbr_isom, QF_RANK, QF_RANK);
   
   nbr_data_build_neighbor(nbr_fmpz, nbr_isom, nbr_man);
-  matrix_TYP_init_set_fmpz_mat(&nbr, nbr_fmpz);
+  square_matrix_set_fmpz_mat(nbr, nbr_fmpz);
 
   cputime = clock();
   i = hash_table_indexof(genus->genus_reps, nbr, 0, theta_time, isom_time, num_isom);
@@ -101,7 +98,7 @@ int process_isotropic_vector_nbr_data(nbr_data_t nbr_man, int* T, const genus_t 
   fmpz_mat_clear(nbr_fmpz);
   fmpz_mat_clear(nbr_isom);
 
-  free_mat(nbr);
+  square_matrix_clear(nbr);
   
   return 0;
 }
@@ -113,26 +110,23 @@ int process_isotropic_vector_nbr_data_all_conductors(nbr_data_t nbr_man, W64* sp
 {
   int i;
   clock_t cputime;
-  matrix_TYP* nbr;
+  square_matrix_t nbr;
   isometry_t s_nbr, s_inv;
-  matrix_TYP* hash_isom;
+  isometry_t hash_isom;
   fmpz_mat_t nbr_fmpz, nbr_isom;
-  slong n;
 
   assert(genus->genus_reps->num_stored > 0);
-  n = genus->genus_reps->keys[0]->rows;
-  assert(n == genus->genus_reps->keys[0]->cols);
   
-  fmpz_mat_init(nbr_fmpz, n, n);
-  fmpz_mat_init(nbr_isom, n, n);
+  fmpz_mat_init(nbr_fmpz, QF_RANK, QF_RANK);
+  fmpz_mat_init(nbr_isom, QF_RANK, QF_RANK);
   
   nbr_data_build_neighbor(nbr_fmpz, nbr_isom, nbr_man);
-  matrix_TYP_init_set_fmpz_mat(&nbr, nbr_fmpz);
-  isometry_init_fmpz_mat(s_nbr, nbr_isom, fmpz_get_si(fq_nmod_ctx_prime(nbr_man->GF)));
-  assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx]->array.SZ, nbr->array.SZ));
+  square_matrix_set_fmpz_mat(nbr, nbr_fmpz);
+  isometry_init_set_fmpz_mat(s_nbr, nbr_isom, fmpz_get_si(fq_nmod_ctx_prime(nbr_man->GF)));
+  assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx], nbr));
   
   cputime = clock();
-  i = hash_table_index_and_isom(genus->genus_reps, nbr, &hash_isom, theta_time, isom_time, num_isom);
+  i = hash_table_index_and_isom(genus->genus_reps, nbr, hash_isom, theta_time, isom_time, num_isom);
   (*total_time) += clock() - cputime;
 
 #ifdef DEBUG
@@ -145,20 +139,20 @@ int process_isotropic_vector_nbr_data_all_conductors(nbr_data_t nbr_man, W64* sp
   // TODO - compute only the upper half, and complete using hermitian property
   // Determine which subspaces this representative contributes.
 
-  assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx]->array.SZ, nbr->array.SZ));
-  assert(isometry_is_isom(genus->isoms[gen_idx], genus->genus_reps->keys[0]->array.SZ,
-			  genus->genus_reps->keys[gen_idx]->array.SZ));
-  isometry_mul(s_nbr, genus->isoms[gen_idx], s_nbr);
+  assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx], nbr));
+  assert(isometry_is_isom(genus->isoms[gen_idx], genus->genus_reps->keys[0],
+			  genus->genus_reps->keys[gen_idx]));
+  isometry_muleq_left(s_nbr, genus->isoms[gen_idx]);
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[0], nbr));
-  assert(is_isometry(hash_isom, nbr, genus->genus_reps->keys[i], 1));
-  isometry_mul_mat_right(s_nbr, s_nbr, hash_isom);
+  assert(isometry_is_isom(hash_isom, nbr, genus->genus_reps->keys[i]));
+  isometry_muleq_right(s_nbr, hash_isom);
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[0], genus->genus_reps->keys[i]));
   assert(isometry_is_isom(genus->isoms[i], genus->genus_reps->keys[0],
 			  genus->genus_reps->keys[i]));
   isometry_inv(s_inv, genus->isoms[i]);
   assert(isometry_is_isom(s_inv, genus->genus_reps->keys[i],
 			  genus->genus_reps->keys[0]));
-  isometry_mul(s_nbr, s_nbr, s_inv);
+  isometry_muleq_right(s_nbr, s_inv);
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[0],
 			  genus->genus_reps->keys[0]));
   
@@ -166,25 +160,26 @@ int process_isotropic_vector_nbr_data_all_conductors(nbr_data_t nbr_man, W64* sp
 
   isometry_clear(s_nbr);
   isometry_clear(s_inv);
+  isometry_clear(hash_isom);
   
   fmpz_mat_clear(nbr_fmpz);
   fmpz_mat_clear(nbr_isom);
 
-  free_mat(nbr);
+  square_matrix_clear(nbr);
   
   return 0;
 }
   
-int process_isotropic_vector(neighbor_manager* nbr_man, int* T, const genus_t genus,
+int process_isotropic_vector(neighbor_manager_t nbr_man, int* T, const genus_t genus,
 			     double* theta_time, double* isom_time, double* total_time, int* num_isom)
 
 {
 
   int i;
   clock_t cputime;
-  matrix_TYP* nbr;
+  square_matrix_t nbr;
 
-  nbr = build_nb(nbr_man);
+  nbr_process_build_nb(nbr, nbr_man);
 
   cputime = clock();
   i = hash_table_indexof(genus->genus_reps, nbr, 0, theta_time, isom_time, num_isom);
@@ -198,8 +193,6 @@ int process_isotropic_vector(neighbor_manager* nbr_man, int* T, const genus_t ge
 #endif // DEBUG
   
   T[i]++;
-
-  free_mat(nbr);
   
   return 0;
 }
@@ -210,28 +203,28 @@ int process_isotropic_vector(neighbor_manager* nbr_man, int* T, const genus_t ge
 int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const genus_t genus,
 			    double* theta_time, double* isom_time, double* total_time, int* num_isom)
 {
-  matrix_TYP *Q;
-  neighbor_manager nbr_man;
+  square_matrix_t Q;
+  neighbor_manager_t nbr_man;
   int lc;
   
   lc = 0;
 
-  Q = genus->genus_reps->keys[gen_idx];
+  square_matrix_set(Q,genus->genus_reps->keys[gen_idx]);
 
 #ifdef DEBUG_LEVEL_FULL
   printf("initialized Q: \n");
-  print_mat(Q);
+  square_matrix_print(Q);
 #endif // DEBUG_LEVEL_FULL
 
-  init_nbr_process(&nbr_man, Q, p, i);
+  nbr_process_init(nbr_man, Q, p, i);
 
-  while (!(has_ended(&nbr_man))) {
-    process_isotropic_vector(&nbr_man, T, genus, theta_time, isom_time, total_time, num_isom);
-    advance_nbr_process(&nbr_man);
+  while (!(nbr_process_has_ended(nbr_man))) {
+    process_isotropic_vector(nbr_man, T, genus, theta_time, isom_time, total_time, num_isom);
+    nbr_process_advance(nbr_man);
     lc++;
   }
 
-  free_nbr_process(&nbr_man);
+  nbr_process_clear(nbr_man);
  
   return lc;
 }
@@ -242,18 +235,18 @@ int process_neighbour_chunk_nbr_data_all_conductors(W64** spin_vals, int p, int 
 						    double* total_time,
 						    int* num_isom)
 {
-  matrix_TYP *Q;
+  square_matrix_t Q;
   nbr_data_t nbr_man;
   slong num_nbrs;
   int lc;
 
   lc = 0;
-
-  Q = genus->genus_reps->keys[gen_idx];
+  
+  square_matrix_set(Q,genus->genus_reps->keys[gen_idx]);
 
 #ifdef DEBUG_LEVEL_FULL
   printf("initialized Q: \n");
-  print_mat(Q);
+  square_matrix_print(Q);
 #endif // DEBUG_LEVEL_FULL
 
   assert(k > 0);
@@ -279,17 +272,17 @@ int process_neighbour_chunk_nbr_data_all_conductors(W64** spin_vals, int p, int 
 int process_neighbour_chunk_nbr_data(int* T, int p, int k, int gen_idx, const genus_t genus,
 				     double* theta_time, double* isom_time, double* total_time, int* num_isom)
 {
-  matrix_TYP *Q;
+  square_matrix_t Q;
   nbr_data_t nbr_man;
   int lc;
 
   lc = 0;
 
-  Q = genus->genus_reps->keys[gen_idx];
+  square_matrix_set(Q,genus->genus_reps->keys[gen_idx]);
 
 #ifdef DEBUG_LEVEL_FULL
   printf("initialized Q: \n");
-  print_mat(Q);
+  square_matrix_print(Q);
 #endif // DEBUG_LEVEL_FULL
 
   nbr_data_init(nbr_man, Q, p, k);
@@ -501,7 +494,7 @@ void get_hecke_ev_nbr_data(nf_elem_t e, const genus_t genus, const eigenvalues_t
 
   // handling the case p divides the discriminant
   if (genus->genus_reps->num_stored > 0) {
-    fmpz_mat_init_set_matrix_TYP(q, genus->genus_reps->keys[0]);
+    fmpz_mat_init_set_square_matrix(q, genus->genus_reps->keys[0]);
     fmpz_init(disc);
     fmpz_mat_det(disc, q);
     fmpz_divexact_si(disc,disc,2);
@@ -615,7 +608,7 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
 
   // handling the case p divides the discriminant
   if (genus->genus_reps->num_stored > 0) {
-    fmpz_mat_init_set_matrix_TYP(q, genus->genus_reps->keys[0]);
+    fmpz_mat_init_set_square_matrix(q, genus->genus_reps->keys[0]);
     fmpz_init(disc);
     fmpz_mat_det(disc, q);
     fmpz_divexact_si(disc,disc,2);
@@ -630,7 +623,7 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
   printf("%4d ", p);
   nf_elem_print_pretty(e, evs->nfs[ev_idx], "a");
   printf(" - ");
-  for (num = 0; num < genus->genus_reps->num_stored; num++)
+  for (num = 0; num < genus->dims[ev_cond]; num++)
     printf("%10d ", hecke[ev_cond][num]);
   
   printf("- %10f\n", cputime);

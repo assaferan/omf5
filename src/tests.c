@@ -115,14 +115,14 @@ STATUS test(const example_t ex)
   clock_t cpuclock_0, cpuclock_1;
   double cputime, cpudiff;
 
-  matrix_TYP* Q;
+  square_matrix_t Q;
   eigenvalues_t* evs;
   bool has_spinor = false;
   const int* test_evs = NULL;
   
   cpuclock_0 = clock();
 
-  Q = init_sym_matrix(ex->Q_coeffs, ex->format);
+  square_matrix_init_set_symm(Q, ex->Q_coeffs, ex->format);
   genus_init(genus, Q);
 
   cpuclock_1 = clock();
@@ -190,7 +190,6 @@ STATUS test(const example_t ex)
 	      eigenvalues_clear(evs[c2]);
 	    free(evs);
 	    genus_clear(genus);
-	    free_mat(Q);
 	    return FAIL;
 	  }
 	  cpuclock_1 = clock();
@@ -207,8 +206,7 @@ STATUS test(const example_t ex)
   free(evs);
 
   genus_clear(genus);
-  free_mat(Q);
-  
+ 
   return SUCCESS;
 }
 
@@ -426,34 +424,25 @@ STATUS test_69()
 
 STATUS test_greedy(const int* Q_coeffs, const int* red_Q_coeffs)
 {
-  matrix_TYP *Q, *s, *red_Q;
+  square_matrix_t Q, red_Q;
+  isometry_t s;
+
   STATUS ret;
 
-  ret = SUCCESS;
-  
-  s = init_mat(5, 5, "1");
-  Q = init_sym_matrix(Q_coeffs, "A");
-  greedy(Q, s, 5, 5);
-  red_Q = init_sym_matrix(red_Q_coeffs, "A");
+  isometry_init(s);
+  square_matrix_init_set_symm(Q, Q_coeffs, "A");
+  greedy(Q, s, QF_RANK);
+  square_matrix_init_set_symm(red_Q, red_Q_coeffs, "A");
   
 #ifdef DEBUG
-  print_mat(Q);
+  square_matrix_print(Q);
 #endif // DEBUG
 
-  for (int i = 0; i < 5; i++) {
-    for (int j = 0; j < 5; j++) {
-      if (Q->array.SZ[i][j] != red_Q->array.SZ[i][j]) {
-	ret = FAIL;
-	break;
-      }
-    }
-    if (ret == FAIL)
-      break;
-  }
+  ret = (square_matrix_is_equal(Q, red_Q) ? SUCCESS : FAIL);
   
-  free_mat(s);
-  free_mat(Q);
-  free_mat(red_Q);
+  isometry_clear(s);
+  square_matrix_clear(Q);
+  square_matrix_clear(red_Q);
 
   return ret;
 }

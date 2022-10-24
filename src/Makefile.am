@@ -29,6 +29,7 @@ DBG_LD_FLAGS = ${ALL_LDFLAGS}
 # DBG_LD_FLAGS += -fsanitize=leak
 
 SOURCES = arith.c
+SOURCES += aut_grp.c
 SOURCES += decomposition.c
 SOURCES += eigenvalues.c
 SOURCES += fmpq_poly.c
@@ -49,6 +50,7 @@ SOURCES += nf_mat.c
 SOURCES += orthogonalize.c
 SOURCES += pivot_data.c
 SOURCES += spinor.c
+SOURCES += square_matrix.c
 SOURCES += tests.c
 SOURCES += qf_inv.c
 

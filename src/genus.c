@@ -4,12 +4,14 @@
 #include <flint/fmpq.h>
 #include <flint/fmpz.h>
 
+#include "aut_grp.h"
 #include "genus.h"
 #include "hash.h"
 #include "mass.h"
 #include "matrix_tools.h"
 #include "nbr_data.h"
 #include "neighbor.h"
+#include "square_matrix.h"
 #include "typedefs.h"
 
 int bitcounts[256] = {
@@ -40,11 +42,11 @@ int popcnt(W64 x)
 }
 
 /* compute the genus of a quadratic form */
-void genus_init(genus_t genus, matrix_TYP* Q)
+void genus_init(genus_t genus, const square_matrix_t q)
 {
-  bravais_TYP *aut_grp;
-  matrix_TYP *nbr, *isom, *genus_rep;
-  isometry_t s;
+  aut_grp_t aut_grp;
+  square_matrix_t nbr, genus_rep;
+  isometry_t s, isom;
   fmpq_t mass, acc_mass, mass_form;
   fmpz_t prime;
   int p, current, key_num;
@@ -54,36 +56,32 @@ void genus_init(genus_t genus, matrix_TYP* Q)
   fmpz_mat_t q_fmpz;
   size_t c, mask, bits;
   slong value;
-  int n;
   bool* ignore;
   W64 vals;
-  square_matrix_t nbr_sm, isom_sm, q;
+  bool found, is_isom;
   
 #ifndef NBR_DATA
-  neighbor_manager nbr_man;
+  neighbor_manager_t nbr_man;
   int i;
 #else
   nbr_data_t nbr_man;
   fmpz_mat_t nbr_isom, nbr_fmpz;
 #endif // NBR_DATA
 
-  n = Q->rows;
-  assert(n == Q->cols);
-
 #ifdef NBR_DATA
-  fmpz_mat_init(nbr_isom, n, n);
-  fmpz_mat_init(nbr_fmpz, n, n);
+  fmpz_mat_init(nbr_isom, QF_RANK, QF_RANK);
+  fmpz_mat_init(nbr_fmpz, QF_RANK, QF_RANK);
 #endif // NBR_DATA
   
 #ifdef NBR_DATA
-  fmpz_mat_init(nbr_isom, n, n);
-  fmpz_mat_init(nbr_fmpz, n, n);
+  fmpz_mat_init(nbr_isom, QF_RANK, QF_RANK);
+  fmpz_mat_init(nbr_fmpz, QF_RANK, QF_RANK);
 #endif // NBR_DATA
 
   fmpz_init(genus->disc);
 
   fmpq_init(mass);
-  get_mass(mass, Q);
+  get_mass(mass, q);
   
 #ifdef DEBUG
   printf("mass = ");
@@ -104,9 +102,9 @@ void genus_init(genus_t genus, matrix_TYP* Q)
   genus_size = (4 * genus_size) / 3; // load factor
 
   hash_table_init(slow_genus, genus_size);
-  hash_table_add(slow_genus, Q);
+  hash_table_add(slow_genus, q);
 
-  fmpz_mat_init_set_matrix_TYP(q_fmpz, Q);
+  fmpz_mat_init_set_square_matrix(q_fmpz, q);
   fmpz_mat_det(genus->disc, q_fmpz);
   fmpz_divexact_si(genus->disc, genus->disc, 2);
   spinor_init(genus->spinor, q_fmpz);
@@ -133,14 +131,14 @@ void genus_init(genus_t genus, matrix_TYP* Q)
     value = fmpz_get_si(fq_nmod_ctx_prime(genus->spinor->fields[bits])) * genus->conductors[c ^ mask];
     genus->conductors[c] = value;
   }  
-  
-  aut_grp = automorphism_group(Q);
 
-  q = Q->array.SZ;
+  aut_grp_init_square_matrix(aut_grp, q);
   
   fmpq_init(mass_form);
   fmpq_init(acc_mass);
   fmpq_set_si(acc_mass, 1, aut_grp->order);
+
+  aut_grp_clear(aut_grp);
 
 #ifdef DEBUG_LEVEL_FULL
   printf("acc_mass = ");
@@ -164,12 +162,8 @@ void genus_init(genus_t genus, matrix_TYP* Q)
     do {
       fmpz_nextprime(prime, prime, true);
       p = fmpz_get_ui(prime);
-/* #ifdef DEBUG */
-/*       printf("p = %d, Q = ", p); */
-/*       print_mat(Q); */
-/* #endif //DEBUG */
     }
-    while (!p_mat_det(Q, p));
+    while (square_matrix_is_bad_prime(q,p));
 
     while ((current < slow_genus->num_stored) && fmpq_cmp(acc_mass, mass)){
 #ifdef DEBUG_LEVEL_FULL
@@ -183,63 +177,55 @@ void genus_init(genus_t genus, matrix_TYP* Q)
       /* sets, by index as Gonzalo did */
       
       while ((i < p) && fmpq_cmp(acc_mass, mass)) {
-	/* printf("i = %d\n", i); */
-	init_nbr_process(&nbr_man, slow_genus->keys[current], p, i);
-	while ((!(has_ended(&nbr_man))) && fmpq_cmp(acc_mass, mass)) {
-	  nbr = build_nb(&nbr_man);
+	nbr_process_init(nbr_man, slow_genus->keys[current], p, i);
+	while ((!(nbr_process_has_ended(nbr_man))) && fmpq_cmp(acc_mass, mass)) {
+	  nbr_process_build_nb_and_isom(nbr, s, nbr_man);
 #else
 	nbr_data_init(nbr_man, slow_genus->keys[current], p, 1);
 	while ((!(nbr_data_has_ended(nbr_man))) && fmpq_cmp(acc_mass, mass)) {
 	  nbr_data_build_neighbor(nbr_fmpz, nbr_isom, nbr_man);
-	  matrix_TYP_init_set_fmpz_mat(&nbr, nbr_fmpz);
+	  square_matrix_set_fmpz_mat(nbr, nbr_fmpz);
 #endif // NBR_DATA
 	  
 #ifdef DEBUG_LEVEL_FULL
 	  printf("nbr = \n");
-	  print_mat(nbr);
+	  square_matrix_print(nbr);
 #endif // DEBUG_LEVEL_FULL
 	  
 	  key_num = -1;
-	  isom = NULL;
-	  // just something that is not NULL
-	  genus_rep = slow_genus->keys[current];
+
+	  found = true;
+	  is_isom = false;
       
-	  while ((genus_rep != NULL) && (isom == NULL)) {
+	  while ((found) && (!is_isom)) {
 #ifdef DEBUG_LEVEL_FULL
 	    printf("checking if it is already in the genus...\n");
 #endif // DEBUG_LEVEL_FULL
-	    genus_rep = hash_table_get_key(slow_genus, nbr, &key_num);
-	    if (genus_rep != NULL) {
+	    found = hash_table_get_key(genus_rep, slow_genus, nbr, &key_num);
+	    if (found) {
 #ifdef DEBUG_LEVEL_FULL
 	      printf("Found candidate :\n");
-	      print_mat(genus_rep);
+	      square_matrix_print(genus_rep);
 	      printf("Checking for isometry...\n");
 #endif // DEBUG_LEVEL_FULL
-	      isom = is_isometric(genus_rep, nbr);
+	      is_isom = is_isometric(isom, genus_rep, nbr);
 	    }
 	  }
 	  
-	  if (isom == NULL) {
+	  if (!is_isom) {
 #ifdef DEBUG_LEVEL_FULL
 	    printf("no Isometry found, adding neighbor...\n");
 #endif // DEBUG_LEVEL_FULL
 #ifdef NBR_DATA
-	    isometry_init_set_fmpz_mat(s, nbr_isom, p);
-#else
-	    // !! TODO - should complete here with the isometry for the neighbor
-	    isometry_init(s);
-	    
+	    isometry_init_set_fmpz_mat(s, nbr_isom, p); 
 #endif // NBR_DATA
-	    square_matrix_set_matrix_TYP(nbr_sm, nbr);
 #ifdef DEBUG
-	    square_matrix_set_matrix_TYP(isom_sm, slow_genus->keys[current]);
-	    assert(isometry_is_isom(s, isom_sm, nbr_sm));
+	    assert(isometry_is_isom(s, slow_genus->keys[current], nbr));
 #endif // DEBUG
 	    
-	    greedy(nbr_sm, s, n);
+	    greedy(nbr, s, QF_RANK);
 #ifdef DEBUG
-	    square_matrix_set_matrix_TYP(isom_sm, slow_genus->keys[current]);
-	    assert(isometry_is_isom(s, isom_sm, nbr_sm));
+	    assert(isometry_is_isom(s, slow_genus->keys[current], nbr));
 #endif // DEBUG
 
 	    // The genus rep isometries were initialized only to contain the
@@ -248,13 +234,14 @@ void genus_init(genus_t genus, matrix_TYP* Q)
 	    // "mother" quadratic form and the genus rep.
 	    isometry_mul(genus->isoms[slow_genus->num_stored], genus->isoms[current], s);
 	    
-	    assert(isometry_is_isom(genus->isoms[slow_genus->num_stored], q, nbr_sm));
+	    assert(isometry_is_isom(genus->isoms[slow_genus->num_stored], q, nbr));
 	    
 	    isometry_clear(s);
 	    
 	    hash_table_add(slow_genus, nbr);
-	    aut_grp = automorphism_group(nbr);
+	    aut_grp_init_square_matrix(aut_grp, nbr);
 	    fmpq_set_si(mass_form, 1, aut_grp->order);
+	    aut_grp_clear(aut_grp);
 	    fmpq_add(acc_mass, acc_mass, mass_form);
 #ifdef DEBUG_LEVEL_FULL
 	    printf("acc_mass = ");
@@ -264,7 +251,7 @@ void genus_init(genus_t genus, matrix_TYP* Q)
 	  }
 	  
 #ifndef NBR_DATA
-	  advance_nbr_process(&nbr_man);
+	  nbr_process_advance(nbr_man);
 #else
 	  nbr_data_get_next_neighbor(nbr_man);
 #endif // NBR_DATA
@@ -272,7 +259,7 @@ void genus_init(genus_t genus, matrix_TYP* Q)
 	
 #ifndef NBR_DATA
 	i++;
-	free_nbr_process(&nbr_man);
+	nbr_process_clear(nbr_man);
 	}
 #else
 	nbr_data_clear(nbr_man);
@@ -308,18 +295,20 @@ void genus_init(genus_t genus, matrix_TYP* Q)
     
     for (genus_idx = 0; genus_idx < genus->genus_reps->num_stored; genus_idx++) {
       // Determine which subspaces this representative contributes.
-      aut_grp = automorphism_group(genus->genus_reps->keys[genus_idx]);
+      aut_grp_init_square_matrix(aut_grp, genus->genus_reps->keys[genus_idx]);
       
       for (c = 0; c < genus->num_conductors; c++)
 	ignore[c] = false;
 
-      for (gen_idx = 0; gen_idx < aut_grp->gen_no; gen_idx++) {
-	/* assert(is_isometry(aut_grp->gen[gen_idx], */
-	/* 		   genus->genus_reps->keys[genus_idx], */
-	/* 		   genus->genus_reps->keys[genus_idx], 1)); */
+      for (gen_idx = 0; gen_idx < aut_grp->num_gens; gen_idx++) {
+#ifdef DEBUG
+	isometry_init_set_square_matrix(s, aut_grp->gens[gen_idx], 1);
+	assert(isometry_is_isom(s, genus->genus_reps->keys[genus_idx], genus->genus_reps->keys[genus_idx]));
+#endif // DEBUG
+
 	isometry_inv(s, genus->isoms[genus_idx]);
-	isometry_mul_mat_left(s, aut_grp->gen[gen_idx], 1, s);
-	isometry_mul(s, genus->isoms[genus_idx], s);
+	isometry_mul_mateq_left(s, aut_grp->gens[gen_idx], 1);
+	isometry_muleq_left(s, genus->isoms[genus_idx]);
 	
 	assert(isometry_is_isom(s, q, q));
 	
@@ -339,6 +328,8 @@ void genus_init(genus_t genus, matrix_TYP* Q)
 	}
 	genus->dims[c] += (ignore[c] ? 0 : 1);
       }
+
+      aut_grp_clear(aut_grp);
     }
 
     // #ifdef DEBUG

@@ -57,7 +57,7 @@ void inner_product(fmpq_t res, const fmpz_mat_t G,
   return;
 }
 
-void jordan_decomposition(jordan_data_t jordan, const matrix_TYP* q, const fmpz_t p)
+void jordan_decomposition(jordan_data_t jordan, const square_matrix_t q, const fmpz_t p)
 {
   int even;
   fmpq_mat_t S, G, F, mF;
@@ -71,7 +71,7 @@ void jordan_decomposition(jordan_data_t jordan, const matrix_TYP* q, const fmpz_
   fmpq_t tmp_rat;
 #endif // DEBUG_LEVEL_FULL
 
-  n = q->rows;
+  n = QF_RANK;
 
   blocks = (ulong*)malloc(n*sizeof(ulong));
   
@@ -95,7 +95,7 @@ void jordan_decomposition(jordan_data_t jordan, const matrix_TYP* q, const fmpz_
 
   for (i = 0; i < n; i++)
     for (j = 0; j < n; j++) {
-      fmpz_set_si(fmpz_mat_entry(B, i, j), q->array.SZ[i][j]);
+      fmpz_set_si(fmpz_mat_entry(B, i, j), q[i][j]);
       fmpq_set_fmpz(fmpq_mat_entry(F, i, j), fmpz_mat_entry(B, i, j));
     }
 

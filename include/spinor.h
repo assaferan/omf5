@@ -27,7 +27,7 @@ void spinor_clear(spinor_t spinor);
 W64 spinor_norm_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom);
 
 W64 spinor_norm(const spinor_t spinor, matrix_TYP* mat, int denom);
-W64 spinor_norm_isom(const spinor_t spinor, isometry_t isom);
+W64 spinor_norm_isom(const spinor_t spinor, const isometry_t isom);
 W64 spinor_norm_cd_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom);
 
 #endif // __SPINOR_H__

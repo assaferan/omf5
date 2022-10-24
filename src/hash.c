@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <carat/symm.h>
 
+#include "aut_grp.h"
 #include "hash.h"
 #include "isometry.h"
 #include "matrix_tools.h"
@@ -15,16 +16,18 @@
 // different performance times
 hash_t hash_vec(const int* vec, unsigned int n);
 
-int _add(hash_table_t table, matrix_TYP* key, hash_t val, int do_push_back);
+int _add(hash_table_t table, const square_matrix_t key, hash_t val, int do_push_back);
 
 // This should be the declaration, but for some reason short_vectors doesn't restrict the pointer to be constant
 // Since we don't want to copy the matrix, we leave it at that.
-hash_t hash_form(matrix_TYP* Q, W32 theta_prec)
+hash_t hash_form(const square_matrix_t q, W32 theta_prec)
 {
+  matrix_TYP* Q;
   hash_t x;
   int norm;
   int* num_short;
 
+  Q = matrix_TYP_init_set_square_matrix(q);
   num_short = (int*)malloc(theta_prec * sizeof(int));
   for (norm = 2; norm <= 2*theta_prec; norm += 2) {
     short_vectors(Q, norm, norm, 0, 1, &(num_short[norm/2 - 1]));
@@ -32,6 +35,8 @@ hash_t hash_form(matrix_TYP* Q, W32 theta_prec)
 
   x = hash_vec(num_short, theta_prec);
 
+  free_mat(Q);
+  
   return x;
 }
 
@@ -47,7 +52,7 @@ void hash_table_init(hash_table_t table, hash_t hash_size)
   
   table->capacity = 1LL << log_hash_size;
   table->mask = (1LL << (log_hash_size + 1)) - 1;
-  table->keys = (matrix_TYP**) malloc(table->capacity * sizeof(matrix_TYP*));
+  table->keys = (square_matrix_t*) malloc(table->capacity * sizeof(square_matrix_t));
   table->vals = (hash_t*) malloc(table->capacity * sizeof(hash_t));
   table->key_ptr = (hash_t*) malloc(2*table->capacity * sizeof(int));
   table->counts = (W32*) malloc(2*table->capacity * sizeof(int));
@@ -76,20 +81,17 @@ double get_isom_cost(const hash_table_t table, double* red_cost)
   nbr_data_t nbr_man;
   fmpz_mat_t nbr_fmpz, nbr_isom;
 #else
-  neighbor_manager nbr_man;
+  neighbor_manager_t nbr_man;
 #endif // NBR_DATA
   
-  matrix_TYP* s;
-  matrix_TYP* nbr;
-  int n;
+  isometry_t s;
+  square_matrix_t nbr;
 
 #define NUM_ISOMS 10
-
-  n = table->keys[0]->rows;
   
 #ifdef NBR_DATA
-  fmpz_mat_init(nbr_isom, n, n);
-  fmpz_mat_init(nbr_fmpz, n, n);
+  fmpz_mat_init(nbr_isom, QF_RANK, QF_RANK);
+  fmpz_mat_init(nbr_fmpz, QF_RANK, QF_RANK);
 #endif // NBR_DATA
 
   isom_cost = 0;
@@ -100,25 +102,25 @@ double get_isom_cost(const hash_table_t table, double* red_cost)
 #ifdef NBR_DATA
     nbr_data_init(nbr_man, table->keys[offset], 3, 1);
 #else
-    init_nbr_process(&nbr_man, table->keys[offset], 3, idx);
+    nbr_process_init(nbr_man, table->keys[offset], 3, idx);
 #endif // NBR_DATA
     for (i = 0; i <  NUM_ISOMS; i++) {
 #ifdef NBR_DATA
       nbr_data_build_neighbor(nbr_fmpz, nbr_isom, nbr_man);
-      matrix_TYP_init_set_fmpz_mat(&nbr, nbr_fmpz);
+      square_matrix_set_fmpz_mat(nbr, nbr_fmpz);
 #else
-      nbr = build_nb(&nbr_man);
+      nbr_process_build_nb(nbr, nbr_man);
 #endif // NBR_DATA
+      isometry_init(s);
       if (red_cost != NULL) {
-	s = init_mat(n,n,"1");
 	cputime = clock();
-	greedy(nbr, s, n, n);
+	greedy(nbr, s, QF_RANK);
 	(*red_cost) += (clock() - cputime);
-	free_mat(s);
       }
       cputime = clock();
-      is_isometric(table->keys[i % table->num_stored], nbr);
+      is_isometric(s, table->keys[i % table->num_stored], nbr);
       isom_cost += (clock() - cputime);
+      isometry_clear(s);
 #ifdef NBR_DATA
       nbr_data_get_next_neighbor(nbr_man);
       if (nbr_data_has_ended(nbr_man)) {
@@ -127,18 +129,18 @@ double get_isom_cost(const hash_table_t table, double* red_cost)
 	nbr_data_init(nbr_man, table->keys[offset], 3, 1);
       }
 #else
-      advance_nbr_process(&nbr_man);
-      if (has_ended(&nbr_man)) {
+      nbr_process_advance(nbr_man);
+      if (nbr_process_has_ended(nbr_man)) {
 	idx++;
-	free_nbr_process(&nbr_man);
-	init_nbr_process(&nbr_man, table->keys[offset], 3, idx);
+	nbr_process_clear(nbr_man);
+	nbr_process_init(nbr_man, table->keys[offset], 3, idx);
       }
 #endif // NBR_DATA
     }
 #ifdef NBR_DATA
     nbr_data_clear(nbr_man);
 #else
-    free_nbr_process(&nbr_man);
+    nbr_process_clear(nbr_man);
 #endif // NBR_DATA
   }
   isom_cost /= (NUM_ISOMS * table->num_stored);
@@ -274,11 +276,11 @@ void hash_table_recalibrate(hash_table_t new_table, const hash_table_t table)
 }
 
 // key is non-const to prevent copying the matrices
-int hash_table_insert(hash_table_t table, matrix_TYP* key, hash_t val,
+int hash_table_insert(hash_table_t table, const square_matrix_t key, hash_t val,
 		      int index, int do_push_back)
 {
   int offset;
-  bravais_TYP* aut_grp;
+  aut_grp_t aut_grp;
   
   if (table->num_stored == table->capacity) {
     hash_table_expand(table);
@@ -289,22 +291,25 @@ int hash_table_insert(hash_table_t table, matrix_TYP* key, hash_t val,
   ++table->num_stored;
 
   if (do_push_back) {
-    table->keys[offset] = key;
+    square_matrix_set(table->keys[offset],key);
     table->vals[offset] = val;
-    aut_grp = automorphism_group(key);
+    aut_grp_init_square_matrix(aut_grp, key);
     fmpq_set_si(table->probs[offset], 1, aut_grp->order);
   }
 
   table->key_ptr[index] = offset;
   table->counts[(val & table->mask)]++;
 
+  aut_grp_clear(aut_grp);
+  
   return 1; 
 }
 
-int _add(hash_table_t table, matrix_TYP* key, hash_t val, int do_push_back)
+int _add(hash_table_t table, const square_matrix_t key, hash_t val, int do_push_back)
 {
   int offset, i;
   hash_t index;
+  isometry_t isom;
 
   index = val & table->mask;
   i = 0;
@@ -316,7 +321,7 @@ int _add(hash_table_t table, matrix_TYP* key, hash_t val, int do_push_back)
     if ((table->vals[offset] & table->mask) == (val & table->mask)) {
       i++;
       if (table->vals[offset] == val) {
-	if (is_isometric(table->keys[offset], key))
+	if (is_isometric(isom, table->keys[offset], key))
 	  return 0;
       }
     }
@@ -332,14 +337,14 @@ int _add(hash_table_t table, matrix_TYP* key, hash_t val, int do_push_back)
   
 }
 
-int hash_table_add(hash_table_t table, matrix_TYP* key)
+int hash_table_add(hash_table_t table, const square_matrix_t key)
 {
   return _add(table, key, hash_form(key, table->theta_prec), 1);
 }
 
 /* a modified version of exists to be able to run over all with the same
 hash value */
-matrix_TYP* hash_table_get_key(const hash_table_t table, matrix_TYP* key, int* index)
+bool hash_table_get_key(square_matrix_t new_key, const hash_table_t table, const square_matrix_t key, int* index)
 {
   int offset;
   hash_t value;
@@ -353,22 +358,25 @@ matrix_TYP* hash_table_get_key(const hash_table_t table, matrix_TYP* key, int* i
   
   offset = table->key_ptr[*index];
   if (offset == -1)
-    return NULL;
+    return false;
 
   while (hash_form(table->keys[offset], table->theta_prec) != value) {
     *index = (*index + 1) & table->mask;
     offset = table->key_ptr[*index];
     if (offset == -1)
-      return NULL;
+      return false;
   }
+
+  square_matrix_set(new_key, table->keys[offset]);
   
-  return table->keys[offset];
+  return true;
 }
 
-int hash_table_exists(const hash_table_t table, matrix_TYP* key, int check_isom)
+int hash_table_exists(const hash_table_t table, const square_matrix_t key, int check_isom)
 {
   int offset, i;
   hash_t index, value;
+  isometry_t isom;
 
   value = hash_form(key, table->theta_prec);
   
@@ -383,7 +391,7 @@ int hash_table_exists(const hash_table_t table, matrix_TYP* key, int check_isom)
 	return 1;
       i++;
       if (table->vals[offset] == value) {
-	if (is_isometric(table->keys[offset], key))
+	if (is_isometric(isom, table->keys[offset], key))
 	   return 1;
       }
     }
@@ -394,12 +402,13 @@ int hash_table_exists(const hash_table_t table, matrix_TYP* key, int check_isom)
   return 0;
 }
 
-int hash_table_indexof(const hash_table_t table, matrix_TYP* key, int check_isom, double* theta_time, double* isom_time, int* num_isom)
+int hash_table_indexof(const hash_table_t table, const square_matrix_t key, int check_isom, double* theta_time, double* isom_time, int* num_isom)
 {
   int offset, i;
   hash_t index, value;
   clock_t cputime;
-  matrix_TYP* s;
+  isometry_t s;
+  square_matrix_t key_copy;
 
   cputime = clock();
   value = hash_form(key, table->theta_prec);
@@ -420,11 +429,12 @@ int hash_table_indexof(const hash_table_t table, matrix_TYP* key, int check_isom
 	(*num_isom)++;
 	cputime = clock();
 	if (table->red_on_isom) {
-	  s = init_mat(5,5,"1");
-	  greedy(key, s, 5, 5);
-	  free_mat(s);
+	  isometry_init(s);
+	  square_matrix_set(key_copy, key);
+	  greedy(key_copy, s, QF_RANK);
+	  isometry_clear(s);
 	}
-	if (is_isometric(table->keys[offset], key)) {
+	if (is_isometric(s, table->keys[offset], key_copy)) {
 	  (*isom_time) += clock() - cputime;
 	  return offset;
 	}
@@ -441,14 +451,15 @@ int hash_table_indexof(const hash_table_t table, matrix_TYP* key, int check_isom
   return -1;
 }
 
-int hash_table_index_and_isom(const hash_table_t table, matrix_TYP* key, matrix_TYP** isom,
+int hash_table_index_and_isom(const hash_table_t table, const square_matrix_t key, isometry_t isom,
 			      double* theta_time, double* isom_time, int* num_isom)
 {
   int offset, i;
   hash_t index, value;
   clock_t cputime;
-  matrix_TYP* s;
-  matrix_TYP* key_copy = NULL;
+  isometry_t s;
+  bool is_key_copied = false;
+  square_matrix_t key_copy;
 
   cputime = clock();
   value = hash_form(key, table->theta_prec);
@@ -466,20 +477,19 @@ int hash_table_index_and_isom(const hash_table_t table, matrix_TYP* key, matrix_
       if (table->vals[offset] == value) {
 	(*num_isom)++;
 	cputime = clock();
-	if (key_copy == NULL)
-	  key_copy = copy_mat(key);
+	if (!(is_key_copied))
+	  square_matrix_set(key_copy, key);
 	if (table->red_on_isom) {
-	  s = init_mat(5,5,"1");
-	  greedy(key_copy, s, 5, 5);
-	  assert(is_isometry(s, key, key_copy, 1));
+	  isometry_init(s);
+	  greedy(key_copy, s, QF_RANK);
+	  assert(isometry_is_isom(s, key, key_copy));
 	}
-	if ((*isom = is_isometric(key_copy, table->keys[offset]))) {
-	  *isom = tr_pose(*isom);
-	  assert(is_isometry(*isom, key_copy, table->keys[offset], 1));
+	if (is_isometric(isom, key_copy, table->keys[offset])) {
+	  assert(isometry_is_isom(isom, key_copy, table->keys[offset]));
 	  if (table->red_on_isom) {
-	    *isom = mat_mul(s, *isom);
-	    assert(is_isometry(*isom, key, table->keys[offset], 1));
-	    free_mat(s);
+	    isometry_muleq_left(isom, s);
+	    assert(isometry_is_isom(isom, key, table->keys[offset]));
+	    isometry_clear(s);
 	  }
 	  (*isom_time) += clock() - cputime;
 	  return offset;
@@ -491,8 +501,8 @@ int hash_table_index_and_isom(const hash_table_t table, matrix_TYP* key, matrix_
     index = (index + 1) & table->mask;
   }
 
-  if ((table->red_on_isom) && (key_copy != NULL))
-    free_mat(s);
+  if ((table->red_on_isom) && (is_key_copied))
+    isometry_clear(s);
   
   printf("Error! Key not found!\n");
   exit(-1);
@@ -507,7 +517,7 @@ void hash_table_expand(hash_table_t table)
   table->capacity <<= 1;
   table->mask = (table->capacity << 1)-1;
   // problem - this might invalidate existing references to the HashMap (e.g. mother)
-  table->keys = (matrix_TYP**)realloc(table->keys, (table->capacity)*sizeof(matrix_TYP*));
+  table->keys = (square_matrix_t*)realloc(table->keys, (table->capacity)*sizeof(square_matrix_t));
   table->vals = (hash_t*)realloc(table->vals, (table->capacity)*sizeof(hash_t));
   table->probs = (fmpq_t*)realloc(table->probs, (table->capacity)*sizeof(fmpq_t));
 
