@@ -452,6 +452,7 @@ void nbr_process_advance(neighbor_manager_t nbr_man)
   if (nbr_man->first_iter) {
     nbr_man->w[0] = nbr_man->w[1] = nbr_man->w[2] = nbr_man->w[3] = 0;
     nbr_man->w[4] = 1;
+    nbr_man->first_iter = false;
   }
   else {
     

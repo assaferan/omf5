@@ -227,13 +227,20 @@ bool square_matrix_is_positive_definite(const square_matrix_t mat)
 
 bool square_matrix_is_bad_prime(const square_matrix_t mat, Z64 p)
 {
-  matrix_TYP* Q;
+  fmpz_mat_t Q;
+  fmpz_t det;
   bool is_bad;
+  Z64 disc;
 
-  Q = matrix_TYP_init_set_square_matrix(mat);
-  is_bad = (p_mat_det(Q,p) == 0);
+  fmpz_init(det);
+  fmpz_mat_init_set_square_matrix(Q, mat);
+  fmpz_mat_det(det, Q);
+  disc = fmpz_get_si(det) / 2;
+  
+  is_bad = (disc % p == 0);
 
-  free_mat(Q);
+  fmpz_clear(det);
+  fmpz_mat_clear(Q);
   return is_bad;
 }
 

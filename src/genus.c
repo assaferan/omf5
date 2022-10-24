@@ -243,11 +243,11 @@ void genus_init(genus_t genus, const square_matrix_t q)
 	    fmpq_set_si(mass_form, 1, aut_grp->order);
 	    aut_grp_clear(aut_grp);
 	    fmpq_add(acc_mass, acc_mass, mass_form);
-#ifdef DEBUG_LEVEL_FULL
+#ifdef DEBUG
 	    printf("acc_mass = ");
 	    fmpq_print(acc_mass);
 	    printf("\n");
-#endif // DEBUG_LEVEL_FULL
+#endif // DEBUG
 	  }
 	  
 #ifndef NBR_DATA
