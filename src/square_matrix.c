@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <inttypes.h>
 
 #include <carat/matrix.h>
 #include <carat/symm.h>
@@ -395,7 +396,7 @@ void square_matrix_print(const square_matrix_t mat)
 
   for (i = 0; i < QF_RANK; i++) {
     for (j = 0; j < QF_RANK; j++)
-      printf("%4lld ", mat[i][j]);
+      printf("%4" PRId64 " ", mat[i][j]);
     printf("\n");
   }
 
@@ -407,7 +408,7 @@ void vector_print(const vector_t vec)
 {
   int i;
   for (i = 0; i < QF_RANK; i++)
-    printf("%4lld ", vec[i]);
+    printf("%4" PRId64 " ", vec[i]);
   printf("\n");
 
   return;
