@@ -55,7 +55,10 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
   printf("traces of hecke eigenvalues of T_{p^%d} are:\n", k);
   for (i = 0; i < num_evs; i++) {
     if (c == 0)
-      get_hecke_ev(ev, genus, evs, ps[i], form_idx);
+      if (k == 1)
+	get_hecke_ev(ev, genus, evs, ps[i], form_idx);
+      else
+	get_hecke_ev_nbr_data(ev, genus, evs, ps[i], k, form_idx);
     else
       get_hecke_ev_nbr_data_all_conductors(ev, genus, evs, ps[i], k, form_idx, c);
     

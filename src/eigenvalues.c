@@ -158,6 +158,14 @@ bool ev_is_lpoly_reducible(const eigenvalues_t evs, slong ev_idx, slong p, slong
     get_hecke_ev_nbr_data_all_conductors(a[k-1], genus, evs, p, k, ev_idx, c);
   }
 
+#ifdef DEBUG
+  for (k = 1; k < 3; k++) {
+    printf("a[%d] = ", k-1); 
+    nf_elem_print_pretty(a[k-1], evs->nfs[ev_idx], "a");
+    printf("\n");
+  }
+#endif // DEBUG
+  
   nf_elem_init(disc, evs->nfs[ev_idx]);
 
   // disc = a[0]^2 - 4*p*(a[1] + 1 - p^2)
@@ -166,6 +174,12 @@ bool ev_is_lpoly_reducible(const eigenvalues_t evs, slong ev_idx, slong p, slong
   nf_elem_scalar_mul_si(a[1], a[1], 4*p, evs->nfs[ev_idx]);
   nf_elem_sub(disc, disc, a[1], evs->nfs[ev_idx]); 
 
+#ifdef DEBUG
+  printf("disc = "); 
+  nf_elem_print_pretty(disc, evs->nfs[ev_idx], "a");
+  printf("\n");
+#endif // DEBUG
+  
   is_lift = nf_elem_is_square(disc, evs->nfs[ev_idx]);
   
   nf_elem_clear(disc, evs->nfs[ev_idx]);
