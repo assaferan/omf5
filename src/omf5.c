@@ -152,16 +152,18 @@ int parse_matrix(const char* mat_str, int* Q_coeffs)
 {
   int idx, len;
   char *original;
+  char *cpy;
   char *token;
 
   idx = 0;
   len = strlen(mat_str);
   original = (char*)malloc((len+1)*sizeof(char));
   memcpy(original, mat_str, len+1);
-  token = strsep(&original, ",");
+  cpy = original;
+  token = strsep(&cpy, ",");
   while(token != NULL) {
     Q_coeffs[idx++] = atoi(token);
-    token = strsep(&original, ",");
+    token = strsep(&cpy, ",");
   }
   free(original);
   return (idx == 15);

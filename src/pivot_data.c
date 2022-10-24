@@ -100,4 +100,6 @@ void pivot_data_params_clear(pivot_data_t pivots)
   fq_nmod_mpoly_mat_clear(pivots->p_isotropic_param, pivots->R);
   fq_nmod_mpoly_ctx_clear(pivots->R);
   pivots->is_params_init = false;
+
+  return;
 }
