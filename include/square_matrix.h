@@ -39,6 +39,8 @@ bool square_matrix_is_equal(const square_matrix_t mat1, const square_matrix_t ma
 void square_matrix_one(square_matrix_t mat);
 void square_matrix_zero(square_matrix_t mat);
 
+void vector_zero(vector_t vec);
+
 bool square_matrix_is_one(const square_matrix_t mat);
 bool square_matrix_is_zero(const square_matrix_t mat);
 bool square_matrix_is_positive_definite(const square_matrix_t mat);

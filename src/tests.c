@@ -177,7 +177,7 @@ STATUS test(const example_t ex)
   
   for (c = 0; c < genus->num_conductors; c++) {
     printf("For conductor %ld:\n", genus->conductors[c]);
-    eigenvalues_set_lifts(evs[c], 2, c, genus);
+    // eigenvalues_set_lifts(evs[c], 2, c, genus);
     for (form_idx = 0; form_idx < evs[c]->num; form_idx++)
       if (!(evs[c]->is_lift[form_idx])) {
 	for (k = 0; k < 2; k++) {

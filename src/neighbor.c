@@ -423,6 +423,7 @@ void nbr_process_init(neighbor_manager_t nbr_man, const square_matrix_t Q, Z64 p
 
   nbr_man->i = i;
   nbr_man->iso_j = 0;
+  vector_zero(nbr_man->w);
   if (i == 0)
     vector_set(nbr_man->iso_vec, nbr_man->v);
   else {

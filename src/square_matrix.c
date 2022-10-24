@@ -166,6 +166,16 @@ void square_matrix_zero(square_matrix_t mat)
   return;
 }
 
+void vector_zero(vector_t vec)
+{
+  int i;
+
+  for (i = 0; i < QF_RANK; i++)
+    vec[i] = 0;
+
+  return;
+}
+
 void square_matrix_one(square_matrix_t mat)
 {
   int i;

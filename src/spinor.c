@@ -15,7 +15,7 @@
 
 void spinor_init(spinor_t spinor, const fmpz_mat_t q)
 {
-  slong prime_idx, /* idx, */ n;
+  slong prime_idx /*, idx, n */;
   fmpz_t /* tmp, */ det;
   fq_nmod_mat_t q_p;
   fmpz_factor_t bad_primes;
@@ -188,7 +188,7 @@ W64 spinor_norm_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz
     }
     fq_nmod_clear(det_p, spinor->fields[prime_idx]);
 
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
     printf("rad = \n");
     fq_nmod_mat_print_pretty(spinor->rads[prime_idx], spinor->fields[prime_idx]);
     printf("\n");
@@ -198,7 +198,7 @@ W64 spinor_norm_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz
     printf("scale (inverse) =  \n");
     fq_nmod_print_pretty(denom_p, spinor->fields[prime_idx]);
     printf("\n");
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
     
     fq_nmod_mat_init(rad_mat, fq_nmod_mat_nrows(spinor->rads[prime_idx], spinor->fields[prime_idx]),
 		     fq_nmod_mat_ncols(mat_p, spinor->fields[prime_idx]), spinor->fields[prime_idx]);
