@@ -50,10 +50,10 @@ bool decomposition_finite_subspace(decomposition_t decomp, const genus_t genus, 
   fmpq_mat_init(T, dim_V, dim_V);
   fmpq_mat_init(fT, dim_V, dim_V);
   fmpq_poly_init(f);
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
   printf("idx = %ld\n",idx);
-  printf("decomp->hecke[idx] = %lx\n", (unsigned long)decomp->hecke[idx]);
-#endif // DEBUG
+  printf("decomp->hecke[idx] = 0x%lx\n", (unsigned long)decomp->hecke[idx]);
+#endif // DEBUG_LEVEL_FULL
   if (idx >= decomp->num_primes) {
 #ifdef DEBUG
     printf("computing more hecke operators\n");
