@@ -179,8 +179,8 @@ bool nf_elem_is_square_fast(const nf_elem_t x, const nf_t K)
   bound = 1;
   for (i = 0; i < n; i ++) {
     nf_elem_get_coeff_fmpz(coeff, x_int, i, K);
-    if (bound < fmpz_get_si(coeff))
-      bound = fmpz_get_si(coeff);
+    if (bound < labs(fmpz_get_si(coeff)))
+      bound = labs(fmpz_get_si(coeff));
   }
 
   fmpz_init(prod);
@@ -280,6 +280,8 @@ bool ev_is_lpoly_reducible(const eigenvalues_t evs, slong ev_idx, slong p, slong
 #ifdef DEBUG
   printf("disc = "); 
   nf_elem_print_pretty(disc, evs->nfs[ev_idx], "a");
+  printf(" over ");
+  nf_print(evs->nfs[ev_idx]);
   printf("\n");
 #endif // DEBUG
 

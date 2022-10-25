@@ -32,6 +32,7 @@ void nbr_data_init(nbr_data_t nbr_man, const square_matrix_t q, slong p_int, slo
   assert(k > 0); // no perestroika operators in odd dimension
   
   fmpz_init_set_si(p, p_int);
+  assert(fmpz_is_prime(p));
   fmpz_mat_init_set_square_matrix(nbr_man->q, q);
   fmpz_init(nbr_man->disc);
   fmpz_mat_det(nbr_man->disc, nbr_man->q);

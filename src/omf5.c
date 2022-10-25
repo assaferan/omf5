@@ -30,7 +30,7 @@ int main(int argc, char* argv[])
   }
 
   do_tests = false;
-  has_quad = has_format = has_prec = has_form_idx = false;
+  has_quad = has_format = has_prec = has_form_idx = has_p = false;
   
   for (i = 1; i < argc; i++) {
     is_valid = false;
