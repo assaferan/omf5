@@ -52,7 +52,7 @@ bool decomposition_finite_subspace(decomposition_t decomp, const genus_t genus, 
   fmpq_poly_init(f);
 #ifdef DEBUG
   printf("idx = %ld\n",idx);
-  printf("decomp->hecke[idx] = %lu\n", (unsigned long)decomp->hecke[idx]);
+  printf("decomp->hecke[idx] = %lx\n", (unsigned long)decomp->hecke[idx]);
 #endif // DEBUG
   if (idx >= decomp->num_primes) {
 #ifdef DEBUG

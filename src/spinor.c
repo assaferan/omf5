@@ -315,9 +315,13 @@ bool get_aniso_vec(fmpq_mat_t x, const fmpq_mat_t BM, const fmpq_mat_t A)
   fmpq_mat_mul(BMA, BM, A);
   fmpq_mat_mul(A_res, BMA, BM_t);
 
-  if (fmpq_mat_is_zero(A_res))
+  if (fmpq_mat_is_zero(A_res)) {
+    fmpq_mat_clear(BM_t);
+    fmpq_mat_clear(BMA);
+    fmpq_mat_clear(A_res);
     return false;
-
+  }
+  
   for (i = 0; i < dim_B; i++) {
     if (!fmpq_is_zero(fmpq_mat_entry(A_res, i, i))) {
       for (j = 0; j < dim; j++)
@@ -339,7 +343,7 @@ bool get_aniso_vec(fmpq_mat_t x, const fmpq_mat_t BM, const fmpq_mat_t A)
 	fmpq_mat_clear(BM_t);
 	fmpq_mat_clear(BMA);
 	fmpq_mat_clear(A_res);
-      return true;
+	return true;
       }
     }
   
