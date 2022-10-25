@@ -1196,7 +1196,7 @@ void nbr_data_get_next_neighbor(nbr_data_t nbr_man)
   // Lift the subspace if we haven't reached the end of the list.
   if (!(nbr_man->is_done)) {
     nbr_data_lift_subspace(nbr_man);
-    nmod_mat_init_set(nbr_man->X_skew, nbr_man->X);
+    nmod_mat_set(nbr_man->X_skew, nbr_man->X);
   }
   
   return;

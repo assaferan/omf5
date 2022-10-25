@@ -345,6 +345,7 @@ void get_mass(fmpq_t mass, const square_matrix_t q)
   fmpq_abs(mass, mass);
 
   qf_inv_clear(witt);
+  fmpz_mat_clear(Q);
   fmpz_mat_clear(B);
   fmpz_mat_clear(hasse);
   fmpz_factor_clear(fac);
