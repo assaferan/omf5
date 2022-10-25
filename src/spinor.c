@@ -161,10 +161,13 @@ W64 spinor_norm_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz
     fq_nmod_init(denom_p, spinor->fields[prime_idx]);
     fq_nmod_set_fmpz(denom_p, denom, spinor->fields[prime_idx]);
     // at the moment, when mat has scale divisible by p (at the bad primes)
-    // we replace it by the trivial matrix.
-    // can already compute and return here
+    // we compute the Cartan-Dieudonne instead
     if (fq_nmod_is_zero(denom_p, spinor->fields[prime_idx])) {
-      fq_nmod_mat_one(mat_p, spinor->fields[prime_idx]);
+      // fq_nmod_mat_one(mat_p, spinor->fields[prime_idx]);
+      fq_nmod_clear(denom_p, spinor->fields[prime_idx]);
+      fq_nmod_mat_clear(mat_p, spinor->fields[prime_idx]);
+      fq_nmod_mat_clear(mat_p_t, spinor->fields[prime_idx]);
+      return spinor_norm_cd_fmpz_mat(spinor, mat, denom);
     }
     else {
       fq_nmod_inv(denom_p, denom_p, spinor->fields[prime_idx]);

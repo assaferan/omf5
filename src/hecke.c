@@ -441,6 +441,7 @@ matrix_TYP* hecke_matrix(const genus_t genus, int p)
 void get_hecke_ev_nbr_data(nf_elem_t e, const genus_t genus, const eigenvalues_t evs,
 			   int p, int k, int ev_idx)
 {
+  nf_elem_t e_new;
   int* a;
   int num, i, pivot;
   nf_elem_t prod;
