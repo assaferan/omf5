@@ -147,6 +147,9 @@ void nbr_data_init(nbr_data_t nbr_man, const square_matrix_t q, slong p_int, slo
 void nbr_data_clear(nbr_data_t nbr_man)
 {
   nmod_mat_clear(nbr_man->X_skew);
+  nmod_mat_clear(nbr_man->X);
+  nmod_mat_clear(nbr_man->Z);
+  nmod_mat_clear(nbr_man->U);
   if (nbr_man->is_iso_subspace_init)
     fq_nmod_mat_clear(nbr_man->iso_subspace, nbr_man->GF);
   if (nbr_man->pivots->is_params_init)
@@ -1194,11 +1197,6 @@ void nbr_data_get_next_neighbor(nbr_data_t nbr_man)
   if (!(nbr_man->is_done)) {
     nbr_data_lift_subspace(nbr_man);
     nmod_mat_init_set(nbr_man->X_skew, nbr_man->X);
-  }
-  else {
-    nmod_mat_clear(nbr_man->X);
-    nmod_mat_clear(nbr_man->Z);
-    nmod_mat_clear(nbr_man->U);
   }
   
   return;
