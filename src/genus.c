@@ -228,17 +228,18 @@ void genus_init(genus_t genus, const square_matrix_t q)
 	    assert(isometry_is_isom(s, slow_genus->keys[current], nbr));
 #endif // DEBUG
 
+	    hash_table_add(slow_genus, nbr);
+	    
 	    // The genus rep isometries were initialized only to contain the
 	    // isometry between the parent and its child, we now want to update
 	    // these isometries so that they are rational isometries between the
 	    // "mother" quadratic form and the genus rep.
-	    isometry_mul(genus->isoms[slow_genus->num_stored], genus->isoms[current], s);
+	    isometry_mul(genus->isoms[slow_genus->num_stored-1], genus->isoms[current], s);
 	    
-	    assert(isometry_is_isom(genus->isoms[slow_genus->num_stored], q, nbr));
+	    assert(isometry_is_isom(genus->isoms[slow_genus->num_stored-1], q, nbr));
 	    
 	    isometry_clear(s);
 	    
-	    hash_table_add(slow_genus, nbr);
 	    aut_grp_init_square_matrix(aut_grp, nbr);
 	    fmpq_set_si(mass_form, 1, aut_grp->order);
 	    aut_grp_clear(aut_grp);
