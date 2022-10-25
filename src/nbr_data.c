@@ -126,7 +126,10 @@ void nbr_data_init(nbr_data_t nbr_man, const square_matrix_t q, slong p_int, slo
   nbr_man->is_iso_subspace_init = false;
 
   nbr_data_next_isotropic_subspace(nbr_man);
-  
+
+  nmod_mat_init(nbr_man->X, nbr_man->k, QF_RANK, p_int*p_int);
+  nmod_mat_init(nbr_man->Z, nbr_man->k, QF_RANK, p_int*p_int);
+  nmod_mat_init(nbr_man->U, QF_RANK - 2*nbr_man->k, QF_RANK, p_int*p_int);
   nbr_data_lift_subspace(nbr_man);
 
   nmod_mat_init(nbr_man->X_skew, nbr_man->k, QF_RANK, p_int*p_int);
@@ -789,14 +792,7 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
 #endif // DEBUG_LEVEL_FULL
 
   // Convert to coordinates modulo p^2.
-  nmod_mat_init(nbr_man->X, nbr_man->k, n, p*p);
-  nmod_mat_init(nbr_man->Z, nbr_man->k, n, p*p);
-  nmod_mat_init(nbr_man->U, n-2*nbr_man->k, n, p*p);
   nmod_mat_init(B, n, n, p*p);
-  // fmpz_mat_init(nbr_man->X, nbr_man->k, n);
-  // fmpz_mat_init(nbr_man->Z, nbr_man->k, n);
-  // fmpz_mat_init(nbr_man->U, n-2*nbr_man->k, n);
-  // fmpz_mat_init(B, n, n);
   
   // Build the coordinate matrix.
   // !! TODO - the mod p is not necessary, good for debugging
@@ -1032,7 +1028,6 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
   nmod_mat_clear(X_new);
   nmod_mat_clear(Z_new);  
   nmod_mat_clear(B);
-  // fmpz_mat_clear(B)
   fq_nmod_mat_clear(u, nbr_man->GF);
   free(excluded);
   fq_nmod_mat_clear(z, nbr_man->GF);
