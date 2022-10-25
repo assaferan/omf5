@@ -287,6 +287,9 @@ bool ev_is_lpoly_reducible(const eigenvalues_t evs, slong ev_idx, slong p, slong
   assert(is_lift == nf_elem_is_square(disc, evs->nfs[ev_idx]));
   
   nf_elem_clear(disc, evs->nfs[ev_idx]);
+  for (k = 1; k < 3; k++) {
+    nf_elem_clear(a[k-1], evs->nfs[ev_idx]);
+  }
   
   return is_lift;
 }
