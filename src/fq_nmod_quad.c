@@ -979,6 +979,7 @@ void fq_nmod_quad_decompose(fq_nmod_mat_t gram, fq_nmod_mat_t basis, const fq_nm
   fq_nmod_mat_init(basis_t,n,n,F);
   fq_nmod_mat_transpose(basis_t, basis, F);
   fq_nmod_mat_set(basis, basis_t, F);
+  fq_nmod_mat_clear(basis_t, F);
   
 #ifdef DEBUG_LEVEL_FULL
   fq_nmod_clear(value, F);
