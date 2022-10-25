@@ -22,7 +22,7 @@ int _add(hash_table_t table, const square_matrix_t key, hash_t val, int do_push_
 // Since we don't want to copy the matrix, we leave it at that.
 hash_t hash_form(const square_matrix_t q, W32 theta_prec)
 {
-  matrix_TYP* Q;
+  matrix_TYP *Q, *SV;
   hash_t x;
   int norm;
   int* num_short;
@@ -30,7 +30,8 @@ hash_t hash_form(const square_matrix_t q, W32 theta_prec)
   Q = matrix_TYP_init_set_square_matrix(q);
   num_short = (int*)malloc(theta_prec * sizeof(int));
   for (norm = 2; norm <= 2*theta_prec; norm += 2) {
-    short_vectors(Q, norm, norm, 0, 1, &(num_short[norm/2 - 1]));
+    SV = short_vectors(Q, norm, norm, 0, 1, &(num_short[norm/2 - 1]));
+    free_mat(SV);
   }
 
   x = hash_vec(num_short, theta_prec);
