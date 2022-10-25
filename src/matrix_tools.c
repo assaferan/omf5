@@ -1108,9 +1108,9 @@ bool get_eigenvector_on_subspace(nf_elem_t* evec, nf_t nf, const fmpq_mat_t T,
     for (i = 0; i < dim_W; i++)
       nf_elem_clear(evec_W[i], nf);
     free(evec_W);
-  } else {
-    fmpq_poly_clear(f);
   }
+  
+  fmpq_poly_clear(f);
   
   fmpq_mat_clear(T_W);
   
