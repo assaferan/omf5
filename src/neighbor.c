@@ -155,6 +155,7 @@ void nbr_process_build_nb(square_matrix_t Q, const neighbor_manager_t nbr_man)
 	  /* a singular zero, return Q as-is*/
 	  /* Re-symmetrize */
 	  square_matrix_resymmetrize(Q);
+	  return;
 	}
       }
     }

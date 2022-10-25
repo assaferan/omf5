@@ -173,6 +173,9 @@ bool is_isometric(isometry_t s, const square_matrix_t q1, const square_matrix_t 
   square_matrix_t s_sm, s_tr;
   int options[6] = {0};
 
+  assert(square_matrix_is_positive_definite(q1));
+  assert(square_matrix_is_positive_definite(q2));
+  
   Q1 = matrix_TYP_init_set_square_matrix(q1);
   Q2 = matrix_TYP_init_set_square_matrix(q2);
   

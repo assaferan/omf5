@@ -212,6 +212,17 @@ bool square_matrix_is_zero(const square_matrix_t mat)
   return true;
 }
 
+bool vector_is_zero(const vector_t vec)
+{
+  int i;
+
+  for (i = 0; i < QF_RANK; i++)
+    if (vec[i] != 0)
+      return false;
+      
+  return true;
+}
+
 bool square_matrix_is_positive_definite(const square_matrix_t mat)
 {
   matrix_TYP* Q;

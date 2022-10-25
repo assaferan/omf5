@@ -45,6 +45,8 @@ bool square_matrix_is_one(const square_matrix_t mat);
 bool square_matrix_is_zero(const square_matrix_t mat);
 bool square_matrix_is_positive_definite(const square_matrix_t mat);
 
+bool vector_is_zero(const vector_t vec);
+
 bool square_matrix_is_bad_prime(const square_matrix_t mat, Z64 p);
 
 void square_matrix_transpose(square_matrix_t tr, const square_matrix_t mat);

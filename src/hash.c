@@ -28,6 +28,7 @@ hash_t hash_form(const square_matrix_t q, W32 theta_prec)
   int* num_short;
 
   Q = matrix_TYP_init_set_square_matrix(q);
+  assert(square_matrix_is_positive_definite(q));
   num_short = (int*)malloc(theta_prec * sizeof(int));
   for (norm = 2; norm <= 2*theta_prec; norm += 2) {
     SV = short_vectors(Q, norm, norm, 0, 1, &(num_short[norm/2 - 1]));

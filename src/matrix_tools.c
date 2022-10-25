@@ -188,6 +188,7 @@ bravais_TYP* automorphism_group(matrix_TYP* Q)
     if(Q->array.SZ[i][i] > Qmax)
       Qmax = Q->array.SZ[i][i];
   }
+  assert(definite_test(Q));
   SV = short_vectors(Q, Qmax, 0, 0, 0, &i);
 
   grp = autgrp(&Q, 1, SV, NULL, 0, options);
