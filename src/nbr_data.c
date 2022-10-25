@@ -144,6 +144,8 @@ void nbr_data_init(nbr_data_t nbr_man, const square_matrix_t q, slong p_int, slo
 void nbr_data_clear(nbr_data_t nbr_man)
 {
   nmod_mat_clear(nbr_man->X_skew);
+  if (nbr_man->is_iso_subspace_init)
+    fq_nmod_mat_clear(nbr_man->iso_subspace, nbr_man->GF);
   if (nbr_man->pivots->is_params_init)
     pivot_data_params_clear(nbr_man->pivots);
   pivot_data_clear(nbr_man->pivots);
