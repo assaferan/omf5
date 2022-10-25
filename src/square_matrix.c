@@ -298,11 +298,12 @@ void square_matrix_mul_vec_left(vector_t prod, const vector_t vec, const square_
 {
   int i, j;
 
-  for (j = 0; j < QF_RANK; j++) {
+  for (j = 0; j < QF_RANK; j++)
     prod[j] = 0;
-    for (i = 0; i < QF_RANK; i++)
+  
+  for (i = 0; i < QF_RANK; i++)
+    for (j = 0; j < QF_RANK; j++)
       prod[j] += vec[i]*mat[i][j];
-  }
   
   return;
 }
