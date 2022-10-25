@@ -625,7 +625,6 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
   printf("- %10f\n", cputime);
 #endif // DEBUG
 
-  nf_elem_clear(e, evs->nfs[ev_idx]);
   nf_elem_clear(prod, evs->nfs[ev_idx]);
 
   for (c = 0; c < genus->num_conductors; c++)
