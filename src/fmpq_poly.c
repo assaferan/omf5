@@ -36,6 +36,10 @@ void fmpq_poly_factor(fmpq_poly_factor_t factors, const fmpq_poly_t f)
 
 void fmpq_poly_factor_clear(fmpq_poly_factor_t factors)
 {
+  slong i;
+  
+  for (i = 0; i < factors->num; i++)
+    fmpq_poly_clear(&(factors->p[i]));
   free(factors->p);
   free(factors->exp);
 }
