@@ -161,7 +161,8 @@ W64 spinor_norm_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz
     fq_nmod_init(denom_p, spinor->fields[prime_idx]);
     fq_nmod_set_fmpz(denom_p, denom, spinor->fields[prime_idx]);
     // at the moment, when mat has scale divisible by p (at the bad primes)
-    // we replace it by the trivial matrix. In general, should implement the spinor norm using reflection decomposition
+    // we replace it by the trivial matrix.
+    // can already compute and return here
     if (fq_nmod_is_zero(denom_p, spinor->fields[prime_idx])) {
       fq_nmod_mat_one(mat_p, spinor->fields[prime_idx]);
     }
@@ -172,19 +173,18 @@ W64 spinor_norm_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz
 	for (col = 0; col < fq_nmod_mat_ncols(mat_p, spinor->fields[prime_idx]); col++)
 	  fq_nmod_mul(fq_nmod_mat_entry(mat_p,row,col), fq_nmod_mat_entry(mat_p,row,col),
 		      denom_p, spinor->fields[prime_idx]);
+      // !! TODO - we could instead multiply the end result by the determinant?
+      fq_nmod_init(det_p, spinor->fields[prime_idx]);
+      fq_nmod_set_fmpz(det_p, det, spinor->fields[prime_idx]);
+      // scaling the determinant
+      for (idx = 0; idx < n; idx++)
+	fq_nmod_mul(det_p, det_p, denom_p, spinor->fields[prime_idx]);
+      // If the matrix has determinant -1, we modify it to have a matrix in SO
+      if (!fq_nmod_is_one(det_p, spinor->fields[prime_idx])) {
+	fq_nmod_mat_neg(mat_p, mat_p, spinor->fields[prime_idx]);
+      }
+      fq_nmod_clear(det_p, spinor->fields[prime_idx]);
     }
-
-    // !! TODO - we could instead multiply the end result by the determinant?
-    fq_nmod_init(det_p, spinor->fields[prime_idx]);
-    fq_nmod_set_fmpz(det_p, det, spinor->fields[prime_idx]);
-    // scaling the determinant
-    for (idx = 0; idx < n; idx++)
-      fq_nmod_mul(det_p, det_p, denom_p, spinor->fields[prime_idx]);
-    // If the matrix has determinant -1, we modify it to have a matrix in SO
-    if (!fq_nmod_is_one(det_p, spinor->fields[prime_idx])) {
-      fq_nmod_mat_neg(mat_p, mat_p, spinor->fields[prime_idx]);
-    }
-    fq_nmod_clear(det_p, spinor->fields[prime_idx]);
 
 #ifdef DEBUG_LEVEL_FULL
     printf("rad = \n");

@@ -479,7 +479,12 @@ void get_hecke_ev_nbr_data(nf_elem_t e, const genus_t genus, const eigenvalues_t
     nf_elem_mul(prod, prod, evs->eigenvecs[ev_idx][i], evs->nfs[ev_idx]);
     nf_elem_add(e, e, prod, evs->nfs[ev_idx]);
   }
-  nf_elem_div(e, e, evs->eigenvecs[ev_idx][pivot], evs->nfs[ev_idx]);
+  // this line is leaky, so we do it cautiously
+  nf_elem_init(e_new, evs->nfs[ev_idx]);
+  nf_elem_div(e_new, e, evs->eigenvecs[ev_idx][pivot], evs->nfs[ev_idx]);
+  nf_elem_set(e, e_new, evs->nfs[ev_idx]);
+
+  nf_elem_clear(e_new, evs->nfs[ev_idx]);
 
   // handling the case p divides the discriminant
   if (genus->genus_reps->num_stored > 0) {
