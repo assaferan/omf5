@@ -299,12 +299,11 @@ int hash_table_insert(hash_table_t table, const square_matrix_t key, hash_t val,
     table->vals[offset] = val;
     aut_grp_init_square_matrix(aut_grp, key);
     fmpq_set_si(table->probs[offset], 1, aut_grp->order);
+    aut_grp_clear(aut_grp);
   }
 
   table->key_ptr[index] = offset;
   table->counts[(val & table->mask)]++;
-
-  aut_grp_clear(aut_grp);
   
   return 1; 
 }

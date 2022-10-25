@@ -228,6 +228,10 @@ void genus_init(genus_t genus, const square_matrix_t q)
 	    assert(isometry_is_isom(s, slow_genus->keys[current], nbr));
 #endif // DEBUG
 
+	    // rellocating to have enough room
+	    if (slow_genus->num_stored == slow_genus->capacity)
+	      genus->isoms = (isometry_t*)realloc(genus->isoms, (slow_genus->capacity << 1) * sizeof(isometry_t));
+	    
 	    hash_table_add(slow_genus, nbr);
 	    
 	    // The genus rep isometries were initialized only to contain the
