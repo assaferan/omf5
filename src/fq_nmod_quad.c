@@ -43,8 +43,10 @@ void fq_nmod_quad_evaluate(fq_nmod_t value, const fq_nmod_mat_t q, const fq_nmod
   fq_nmod_init(two, F);
   fq_nmod_set_si(two, 2, F);
 
-  if (fq_nmod_is_zero(two, F))
+  if (fq_nmod_is_zero(two, F)) {
+    fq_nmod_clear(two, F);
     return fq_nmod_quad_evaluate_p2(value, q, vec, F);
+  }
   
   fq_nmod_mat_init(vec_t, fq_nmod_mat_ncols(vec,F), fq_nmod_mat_nrows(vec,F), F);
   fq_nmod_mat_transpose(vec_t, vec, F);

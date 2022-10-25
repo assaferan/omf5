@@ -62,6 +62,7 @@ void spinor_clear(spinor_t spinor)
   fmpz_mat_clear(spinor->Q);
   for (prime_idx = 0; prime_idx < spinor->num_primes; prime_idx++) {
     fq_nmod_mat_clear(spinor->rads[prime_idx], spinor->fields[prime_idx]);
+    fq_nmod_ctx_clear(spinor->fields[prime_idx]);
   }
   free(spinor->rads);
   free(spinor->fields);
