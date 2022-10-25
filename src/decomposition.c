@@ -93,9 +93,9 @@ bool decomposition_finite_subspace(decomposition_t decomp, const genus_t genus, 
       is_complete_W = decomposition_finite_subspace(decomp, genus, W, ps, next_idx, num_ps, c);
     }
     is_complete = (is_complete) && (is_complete_W);
+    fmpq_mat_clear(W);
   }
-
-  fmpq_mat_clear(W);
+  
   fmpq_mat_clear(fT);
   fmpq_mat_clear(T);
   fmpq_poly_factor_clear(fac);

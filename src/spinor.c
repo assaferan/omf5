@@ -496,8 +496,7 @@ void spinor_norm_cd(fmpq_t norm, const fmpq_mat_t s, const fmpq_mat_t A)
   fmpq_one(norm);
   
   find_reflection_pts(pts,s_t,A);
-  num_pts = fmpq_mat_nrows(pts);
-  
+  num_pts = fmpq_mat_nrows(pts);  
 
   // we are overworking here, but it is slightly more convenient at the moment
   
@@ -513,6 +512,7 @@ void spinor_norm_cd(fmpq_t norm, const fmpq_mat_t s, const fmpq_mat_t A)
     fmpq_mul(norm, norm, fmpq_mat_entry(pAp_t, i, i));
   }
 
+  fmpq_mat_clear(pts);
   fmpq_mat_clear(pA);
   fmpq_mat_clear(s_t);
   fmpq_mat_clear(pts_t);
