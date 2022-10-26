@@ -31,4 +31,8 @@ STATUS compute_eigenvalues(const int* Q_coeffs, int p, const char* inp_type);
 
 STATUS compute_eigenvalues_up_to(const int* Q_coeffs, int form_idx, int prec, const char* inp_type);
 
+STATUS compute_hecke_col(const int* Q_coeffs, int p, const char* format, int c);
+
+STATUS compute_hecke_col_all_conds(const int* Q_coeffs, int p, int gen_idx, const char* format);
+
 #endif // __TESTS_H__

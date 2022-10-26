@@ -9,6 +9,28 @@
 #include "matrix_tools.h"
 #include "tests.h"
 
+void compute_genus(genus_t genus, const int* Q_coeffs, const char* format)
+{
+  clock_t cpuclock_0, cpuclock_1;
+  double cputime, cpudiff;
+
+  square_matrix_t Q;
+
+  cpuclock_0 = clock();
+
+  square_matrix_init_set_symm(Q, Q_coeffs, format);
+  genus_init(genus, Q);
+
+  cpuclock_1 = clock();
+  cpudiff = cpuclock_1 - cpuclock_0;
+  cputime = cpudiff / CLOCKS_PER_SEC;
+  
+  printf("computing genus took %f\n", cputime);
+
+  square_matrix_clear(Q);
+  return;
+}
+
 void print_eigenvectors(const eigenvalues_t evs)
 {
   int i, j;
@@ -60,7 +82,10 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
       else
 	get_hecke_ev_nbr_data(ev, genus, evs, ps[i], k, form_idx);
     else
-      get_hecke_ev_nbr_data_all_conductors(ev, genus, evs, ps[i], k, form_idx, c);
+      if (k == 1)
+	get_hecke_ev_all_conductors(ev, genus, evs, ps[i], form_idx, c);
+      else
+	get_hecke_ev_nbr_data_all_conductors(ev, genus, evs, ps[i], k, form_idx, c);
     
     nf_elem_trace(trace, ev, evs->nfs[form_idx]);
     fmpq_print(trace);
@@ -84,9 +109,16 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
     printf("traces of all hecke eigenvalues are:\n");
     for (j = 0; j < evs->num; j++) {
       if (c == 0)
-	get_hecke_ev(ev, genus, evs, ps[i], j);
+	if (k == 1)
+	  get_hecke_ev(ev, genus, evs, ps[i], j);
+	else
+	  get_hecke_ev_nbr_data(ev, genus, evs, ps[i], k, j);
       else
-	get_hecke_ev_nbr_data_all_conductors(ev, genus, evs, ps[i], k, j, c);
+	if (k == 1)
+	  get_hecke_ev_all_conductors(ev, genus, evs, ps[i], j, c);
+	else
+	  get_hecke_ev_nbr_data_all_conductors(ev, genus, evs, ps[i], k, j, c);
+      
       nf_elem_trace(trace, ev, evs->nfs[j]);
       // nf_elem_print_pretty(ev, evs->nfs[j], "a");
       fmpq_print(trace);
@@ -514,4 +546,64 @@ STATUS compute_eigenvalues_up_to(const int* Q_coeffs, int form_idx,
   free(ps[1]);
   
   return ret;
+}
+
+STATUS compute_hecke_col_all_conds(const int* Q_coeffs, int p, int gen_idx, const char* format)
+{
+  genus_t genus;
+  int** hecke;
+  slong c, i;
+  
+  compute_genus(genus, Q_coeffs, format);
+
+  hecke = hecke_col_all_conds_sparse(p, gen_idx, genus);
+  
+  for (c = 0; c < genus->num_conductors; c++) {
+    printf("cond=%ld: ", genus->conductors[c]);
+    for (i = 0; i < genus->dims[c]; i++)
+      printf("%4d ", hecke[c][i]);
+    printf("\n");
+  }
+
+  for (c = 0; c < genus->num_conductors; c++)
+    free(hecke[c]);
+
+  free(hecke);
+
+  genus_clear(genus);
+ 
+  return SUCCESS;
+}
+
+STATUS compute_hecke_col(const int* Q_coeffs, int p, const char* format, int c)
+{
+  genus_t genus;
+  
+  int* hecke;
+  int c_idx, i, gen_idx;
+
+  compute_genus(genus, Q_coeffs, format);
+  
+  for (c_idx = 0; (c_idx < genus->num_conductors) && (genus->conductors[c_idx] != c);) c_idx++;
+
+  gen_idx = 0;
+  while (genus->lut_positions[c_idx][gen_idx] == -1)
+    gen_idx++;
+  
+  // right now we only handle differently the trivial spinor norm case
+  if (c_idx != 0)
+    return compute_hecke_col_all_conds(Q_coeffs, p, gen_idx, format);
+
+  hecke = (int*)malloc(genus->dims[0] * sizeof(int));
+  hecke_col(hecke, p, gen_idx, genus);
+
+  for (i = 0; i < genus->dims[0]; i++)
+      printf("%4d ", hecke[i]);
+  printf("\n");
+  
+  free(hecke);
+
+  genus_clear(genus);
+  
+  return SUCCESS;
 }
