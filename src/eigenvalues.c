@@ -285,6 +285,9 @@ bool ev_is_lpoly_reducible(const eigenvalues_t evs, slong ev_idx, slong p, slong
   printf("\n");
 #endif // DEBUG
 
+  // !! TODO - this is not good enough, we might miss forms!
+  // e.g. 889. otoh, nf_elem_is_square is too slow.
+  // Should do CRT reconstruction
   is_lift = nf_elem_is_square_fast(disc, evs->nfs[ev_idx]);
   assert(is_lift == nf_elem_is_square(disc, evs->nfs[ev_idx]));
   
