@@ -553,10 +553,19 @@ STATUS compute_hecke_col_all_conds(const int* Q_coeffs, int p, int gen_idx, cons
   genus_t genus;
   int** hecke;
   slong c, i;
+
+  clock_t cpuclock_0, cpuclock_1;
+  double cputime, cpudiff;  
   
   compute_genus(genus, Q_coeffs, format);
 
+  cpuclock_0 = clock();
+  
   hecke = hecke_col_all_conds_sparse(p, gen_idx, genus);
+
+  cpuclock_1 = clock();
+  cpudiff = cpuclock_1 - cpuclock_0;
+  cputime = cpudiff / CLOCKS_PER_SEC;
   
   for (c = 0; c < genus->num_conductors; c++) {
     printf("cond=%ld: ", genus->conductors[c]);
@@ -565,6 +574,8 @@ STATUS compute_hecke_col_all_conds(const int* Q_coeffs, int p, int gen_idx, cons
     printf("\n");
   }
 
+  printf("computing hecke took %f\n", cputime);
+  
   for (c = 0; c < genus->num_conductors; c++)
     free(hecke[c]);
 
@@ -582,6 +593,9 @@ STATUS compute_hecke_col(const int* Q_coeffs, int p, const char* format, int c)
   int* hecke;
   int c_idx, i, gen_idx;
 
+  clock_t cpuclock_0, cpuclock_1;
+  double cputime, cpudiff;  
+
   compute_genus(genus, Q_coeffs, format);
   
   for (c_idx = 0; (c_idx < genus->num_conductors) && (genus->conductors[c_idx] != c);) c_idx++;
@@ -595,11 +609,20 @@ STATUS compute_hecke_col(const int* Q_coeffs, int p, const char* format, int c)
     return compute_hecke_col_all_conds(Q_coeffs, p, gen_idx, format);
 
   hecke = (int*)malloc(genus->dims[0] * sizeof(int));
+
+  cpuclock_0 = clock();
+
   hecke_col(hecke, p, gen_idx, genus);
+
+  cpuclock_1 = clock();
+  cpudiff = cpuclock_1 - cpuclock_0;
+  cputime = cpudiff / CLOCKS_PER_SEC;
 
   for (i = 0; i < genus->dims[0]; i++)
       printf("%4d ", hecke[i]);
   printf("\n");
+
+  printf("computing hecke took %f\n", cputime);
   
   free(hecke);
 
