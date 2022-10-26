@@ -25,7 +25,7 @@ void compute_genus(genus_t genus, const int* Q_coeffs, const char* format)
   cpudiff = cpuclock_1 - cpuclock_0;
   cputime = cpudiff / CLOCKS_PER_SEC;
   
-  printf("computing genus took %f\n", cputime);
+  printf("computing genus took %f\n sec", cputime);
 
   square_matrix_clear(Q);
   return;
@@ -164,7 +164,7 @@ STATUS test(const example_t ex)
   cpudiff = cpuclock_1 - cpuclock_0;
   cputime = cpudiff / CLOCKS_PER_SEC;
   
-  printf("computing genus took %f\n", cputime);
+  printf("computing genus took %f\n sec", cputime);
 
   if (ex->num_conductors != 0)
     assert(genus->num_conductors == ex->num_conductors);
@@ -574,7 +574,7 @@ STATUS compute_hecke_col_all_conds(const int* Q_coeffs, int p, int gen_idx, cons
     printf("\n");
   }
 
-  printf("computing hecke took %f\n", cputime);
+  printf("computing hecke took %f\n sec", cputime);
   
   for (c = 0; c < genus->num_conductors; c++)
     free(hecke[c]);
@@ -622,7 +622,7 @@ STATUS compute_hecke_col(const int* Q_coeffs, int p, const char* format, int c)
       printf("%4d ", hecke[i]);
   printf("\n");
 
-  printf("computing hecke took %f\n", cputime);
+  printf("computing hecke took %f\n sec", cputime);
   
   free(hecke);
 
