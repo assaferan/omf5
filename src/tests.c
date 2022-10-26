@@ -574,7 +574,7 @@ STATUS compute_hecke_col_all_conds(const int* Q_coeffs, int p, int gen_idx, cons
     printf("\n");
   }
 
-  printf("computing hecke took %f\n sec", cputime);
+  printf("computing hecke took %f sec\n", cputime);
   
   for (c = 0; c < genus->num_conductors; c++)
     free(hecke[c]);
