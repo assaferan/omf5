@@ -833,6 +833,7 @@ void fq_nmod_quad_hyperbolize(fq_nmod_mat_t gram, fq_nmod_mat_t basis, const fq_
     
     fq_nmod_clear(scalar,F);
     fq_nmod_mat_clear(original_gram,F);
+    fq_nmod_mat_clear(vec,F);
     return;
   }
 
