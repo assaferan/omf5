@@ -19,7 +19,7 @@ void compute_genus(genus_t genus, const int* Q_coeffs, const char* format)
   cpuclock_0 = clock();
 
   square_matrix_init_set_symm(Q, Q_coeffs, format);
-  genus_init(genus, Q);
+  genus_init_square_matrix(genus, Q);
 
   cpuclock_1 = clock();
   cpudiff = cpuclock_1 - cpuclock_0;
@@ -158,7 +158,7 @@ STATUS test(const example_t ex)
   cpuclock_0 = clock();
 
   square_matrix_init_set_symm(Q, ex->Q_coeffs, ex->format);
-  genus_init(genus, Q);
+  genus_init_square_matrix(genus, Q);
 
   cpuclock_1 = clock();
   cpudiff = cpuclock_1 - cpuclock_0;

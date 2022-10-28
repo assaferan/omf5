@@ -27,7 +27,10 @@ typedef struct
 typedef genus_struct genus_t[1];
 
 /* compute the genus of a quadratic form */
-void genus_init(genus_t genus, const square_matrix_t Q);
+void genus_init_square_matrix(genus_t genus, const square_matrix_t Q);
+
+/* set the genus from a list */
+void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps, int genus_size);
 
 void genus_clear(genus_t genus);
 

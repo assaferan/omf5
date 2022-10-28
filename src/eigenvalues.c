@@ -185,8 +185,10 @@ bool nf_elem_is_square_fast(const nf_elem_t x, const nf_t K)
 
   fmpz_init(prod);
   fmpz_one(prod);
-  
-  while (fmpz_get_si(prod) < bound) {
+
+  // This is only probabilistic -
+  // should really go only up to bound, reconstruct using CRT and check
+  while (fmpz_get_si(prod) < bound * bound) {
     // construct the finite field mod p
     fmpz_nextprime(p, p, true);
     fmpz_mul(prod, prod, p);

@@ -41,8 +41,171 @@ int popcnt(W64 x)
   return count;
 }
 
+void disc_init_set(fmpz_t disc, const square_matrix_t q)
+{
+  fmpz_mat_t q_fmpz;
+  
+  fmpz_init(disc);
+  fmpz_mat_init_set_square_matrix(q_fmpz, q);
+  fmpz_mat_det(disc, q_fmpz);
+  fmpz_divexact_si(disc, disc, 2);
+  
+  fmpz_mat_clear(q_fmpz);
+  
+  return;
+}
+
+void spinor_init_set(spinor_t spinor, const square_matrix_t q)
+{
+  fmpz_mat_t q_fmpz;
+
+  fmpz_mat_init_set_square_matrix(q_fmpz, q);
+  spinor_init(spinor, q_fmpz);
+  fmpz_mat_clear(q_fmpz);
+  
+  return;
+}
+
+size_t genus_size_estimate(const fmpq_t mass)
+{
+  fmpz_t genus_size_fmpz;
+  size_t genus_size;
+  
+  fmpz_init(genus_size_fmpz);
+  fmpz_set(genus_size_fmpz, fmpq_denref(mass));
+  genus_size = fmpz_get_si(genus_size_fmpz);
+  fmpz_clear(genus_size_fmpz);
+  genus_size = (4 * genus_size) / 3; // load factor
+
+  return genus_size;
+}
+
+void conductors_init(genus_t genus)
+{
+  slong c, value;
+  size_t bits, mask;
+  
+  genus->num_conductors = 1LL << genus->spinor->num_primes;
+  
+  genus->conductors = (slong*)malloc((genus->num_conductors) * sizeof(slong));
+  genus->conductors[0] = 1;
+  
+  bits = 0;
+  mask = 1;
+  for (c = 1; c < genus->num_conductors; c++) {
+    if (c == 2*mask) {
+      ++bits;
+      mask = 1LL << bits;
+    }
+    value = fmpz_get_si(fq_nmod_ctx_prime(genus->spinor->fields[bits])) * genus->conductors[c ^ mask];
+    genus->conductors[c] = value;
+  }  
+
+  return;
+}
+
+// Determine which subspaces this representative contributes.
+// sets the ignore flags and returns the order of the automorphism group
+slong ignore_set(bool* ignore, const genus_t genus, slong genus_idx)
+{
+  slong c, gen_idx, order;
+  isometry_t s;
+  aut_grp_t aut_grp;
+  W64 vals;
+
+  aut_grp_init_square_matrix(aut_grp, genus->genus_reps->keys[genus_idx]);
+  
+  for (c = 0; c < genus->num_conductors; c++)
+    ignore[c] = false;
+
+  for (gen_idx = 0; gen_idx < aut_grp->num_gens; gen_idx++) {
+#ifdef DEBUG
+    isometry_init_set_square_matrix(s, aut_grp->gens[gen_idx], 1);
+    assert(isometry_is_isom(s, genus->genus_reps->keys[genus_idx], genus->genus_reps->keys[genus_idx]));
+    isometry_clear(s);
+#endif // DEBUG
+
+    isometry_init(s);
+    isometry_inv(s, genus->isoms[genus_idx]);
+    isometry_mul_mateq_left(s, aut_grp->gens[gen_idx], 1);
+    isometry_muleq_left(s, genus->isoms[genus_idx]);
+    
+    assert(isometry_is_isom(s, genus->genus_reps->keys[0], genus->genus_reps->keys[0]));
+	
+    vals = spinor_norm_isom(genus->spinor, s);
+    // !! TODO - we can break the loop after we find one, right?
+    for (c = 0; c < genus->num_conductors; c++)
+      if (!ignore[c] && (popcnt(vals & c) & 1))
+	ignore[c] = true;
+    isometry_clear(s);	
+  }
+
+  order = aut_grp->order;
+
+  aut_grp_clear(aut_grp);
+  
+  return order;
+}
+  
+void dimensions_init(genus_t genus)
+{
+  slong c, genus_idx, order;
+  bool* ignore;
+  
+  // Initialize the dimensions to zero, we will compute these values below.
+  genus->dims = (slong*)malloc((genus->num_conductors)*sizeof(slong));
+  for (c = 0; c < genus->num_conductors; c++)
+    genus->dims[c] = 0;
+
+  // Create the lookup table values for each genus rep at each conductor.
+  genus->lut_positions = (slong**)malloc((genus->num_conductors)*sizeof(slong*));
+  for (c = 0; c < genus->num_conductors; c++) {
+    genus->lut_positions[c] = (slong*)malloc((genus->genus_reps->num_stored) * sizeof(slong));
+    for (genus_idx = 0; genus_idx < genus->genus_reps->num_stored; genus_idx++)
+      genus->lut_positions[c][genus_idx] = -1;
+  }
+
+  // allocate the ignore flags and the sizes of automorphism groups
+  ignore = (bool*)malloc((genus->num_conductors)*sizeof(bool));
+  genus->num_auts = (slong**)malloc((genus->num_conductors)*sizeof(slong*));
+  for (c = 0; c < genus->num_conductors; c++)
+    genus->num_auts[c] = (slong*)malloc((genus->genus_reps->num_stored)*sizeof(slong));
+
+  for (genus_idx = 0; genus_idx < genus->genus_reps->num_stored; genus_idx++) {
+    order = ignore_set(ignore, genus, genus_idx);
+
+    for (c = 0; c < genus->num_conductors; c++) {
+      if (!ignore[c]) {
+	genus->lut_positions[c][genus_idx] = genus->dims[c];
+	genus->num_auts[c][genus->dims[c]] = order;
+      }
+      genus->dims[c] += (ignore[c] ? 0 : 1);
+    }
+
+  }
+
+  free(ignore);
+  
+  return;
+}
+
+void print_conductors(const genus_t genus)
+{
+  slong c;
+  
+  printf("The possible conductors are: \n");
+  for (c = 0; c < genus->num_conductors; c++)
+    printf("%ld ", genus->conductors[c]);
+  printf("\n");
+  printf("The corresponding dimensions are: ");
+  for (c = 0; c < genus->num_conductors; c++)
+    printf("%ld ", genus->dims[c]);
+  printf("\n");
+  return;
+}
+
 /* compute the genus of a quadratic form */
-void genus_init(genus_t genus, const square_matrix_t q)
+void genus_init_square_matrix(genus_t genus, const square_matrix_t q)
 {
   aut_grp_t aut_grp;
   square_matrix_t nbr, genus_rep;
@@ -50,14 +213,8 @@ void genus_init(genus_t genus, const square_matrix_t q)
   fmpq_t mass, acc_mass, mass_form;
   fmpz_t prime;
   int p, current, key_num;
-  size_t genus_size, genus_idx, gen_idx;
-  fmpz_t genus_size_fmpz;
+  size_t genus_size;
   hash_table_t slow_genus;
-  fmpz_mat_t q_fmpz;
-  size_t c, mask, bits;
-  slong value;
-  bool* ignore;
-  W64 vals;
   bool found, is_isom;
   
 #ifndef NBR_DATA
@@ -78,7 +235,7 @@ void genus_init(genus_t genus, const square_matrix_t q)
   fmpz_mat_init(nbr_fmpz, QF_RANK, QF_RANK);
 #endif // NBR_DATA
 
-  fmpz_init(genus->disc);
+  disc_init_set(genus->disc, q);
 
   fmpq_init(mass);
   get_mass(mass, q);
@@ -89,26 +246,12 @@ void genus_init(genus_t genus, const square_matrix_t q)
   printf("\n");
 #endif // DEBUG
 
-  /* this is ceiling */
+  spinor_init_set(genus->spinor, q);
 
-  fmpz_init(genus_size_fmpz);
-  // fmpz_cdiv_q(genus_size_fmpz, fmpq_numref(mass), fmpq_denref(mass));
-  fmpz_set(genus_size_fmpz, fmpq_denref(mass));
-
-  genus_size = fmpz_get_si(genus_size_fmpz);
-
-  fmpz_clear(genus_size_fmpz);
-    
-  genus_size = (4 * genus_size) / 3; // load factor
-
+  genus_size = genus_size_estimate(mass);
+  
   hash_table_init(slow_genus, genus_size);
   hash_table_add(slow_genus, q);
-
-  fmpz_mat_init_set_square_matrix(q_fmpz, q);
-  fmpz_mat_det(genus->disc, q_fmpz);
-  fmpz_divexact_si(genus->disc, genus->disc, 2);
-  spinor_init(genus->spinor, q_fmpz);
-  fmpz_mat_clear(q_fmpz);
 
   genus->isoms = (isometry_t*)malloc((slow_genus->capacity) * sizeof(isometry_t));
 
@@ -116,21 +259,7 @@ void genus_init(genus_t genus, const square_matrix_t q)
   
   // initializing the conductors
   
-  genus->num_conductors = 1LL << genus->spinor->num_primes;
-  
-  genus->conductors = (slong*)malloc((genus->num_conductors) * sizeof(slong));
-  genus->conductors[0] = 1;
-  
-  bits = 0;
-  mask = 1;
-  for (c = 1; c < genus->num_conductors; c++) {
-    if (c == 2*mask) {
-      ++bits;
-      mask = 1LL << bits;
-    }
-    value = fmpz_get_si(fq_nmod_ctx_prime(genus->spinor->fields[bits])) * genus->conductors[c ^ mask];
-    genus->conductors[c] = value;
-  }  
+  conductors_init(genus);
 
   aut_grp_init_square_matrix(aut_grp, q);
   
@@ -278,78 +407,14 @@ void genus_init(genus_t genus, const square_matrix_t q)
 
     hash_table_clear(slow_genus);
     
-    // Initialize the dimensions to zero, we will compute these values below.
-    genus->dims = (slong*)malloc((genus->num_conductors)*sizeof(slong));
-    for (c = 0; c < genus->num_conductors; c++)
-      genus->dims[c] = 0;
-    
-    // Create the lookup table values for each genus rep at each conductor.
-    genus->lut_positions = (slong**)malloc((genus->num_conductors)*sizeof(slong*));
-    for (c = 0; c < genus->num_conductors; c++) {
-      genus->lut_positions[c] = (slong*)malloc((genus->genus_reps->num_stored) * sizeof(slong));
-      for (genus_idx = 0; genus_idx < genus->genus_reps->num_stored; genus_idx++)
-	genus->lut_positions[c][genus_idx] = -1;
-    }
-    genus->num_auts = (slong**)malloc((genus->num_conductors)*sizeof(slong*));
-
     assert(genus->genus_reps->num_stored > 0);
 
-    ignore = (bool*)malloc((genus->num_conductors)*sizeof(bool));
-    for (c = 0; c < genus->num_conductors; c++)
-      genus->num_auts[c] = (slong*)malloc((genus->genus_reps->num_stored)*sizeof(slong));
-    
-    for (genus_idx = 0; genus_idx < genus->genus_reps->num_stored; genus_idx++) {
-      // Determine which subspaces this representative contributes.
-      aut_grp_init_square_matrix(aut_grp, genus->genus_reps->keys[genus_idx]);
-      
-      for (c = 0; c < genus->num_conductors; c++)
-	ignore[c] = false;
-
-      for (gen_idx = 0; gen_idx < aut_grp->num_gens; gen_idx++) {
-#ifdef DEBUG
-	isometry_init_set_square_matrix(s, aut_grp->gens[gen_idx], 1);
-	assert(isometry_is_isom(s, genus->genus_reps->keys[genus_idx], genus->genus_reps->keys[genus_idx]));
-#endif // DEBUG
-
-	isometry_inv(s, genus->isoms[genus_idx]);
-	isometry_mul_mateq_left(s, aut_grp->gens[gen_idx], 1);
-	isometry_muleq_left(s, genus->isoms[genus_idx]);
-	
-	assert(isometry_is_isom(s, q, q));
-	
-	vals = spinor_norm_isom(genus->spinor, s);
-	// !! TODO - we can break the loop after we find one, right?
-	for (c = 0; c < genus->num_conductors; c++)
-	  if (!ignore[c] && (popcnt(vals & c) & 1))
-	    ignore[c] = true;
-	isometry_clear(s);
-	
-      }
-
-      for (c = 0; c < genus->num_conductors; c++) {
-	if (!ignore[c]) {
-	  genus->lut_positions[c][genus_idx] = genus->dims[c];
-	  genus->num_auts[c][genus->dims[c]] = aut_grp->order;
-	}
-	genus->dims[c] += (ignore[c] ? 0 : 1);
-      }
-
-      aut_grp_clear(aut_grp);
-    }
+    dimensions_init(genus);
 
     // #ifdef DEBUG
-    printf("The possible conductors are: \n");
-    for (c = 0; c < genus->num_conductors; c++)
-      printf("%ld ", genus->conductors[c]);
-    printf("\n");
-    printf("The corresponding dimensions are: ");
-    for (c = 0; c < genus->num_conductors; c++)
-      printf("%ld ", genus->dims[c]);
-    printf("\n");
+    print_conductors(genus);
     // #endif // DEBUG
     
-    // should also deallocate aut_grp somehow - not clear how to do that
-    free(ignore);
     fmpq_clear(mass);
     fmpq_clear(acc_mass);
     fmpq_clear(mass_form);
@@ -383,5 +448,87 @@ void genus_clear(genus_t genus)
   free(genus->conductors);
   spinor_clear(genus->spinor);
   hash_table_clear(genus->genus_reps);
+  return;
+}
+
+void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps, int h)
+{
+#ifdef DEBUG
+  fmpq_t mass, acc_mass, mass_form;
+  aut_grp_t aut_grp;
+#endif // DEBUG
+  size_t genus_size;
+  hash_table_t slow_genus;
+  
+  int i;
+
+  assert(h > 0);
+  disc_init_set(genus->disc, reps[0]);
+
+  // Here we don't really need it, just here for verification
+#ifdef DEBUG
+  fmpq_init(mass);
+  get_mass(mass, reps[0]);
+  printf("mass = ");
+  fmpq_print(mass);
+  printf("\n");
+  fmpq_init(mass_form);
+  fmpq_init(acc_mass);
+  fmpq_zero(acc_mass);
+#endif // DEBUG
+    
+  genus_size = (4 * h) / 3; // load factor
+
+  hash_table_init(slow_genus, genus_size);
+
+  spinor_init_set(genus->spinor, reps[0]);
+  
+  for (i = 0; i < h; i++) {
+#ifdef DEBUG
+    if (fmpq_cmp(acc_mass, mass) > 0) {
+      printf("Error! Accumulated too much mass!\n");
+      return;
+    }
+#endif // DEBUG
+    hash_table_add(slow_genus, reps[i]);
+    
+#ifdef DEBUG
+    aut_grp_init_square_matrix(aut_grp, reps[i]);
+    fmpq_set_si(mass_form, 1, aut_grp->order);
+    aut_grp_clear(aut_grp);
+    fmpq_add(acc_mass, acc_mass, mass_form);
+    printf("acc_mass = ");
+    fmpq_print(acc_mass);
+    printf("\n");
+#endif // DEBUG
+  }
+
+  hash_table_recalibrate(genus->genus_reps, slow_genus);
+
+  hash_table_clear(slow_genus);
+
+  // constructing isometries between the forms
+  genus->isoms = (isometry_t*)malloc(h * sizeof(isometry_t));
+
+  for (i = 0; i < h; i++)
+    is_isometric(genus->isoms[i], reps[0], reps[i]);
+  
+  // initializing the conductors
+  
+  conductors_init(genus);
+
+  assert(genus->genus_reps->num_stored > 0);
+
+  dimensions_init(genus);
+
+  // #ifdef DEBUG
+  print_conductors(genus);
+  // #endif // DEBUG
+#ifdef DEBUG  
+  fmpq_clear(mass);
+  fmpq_clear(acc_mass);
+  fmpq_clear(mass_form);
+#endif // DEBUG
+      
   return;
 }
