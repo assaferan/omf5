@@ -12,13 +12,13 @@ int parse_matrix(const char* mat_str, int* Q_coeffs);
 
 int main(int argc, char* argv[])
 {
-  int form_idx, prec, p;
+  int form_idx, prec, p, c;
   int Q_coeffs[15];
   STATUS test_res;
   char* input_type;
   int max_args;
-  bool do_tests, is_valid, is_prec, is_format, is_form_idx, is_p;
-  bool has_quad, has_format, has_prec, has_form_idx, has_p;
+  bool do_tests, is_valid, is_prec, is_format, is_form_idx, is_p, is_c;
+  bool has_quad, has_format, has_prec, has_form_idx, has_p, has_hecke, has_c;
   int i;
 
   input_type = NULL;
@@ -30,7 +30,7 @@ int main(int argc, char* argv[])
   }
 
   do_tests = false;
-  has_quad = has_format = has_prec = has_form_idx = has_p = false;
+  has_quad = has_format = has_prec = has_form_idx = has_p = has_hecke = has_c = false;
   
   for (i = 1; i < argc; i++) {
     is_valid = false;
@@ -38,6 +38,11 @@ int main(int argc, char* argv[])
     // checkng to see if the flag is -tests
     if (strcmp(argv[i], "-tests") == 0) {
       do_tests = true;
+      is_valid = true;
+    }
+
+    if (strcmp(argv[i], "-hecke") == 0) {
+      has_hecke = true;
       is_valid = true;
     }
 
@@ -65,6 +70,11 @@ int main(int argc, char* argv[])
     is_valid = (is_valid) || (is_p);
     if (is_p)
       has_p = true;
+
+    is_c = handle_flag_int("cond", argv[i], &c);
+    is_valid = (is_valid) || (is_c);
+    if (is_c)
+      has_c = true;
     
     is_form_idx = handle_flag_int("form_idx", argv[i], &form_idx);
     is_valid = (is_valid) || (is_form_idx);
@@ -94,7 +104,16 @@ int main(int argc, char* argv[])
 					    prec, input_type);
     else
       if (has_p)
-	test_res |= compute_eigenvalues(Q_coeffs, p, input_type);
+	if (has_hecke) {
+	  // !! TODO - right now it doesn't matter which column we take, so we take 0 index,
+	  // might change in the future.
+	  if (has_c)
+	    test_res |= compute_hecke_col(Q_coeffs, p, input_type, c);
+	  else
+	    test_res |= compute_hecke_col_all_conds(Q_coeffs, p, 0, input_type);
+	}
+	else
+	  test_res |= compute_eigenvalues(Q_coeffs, p, input_type);
       else
 	test_res |= compute_eigenvectors(Q_coeffs, input_type);
   }
