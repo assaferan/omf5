@@ -9,17 +9,35 @@
 #include "matrix_tools.h"
 #include "tests.h"
 
+void print_conductors(const genus_t genus)
+{
+  slong c;
+  
+  printf("The possible conductors are: \n");
+  for (c = 0; c < genus->num_conductors; c++)
+    printf("%ld ", genus->conductors[c]);
+  printf("\n");
+  printf("The corresponding dimensions are: ");
+  for (c = 0; c < genus->num_conductors; c++)
+    printf("%ld ", genus->dims[c]);
+  printf("\n");
+  return;
+}
+
+// Now this also checks initialization from a list of matrices
 void compute_genus(genus_t genus, const int* Q_coeffs, const char* format)
 {
   clock_t cpuclock_0, cpuclock_1;
   double cputime, cpudiff;
 
   square_matrix_t Q;
+  genus_t old_genus;
 
   cpuclock_0 = clock();
 
   square_matrix_init_set_symm(Q, Q_coeffs, format);
   genus_init_square_matrix(genus, Q);
+  genus_init_square_matrix(old_genus, Q);
 
   cpuclock_1 = clock();
   cpudiff = cpuclock_1 - cpuclock_0;
@@ -28,6 +46,19 @@ void compute_genus(genus_t genus, const int* Q_coeffs, const char* format)
   printf("computing genus took %f sec\n", cputime);
 
   square_matrix_clear(Q);
+
+  cpuclock_0 = clock();
+  genus_init_set_square_matrix_vec(genus, old_genus->genus_reps->keys, old_genus->dims[0]);
+  cpuclock_1 = clock();
+  cpudiff = cpuclock_1 - cpuclock_0;
+  cputime = cpudiff / CLOCKS_PER_SEC;
+  
+  printf("recomputing genus took %f sec\n", cputime);
+
+  genus_clear(old_genus);
+
+  print_conductors(genus);
+  
   return;
 }
 
@@ -150,21 +181,12 @@ STATUS test(const example_t ex)
   clock_t cpuclock_0, cpuclock_1;
   double cputime, cpudiff;
 
-  square_matrix_t Q;
   eigenvalues_t* evs;
   bool has_spinor = false;
   const int* test_evs = NULL;
-  
-  cpuclock_0 = clock();
 
-  square_matrix_init_set_symm(Q, ex->Q_coeffs, ex->format);
-  genus_init_square_matrix(genus, Q);
 
-  cpuclock_1 = clock();
-  cpudiff = cpuclock_1 - cpuclock_0;
-  cputime = cpudiff / CLOCKS_PER_SEC;
-  
-  printf("computing genus took %f sec \n", cputime);
+  compute_genus(genus, ex->Q_coeffs, ex->format);
 
   if (ex->num_conductors != 0)
     assert(genus->num_conductors == ex->num_conductors);
@@ -177,6 +199,8 @@ STATUS test(const example_t ex)
     if (genus->dims[c] != 0)
       has_spinor = true;
 
+  cpuclock_0 = clock();
+  
   if (has_spinor)
     evs = hecke_eigenforms_all_conductors(genus);
   else

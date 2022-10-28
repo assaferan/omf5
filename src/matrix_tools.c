@@ -1226,10 +1226,10 @@ void print_content_and_coeff_size(const fmpq_mat_t A, const char* name)
 void kernel_on(fmpq_mat_t ker, const fmpq_mat_t A, const fmpq_mat_t B)
 {
   fmpq_mat_t ker_A;
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
   print_content_and_coeff_size(A, "A");
   print_content_and_coeff_size(B, "B");
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
   
   // fmpq_mat_kernel(ker, A);
   fmpq_mat_left_kernel(ker_A, A);

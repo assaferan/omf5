@@ -723,6 +723,7 @@ void nbr_process_build_nb_and_isom(square_matrix_t Q, isometry_t s, const neighb
 	  /* a singular zero, return Q as-is*/
 	  /* Re-symmetrize */
 	  square_matrix_resymmetrize(Q);
+	  return;
 	}
       }
     }

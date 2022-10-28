@@ -181,12 +181,14 @@ double get_total_cost(const hash_table_t table, W32 theta_prec, double isom_cost
     total_cost += counts[i] * fmpq_get_d(wt_cnts[i]);
   }
   total_cost -= 1;
+#ifdef DEBUG_LEVEL_FULL
   printf("Expecting average number of %f calls to is_isometric.\n", total_cost);
+#endif // DEBUG_LEVEL_FULL
 
   *red_on_isom = true;
 
   // !! TODO - for large p this seems necessary to prevent overflow
-  // check also if changing to 64-bit helpa
+  // check also if changing to 64-bit helps
   /*
   for (offset = 0; offset < table->num_stored; offset++)
     *red_on_isom &= (counts[vals[offset] & table->mask] == 1);
@@ -242,8 +244,10 @@ void hash_table_recalibrate(hash_table_t new_table, const hash_table_t table)
   // then we try to reduce them first
   red_isom_cost = get_isom_cost(table, &greedy_cost);
 
+#ifdef DEBUG_LEVEL_FULL
   printf("Expected cost of isometries is %f\n", isom_cost);
   printf("Expected cost of reduced isometries is %f\n", red_isom_cost + greedy_cost);
+#endif // DEBUG_LEVEL_FULL
   
   theta_prec = 0;
 
@@ -260,9 +264,9 @@ void hash_table_recalibrate(hash_table_t new_table, const hash_table_t table)
   // we are now passed the peak, have to go back one
   theta_prec--;
 
-  // #ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
   printf("Recalibrated with theta_prec = %u and red_on_isom = %d \n", theta_prec, new_table->red_on_isom);
-  // #endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
   
   new_table->theta_prec = theta_prec;
 
@@ -420,10 +424,7 @@ int hash_table_indexof(const hash_table_t table, const square_matrix_t key, int 
   i = 0;
   while (i < table->counts[value & table->mask]) {
     offset = table->key_ptr[index];
-    if (offset == -1) {
-      printf("Error! Key not found!\n");
-      return -1;
-    }
+    assert(offset != -1);
     if ((table->vals[offset] & table->mask) == (value & table->mask)) {
       if ((table->counts[value & table->mask] == i + 1) && (!check_isom))
 	return offset;
@@ -448,8 +449,7 @@ int hash_table_indexof(const hash_table_t table, const square_matrix_t key, int 
     index = (index + 1) & table->mask;
   }
 
-  printf("Error! Key not found!\n");
-  exit(-1);
+  assert(false);
 
   return -1;
 }
@@ -471,10 +471,7 @@ int hash_table_index_and_isom(const hash_table_t table, const square_matrix_t ke
   i = 0;
   while (i < table->counts[value & table->mask]) {
     offset = table->key_ptr[index];
-    if (offset == -1) {
-      printf("Error! Key not found!\n");
-      return -1;
-    }
+    assert(offset != -1);
     if ((table->vals[offset] & table->mask) == (value & table->mask)) {
       i++;
       if (table->vals[offset] == value) {
@@ -507,8 +504,7 @@ int hash_table_index_and_isom(const hash_table_t table, const square_matrix_t ke
   if ((table->red_on_isom) && (is_key_copied))
     isometry_clear(s);
   
-  printf("Error! Key not found!\n");
-  exit(-1);
+  assert(false);
 
   return -1;
 }

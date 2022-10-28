@@ -7,6 +7,7 @@
 #include "aut_grp.h"
 #include "genus.h"
 #include "hash.h"
+#include "isometry.h"
 #include "mass.h"
 #include "matrix_tools.h"
 #include "nbr_data.h"
@@ -189,21 +190,6 @@ void dimensions_init(genus_t genus)
   return;
 }
 
-void print_conductors(const genus_t genus)
-{
-  slong c;
-  
-  printf("The possible conductors are: \n");
-  for (c = 0; c < genus->num_conductors; c++)
-    printf("%ld ", genus->conductors[c]);
-  printf("\n");
-  printf("The corresponding dimensions are: ");
-  for (c = 0; c < genus->num_conductors; c++)
-    printf("%ld ", genus->dims[c]);
-  printf("\n");
-  return;
-}
-
 /* compute the genus of a quadratic form */
 void genus_init_square_matrix(genus_t genus, const square_matrix_t q)
 {
@@ -240,11 +226,11 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t q)
   fmpq_init(mass);
   get_mass(mass, q);
   
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
   printf("mass = ");
   fmpq_print(mass);
   printf("\n");
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
 
   spinor_init_set(genus->spinor, q);
 
@@ -281,10 +267,7 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t q)
   while (fmpq_cmp(acc_mass, mass)) {
     current = 0;
 #ifdef DEBUG
-    if (fmpq_cmp(acc_mass, mass) > 0) {
-      printf("Error! Accumulated too much mass!\n");
-      return;
-    }
+    assert(fmpq_cmp(acc_mass, mass) <= 0);
 #endif // DEBUG
     /* !! TODO - we don't really need to restrict to good primes here, */
     /* but let's check these first */
@@ -377,11 +360,11 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t q)
 	    fmpq_set_si(mass_form, 1, aut_grp->order);
 	    aut_grp_clear(aut_grp);
 	    fmpq_add(acc_mass, acc_mass, mass_form);
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
 	    printf("acc_mass = ");
 	    fmpq_print(acc_mass);
 	    printf("\n");
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
 	  }
 	  
 #ifndef NBR_DATA
@@ -410,10 +393,6 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t q)
     assert(genus->genus_reps->num_stored > 0);
 
     dimensions_init(genus);
-
-    // #ifdef DEBUG
-    print_conductors(genus);
-    // #endif // DEBUG
     
     fmpq_clear(mass);
     fmpq_clear(acc_mass);
@@ -451,12 +430,96 @@ void genus_clear(genus_t genus)
   return;
 }
 
+// !! TODO - right now we are doing it very naively, by constructing neighbors
+// We should replace it by proper Gram-Schmidt
+bool square_matrix_is_Q_isometric(isometry_t isom, const square_matrix_t A, const square_matrix_t B)
+{
+  isometry_t isom_A, isom_B, isom_B_inv;
+  neighbor_manager_t nbr_man;
+  square_matrix_t nbr;
+  int i, p;
+  fmpz_t prime;
+  bool found = false;
+  
+  fmpz_init(prime);
+  isometry_init(isom_A);
+  isometry_init(isom_B);
+  isometry_init(isom_B_inv);
+  square_matrix_init(nbr);
+
+  p = 2;
+  i = 0;
+  while (!found) {
+    nbr_process_init(nbr_man, A, p, i);
+    while (!nbr_process_has_ended(nbr_man)) {
+      nbr_process_build_nb_and_isom(nbr, isom_A, nbr_man);
+      found = is_isometric(isom_B, B, nbr);
+      assert(isometry_is_isom(isom_A, A, nbr));
+      if (found) {
+	isometry_inv(isom_B_inv, isom_B);
+	assert(isometry_is_isom(isom_B, B, nbr));
+	assert(isometry_is_isom(isom_B_inv, nbr, B));
+	isometry_mul(isom, isom_A, isom_B_inv);
+	assert(isometry_is_isom(isom, A, B));
+	break;
+      }
+      nbr_process_advance(nbr_man);
+    }
+    nbr_process_clear(nbr_man);
+    i++;
+    if (i == p) {
+      fmpz_nextprime(prime, prime, true);
+      p = fmpz_get_si(prime);
+      i = 0;
+    }
+  }
+
+  square_matrix_clear(nbr);
+  isometry_clear(isom_A);
+  isometry_clear(isom_B);
+  isometry_clear(isom_B_inv);
+  fmpz_clear(prime);
+  
+  return found;
+}
+
+// for now, this is faster (do one round and collect all)
+// assumes isoms are initialized and that B and isoms are the length of the class number
+void square_matrix_find_isometries(isometry_t* isoms, const square_matrix_t A, const square_matrix_t* B)
+{
+  genus_t genus;
+  isometry_t isom_B;
+  slong i, rep_idx;
+  double theta_time, isom_time;
+  int num_isom = 0;
+
+  theta_time = isom_time = 0;
+  
+  genus_init_square_matrix(genus, A);
+  isometry_init(isom_B);
+
+  for (i = 0; i < genus->dims[0]; i++) {
+    rep_idx = hash_table_index_and_isom(genus->genus_reps, B[i], isom_B, &theta_time, &isom_time, &num_isom);
+    assert(isometry_is_isom(isom_B, genus->genus_reps->keys[rep_idx], B[i]));
+    assert(isometry_is_isom(genus->isoms[rep_idx], A, genus->genus_reps->keys[rep_idx]));
+    isometry_mul(isoms[i], genus->isoms[rep_idx], isom_B);
+    assert(isometry_is_isom(isoms[i], A, B[i]));
+  }
+  
+  isometry_clear(isom_B);
+  genus_clear(genus);
+  
+  return;
+}
+
 void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps, int h)
 {
 #ifdef DEBUG
   fmpq_t mass, acc_mass, mass_form;
-  aut_grp_t aut_grp;
 #endif // DEBUG
+#ifdef DEBUG_LEVEL_FULL
+  aut_grp_t aut_grp;
+#endif // DEBUG_LEVEL_FULL
   size_t genus_size;
   hash_table_t slow_genus;
   
@@ -469,9 +532,11 @@ void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps
 #ifdef DEBUG
   fmpq_init(mass);
   get_mass(mass, reps[0]);
+#ifdef DEBUG_LEVEL_FULL
   printf("mass = ");
   fmpq_print(mass);
   printf("\n");
+#endif // DEBUG_LEVEL_FULL
   fmpq_init(mass_form);
   fmpq_init(acc_mass);
   fmpq_zero(acc_mass);
@@ -485,14 +550,11 @@ void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps
   
   for (i = 0; i < h; i++) {
 #ifdef DEBUG
-    if (fmpq_cmp(acc_mass, mass) > 0) {
-      printf("Error! Accumulated too much mass!\n");
-      return;
-    }
+    assert(fmpq_cmp(acc_mass, mass) <= 0);
 #endif // DEBUG
     hash_table_add(slow_genus, reps[i]);
     
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
     aut_grp_init_square_matrix(aut_grp, reps[i]);
     fmpq_set_si(mass_form, 1, aut_grp->order);
     aut_grp_clear(aut_grp);
@@ -500,7 +562,7 @@ void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps
     printf("acc_mass = ");
     fmpq_print(acc_mass);
     printf("\n");
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
   }
 
   hash_table_recalibrate(genus->genus_reps, slow_genus);
@@ -510,8 +572,7 @@ void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps
   // constructing isometries between the forms
   genus->isoms = (isometry_t*)malloc(h * sizeof(isometry_t));
 
-  for (i = 0; i < h; i++)
-    is_isometric(genus->isoms[i], reps[0], reps[i]);
+  square_matrix_find_isometries(genus->isoms, reps[0], reps);
   
   // initializing the conductors
   
@@ -521,9 +582,6 @@ void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps
 
   dimensions_init(genus);
 
-  // #ifdef DEBUG
-  print_conductors(genus);
-  // #endif // DEBUG
 #ifdef DEBUG  
   fmpq_clear(mass);
   fmpq_clear(acc_mass);
