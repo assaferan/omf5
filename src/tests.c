@@ -2,10 +2,11 @@
 #include <math.h>
 #include <time.h>
 
-#include "eigenvalues.h"
-#include "hecke.h"
 #include "arith.h"
+#include "eigenvalues.h"
 #include "genus.h"
+#include "hecke.h"
+#include "io.h"
 #include "matrix_tools.h"
 #include "tests.h"
 
@@ -172,19 +173,9 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
 /* Run with test_evs = NULL to just print all the eigenvalues.
    Run with num_evs = 0 to print all the eigenvectors          */
 
-STATUS test(const example_t ex)
+STATUS test_genus(genus_t genus, const example_genus_t ex)
 {
-  int form_idx, k;
-  slong c, c2;
-
   genus_t genus;
-  clock_t cpuclock_0, cpuclock_1;
-  double cputime, cpudiff;
-
-  eigenvalues_t* evs;
-  bool has_spinor = false;
-  const int* test_evs = NULL;
-
 
   compute_genus(genus, ex->Q_coeffs, ex->format);
 
@@ -194,18 +185,33 @@ STATUS test(const example_t ex)
   if (ex->dims != NULL)
     for (c = 0; c < ex->num_conductors; c++)
       assert(genus->dims[c] == ex->dims[c]);
+  
+  return SUCCESS;
+}
 
-  for (c = 1; c < genus->num_conductors; c++)
-    if (genus->dims[c] != 0)
+STATUS test_evs(const example_evs_t ex)
+{
+  int form_idx, k;
+  slong c, c2;
+
+  clock_t cpuclock_0, cpuclock_1;
+  double cputime, cpudiff;
+
+  eigenvalues_t* evs;
+  bool has_spinor = false;
+  const int* test_evs = NULL;
+
+  for (c = 1; c < ex->genus->num_conductors; c++)
+    if (ex->genus->dims[c] != 0)
       has_spinor = true;
 
   cpuclock_0 = clock();
   
   if (has_spinor)
-    evs = hecke_eigenforms_all_conductors(genus);
+    evs = hecke_eigenforms_all_conductors(ex->genus);
   else
     // !!TODO - change it to be faster when there is no spinor
-    evs = hecke_eigenforms_all_conductors(genus);
+    evs = hecke_eigenforms_all_conductors(ex->genus);
 
   cpuclock_1 = clock();
   cpudiff = cpuclock_1 - cpuclock_0;
@@ -214,37 +220,36 @@ STATUS test(const example_t ex)
   printf("computing eigenvectors took %f sec\n", cputime);
 
   if (ex->num_forms != NULL)
-    for (c = 0; c < ex->num_conductors; c++)
+    for (c = 0; c < ex->genus->num_conductors; c++)
       assert(evs[c]->num == ex->num_forms[c]);
   else
-    for (c = 0; c < genus->num_conductors; c++) {
-      printf("For conductor %ld, ", genus->conductors[c]);
+    for (c = 0; c < ex->genus->num_conductors; c++) {
+      printf("For conductor %ld, ", ex->genus->conductors[c]);
       print_eigenvectors(evs[c]);
     }
 
   has_spinor = false;
-  for (c = 0; c < genus->num_conductors; c++) {
-    eigenvalues_set_lifts(evs[c], 2, c, genus);
+  for (c = 0; c < ex->genus->num_conductors; c++) {
+    eigenvalues_set_lifts(evs[c], 2, c, ex->genus);
     if (c != 0)
       for (form_idx = 0; form_idx < evs[c]->num; form_idx++)
 	if (!(evs[c]->is_lift[form_idx]))
 	  has_spinor = true;
   }
   
-  for (c = 0; c < genus->num_conductors; c++) {
-    printf("For conductor %ld:\n", genus->conductors[c]);
+  for (c = 0; c < ex->genus->num_conductors; c++) {
+    printf("For conductor %ld:\n", ex->genus->conductors[c]);
     for (form_idx = 0; form_idx < evs[c]->num; form_idx++)
       if (!(evs[c]->is_lift[form_idx])) {
 	for (k = 0; k < 2; k++) {
 	  if (ex->num_conductors != 0)
 	    test_evs = ex->test_evs[c][form_idx][k];
 	  cpuclock_0 = clock();
-	  if (test_eigenvalues(genus, evs[c], ex->num_ps[k], form_idx,
+	  if (test_eigenvalues(ex->genus, evs[c], ex->num_ps[k], form_idx,
 			       ex->ps[k], test_evs, k+1, c) == FAIL) {
-	    for (c2 = 0; c2 < genus->num_conductors; c2++)
+	    for (c2 = 0; c2 < ex->genus->num_conductors; c2++)
 	      eigenvalues_clear(evs[c2]);
 	    free(evs);
-	    genus_clear(genus);
 	    return FAIL;
 	  }
 	  cpuclock_1 = clock();
@@ -256,20 +261,17 @@ STATUS test(const example_t ex)
       }
   }
 
-  for (c = 0; c < genus->num_conductors; c++)
+  for (c = 0; c < ex->genus->num_conductors; c++)
     eigenvalues_clear(evs[c]);
   free(evs);
-
-  genus_clear(genus);
  
   return SUCCESS;
 }
 
-void example_init(example_t ex, const int* form, const char* format, const int* dims,
-		  const int* num_forms, const int* num_ps, const int** ps, 
-		  const int**** test_evs, int num_conductors)
+void example_genus_init(example_genus_t ex, const int* form, const char* format,
+			int num_conductors, const int* dims)
 {
-  int c,i,j,k;
+  int i;
   
   for (i = 0; i < 15; i++)
     ex->Q_coeffs[i] = form[i];
@@ -280,19 +282,42 @@ void example_init(example_t ex, const int* form, const char* format, const int* 
 
   if (num_conductors == 0) {
     ex->dims = NULL;
-    ex->num_forms = NULL;
-  } else {
+  }
+  else {
     ex->dims = (int*)malloc(num_conductors*sizeof(int));
     for (c = 0; c < num_conductors; c++)
       ex->dims[c] = dims[c];
-    
-    ex->num_forms = (int*)malloc(num_conductors*sizeof(int));
-    for (c = 0; c < num_conductors; c++)
+  }
+  
+  return;
+}
+
+void example_genus_clear(example_genus_t ex)
+{
+  if (ex-> dims != NULL) 
+    free(ex->dims);
+  
+  return;
+}
+
+void example_evs_init(example_evs_t ex, const genus_t genus,
+		      const int* num_forms, const int* num_ps, const int** ps, 
+		      const int**** test_evs)
+{
+  int c,i,j,k;
+
+  ex->genus = genus;
+  
+  if (num_forms != NULL) {
+    ex->num_forms = (int*)malloc(genus->num_conductors*sizeof(int));
+    for (c = 0; c < genus->num_conductors; c++)
       ex->num_forms[c] = num_forms[c];
   }
 
-  for (k = 0; k < 2; k++)
-    ex->num_ps[k] = num_ps[k];
+  if (num_ps != NULL) {
+    for (k = 0; k < 2; k++)
+      ex->num_ps[k] = num_ps[k];
+  }
 
   for (k = 0; k < 2; k++) {
     if (ex->num_ps[k] == 0)
@@ -304,9 +329,9 @@ void example_init(example_t ex, const int* form, const char* format, const int* 
     }
   }
 
-  if (num_conductors != 0) {
-    ex->test_evs = (int****)malloc(num_conductors * sizeof(int***));
-    for (c = 0; c < num_conductors; c++) {
+  if (test_evs != NULL) {
+    ex->test_evs = (int****)malloc(genus->num_conductors * sizeof(int***));
+    for (c = 0; c < genus->num_conductors; c++) {
       if (ex->num_forms[c] == 0)
 	ex->test_evs[c] = NULL;
       else {
@@ -326,11 +351,11 @@ void example_init(example_t ex, const int* form, const char* format, const int* 
   return;
 }
 
-void example_clear(example_t ex)
+void example_evs_clear(example_evs_t ex)
 {
   int c, i, k;
   
-  for (c = 0; c < ex->num_conductors; c++) {
+  for (c = 0; c < ex->genus->num_conductors; c++) {
     if (ex->test_evs[c] != NULL) {
       for (i = 0; i < ex->num_forms[c]; i++) {
 	for (k = 0; k < 2; k++)
@@ -340,7 +365,7 @@ void example_clear(example_t ex)
       free(ex->test_evs[c]);
     }
   }
-  if (ex->num_conductors != 0)
+  if (ex->genus->num_conductors != 0)
     free(ex->test_evs);
 
   for (k = 0; k < 2; k++)
@@ -349,18 +374,25 @@ void example_clear(example_t ex)
 
   if (ex->num_forms != NULL)
     free(ex->num_forms);
-  
-  if (ex-> dims != NULL) 
-    free(ex->dims);
 
+  genus_clear(ex->genus);
+  
   return;
 }
 
-void example_init_61(example_t ex)
+void example_genus_init_61(example_genus_t ex)
 {
   int form[15] = {2,1,2,0,0,2,0,0,0,4,1,0,0,-1,6};
   char* format = "A";
   int dims[2] = {8,0};
+
+  example_genus_init(ex,form,format,dims,2);
+  
+  return;
+}
+
+void example_evs_init_61(const genus_t genus, example_evs_t ex)
+{
   int num_forms[2] = {3,0};
   int num_ps[2] = {25,4};
   const int* ps[2] = {
@@ -392,16 +424,24 @@ void example_init_61(example_t ex)
     
   };
 
-  example_init(ex,form,format,dims,num_forms,num_ps,ps,test_evs,2);
+  example_evs_init(ex,genus,num_forms,num_ps,ps,test_evs);
   
   return;
 }
 
-void example_init_69(example_t ex)
+void example_genus_init_69( example_genus_t ex)
 {
   int form[15] = {2,0,2,0,0,2,1,0,0,2,0,0,1,0,12};
   char* format = "A";
   int dims[4] = {8,0,0,2};
+
+  example_genus_init(ex,form,format,dims,4);
+  
+  return;
+}
+
+void example_evs_init_69(const genus_t genus, example_evs_t ex)
+{
   int num_forms[4] = {4,0,0,1};
   int num_ps[2] = {25,4};
   const int* ps[2] = {
@@ -444,35 +484,49 @@ void example_init_69(example_t ex)
     
   };
 
-  example_init(ex,form,format,dims,num_forms,num_ps,ps,test_evs,4);
+  example_evs_init(ex,genus,num_forms,num_ps,ps,test_evs);
   
   return;
 }
 
 STATUS test_61()
 {
-  example_t ex_61;
+  example_genus_t ex_61_genus;
+  example_evs_t ex_61_evs;
+  genus_t genus;
   STATUS ret;
+
+  example_genus_init_61(ex_61_genus);
+  ret = test_genus(genus, ex_61_genus);
+  example_genus_clear(ex_61_genus);
+
+  if (ret == FAIL)
+    return ret;
   
-  example_init_61(ex_61);
-
-  ret = test(ex_61);
-
-  example_clear(ex_61);
+  example_evs_init_61(genus, ex_61_evs);
+  ret = test_evs(ex_61_evs);
+  example_evs_clear(ex_61_evs);
 
   return ret;
 }
 
 STATUS test_69()
 {
-  example_t ex_69;
+  example_genus_t ex_69_genus;
+  example_evs_t ex_69_evs;
+  genus_t genus;
   STATUS ret;
+
+  example_genus_init_69(ex_69_genus);
+  ret = test_genus(genus, ex_69_genus);
+  example_genus_clear(ex_69_genus);
+
+  if (ret == FAIL)
+    return ret;
   
-  example_init_69(ex_69);
-
-  ret = test(ex_69);
-
-  example_clear(ex_69);
+  example_evs_init_69(genus, ex_69_evs);
+  ret = test_evs(ex_69_evs);
+  example_evs_clear(ex_69_evs);
 
   return ret;
 }
@@ -518,43 +572,41 @@ STATUS test_greedy_overflow()
   return ret;
 }
 
-STATUS compute_eigenvectors(const int* Q_coeffs, const char* inp_type)
+STATUS compute_eigenvectors(const genus_t genus)
 {
-  example_t dummy;
+  example_evs_t dummy;
   STATUS ret;
   int num_ps[2] = {0,0};
+
+  example_evs_init(dummy, genus, NULL, num_ps, NULL, NULL);
   
-  example_init(dummy, Q_coeffs, inp_type, NULL, NULL, num_ps, NULL, NULL, 0);
-  ret = test(dummy);
-  example_clear(dummy);
+  ret = test_evs(dummy);
+  example_evs_clear(dummy);
 
   return ret;
 }
 
-STATUS compute_eigenvalues(const int* Q_coeffs, int p, const char* inp_type)
+STATUS compute_eigenvalues(const genus_t genus)
 {
-  example_t dummy;
+  example_evs_t dummy;
   STATUS ret;
   int num_ps[2] = {1,0};
   const int* ps[2] = {
     (int []){p},
     (int []){}
   };
+
+  example_evs_init(dummy, genus, NULL, num_ps, ps, NULL);
   
-  example_init(dummy, Q_coeffs, inp_type, NULL, NULL, num_ps, ps, NULL, 0);
-  ret = test(dummy);
-  example_clear(dummy);
+  ret = test_evs(dummy);
+  example_evs_clear(dummy);
 
   return ret;
 }
 
-// !! TODO - for now we leave the form_idx as a dummy argument, fix that later
-// together with argument parsing
-
-STATUS compute_eigenvalues_up_to(const int* Q_coeffs, int form_idx,
-				 int prec, const char* inp_type)
+STATUS compute_eigenvalues_up_to(const genus_t genus, int prec)
 {
-  example_t dummy;
+  example_evs_t dummy;
   STATUS ret;
   int num_ps[2];
   int* ps[2];
@@ -562,9 +614,9 @@ STATUS compute_eigenvalues_up_to(const int* Q_coeffs, int form_idx,
   num_ps[0] = primes_up_to(&(ps[0]), prec);
   num_ps[1] = primes_up_to(&(ps[1]), floor(sqrt(prec)));
 
-  example_init(dummy, Q_coeffs, inp_type, NULL, NULL, num_ps, (const int**)ps, NULL, 0);
-  ret = test(dummy);
-  example_clear(dummy);
+  example_evs_init(dummy, genus, NULL, num_ps, (const int**)ps, NULL);
+  ret = test_evs(dummy);
+  example_evs_clear(dummy);
 
   free(ps[0]);
   free(ps[1]);
@@ -572,16 +624,13 @@ STATUS compute_eigenvalues_up_to(const int* Q_coeffs, int form_idx,
   return ret;
 }
 
-STATUS compute_hecke_col_all_conds(const int* Q_coeffs, int p, int gen_idx, const char* format)
+STATUS compute_hecke_col_all_conds(const genus_t genus, int p, int gen_idx)
 {
-  genus_t genus;
   int** hecke;
   slong c, i;
 
   clock_t cpuclock_0, cpuclock_1;
   double cputime, cpudiff;  
-  
-  compute_genus(genus, Q_coeffs, format);
 
   cpuclock_0 = clock();
   
@@ -605,23 +654,17 @@ STATUS compute_hecke_col_all_conds(const int* Q_coeffs, int p, int gen_idx, cons
 
   free(hecke);
 
-  genus_clear(genus);
- 
   return SUCCESS;
 }
 
-STATUS compute_hecke_col(const int* Q_coeffs, int p, const char* format, int c)
+STATUS compute_hecke_col(const genus_t genus, int p, int c)
 {
-  genus_t genus;
-  
   int* hecke;
   int c_idx, i, gen_idx;
 
   clock_t cpuclock_0, cpuclock_1;
   double cputime, cpudiff;  
 
-  compute_genus(genus, Q_coeffs, format);
-  
   for (c_idx = 0; (c_idx < genus->num_conductors) && (genus->conductors[c_idx] != c);) c_idx++;
 
   gen_idx = 0;
@@ -650,7 +693,48 @@ STATUS compute_hecke_col(const int* Q_coeffs, int p, const char* format, int c)
   
   free(hecke);
 
-  genus_clear(genus);
+  return SUCCESS;
+}
+
+STATUS compute_first_hecke_matrix_all_conds(const genus_t genus)
+{
+  matrix_TYP** hecke;
+  slong c, i, p;
+  fmpz_t prime;
   
+  clock_t cpuclock_0, cpuclock_1;
+  double cputime, cpudiff;  
+
+  cpuclock_0 = clock();
+
+  fmpz_init(prime);
+  fmpz_set_ui(prime, 1);
+  
+  do {
+    fmpz_nextprime(prime, prime, true);
+    p = fmpz_get_si(prime);
+  }
+  while (square_matrix_is_bad_prime(genus->genus_reps->keys[0],p));
+  
+  hecke = hecke_matrices_all_conductors(genus,p);
+
+  cpuclock_1 = clock();
+  cpudiff = cpuclock_1 - cpuclock_0;
+  cputime = cpudiff / CLOCKS_PER_SEC;
+  
+  for (c = 0; c < genus->num_conductors; c++) {
+    printf("cond=%ld: ", genus->conductors[c]);
+    print_mat(hecke[c]);
+    printf("\n");
+  }
+
+  printf("computing hecke matrices took %f sec\n", cputime);
+  
+  for (c = 0; c < genus->num_conductors; c++)
+    free_mat(hecke[c]);
+
+  free(hecke);
+  fmpz_clear(prime);
+ 
   return SUCCESS;
 }

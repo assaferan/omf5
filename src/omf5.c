@@ -2,26 +2,29 @@
 
 #include <carat/typedef.h>
 
+#include "io.h"
 #include "tests.h"
 
 #define MAX_STR_LEN 256
 
 bool handle_flag_int(const char* flag_name, const char* param_str, int* flag_val);
 int print_param_desc(char* argv[]);
-int parse_matrix(const char* mat_str, int* Q_coeffs);
 
 int main(int argc, char* argv[])
 {
-  int form_idx, prec, p, c;
+  int prec, p, c, disc;
   int Q_coeffs[15];
   STATUS test_res;
   char* input_type;
+  char* genus_fname;
   int max_args;
-  bool do_tests, is_valid, is_prec, is_format, is_form_idx, is_p, is_c;
-  bool has_quad, has_format, has_prec, has_form_idx, has_p, has_hecke, has_c;
+  bool do_tests, is_valid, is_prec, is_format, is_p, is_c, is_genus, is_disc;
+  bool has_quad, has_format, has_prec, has_p, has_hecke, has_c, has_genus, has_disc;
   int i;
+  genus_t genus;
 
   input_type = NULL;
+  genus_fname = NULL;
   max_args = 6;
   
   if ((argc > max_args) || (argc == 1)) {
@@ -30,7 +33,7 @@ int main(int argc, char* argv[])
   }
 
   do_tests = false;
-  has_quad = has_format = has_prec = has_form_idx = has_p = has_hecke = has_c = false;
+  has_quad = has_format = has_prec  = has_p = has_hecke = has_c = has_genus = has_disc = false;
   
   for (i = 1; i < argc; i++) {
     is_valid = false;
@@ -61,6 +64,14 @@ int main(int argc, char* argv[])
       is_valid = (is_valid) || (is_format);
     }
 
+    // checking for a file with the genus representatives
+    if (strncmp(argv[i], "-genus=", 7) == 0) {
+      genus_fname = argv[i]+7;
+      is_genus = true;
+      has_genus = true;
+      is_valid = (is_valid) || (is_genus);
+    }
+
     is_prec = handle_flag_int("prec", argv[i], &prec);
     is_valid = (is_valid) || (is_prec);
     if (is_prec)
@@ -75,11 +86,11 @@ int main(int argc, char* argv[])
     is_valid = (is_valid) || (is_c);
     if (is_c)
       has_c = true;
-    
-    is_form_idx = handle_flag_int("form_idx", argv[i], &form_idx);
-    is_valid = (is_valid) || (is_form_idx);
-    if (is_form_idx)
-      has_form_idx = true;
+
+    is_disc = handle_flag_int("disc", argv[i], &disc);
+    is_valid = (is_valid) || (is_disc);
+    if (is_disc)
+      has_disc = true;
 
     if (!is_valid)
       return print_param_desc(argv);
@@ -94,33 +105,45 @@ int main(int argc, char* argv[])
     test_res |= test_61();
     test_res <<= 1;
     test_res |= test_69();
-    // return test_res;
   }
 
-  if (has_quad && has_format) {
+  if (has_quad && has_format)
+    compute_genus(genus, Q_coeffs, input_type);
+  else if (has_genus && has_disc)
+    genus_init_file(genus, fname, disc);
+
+  has_genus = (has_quad && has_format) || (has_genus && has_disc);
+
+  if (has_genus) {
     test_res <<= 1;
-    if (has_prec && has_form_idx)
-      test_res |= compute_eigenvalues_up_to(Q_coeffs,form_idx,
-					    prec, input_type);
+    if (has_prec)
+      test_res |= compute_eigenvalues_up_to(genus, prec);
     else
       if (has_p)
 	if (has_hecke) {
 	  // !! TODO - right now it doesn't matter which column we take, so we take 0 index,
 	  // might change in the future.
 	  if (has_c)
-	    test_res |= compute_hecke_col(Q_coeffs, p, input_type, c);
+	    test_res |= compute_hecke_col(genus, p, c);
 	  else
-	    test_res |= compute_hecke_col_all_conds(Q_coeffs, p, 0, input_type);
+	    test_res |= compute_hecke_col_all_conds(genus, p, 0);
 	}
 	else
-	  test_res |= compute_eigenvalues(Q_coeffs, p, input_type);
-      else
-	test_res |= compute_eigenvectors(Q_coeffs, input_type);
+	  test_res |= compute_eigenvalues(genus, p);
+      else {
+	if (has_hecke)
+	  test_res |= compute_first_hecke_matrix_all_conds(genus);
+	else
+	  test_res |= compute_eigenvectors(genus);
+      }
   }
-  else
+  else {
     if (!do_tests)
       return print_param_desc(argv);
-  
+  }
+
+  if (has_genus)
+    genus_clear(genus);
   
   return test_res;
 }
@@ -157,33 +180,11 @@ bool handle_flag_int(const char* flag_name, const char* param_str, int* flag_val
 
 int print_param_desc(char* argv[])
 {
-  printf("Usage: %s [-tests] [-quad=Q] [-format=f] [-prec=L] [-form_idx=idx]\n", argv[0]);
+  printf("Usage: %s [-tests] [-quad=Q] [-format=f] [-prec=L] \n", argv[0]);
   printf("[Q] is the quinary quadratic form (lattice) given as 15 comma-separated integers in a format specified by f,\n");
   printf("[f] is either 'GG' or 'A', the former for the format in Rama-Toranria webpage, the latter for the Magma format,\n");
   printf("[L] is the preicision up to which to compute the hecke eigenvalues (a_p for p <= L and a_{p^2} for p^2 <= L),\n");
-  printf("[idx] is the index of the form in the decomposition to eigenvectors.\n");
   printf("If either L or i is not supplied, only decomposes the space, and finds Hecke eigenvectors.\n");
   printf("If the flag -tests is supplied, additionally runs standard tests.\n");
   return -1;
-}
-
-int parse_matrix(const char* mat_str, int* Q_coeffs)
-{
-  int idx, len;
-  char *original;
-  char *cpy;
-  char *token;
-
-  idx = 0;
-  len = strlen(mat_str);
-  original = (char*)malloc((len+1)*sizeof(char));
-  memcpy(original, mat_str, len+1);
-  cpy = original;
-  token = strsep(&cpy, ",");
-  while(token != NULL) {
-    Q_coeffs[idx++] = atoi(token);
-    token = strsep(&cpy, ",");
-  }
-  free(original);
-  return (idx == 15);
 }

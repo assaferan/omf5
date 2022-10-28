@@ -40,6 +40,7 @@ SOURCES += fq_nmod_quad.c
 SOURCES += genus.c
 SOURCES += hash.c
 SOURCES += hecke.c
+SOURCES += io.c
 SOURCES += isometry.c
 SOURCES += jordan.c
 SOURCES += mass.c

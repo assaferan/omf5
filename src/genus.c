@@ -512,7 +512,7 @@ void square_matrix_find_isometries(isometry_t* isoms, const square_matrix_t A, c
   return;
 }
 
-void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps, int h)
+void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps, size_t h)
 {
 #ifdef DEBUG
   fmpq_t mass, acc_mass, mass_form;
@@ -523,7 +523,7 @@ void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps
   size_t genus_size;
   hash_table_t slow_genus;
   
-  int i;
+  size_t i;
 
   assert(h > 0);
   disc_init_set(genus->disc, reps[0]);
@@ -588,5 +588,17 @@ void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps
   fmpq_clear(mass_form);
 #endif // DEBUG
       
+  return;
+}
+
+void genus_init_file(genus_t genus, const char* genus_fname, size_t disc)
+{
+  square_matrix_t* genus_reps = NULL;
+  size_t genus_size;
+  
+  genus_size = read_genus(&genus_reps, genus_fname, disc);
+  genus_init_square_matrix_vec(genus, genus_reps, genus_size);
+  
+  free(genus_reps);
   return;
 }
