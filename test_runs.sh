@@ -1,10 +1,10 @@
 export LD_LIBRARY_PATH=/home/assaferan/lib
 
-./src/omf5 -format=GG -quad=1,1,1,0,0,1,1,1,0,1,0,1,0,0,1,0,0,8 -p=41 -hecke -cond=1 >& ./logs/omf5_61_41.log &
-./src/omf5 -format=GG -quad=1,1,1,0,0,1,1,1,0,1,0,1,0,0,1,0,0,8 -p=101 -hecke -cond=1 >& ./logs/omf5_61_101.log &
-./src/omf5 -format=GG -quad=1,1,1,0,0,1,1,1,0,1,0,1,0,0,1,0,0,8 -p=199 -hecke -cond=1 >& ./logs/omf5_61_199.log &
-./src/omf5 -format=GG -quad=1,1,1,0,0,1,1,1,0,1,0,1,0,0,1,0,0,8 -p=293 -hecke -cond=1 >& ./logs/omf5_61_293.log &
-./src/omf5 -format=GG -quad=1,1,1,0,0,1,1,1,0,1,0,1,0,0,1,0,0,8 -p=397 -hecke -cond=1 >& ./logs/omf5_61_397.log &
+./src/omf5 -format=GG -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -p=41 -hecke -cond=1 >& ./logs/omf5_61_41.log &
+./src/omf5 -format=GG -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -p=101 -hecke -cond=1 >& ./logs/omf5_61_101.log &
+./src/omf5 -format=GG -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -p=199 -hecke -cond=1 >& ./logs/omf5_61_199.log &
+./src/omf5 -format=GG -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -p=293 -hecke -cond=1 >& ./logs/omf5_61_293.log &
+./src/omf5 -format=GG -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -p=397 -hecke -cond=1 >& ./logs/omf5_61_397.log &
 
 ./src/omf5 -quad=1,1,0,1,0,1,0,0,0,1,1,0,1,1,34 -format=GG -p=41 -hecke -cond=167 >& ./logs/omf5_167_41.log &
 ./src/omf5 -quad=1,1,0,1,0,1,0,0,0,1,1,0,1,1,34 -format=GG -p=101 -hecke -cond=167 >& ./logs/omf5_167_101.log &
