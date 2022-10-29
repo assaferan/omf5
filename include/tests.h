@@ -1,6 +1,7 @@
 #ifndef __TESTS_H__
 #define __TESTS_H__
 
+#include "genus.h"
 #include "typedefs.h"
 
 typedef struct {
@@ -17,7 +18,6 @@ typedef example_genus example_genus_t[1];
 
 typedef struct {
 
-  const genus_t genus;
   int* num_forms;
 
   int num_ps[2];
@@ -44,5 +44,7 @@ STATUS compute_hecke_col(const genus_t genus, int p, int c);
 STATUS compute_hecke_col_all_conds(const genus_t genus, int p, int gen_idx);
 
 STATUS compute_first_hecke_matrix_all_conds(const genus_t genus);
+
+void compute_genus(genus_t genus, const int* Q_coeffs, const char* format);
 
 #endif // __TESTS_H__

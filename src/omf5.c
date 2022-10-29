@@ -110,7 +110,7 @@ int main(int argc, char* argv[])
   if (has_quad && has_format)
     compute_genus(genus, Q_coeffs, input_type);
   else if (has_genus && has_disc)
-    genus_init_file(genus, fname, disc);
+    genus_init_file(genus, genus_fname, disc);
 
   has_genus = (has_quad && has_format) || (has_genus && has_disc);
 

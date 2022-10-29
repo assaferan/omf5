@@ -597,7 +597,7 @@ matrix_TYP** hecke_matrices_all_conductors(const genus_t genus, int p)
   }
 
   // just computing the number of neighbors, to collect all the spin values at once
-  nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, k);
+  nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, 1);
   num_nbrs = number_of_neighbors(nbr_man);
   spin_vals = (W64*)malloc(num_nbrs*sizeof(W64));
   nbr_data_clear(nbr_man);

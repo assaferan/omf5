@@ -7,6 +7,7 @@
 #include "aut_grp.h"
 #include "genus.h"
 #include "hash.h"
+#include "io.h"
 #include "isometry.h"
 #include "mass.h"
 #include "matrix_tools.h"
@@ -597,7 +598,7 @@ void genus_init_file(genus_t genus, const char* genus_fname, size_t disc)
   size_t genus_size;
   
   genus_size = read_genus(&genus_reps, genus_fname, disc);
-  genus_init_square_matrix_vec(genus, genus_reps, genus_size);
+  genus_init_set_square_matrix_vec(genus, genus_reps, genus_size);
   
   free(genus_reps);
   return;

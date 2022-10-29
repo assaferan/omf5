@@ -175,8 +175,8 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
 
 STATUS test_genus(genus_t genus, const example_genus_t ex)
 {
-  genus_t genus;
-
+  slong c;
+  
   compute_genus(genus, ex->Q_coeffs, ex->format);
 
   if (ex->num_conductors != 0)
@@ -189,10 +189,10 @@ STATUS test_genus(genus_t genus, const example_genus_t ex)
   return SUCCESS;
 }
 
-STATUS test_evs(const example_evs_t ex)
+STATUS test_evs(const genus_t genus, const example_evs_t ex)
 {
   int form_idx, k;
-  slong c, c2;
+  slong c, c2, num_conductors;
 
   clock_t cpuclock_0, cpuclock_1;
   double cputime, cpudiff;
@@ -201,17 +201,18 @@ STATUS test_evs(const example_evs_t ex)
   bool has_spinor = false;
   const int* test_evs = NULL;
 
-  for (c = 1; c < ex->genus->num_conductors; c++)
-    if (ex->genus->dims[c] != 0)
+  num_conductors = genus->num_conductors;
+  for (c = 1; c < num_conductors; c++)
+    if (genus->dims[c] != 0)
       has_spinor = true;
 
   cpuclock_0 = clock();
   
   if (has_spinor)
-    evs = hecke_eigenforms_all_conductors(ex->genus);
+    evs = hecke_eigenforms_all_conductors(genus);
   else
     // !!TODO - change it to be faster when there is no spinor
-    evs = hecke_eigenforms_all_conductors(ex->genus);
+    evs = hecke_eigenforms_all_conductors(genus);
 
   cpuclock_1 = clock();
   cpudiff = cpuclock_1 - cpuclock_0;
@@ -220,34 +221,34 @@ STATUS test_evs(const example_evs_t ex)
   printf("computing eigenvectors took %f sec\n", cputime);
 
   if (ex->num_forms != NULL)
-    for (c = 0; c < ex->genus->num_conductors; c++)
+    for (c = 0; c < num_conductors; c++)
       assert(evs[c]->num == ex->num_forms[c]);
   else
-    for (c = 0; c < ex->genus->num_conductors; c++) {
-      printf("For conductor %ld, ", ex->genus->conductors[c]);
+    for (c = 0; c < num_conductors; c++) {
+      printf("For conductor %ld, ", genus->conductors[c]);
       print_eigenvectors(evs[c]);
     }
 
   has_spinor = false;
-  for (c = 0; c < ex->genus->num_conductors; c++) {
-    eigenvalues_set_lifts(evs[c], 2, c, ex->genus);
+  for (c = 0; c < num_conductors; c++) {
+    eigenvalues_set_lifts(evs[c], 2, c, genus);
     if (c != 0)
       for (form_idx = 0; form_idx < evs[c]->num; form_idx++)
 	if (!(evs[c]->is_lift[form_idx]))
 	  has_spinor = true;
   }
   
-  for (c = 0; c < ex->genus->num_conductors; c++) {
-    printf("For conductor %ld:\n", ex->genus->conductors[c]);
+  for (c = 0; c < num_conductors; c++) {
+    printf("For conductor %ld:\n", genus->conductors[c]);
     for (form_idx = 0; form_idx < evs[c]->num; form_idx++)
       if (!(evs[c]->is_lift[form_idx])) {
 	for (k = 0; k < 2; k++) {
-	  if (ex->num_conductors != 0)
+	  if (ex->test_evs != NULL)
 	    test_evs = ex->test_evs[c][form_idx][k];
 	  cpuclock_0 = clock();
-	  if (test_eigenvalues(ex->genus, evs[c], ex->num_ps[k], form_idx,
+	  if (test_eigenvalues(genus, evs[c], ex->num_ps[k], form_idx,
 			       ex->ps[k], test_evs, k+1, c) == FAIL) {
-	    for (c2 = 0; c2 < ex->genus->num_conductors; c2++)
+	    for (c2 = 0; c2 < num_conductors; c2++)
 	      eigenvalues_clear(evs[c2]);
 	    free(evs);
 	    return FAIL;
@@ -261,7 +262,7 @@ STATUS test_evs(const example_evs_t ex)
       }
   }
 
-  for (c = 0; c < ex->genus->num_conductors; c++)
+  for (c = 0; c < num_conductors; c++)
     eigenvalues_clear(evs[c]);
   free(evs);
  
@@ -269,8 +270,9 @@ STATUS test_evs(const example_evs_t ex)
 }
 
 void example_genus_init(example_genus_t ex, const int* form, const char* format,
-			int num_conductors, const int* dims)
+			const int* dims, int num_conductors)
 {
+  slong c;
   int i;
   
   for (i = 0; i < 15; i++)
@@ -300,19 +302,19 @@ void example_genus_clear(example_genus_t ex)
   return;
 }
 
-void example_evs_init(example_evs_t ex, const genus_t genus,
+void example_evs_init(example_evs_t ex, slong num_conductors,
 		      const int* num_forms, const int* num_ps, const int** ps, 
 		      const int**** test_evs)
 {
   int c,i,j,k;
 
-  ex->genus = genus;
-  
   if (num_forms != NULL) {
-    ex->num_forms = (int*)malloc(genus->num_conductors*sizeof(int));
-    for (c = 0; c < genus->num_conductors; c++)
+    ex->num_forms = (int*)malloc(num_conductors*sizeof(int));
+    for (c = 0; c < num_conductors; c++)
       ex->num_forms[c] = num_forms[c];
   }
+  else
+    ex->num_forms = NULL;
 
   if (num_ps != NULL) {
     for (k = 0; k < 2; k++)
@@ -330,8 +332,8 @@ void example_evs_init(example_evs_t ex, const genus_t genus,
   }
 
   if (test_evs != NULL) {
-    ex->test_evs = (int****)malloc(genus->num_conductors * sizeof(int***));
-    for (c = 0; c < genus->num_conductors; c++) {
+    ex->test_evs = (int****)malloc(num_conductors * sizeof(int***));
+    for (c = 0; c < num_conductors; c++) {
       if (ex->num_forms[c] == 0)
 	ex->test_evs[c] = NULL;
       else {
@@ -347,25 +349,29 @@ void example_evs_init(example_evs_t ex, const genus_t genus,
       }
     }
   }
+  else
+    ex->test_evs = NULL;
   
   return;
 }
 
-void example_evs_clear(example_evs_t ex)
+void example_evs_clear(example_evs_t ex, int num_conductors)
 {
   int c, i, k;
-  
-  for (c = 0; c < ex->genus->num_conductors; c++) {
-    if (ex->test_evs[c] != NULL) {
-      for (i = 0; i < ex->num_forms[c]; i++) {
-	for (k = 0; k < 2; k++)
-	  free(ex->test_evs[c][i][k]);
-	free(ex->test_evs[c][i]);
+
+  if (ex->test_evs != NULL) {
+    for (c = 0; c < num_conductors; c++) {
+      if (ex->test_evs[c] != NULL) {
+	for (i = 0; i < ex->num_forms[c]; i++) {
+	  for (k = 0; k < 2; k++)
+	    free(ex->test_evs[c][i][k]);
+	  free(ex->test_evs[c][i]);
+	}
+	free(ex->test_evs[c]);
       }
-      free(ex->test_evs[c]);
     }
   }
-  if (ex->genus->num_conductors != 0)
+  if (num_conductors != 0)
     free(ex->test_evs);
 
   for (k = 0; k < 2; k++)
@@ -374,8 +380,6 @@ void example_evs_clear(example_evs_t ex)
 
   if (ex->num_forms != NULL)
     free(ex->num_forms);
-
-  genus_clear(ex->genus);
   
   return;
 }
@@ -391,7 +395,7 @@ void example_genus_init_61(example_genus_t ex)
   return;
 }
 
-void example_evs_init_61(const genus_t genus, example_evs_t ex)
+void example_evs_init_61(example_evs_t ex)
 {
   int num_forms[2] = {3,0};
   int num_ps[2] = {25,4};
@@ -424,7 +428,7 @@ void example_evs_init_61(const genus_t genus, example_evs_t ex)
     
   };
 
-  example_evs_init(ex,genus,num_forms,num_ps,ps,test_evs);
+  example_evs_init(ex,2,num_forms,num_ps,ps,test_evs);
   
   return;
 }
@@ -440,7 +444,7 @@ void example_genus_init_69( example_genus_t ex)
   return;
 }
 
-void example_evs_init_69(const genus_t genus, example_evs_t ex)
+void example_evs_init_69(example_evs_t ex)
 {
   int num_forms[4] = {4,0,0,1};
   int num_ps[2] = {25,4};
@@ -484,7 +488,7 @@ void example_evs_init_69(const genus_t genus, example_evs_t ex)
     
   };
 
-  example_evs_init(ex,genus,num_forms,num_ps,ps,test_evs);
+  example_evs_init(ex,4,num_forms,num_ps,ps,test_evs);
   
   return;
 }
@@ -503,9 +507,11 @@ STATUS test_61()
   if (ret == FAIL)
     return ret;
   
-  example_evs_init_61(genus, ex_61_evs);
-  ret = test_evs(ex_61_evs);
-  example_evs_clear(ex_61_evs);
+  example_evs_init_61(ex_61_evs);
+  ret = test_evs(genus, ex_61_evs);
+  example_evs_clear(ex_61_evs, genus->num_conductors);
+
+  genus_clear(genus);
 
   return ret;
 }
@@ -524,10 +530,12 @@ STATUS test_69()
   if (ret == FAIL)
     return ret;
   
-  example_evs_init_69(genus, ex_69_evs);
-  ret = test_evs(ex_69_evs);
-  example_evs_clear(ex_69_evs);
+  example_evs_init_69(ex_69_evs);
+  ret = test_evs(genus, ex_69_evs);
+  example_evs_clear(ex_69_evs, genus->num_conductors);
 
+  genus_clear(genus);
+  
   return ret;
 }
 
@@ -578,15 +586,15 @@ STATUS compute_eigenvectors(const genus_t genus)
   STATUS ret;
   int num_ps[2] = {0,0};
 
-  example_evs_init(dummy, genus, NULL, num_ps, NULL, NULL);
+  example_evs_init(dummy, genus->num_conductors, NULL, num_ps, NULL, NULL);
   
-  ret = test_evs(dummy);
-  example_evs_clear(dummy);
+  ret = test_evs(genus, dummy);
+  example_evs_clear(dummy, genus->num_conductors);
 
   return ret;
 }
 
-STATUS compute_eigenvalues(const genus_t genus)
+STATUS compute_eigenvalues(const genus_t genus, int p)
 {
   example_evs_t dummy;
   STATUS ret;
@@ -596,10 +604,10 @@ STATUS compute_eigenvalues(const genus_t genus)
     (int []){}
   };
 
-  example_evs_init(dummy, genus, NULL, num_ps, ps, NULL);
+  example_evs_init(dummy, genus->num_conductors, NULL, num_ps, ps, NULL);
   
-  ret = test_evs(dummy);
-  example_evs_clear(dummy);
+  ret = test_evs(genus, dummy);
+  example_evs_clear(dummy, genus->num_conductors);
 
   return ret;
 }
@@ -614,9 +622,9 @@ STATUS compute_eigenvalues_up_to(const genus_t genus, int prec)
   num_ps[0] = primes_up_to(&(ps[0]), prec);
   num_ps[1] = primes_up_to(&(ps[1]), floor(sqrt(prec)));
 
-  example_evs_init(dummy, genus, NULL, num_ps, (const int**)ps, NULL);
-  ret = test_evs(dummy);
-  example_evs_clear(dummy);
+  example_evs_init(dummy, genus->num_conductors, NULL, num_ps, (const int**)ps, NULL);
+  ret = test_evs(genus, dummy);
+  example_evs_clear(dummy, genus->num_conductors);
 
   free(ps[0]);
   free(ps[1]);
@@ -673,7 +681,7 @@ STATUS compute_hecke_col(const genus_t genus, int p, int c)
   
   // right now we only handle differently the trivial spinor norm case
   if (c_idx != 0)
-    return compute_hecke_col_all_conds(Q_coeffs, p, gen_idx, format);
+    return compute_hecke_col_all_conds(genus, p, gen_idx);
 
   hecke = (int*)malloc(genus->dims[0] * sizeof(int));
 
@@ -699,7 +707,7 @@ STATUS compute_hecke_col(const genus_t genus, int p, int c)
 STATUS compute_first_hecke_matrix_all_conds(const genus_t genus)
 {
   matrix_TYP** hecke;
-  slong c, i, p;
+  slong c, p;
   fmpz_t prime;
   
   clock_t cpuclock_0, cpuclock_1;
