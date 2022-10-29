@@ -85,6 +85,7 @@ double get_isom_cost(const hash_table_t table, double* red_cost)
   fmpz_mat_t nbr_fmpz, nbr_isom;
 #else
   neighbor_manager_t nbr_man;
+  bool has_ended;
 #endif // NBR_DATA
   
   isometry_t s;
@@ -105,7 +106,13 @@ double get_isom_cost(const hash_table_t table, double* red_cost)
 #ifdef NBR_DATA
     nbr_data_init(nbr_man, table->keys[offset], 3, 1);
 #else
-    nbr_process_init(nbr_man, table->keys[offset], 3, idx);
+    do {
+      nbr_process_init(nbr_man, table->keys[offset], 3, idx);
+      idx++;
+      has_ended = nbr_process_has_ended(nbr_man);
+      if (has_ended)
+	nbr_process_clear(nbr_man);
+    } while (has_ended);
 #endif // NBR_DATA
     for (i = 0; i <  NUM_ISOMS; i++) {
 #ifdef NBR_DATA
@@ -133,10 +140,10 @@ double get_isom_cost(const hash_table_t table, double* red_cost)
       }
 #else
       nbr_process_advance(nbr_man);
-      if (nbr_process_has_ended(nbr_man)) {
-	idx++;
+      while (nbr_process_has_ended(nbr_man)) {
 	nbr_process_clear(nbr_man);
 	nbr_process_init(nbr_man, table->keys[offset], 3, idx);
+	idx++;
       }
 #endif // NBR_DATA
     }

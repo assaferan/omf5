@@ -14,6 +14,17 @@
  * Returns false if the vector is in the radical
 */
 
+bool is_isotropic_vector(const vector_t x, const square_matrix_t Q, Z64 p)
+{
+  vector_t Qx;
+  Z64 xQx;
+
+  square_matrix_mul_vec_left(Qx, x, Q);
+  xQx = scalar_product(x, Qx);
+
+  return (xQx % p == 0);
+}
+
 bool nbr_process_build_nb(square_matrix_t Q, const neighbor_manager_t nbr_man)
 {
   vector_t x, Qx;
@@ -442,6 +453,9 @@ void nbr_process_init(neighbor_manager_t nbr_man, const square_matrix_t Q, Z64 p
   }
 
   nbr_man->first_iter = (i == 0);
+
+  // It could be that there are no isotropic vectors in this batch
+  //  assert(is_isotropic_vector(nbr_man->iso_vec, nbr_man->Q, nbr_man->p));
   
   return;
 }
@@ -485,6 +499,8 @@ void nbr_process_advance(neighbor_manager_t nbr_man)
       }
     }
   }
+
+  //  assert(is_isotropic_vector(nbr_man->iso_vec, nbr_man->Q, nbr_man->p));
 
   return;
 }
