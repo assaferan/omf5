@@ -1,6 +1,6 @@
 #! /usr/bin/python
 
-fnames = ["data/hecke_"+str(i) + ".dat" for i in [1..999]]
+fnames = ["data/hecke_"+str(i) + ".dat" for i in range(1,1000)]
 hecke_strs = [open(f).read() for f in fnames]
 hecke_str = "[{}," + ",".join(hecke_strs) + "]"
 # not really needed, but we want to check validity
