@@ -44,7 +44,6 @@ size_t read_genus(square_matrix_t** p_genus, const char* fname, size_t disc)
   int coeffs[MAX_GEN_SIZE][15];
   size_t genus_size = 0;
   size_t mat_buf_idx = 0;
-  bool mat_read;
 
   genus_file = fopen(fname, "r");
 
@@ -61,8 +60,7 @@ size_t read_genus(square_matrix_t** p_genus, const char* fname, size_t disc)
 	  if (cur_disc == disc) {
 	    if (mat_buf_idx != 0) {
 	      matrix_buffer[mat_buf_idx] = '\0';
-	      mat_read = parse_matrix(matrix_buffer, coeffs[genus_size++]);
-	      assert(mat_read);
+	      parse_matrix(matrix_buffer, coeffs[genus_size++]);
 	      mat_buf_idx = 0;
 	    }
 	  }
@@ -75,8 +73,7 @@ size_t read_genus(square_matrix_t** p_genus, const char* fname, size_t disc)
 	  case 2:
 	    if (mat_buf_idx != 0) {
 	      matrix_buffer[mat_buf_idx] = '\0';
-	      mat_read = parse_matrix(matrix_buffer, coeffs[genus_size++]);
-	      assert(mat_read);
+	      parse_matrix(matrix_buffer, coeffs[genus_size++]);
 	      mat_buf_idx = 0;
 	    }
 	    break;
