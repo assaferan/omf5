@@ -29,9 +29,9 @@ void nbr_process_clear(neighbor_manager_t nbr_man);
 
 /* Compute one p-neighbour for Q_orig corresponding to vector x 
 */
-void nbr_process_build_nb(square_matrix_t Q, const neighbor_manager_t nbr_man);
+bool nbr_process_build_nb(square_matrix_t Q, const neighbor_manager_t nbr_man);
 
-void nbr_process_build_nb_and_isom(square_matrix_t Q, isometry_t s, const neighbor_manager_t nbr_man);
+bool nbr_process_build_nb_and_isom(square_matrix_t Q, isometry_t s, const neighbor_manager_t nbr_man);
 
 /* find an isotropic vector for Q mod p */
 /* return a row vector 1x5 */

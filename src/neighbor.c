@@ -11,9 +11,10 @@
 #include "typedefs.h"
 
 /* Compute one p-neighbour for Q_orig corresponding to vector x 
+ * Returns false if the vector is in the radical
 */
 
-void nbr_process_build_nb(square_matrix_t Q, const neighbor_manager_t nbr_man)
+bool nbr_process_build_nb(square_matrix_t Q, const neighbor_manager_t nbr_man)
 {
   vector_t x, Qx;
   Z64 xQx;
@@ -155,7 +156,7 @@ void nbr_process_build_nb(square_matrix_t Q, const neighbor_manager_t nbr_man)
 	  /* a singular zero, return Q as-is*/
 	  /* Re-symmetrize */
 	  square_matrix_resymmetrize(Q);
-	  return;
+	  return false;
 	}
       }
     }
@@ -282,7 +283,7 @@ void nbr_process_build_nb(square_matrix_t Q, const neighbor_manager_t nbr_man)
   assert(square_matrix_is_positive_definite(Q));
 #endif // DEBUG
   
-  return;
+  return true;
 };
 
 /* find an isotropic vector for Q mod p */
@@ -500,7 +501,7 @@ void nbr_process_clear(neighbor_manager_t nbr_man)
 }
 
 // right now we copy and paste and just modify in order to not slow down the fast case
-void nbr_process_build_nb_and_isom(square_matrix_t Q, isometry_t s, const neighbor_manager_t nbr_man)
+bool nbr_process_build_nb_and_isom(square_matrix_t Q, isometry_t s, const neighbor_manager_t nbr_man)
 {
   vector_t x, Qx;
   Z64 xQx;
@@ -723,7 +724,7 @@ void nbr_process_build_nb_and_isom(square_matrix_t Q, isometry_t s, const neighb
 	  /* a singular zero, return Q as-is*/
 	  /* Re-symmetrize */
 	  square_matrix_resymmetrize(Q);
-	  return;
+	  return false;
 	}
       }
     }
@@ -907,5 +908,5 @@ void nbr_process_build_nb_and_isom(square_matrix_t Q, isometry_t s, const neighb
   assert(square_matrix_is_positive_definite(Q));
 #endif // DEBUG
   
-  return;
+  return true;
 };
