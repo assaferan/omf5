@@ -17,7 +17,7 @@
 #define likely(x)   __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
 
-slong number_of_isotropic_subspaces(slong q, slong r, slong a, slong f, slong k)
+slong number_of_isotropic_subspaces(slong q, slong r, slong a, slong f, slong k, bool rad_cnt)
 {
   fmpz_t q_z, prod1, prod;
   slong i, num;
@@ -44,6 +44,23 @@ slong number_of_isotropic_subspaces(slong q, slong r, slong a, slong f, slong k)
   }
 
   num = fmpz_get_si(prod);
+
+  if (rad_cnt) {
+    // in this case we also consider the isotropic subspaces in the radical
+    // these are all the k-dimensionl spaces inside the radical
+    fmpz_one(prod);
+    for (i = 1; i <= k; i++) {
+      fmpz_pow_ui(prod1, q_z, f-i+1);
+      fmpz_sub_si(prod1, prod1, 1);
+      fmpz_mul(prod, prod, prod1);
+    }
+    for (i = 1; i <= k; i++) {
+      fmpz_pow_ui(prod1, q_z, i);
+      fmpz_sub_si(prod1, prod1, 1);
+      fmpz_divexact(prod, prod, prod1);
+    }
+    num += fmpz_get_si(prod);
+  }
   
   fmpz_clear(q_z);
   fmpz_clear(prod1);
@@ -52,13 +69,13 @@ slong number_of_isotropic_subspaces(slong q, slong r, slong a, slong f, slong k)
   return num;
 }
 
-slong number_of_neighbors(const nbr_data_t nbr_man)
+slong number_of_neighbors(const nbr_data_t nbr_man, bool rad_cnt)
 {
   slong p, num;
 
   p = fmpz_get_si(fq_nmod_ctx_prime(nbr_man->GF));
   num = number_of_isotropic_subspaces(p, nbr_man->witt_index, nbr_man->aniso_dim,
-				      nbr_man->rad_dim, nbr_man->k);
+				      nbr_man->rad_dim, nbr_man->k, rad_cnt);
   if (nbr_man->k == 2)
     num *= p;
 
@@ -491,7 +508,8 @@ int** hecke_col_all_conds_sparse(int p, int col_idx, const genus_t genus)
   }
 
   nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, 1);
-  num_nbrs = number_of_neighbors(nbr_man);
+  // in neighbor_manager we also go over the radical
+  num_nbrs = number_of_neighbors(nbr_man, true);
   nbr_data_clear(nbr_man);
   
   spin_vals = (W64*)malloc(num_nbrs*sizeof(W64));
@@ -541,7 +559,8 @@ matrix_TYP** hecke_matrices_nbr_data_all_conductors(const genus_t genus, int p, 
 
   // just computing the number of neighbors, to collect all the spin values at once
   nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, k);
-  num_nbrs = number_of_neighbors(nbr_man);
+  // nbr_data only goes over the isotropic vectors that are not in the radical
+  num_nbrs = number_of_neighbors(nbr_man, false);
   spin_vals = (W64*)malloc(num_nbrs*sizeof(W64));
   nbr_data_clear(nbr_man);
   
@@ -598,7 +617,7 @@ matrix_TYP** hecke_matrices_all_conductors(const genus_t genus, int p)
 
   // just computing the number of neighbors, to collect all the spin values at once
   nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, 1);
-  num_nbrs = number_of_neighbors(nbr_man);
+  num_nbrs = number_of_neighbors(nbr_man, true);
   spin_vals = (W64*)malloc(num_nbrs*sizeof(W64));
   nbr_data_clear(nbr_man);
   
@@ -774,7 +793,7 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
   }
 
   nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, k);
-  num_nbrs = number_of_neighbors(nbr_man);
+  num_nbrs = number_of_neighbors(nbr_man, false);
   nbr_data_clear(nbr_man);
 
   spin_vals = (W64*)malloc(num_nbrs*sizeof(W64));
@@ -905,7 +924,7 @@ void get_hecke_ev_all_conductors(nf_elem_t e, const genus_t genus,
   }
 
   nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, 1);
-  num_nbrs = number_of_neighbors(nbr_man);
+  num_nbrs = number_of_neighbors(nbr_man, true);
   nbr_data_clear(nbr_man);
 
   spin_vals = (W64*)malloc(num_nbrs*sizeof(W64));

@@ -153,9 +153,9 @@ bool nf_elem_is_square_fast(const nf_elem_t x, const nf_t K)
 {
   // we do it in a weird way because of the lack of functionality of nf_elem
 
-  slong i, bound, n;
+  slong i, n;
   slong coeff_int, p_int;
-  fmpz_t den, coeff, p, prod;
+  fmpz_t den, coeff, p, prod, bound;
   nf_elem_t x_int;
   fmpz_poly_t f_int;
   nmod_poly_t f_int_mod_p, g_int_mod_p, r_int_mod_p;
@@ -168,6 +168,7 @@ bool nf_elem_is_square_fast(const nf_elem_t x, const nf_t K)
   fmpz_init(den);
   fmpz_init(coeff);
   fmpz_init(p);
+  fmpz_init(bound);
   nf_elem_init(x_int, K);
   fmpz_poly_init(f_int);
   nmod_poly_factor_init(fac);
@@ -176,19 +177,20 @@ bool nf_elem_is_square_fast(const nf_elem_t x, const nf_t K)
   fmpz_mul(den, den, den);
   nf_elem_scalar_mul_fmpz(x_int, x, den, K);
 
-  bound = 1;
+  fmpz_one(bound);
   for (i = 0; i < n; i ++) {
     nf_elem_get_coeff_fmpz(coeff, x_int, i, K);
-    if (bound < labs(fmpz_get_si(coeff)))
-      bound = labs(fmpz_get_si(coeff));
+    if (fmpz_cmpabs(bound, coeff) < 0)
+      fmpz_abs(bound, coeff);
   }
 
+  fmpz_mul(bound, bound, bound);
   fmpz_init(prod);
   fmpz_one(prod);
 
   // This is only probabilistic -
   // should really go only up to bound, reconstruct using CRT and check
-  while (fmpz_get_si(prod) < bound * bound) {
+  while (fmpz_cmp(prod, bound) < 0) {
     // construct the finite field mod p
     fmpz_nextprime(p, p, true);
     fmpz_mul(prod, prod, p);
