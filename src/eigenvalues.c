@@ -185,6 +185,8 @@ bool nf_elem_is_square_fast(const nf_elem_t x, const nf_t K)
   }
 
   fmpz_mul(bound, bound, bound);
+  // bound^2 is not enough!! Consider 21/2*(7 + sqrt(13))
+  fmpz_mul(bound, bound, bound);
   fmpz_init(prod);
   fmpz_one(prod);
 
@@ -198,18 +200,27 @@ bool nf_elem_is_square_fast(const nf_elem_t x, const nf_t K)
     fmpq_poly_get_numerator(f_int, K->pol);
     nmod_poly_init2(f_int_mod_p, p_int, n+1);
     for (i = 0; i <= n; i++) {
+      fmpz_poly_get_coeff_fmpz(coeff, f_int, i);
+      fmpz_mod_ui(coeff, coeff, p_int);
+      coeff_int = fmpz_get_ui(coeff);
+      /*
       coeff_int = fmpz_poly_get_coeff_si(f_int, i);
       if (coeff_int < 0)
 	coeff_int += p_int * ((-coeff_int) / p_int + 1);
+      */
       nmod_poly_set_coeff_ui(f_int_mod_p, i, coeff_int);
     }
     
     nmod_poly_init2(g_int_mod_p, p_int, n);
     for (i = 0; i < n; i++) {
       nf_elem_get_coeff_fmpz(coeff, x_int, i, K);
+      fmpz_mod_ui(coeff, coeff, p_int);
+      coeff_int = fmpz_get_ui(coeff);
+      /*
       coeff_int = fmpz_get_si(coeff);
       if (coeff_int < 0)
 	coeff_int += p_int * ((-coeff_int) / p_int + 1);
+      */
       nmod_poly_set_coeff_ui(g_int_mod_p, i, coeff_int);
     }
 
