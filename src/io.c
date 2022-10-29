@@ -57,14 +57,22 @@ size_t read_genus(square_matrix_t** p_genus, const char* fname, size_t disc)
 	break;
       case ']':
 	depth--;
-	if (depth == 1)
+	if (depth == 1) {
+	  if (cur_disc == disc) {
+	    matrix_buffer[mat_buf_idx] = '\0';
+	    mat_read = parse_matrix(matrix_buffer, coeffs[genus_size++]);
+	    assert(mat_read);
+	    mat_buf_idx = 0;
+	  }
 	  cur_disc++;
+	}
 	break;
       default:
 	if (cur_disc == disc) {
 	  switch(depth) {
 	  case 2:
 	    if (mat_buf_idx != 0) {
+	      matrix_buffer[mat_buf_idx] = '\0';
 	      mat_read = parse_matrix(matrix_buffer, coeffs[genus_size++]);
 	      assert(mat_read);
 	      mat_buf_idx = 0;

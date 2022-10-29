@@ -486,10 +486,10 @@ bool square_matrix_is_Q_isometric(isometry_t isom, const square_matrix_t A, cons
 
 // for now, this is faster (do one round and collect all)
 // assumes isoms are initialized and that B and isoms are the length of the class number
-void square_matrix_find_isometries(isometry_t* isoms, const square_matrix_t A, const square_matrix_t* B)
+void square_matrix_find_isometries(isometry_t* isoms, const square_matrix_t A, const square_matrix_t* B, int h)
 {
   genus_t genus;
-  isometry_t isom_B;
+  isometry_t isom_B, isom_B_inv;
   slong i, rep_idx;
   double theta_time, isom_time;
   int num_isom = 0;
@@ -497,13 +497,15 @@ void square_matrix_find_isometries(isometry_t* isoms, const square_matrix_t A, c
   theta_time = isom_time = 0;
   
   genus_init_square_matrix(genus, A);
+  assert(genus->dims[0] == h);
   isometry_init(isom_B);
 
   for (i = 0; i < genus->dims[0]; i++) {
     rep_idx = hash_table_index_and_isom(genus->genus_reps, B[i], isom_B, &theta_time, &isom_time, &num_isom);
-    assert(isometry_is_isom(isom_B, genus->genus_reps->keys[rep_idx], B[i]));
+    assert(isometry_is_isom(isom_B, B[i], genus->genus_reps->keys[rep_idx]));
     assert(isometry_is_isom(genus->isoms[rep_idx], A, genus->genus_reps->keys[rep_idx]));
-    isometry_mul(isoms[i], genus->isoms[rep_idx], isom_B);
+    isometry_inv(isom_B_inv, isom_B);
+    isometry_mul(isoms[i], genus->isoms[rep_idx], isom_B_inv);
     assert(isometry_is_isom(isoms[i], A, B[i]));
   }
   
@@ -573,7 +575,7 @@ void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps
   // constructing isometries between the forms
   genus->isoms = (isometry_t*)malloc(h * sizeof(isometry_t));
 
-  square_matrix_find_isometries(genus->isoms, reps[0], reps);
+  square_matrix_find_isometries(genus->isoms, reps[0], reps, h);
   
   // initializing the conductors
   
