@@ -37,8 +37,7 @@ void compute_genus(genus_t genus, const int* Q_coeffs, const char* format)
   cpuclock_0 = clock();
 
   square_matrix_init_set_symm(Q, Q_coeffs, format);
-  genus_init_square_matrix(genus, Q);
-  genus_init_square_matrix(old_genus, Q);
+  genus_init_square_matrix(old_genus, Q, -1);
 
   cpuclock_1 = clock();
   cpudiff = cpuclock_1 - cpuclock_0;

@@ -192,7 +192,7 @@ void dimensions_init(genus_t genus)
 }
 
 /* compute the genus of a quadratic form */
-void genus_init_square_matrix(genus_t genus, const square_matrix_t q)
+void genus_init_square_matrix(genus_t genus, const square_matrix_t q, int h)
 {
   aut_grp_t aut_grp;
   square_matrix_t nbr, genus_rep;
@@ -202,7 +202,7 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t q)
   int p, current, key_num;
   size_t genus_size;
   hash_table_t slow_genus;
-  bool found, is_isom;
+  bool found, is_isom, genus_full;
   
 #ifndef NBR_DATA
   neighbor_manager_t nbr_man;
@@ -264,11 +264,17 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t q)
   
   fmpz_init(prime);
   fmpz_set_ui(prime, 1);
+
+  if (h == -1)
+    genus_full = !fmpq_cmp(acc_mass, mass);
+  else
+    genus_full = (h == slow_genus->num_stored);
   
-  while (fmpq_cmp(acc_mass, mass)) {
+  while (!genus_full) {
     current = 0;
 #ifdef DEBUG
-    assert(fmpq_cmp(acc_mass, mass) <= 0);
+    if (h == -1)
+      assert(fmpq_cmp(acc_mass, mass) <= 0);
 #endif // DEBUG
     /* !! TODO - we don't really need to restrict to good primes here, */
     /* but let's check these first */
@@ -278,7 +284,7 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t q)
     }
     while (square_matrix_is_bad_prime(q,p));
 
-    while ((current < slow_genus->num_stored) && fmpq_cmp(acc_mass, mass)){
+    while ((current < slow_genus->num_stored) && (!genus_full)){
 #ifdef DEBUG_LEVEL_FULL
       printf("current = %d\n", current);
 #endif // DEBUG_LEVEL_FULL
@@ -289,13 +295,13 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t q)
       /* Right now all the isotropic vectors are paritioned to p */
       /* sets, by index as Gonzalo did */
       
-      while ((i < p) && fmpq_cmp(acc_mass, mass)) {
+      while ((i < p) && (!genus_full)) {
 	nbr_process_init(nbr_man, slow_genus->keys[current], p, i);
-	while ((!(nbr_process_has_ended(nbr_man))) && fmpq_cmp(acc_mass, mass)) {
+	while ((!(nbr_process_has_ended(nbr_man))) && (!genus_full)) {
 	  nbr_process_build_nb_and_isom(nbr, s, nbr_man);
 #else
 	nbr_data_init(nbr_man, slow_genus->keys[current], p, 1);
-	while ((!(nbr_data_has_ended(nbr_man))) && fmpq_cmp(acc_mass, mass)) {
+	while ((!(nbr_data_has_ended(nbr_man))) && (!genus_full)) {
 	  nbr_data_build_neighbor(nbr_fmpz, nbr_isom, nbr_man);
 	  square_matrix_set_fmpz_mat(nbr, nbr_fmpz);
 #endif // NBR_DATA
@@ -361,6 +367,11 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t q)
 	    fmpq_set_si(mass_form, 1, aut_grp->order);
 	    aut_grp_clear(aut_grp);
 	    fmpq_add(acc_mass, acc_mass, mass_form);
+	    if (h == -1)
+	      genus_full = !fmpq_cmp(acc_mass, mass);
+	    else
+	      genus_full = (h == slow_genus->num_stored);
+	    
 #ifdef DEBUG_LEVEL_FULL
 	    printf("acc_mass = ");
 	    fmpq_print(acc_mass);
@@ -502,7 +513,7 @@ void square_matrix_find_isometries(isometry_t* isoms, const square_matrix_t A, c
 
   theta_time = isom_time = 0;
   
-  genus_init_square_matrix(genus, A);
+  genus_init_square_matrix(genus, A, h);
   assert(genus->dims[0] == h);
   isometry_init(isom_B);
 

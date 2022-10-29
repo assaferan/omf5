@@ -181,6 +181,9 @@ void _combine(fmpq_t mass, const square_matrix_t q, fmpz_t p)
   return;
 }
 
+// !! TODO - This only works for lattices that are maximal at 2 !!
+// In general, should compute the number of lattices locally isometric to it
+// inside the superlattice
 void get_mass(fmpq_t mass, const square_matrix_t q)
 {
   int r = QF_RANK / 2;
