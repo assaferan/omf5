@@ -729,18 +729,14 @@ STATUS compute_first_hecke_matrix_all_conds(const genus_t genus)
   cpudiff = cpuclock_1 - cpuclock_0;
   cputime = cpudiff / CLOCKS_PER_SEC;
 
-  printf("{%ld : ", p);
+  printf("{%ld : {", p);
   for (c = 0; c < genus->num_conductors; c++) {
-    // printf("cond=%ld: ", genus->conductors[c]);
-    printf("{%ld : ", genus->conductors[c]);
+    printf("%ld : ", genus->conductors[c]);
     print_mat_dense(hecke[c]);
-    //    printf("\n");
-    printf("}");
     if (c != genus->num_conductors-1)
       printf(",");
-    else
-      printf("}");
   }
+  printf("} }");
 
   fprintf(stderr, "computing hecke matrices took %f sec\n", cputime);
   
