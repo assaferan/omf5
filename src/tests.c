@@ -712,7 +712,7 @@ STATUS compute_first_hecke_matrix_all_conds(const genus_t genus)
   
   clock_t cpuclock_0, cpuclock_1;
   double cputime, cpudiff;  
-
+  
   cpuclock_0 = clock();
 
   fmpz_init(prime);
@@ -720,23 +720,32 @@ STATUS compute_first_hecke_matrix_all_conds(const genus_t genus)
   
   do {
     fmpz_nextprime(prime, prime, true);
-    p = fmpz_get_si(prime);
   }
-  while (square_matrix_is_bad_prime(genus->genus_reps->keys[0],p));
-  
+  while (fmpz_divisible(genus->disc,prime));
+
+  p = fmpz_get_si(prime);
   hecke = hecke_matrices_all_conductors(genus,p);
 
   cpuclock_1 = clock();
   cpudiff = cpuclock_1 - cpuclock_0;
   cputime = cpudiff / CLOCKS_PER_SEC;
-  
+
+  printf("{%ld : ", p);
   for (c = 0; c < genus->num_conductors; c++) {
-    printf("cond=%ld: ", genus->conductors[c]);
-    print_mat(hecke[c]);
-    printf("\n");
+    // printf("cond=%ld: ", genus->conductors[c]);
+    printf("{%ld : ", genus->conductors[c]);
+    print_mat_dense(hecke[c]);
+    //    printf("\n");
+    printf("}");
+    if (c != genus->num_conductors-1)
+      printf(",");
+    else
+      printf("}");
   }
 
+#ifdef DEBUG
   printf("computing hecke matrices took %f sec\n", cputime);
+#endif // DEBUG
   
   for (c = 0; c < genus->num_conductors; c++)
     free_mat(hecke[c]);

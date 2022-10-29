@@ -418,15 +418,21 @@ void genus_clear(genus_t genus)
     free(genus->num_auts[c]);
   for (c = 0; c < genus->genus_reps->num_stored; c++)
     isometry_clear(genus->isoms[c]);
-  free(genus->isoms);
- 
-  free(genus->num_auts);
+  
+  if (genus->genus_reps->num_stored > 0)
+    free(genus->isoms);
+  
   for (c = 0; c < genus->num_conductors; c++)
     free(genus->lut_positions[c]);
-  free(genus->lut_positions);
-  free(genus->dims);
-  free(genus->conductors);
-  spinor_clear(genus->spinor);
+
+  if (genus->num_conductors > 0) {
+    free(genus->num_auts);
+    free(genus->lut_positions);
+    free(genus->dims);
+    free(genus->conductors);
+    spinor_clear(genus->spinor);
+  }
+  
   hash_table_clear(genus->genus_reps);
   return;
 }
@@ -600,8 +606,42 @@ void genus_init_file(genus_t genus, const char* genus_fname, size_t disc)
   size_t genus_size;
   
   genus_size = read_genus(&genus_reps, genus_fname, disc);
-  genus_init_set_square_matrix_vec(genus, genus_reps, genus_size);
+  if (genus_size > 0)
+    genus_init_set_square_matrix_vec(genus, genus_reps, genus_size);
+  else
+    genus_init_empty(genus, disc);
   
   free(genus_reps);
+  return;
+}
+
+void genus_init_empty(genus_t genus, size_t disc)
+{
+  fmpz_factor_t bad_primes;
+  slong prime_idx;
+    
+  fmpz_init_set_ui(genus->disc,disc);
+
+  hash_table_init(genus->genus_reps, 0);
+
+  // !! TODO - make a separate function in spinor for this one
+  fmpz_factor_init(bad_primes);
+  fmpz_factor(bad_primes, genus->disc);
+
+  fmpz_mat_init(genus->spinor->Q,0,0);
+  genus->spinor->num_primes = bad_primes->num;
+  genus->spinor->twist = (1LL << (bad_primes->num)) - 1;
+  genus->spinor->rads = (fq_nmod_mat_t*)malloc((bad_primes->num) * sizeof(fq_nmod_mat_t));
+  genus->spinor->fields = (fq_nmod_ctx_t*)malloc((bad_primes->num) * sizeof(fq_nmod_ctx_t));
+
+  for (prime_idx = 0; prime_idx < bad_primes->num; prime_idx++) {
+    fq_nmod_ctx_init(genus->spinor->fields[prime_idx], &(bad_primes->p[prime_idx]), 1, "1");
+    fq_nmod_mat_init(genus->spinor->rads[prime_idx], 0, 0, genus->spinor->fields[prime_idx]);
+  }
+
+  conductors_init(genus);
+
+  dimensions_init(genus);
+  
   return;
 }

@@ -32,6 +32,8 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t Q);
 /* set the genus from a list */
 void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps, size_t genus_size);
 
+void genus_init_empty(genus_t genus, size_t disc);
+
 void genus_init_file(genus_t genus, const char* genus_fname, size_t disc);
 
 void genus_clear(genus_t genus);
