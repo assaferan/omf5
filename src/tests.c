@@ -709,9 +709,9 @@ STATUS compute_first_hecke_matrix_all_conds(const genus_t genus)
   matrix_TYP** hecke;
   slong c, p;
   fmpz_t prime;
-  
+
   clock_t cpuclock_0, cpuclock_1;
-  double cputime, cpudiff;  
+  double cputime, cpudiff;
   
   cpuclock_0 = clock();
 
@@ -743,9 +743,7 @@ STATUS compute_first_hecke_matrix_all_conds(const genus_t genus)
       printf("}");
   }
 
-#ifdef DEBUG
-  printf("computing hecke matrices took %f sec\n", cputime);
-#endif // DEBUG
+  fprintf(stderr, "computing hecke matrices took %f sec\n", cputime);
   
   for (c = 0; c < genus->num_conductors; c++)
     free_mat(hecke[c]);
