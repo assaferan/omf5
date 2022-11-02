@@ -193,7 +193,7 @@ int process_isotropic_vector_all_conductors(neighbor_manager_t nbr_man, W64* spi
   isometry_t hash_isom;
   bool non_singular;
   int vec_cmp;
-  slong orbit_size, stab_size, orb_size;
+  slong orb_size, stab_size;
   isometry_t* orbit_isom;
   vector_t* orbit;
   bool found;
@@ -242,8 +242,7 @@ int process_isotropic_vector_all_conductors(neighbor_manager_t nbr_man, W64* spi
       }
     }
   }
-  orbit_size = nbr_man->num_auts / stab_size;
-  assert(orb_size == orbit_size);
+  assert(orb_size == nbr_man->num_auts / stab_size);
   
   non_singular = nbr_process_build_nb_and_isom(nbr, s_nbr, nbr_man);
 
