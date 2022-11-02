@@ -180,17 +180,19 @@ bool handle_flag_int(const char* flag_name, const char* param_str, int* flag_val
 
 int print_param_desc(char* argv[])
 {
-  printf("Usage: %s [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-p=p] [-genus=g] [-disc=d] \n", argv[0]);
+  printf("Usage: %s [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-p=p] [-genus=g] [-disc=d] [-cond=c] \n", argv[0]);
   printf("The genus can be specified in one of two ways. Either via Q and f - \n");
   printf("[Q] is the quinary quadratic form (lattice) given as 15 comma-separated integers in a format specified by f,\n");
   printf("[f] is either 'GG' or 'A', the former for the format in Rama-Toranria webpage, the latter for the Magma format,\n");
   printf("in which case, the genus will be computed using p-neighbors, or via g and d - \n");
   printf("[g] is the name of a file containing the list of genera,\n");
   printf("[d] is the discriminant of the lattice, so that g[d] is the relevant genus,\n");
-  printf("If the flag -hecke is supplied, computes the Hecke matrix, otherwise computes the Hecke eigenvalues of forms that are non-lifts.\n");
   printf("[p] is a prime at which to compute the Hecke matrix/eigenvalue, \n"); 
   printf("[L] is the preicision up to which to compute the hecke matrices/eigenvalues (a_p for p <= L and a_{p^2} for p^2 <= L),\n");
+  printf("[c] is the conductor of the spinor norm character. If not specified, the program will compute all of them. At the moment, only relevant for computing a column of the Hecke matrix.");
+  printf("If the flag -hecke is supplied, computes a column of the Hecke matrix, otherwise computes the Hecke eigenvalues of forms that are non-lifts. If p is not supplied, computes the Hecke matrix of the first prime not dividing the discriminant.\n");
   printf("If either L or p is not supplied, only decomposes the space, and finds Hecke eigenvectors.\n");
+  
   printf("If the flag -tests is supplied, additionally runs standard tests.\n");
   return -1;
 }
