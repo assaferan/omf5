@@ -21,29 +21,29 @@
  * This implementation is more amenable to generalization, but less efficient
  *****************************************************************************/
 
-void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
+void nbr_data_init(nbr_data_t nbr_man, const square_matrix_t q, slong p_int, slong k)
 {
-  slong idx, n;
+  slong idx;
   fmpz_t p, tmp;
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
   fq_nmod_t value;
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
 
-  n = q->rows;
-  assert(n == q->cols);
+  assert(k > 0); // no perestroika operators in odd dimension
   
   fmpz_init_set_si(p, p_int);
-  fmpz_mat_init_set_matrix_TYP(nbr_man->q, q);
+  assert(fmpz_is_prime(p));
+  fmpz_mat_init_set_square_matrix(nbr_man->q, q);
   fmpz_init(nbr_man->disc);
   fmpz_mat_det(nbr_man->disc, nbr_man->q);
-  // (half) discriminant = det/2 when n = 5 
+  // (half) discriminant = det/2 when QF_RANK = 5 
   fmpz_divexact_si(nbr_man->disc, nbr_man->disc, 2);
 
   fq_nmod_ctx_init(nbr_man->GF, p, 1, "1");
   fq_nmod_mat_init_set_fmpz_mat(nbr_man->b, nbr_man->q, nbr_man->GF);
   if (p_int == 2) {
     fmpz_init(tmp);
-    for (idx = 0; idx < n; idx++) {
+    for (idx = 0; idx < QF_RANK; idx++) {
       fmpz_divexact_si(tmp, fmpz_mat_entry(nbr_man->q, idx, idx), 2); 
       fq_nmod_set_fmpz(fq_nmod_mat_entry(nbr_man->b,idx,idx), tmp, nbr_man->GF);
     }
@@ -51,7 +51,7 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
   }
   nmod_mat_init_set_fmpz_mat(nbr_man->quot_gram, nbr_man->q, p_int*p_int);
 
-  fq_nmod_mat_init(nbr_man->vec, 1, n, nbr_man->GF);
+  fq_nmod_mat_init(nbr_man->vec, 1, QF_RANK, nbr_man->GF);
 #ifdef DEBUG
   fq_nmod_quad_isotropic_vector(nbr_man->vec, nbr_man->b, nbr_man->GF, 0, true);
 #else
@@ -73,8 +73,8 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
   assert(fq_nmod_is_zero(value, nbr_man->GF));
 #endif // DEBUG_LEVEL_FULL
 
-  fq_nmod_mat_init(nbr_man->p_std_gram, n, n, nbr_man->GF);
-  fq_nmod_mat_init(nbr_man->p_basis, n, n, nbr_man->GF);
+  fq_nmod_mat_init(nbr_man->p_std_gram, QF_RANK, QF_RANK, nbr_man->GF);
+  fq_nmod_mat_init(nbr_man->p_basis, QF_RANK, QF_RANK, nbr_man->GF);
   fq_nmod_mat_init(nbr_man->p_skew, k, k, nbr_man->GF);
 
   nbr_man->is_skew_init = true;
@@ -85,7 +85,7 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
   fq_nmod_quad_decompose(nbr_man->p_std_gram, nbr_man->p_basis, nbr_man->b, nbr_man->GF, false);  
 #endif // DEBUG
 
-  fq_nmod_mpoly_ctx_init(nbr_man->p_q_std_ctx, n, ORD_DEGREVLEX, nbr_man->GF);
+  fq_nmod_mpoly_ctx_init(nbr_man->p_q_std_ctx, QF_RANK, ORD_DEGREVLEX, nbr_man->GF);
   fq_nmod_mpoly_init(nbr_man->p_q_std,nbr_man->p_q_std_ctx);
   fq_nmod_poly_set_fq_nmod_quad(nbr_man->p_q_std, nbr_man->p_std_gram, nbr_man->GF, nbr_man->p_q_std_ctx);
 
@@ -102,23 +102,23 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
 #endif // DEBUG_LEVEL_FULL
 
   // Count the rows at the end of the matrix which are exactly zero.
-  idx = n;
+  idx = QF_RANK;
   while ((idx >= 1) && fq_nmod_mat_is_zero_row(nbr_man->p_std_gram,idx-1,nbr_man->GF)) idx--;
 
   // The dimension of the radical.
-  nbr_man->rad_dim = n - idx;
+  nbr_man->rad_dim = QF_RANK - idx;
 
   // Determine the dimension of the totally hyperbolic subspace.
   idx = 1;
-  while ((idx <= n - nbr_man->rad_dim) && fq_nmod_is_zero(fq_nmod_mat_entry(nbr_man->p_std_gram,idx-1,idx-1),nbr_man->GF)) idx++;
+  while ((idx <= QF_RANK - nbr_man->rad_dim) && fq_nmod_is_zero(fq_nmod_mat_entry(nbr_man->p_std_gram,idx-1,idx-1),nbr_man->GF)) idx++;
 
   // Dimension of the anistotropic subspace.
-  nbr_man->aniso_dim = n - nbr_man->rad_dim - idx + 1;
+  nbr_man->aniso_dim = QF_RANK - nbr_man->rad_dim - idx + 1;
 
   // The number of hyperbolic planes in the Witt decomposition.
   nbr_man->witt_index = (idx - 1) / 2;
 
-  pivot_data_init(nbr_man->pivots, n - nbr_man->rad_dim, nbr_man->aniso_dim, k);
+  pivot_data_init(nbr_man->pivots, QF_RANK - nbr_man->rad_dim, nbr_man->aniso_dim, k);
   nbr_man->pivots->pivot_ptr = 0;
   nbr_man->k = k;
   nbr_man->skew_dim = k*(k-1)/2;
@@ -127,16 +127,19 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
   nbr_man->is_iso_subspace_init = false;
 
   nbr_data_next_isotropic_subspace(nbr_man);
-  
+
+  nmod_mat_init(nbr_man->X, nbr_man->k, QF_RANK, p_int*p_int);
+  nmod_mat_init(nbr_man->Z, nbr_man->k, QF_RANK, p_int*p_int);
+  nmod_mat_init(nbr_man->U, QF_RANK - 2*nbr_man->k, QF_RANK, p_int*p_int);
   nbr_data_lift_subspace(nbr_man);
 
-  nmod_mat_init(nbr_man->X_skew, nbr_man->k, n, p_int*p_int);
+  nmod_mat_init(nbr_man->X_skew, nbr_man->k, QF_RANK, p_int*p_int);
   if (!(nbr_man->is_done))
     nmod_mat_set(nbr_man->X_skew, nbr_man->X);
   
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
   fq_nmod_clear(value, nbr_man->GF);
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
   fmpz_clear(p);
   
   return;
@@ -145,6 +148,13 @@ void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k)
 void nbr_data_clear(nbr_data_t nbr_man)
 {
   nmod_mat_clear(nbr_man->X_skew);
+  nmod_mat_clear(nbr_man->X);
+  nmod_mat_clear(nbr_man->Z);
+  nmod_mat_clear(nbr_man->U);
+  if (nbr_man->is_iso_subspace_init)
+    fq_nmod_mat_clear(nbr_man->iso_subspace, nbr_man->GF);
+  if (nbr_man->pivots->is_params_init)
+    pivot_data_params_clear(nbr_man->pivots);
   pivot_data_clear(nbr_man->pivots);
   fq_nmod_mpoly_clear(nbr_man->p_q_std,nbr_man->p_q_std_ctx);
   fq_nmod_mpoly_ctx_clear(nbr_man->p_q_std_ctx);
@@ -786,14 +796,7 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
 #endif // DEBUG_LEVEL_FULL
 
   // Convert to coordinates modulo p^2.
-  nmod_mat_init(nbr_man->X, nbr_man->k, n, p*p);
-  nmod_mat_init(nbr_man->Z, nbr_man->k, n, p*p);
-  nmod_mat_init(nbr_man->U, n-2*nbr_man->k, n, p*p);
   nmod_mat_init(B, n, n, p*p);
-  // fmpz_mat_init(nbr_man->X, nbr_man->k, n);
-  // fmpz_mat_init(nbr_man->Z, nbr_man->k, n);
-  // fmpz_mat_init(nbr_man->U, n-2*nbr_man->k, n);
-  // fmpz_mat_init(B, n, n);
   
   // Build the coordinate matrix.
   // !! TODO - the mod p is not necessary, good for debugging
@@ -1029,7 +1032,6 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
   nmod_mat_clear(X_new);
   nmod_mat_clear(Z_new);  
   nmod_mat_clear(B);
-  // fmpz_mat_clear(B)
   fq_nmod_mat_clear(u, nbr_man->GF);
   free(excluded);
   fq_nmod_mat_clear(z, nbr_man->GF);
@@ -1195,12 +1197,7 @@ void nbr_data_get_next_neighbor(nbr_data_t nbr_man)
   // Lift the subspace if we haven't reached the end of the list.
   if (!(nbr_man->is_done)) {
     nbr_data_lift_subspace(nbr_man);
-    nmod_mat_init_set(nbr_man->X_skew, nbr_man->X);
-  }
-  else {
-    nmod_mat_clear(nbr_man->X);
-    nmod_mat_clear(nbr_man->Z);
-    nmod_mat_clear(nbr_man->U);
+    nmod_mat_set(nbr_man->X_skew, nbr_man->X);
   }
   
   return;

@@ -14,6 +14,7 @@
 #include "carat/reduction.h"
 #include "carat/symm.h"
 
+#include "fmpq_poly.h"
 #include "matrix_tools.h"
 #include "nf_mat.h"
 #include "typedefs.h"
@@ -25,10 +26,6 @@
  * may also consider other implementations such as flint or eigen
 */
 
-/* For now, we use N = 5 hard coded */
-
-#define N 5
-
 /* function to initialize a symmetric matrix */
 matrix_TYP* init_sym_matrix_A(const int* coeff_vec)
 {
@@ -36,11 +33,11 @@ matrix_TYP* init_sym_matrix_A(const int* coeff_vec)
   matrix_TYP* Q_mat;
   int** Q;
   
-  Q_mat = init_mat(N,N,"");
+  Q_mat = init_mat(QF_RANK,QF_RANK,"");
   Q = Q_mat->array.SZ;
   row = 0;
   col = 0;
-  for (idx = 0; idx < N*(N+1)/2; idx++)
+  for (idx = 0; idx < QF_RANK*(QF_RANK+1)/2; idx++)
     {
       Q[row][col] = coeff_vec[idx];
       row++;
@@ -49,8 +46,8 @@ matrix_TYP* init_sym_matrix_A(const int* coeff_vec)
 	col++;
       }
     }
-  for (row = 0; row < N-1; row++)
-    for (col = row+1; col < N; col++)
+  for (row = 0; row < QF_RANK-1; row++)
+    for (col = row+1; col < QF_RANK; col++)
       Q[col][row] = Q[row][col];
 
   return Q_mat;
@@ -62,24 +59,24 @@ matrix_TYP* init_sym_matrix_GG(const int* coeff_vec)
   matrix_TYP* Q_mat;
   int** Q;
   
-  Q_mat = init_mat(N,N,"");
+  Q_mat = init_mat(QF_RANK,QF_RANK,"");
   Q = Q_mat->array.SZ;
   row = 0;
   col = 0;
-  for (idx = 0; idx < N*(N+1)/2; idx++)
+  for (idx = 0; idx < QF_RANK*(QF_RANK+1)/2; idx++)
     {
       Q[row][col] = coeff_vec[idx];
       col++;
-      if (col >= N) {
+      if (col >= QF_RANK) {
 	row++;
 	col = row;
       }
     }
-  for (row = 0; row < N; row++)
+  for (row = 0; row < QF_RANK; row++)
     for (col = 0; col < row; col++)
       Q[row][col] = Q[col][row];
 
-  for (row = 0; row < N; row++)
+  for (row = 0; row < QF_RANK; row++)
     Q[row][row] *= 2;
 
 #ifdef DEBUG
@@ -152,6 +149,29 @@ void print_mat(const matrix_TYP* Q)
   return;
 }
 
+void print_mat_dense(const matrix_TYP* Q)
+{
+  int row, col;
+
+  printf("[");
+  for (row = 0; row < Q->rows; row++) {
+    printf("[");
+    for (col = 0; col < Q->cols; col++) {
+      printf("%d", Q->array.SZ[row][col]);
+      if (col != Q->cols - 1)
+	printf(",");
+      else
+	printf("]");
+    }
+    if (row != Q->rows - 1)
+      printf(",");
+  }
+  printf("]");
+
+  return;
+}
+
+
 /* swapping, assumes they do not point to the same thing!!! */
 
 int swap(int** Q, int row1, int col1, int row2, int col2)
@@ -168,15 +188,15 @@ int swap(int** Q, int row1, int col1, int row2, int col2)
 
 /* resymmetrizing a matrix after working with upper triangular part */
 
-int resymmetrize(int **Q)
+void resymmetrize(Z64 **Q)
 {
   int row, col;
   
-  for (row = 0; row < N-1; row++)
-    for (col = row+1; col < N; col++)
+  for (row = 0; row < QF_RANK-1; row++)
+    for (col = row+1; col < QF_RANK; col++)
       Q[col][row] = Q[row][col];
 
-  return 0;
+  return;
 }
 
 bravais_TYP* automorphism_group(matrix_TYP* Q)
@@ -191,6 +211,7 @@ bravais_TYP* automorphism_group(matrix_TYP* Q)
     if(Q->array.SZ[i][i] > Qmax)
       Qmax = Q->array.SZ[i][i];
   }
+  assert(definite_test(Q));
   SV = short_vectors(Q, Qmax, 0, 0, 0, &i);
 
   grp = autgrp(&Q, 1, SV, NULL, 0, options);
@@ -200,27 +221,27 @@ bravais_TYP* automorphism_group(matrix_TYP* Q)
   return grp;
 }
 
-matrix_TYP* is_isometric(matrix_TYP* Q1, matrix_TYP* Q2)
-{
-  int i, Qmax;
-  matrix_TYP *SV1, *SV2, *isom;
-  int options[6] = {0};
+/* matrix_TYP* is_isometric(matrix_TYP* Q1, matrix_TYP* Q2) */
+/* { */
+/*   int i, Qmax; */
+/*   matrix_TYP *SV1, *SV2, *isom; */
+/*   int options[6] = {0}; */
   
-  Qmax = Q1->array.SZ[0][0];
-  for(i=1;i < Q1->cols;i++) {
-    if(Q1->array.SZ[i][i] > Qmax)
-      Qmax = Q1->array.SZ[i][i];
-  }
-  SV1 = short_vectors(Q1, Qmax, 0, 0, 0, &i);
-  SV2 = short_vectors(Q2, Qmax, 0, 0, 0, &i);
+/*   Qmax = Q1->array.SZ[0][0]; */
+/*   for(i=1;i < Q1->cols;i++) { */
+/*     if(Q1->array.SZ[i][i] > Qmax) */
+/*       Qmax = Q1->array.SZ[i][i]; */
+/*   } */
+/*   SV1 = short_vectors(Q1, Qmax, 0, 0, 0, &i); */
+/*   SV2 = short_vectors(Q2, Qmax, 0, 0, 0, &i); */
 
-  isom = isometry(&Q1, &Q2, 1, SV1, SV2, NULL, 0, options);
+/*   isom = isometry(&Q1, &Q2, 1, SV1, SV2, NULL, 0, options); */
   
-  free_mat(SV1);
-  free_mat(SV2);
+/*   free_mat(SV1); */
+/*   free_mat(SV2); */
 
-  return isom;
-}
+/*   return isom; */
+/* } */
 
 matrix_TYP* minkowski_reduce(matrix_TYP* Q)
 {
@@ -229,7 +250,7 @@ matrix_TYP* minkowski_reduce(matrix_TYP* Q)
   /* printf("Trying to minkowski reduce: \n"); */
   /* print_mat(Q); */
   
-  T1 = init_mat(N, N, "");
+  T1 = init_mat(QF_RANK, QF_RANK, "");
   red1 = pair_red(Q, T1);
   
 #ifdef DEBUG_LEVEL_FULL
@@ -237,7 +258,7 @@ matrix_TYP* minkowski_reduce(matrix_TYP* Q)
   print_mat(red1);
 #endif // DEBUG_LEVEL_FULL
   
-  T2 = init_mat(N, N, "1");
+  T2 = init_mat(QF_RANK, QF_RANK, "1");
   red2 = mink_red(red1, T2);
 
 #ifdef DEBuG_LEVEL_FULL
@@ -252,17 +273,11 @@ matrix_TYP* minkowski_reduce(matrix_TYP* Q)
   return red2;
 }
 
-matrix_TYP* adjugate(matrix_TYP* Q, int dim)
+void adjugate(square_matrix_t b, const square_matrix_t a, int dim)
 {
   // We will use this only for dim <= 4
   // and we write it down explicitly for each case
   // !! TODO - This is not the most effective way to do this
-  matrix_TYP* adj;
-  int** a, **b;
-
-  adj = init_mat(dim, dim, "");
-  a = Q->array.SZ;
-  b = adj->array.SZ;
   
   switch(dim) {
   case 1:
@@ -339,7 +354,7 @@ matrix_TYP* adjugate(matrix_TYP* Q, int dim)
     printf("Error! Trying to find adjugate of matrix of size %d!\n", dim);
   }
 
-  return adj;
+  return;
 }
 
 Z64* voronoi_bounds(int dim)
@@ -364,8 +379,8 @@ matrix_TYP* transform_eq(matrix_TYP* g, matrix_TYP* Q)
   int i,j;
   
   Q = mat_muleq(Q,g);
-  for (i = 0; i < N-1; i++)
-    for (j = i+1; j < N; j++) {
+  for (i = 0; i < QF_RANK-1; i++)
+    for (j = i+1; j < QF_RANK; j++) {
       swap(Q->array.SZ, i, j, j, i);
     }
   return mat_muleq(Q, g);
@@ -373,32 +388,28 @@ matrix_TYP* transform_eq(matrix_TYP* g, matrix_TYP* Q)
 }
 
 // right now using integer arithmetic. Should probably run faster with floating point arithmetic
-void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
+void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
 {
-  matrix_TYP *H_int, *g, *min_g, *x_gram;
+  isometry_t g, min_g;
+  square_matrix_t H_int, x_gram;
 
-  int **q;
   Z64 *voronoi, *x, *x_min, *x_max, *x_num, *x_closest;
-  int i,j, num_xs, x_idx, min_dist, n;
+  int i,j, num_xs, x_idx, min_dist;
 
   Z64 *y_int, *v_int;
   Z64 tmp, det;
 
-  n = Q->rows;
-
 #ifdef DEBUG_LEVEL_FULL
   printf("finding closest_lattice_vector with gram:\n");
-  print_mat(Q);
+  square_matrix_print(q);
 #endif // DEBUG_LEVEL_FULL
   
   // v_int = init_mat(1, dim-1, "");
   v_int = (Z64 *)malloc((dim-1)*sizeof(Z64));
-  g = init_mat(n, n, "1");
-  min_g = init_mat(n, n, "");
-  g->flags.Symmetric = g->flags.Scalar = g->flags.Diagonal = 0;
-  H_int = adjugate(Q, dim-1);
-  
-  q = Q->array.SZ;
+  isometry_init(g);
+  isometry_init(min_g);
+
+  adjugate(H_int, q, dim-1);
   
   for (i = 0; i < dim-1; i++) {
     v_int[i] = q[i][dim-1];
@@ -406,7 +417,7 @@ void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
 
 #ifdef DEBUG_LEVEL_FULL
   printf("H_int = \n");
-  print_mat(H_int);
+  square_matrix_print(H_int);
 
   printf("v_int = \n");
   //  print_mat(v_int);
@@ -423,7 +434,7 @@ void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
 
   for (i = 0; i < dim-1; i++)
     for (j = 0; j < dim-1; j++)
-      y_int[i] += H_int->array.SZ[i][j] * v_int[j];
+      y_int[i] += H_int[i][j] * v_int[j];
 
 #ifdef DEBUG_LEVEL_FULL
   printf("y_int = \n");
@@ -442,7 +453,7 @@ void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
   
   det = 0;
   for (i = 0; i < dim - 1; i++) {
-    tmp = H_int->array.SZ[0][i];
+    tmp = H_int[0][i];
     det += tmp*q[i][0];
   }
   det = llabs(det);
@@ -472,11 +483,19 @@ void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
       tmp /= x_num[j];
     }
     for ( i = 0; i < dim-1; i++)
-      g->array.SZ[i][dim-1] = -x[i];
-    x_gram = transform(g,Q);
-    if (x_gram->array.SZ[dim-1][dim-1] < min_dist) {
-      min_dist = x_gram->array.SZ[dim-1][dim-1];
-      min_g = copy_mat(g);
+      g->s[i][dim-1] = -x[i];
+    for ( i = 0; i < dim-1; i++)
+      g->s_inv[i][dim-1] = x[i];
+
+#ifdef DEBUG
+    square_matrix_mul(x_gram, g->s, g->s_inv);
+    assert(square_matrix_is_one(x_gram));
+#endif // DEBUG
+
+    isometry_transform_gram(x_gram, g, q);
+    if (x_gram[dim-1][dim-1] < min_dist) {
+      min_dist = x_gram[dim-1][dim-1];
+      isometry_init_set(min_g, g);
       for (j = 0; j < dim-1; j++)
 	x_closest[j] = x[j];
     }
@@ -488,27 +507,28 @@ void closest_lattice_vector(matrix_TYP* Q, matrix_TYP* iso, int dim)
     printf("%4" PRId64 " ", x_closest[i]);
   printf("\n");
 #endif // DEBUG_LEVEL_FULL
-  
-  iso = mat_muleq(iso, min_g);
-  Q = transform_eq(min_g, Q);
+
+  isometry_mul(g,iso,min_g);
+  isometry_init_set(iso, g);
+
+  isometry_transform_gram(q, min_g, q);
+
 #ifdef DEBUG_LEVEL_FULL
   printf("returning isometry: \n");
-  print_mat(iso);
+  square_matrix_print(iso->s);
   printf("transformed gram to: \n");
-  print_mat(Q);
+  square_matrix_print(q);
 #endif // DEBUG_LEVEL_FULL
 
   //  free_mat(v_int);
   free(v_int);
-  free_mat(g);
-  free_mat(min_g);
-  free_mat(H_int);
   free(y_int);
   free(x);
   free(x_min);
   free(x_max);
   free(x_num);
   free(x_closest);
+  free(voronoi);
   return;
 }
 
@@ -617,21 +637,31 @@ void sort(int* values, int* pos, int n)
   return;
 }
 
-void updatePerm(matrix_TYP* isom, int* perm)
+void updatePerm(isometry_t isom, int* perm)
 {
-  matrix_TYP* temp;
-  int i,j,n;
+  square_matrix_t temp;
+  int i,j;
+  
+  for ( i = 0; i < QF_RANK; i++)
+    for ( j = 0; j < QF_RANK; j++)
+      temp[i][j] = isom->s[i][j];
+  
+  for ( i = 0; i < QF_RANK; i++)
+    for ( j = 0; j < QF_RANK; j++)
+      isom->s[perm[i]][j] = temp[i][j];
 
-  n = isom->cols;
-  temp = init_mat(n,n,"");
-  for ( i = 0; i < n; i++)
-    for ( j = 0; j < n; j++)
-      temp->array.SZ[i][j] = isom->array.SZ[i][j];
-  for ( i = 0; i < n; i++)
-    for ( j = 0; j < n; j++)
-      isom->array.SZ[perm[i]][j] = temp->array.SZ[i][j];
+  for ( i = 0; i < QF_RANK; i++)
+    for ( j = 0; j < QF_RANK; j++)
+      temp[i][j] = isom->s_inv[i][j];
 
-  free_mat(temp);
+  for ( i = 0; i < QF_RANK; i++)
+    for ( j = 0; j < QF_RANK; j++)
+      isom->s_inv[i][j] = temp[perm[i]][j];
+
+#ifdef DEBUG
+  square_matrix_mul(temp, isom->s, isom->s_inv);
+  assert(square_matrix_is_one(temp));
+#endif // DEBUG
   
   return;
 }
@@ -641,100 +671,79 @@ void updatePerm(matrix_TYP* isom, int* perm)
 // we supply a parameter defining the level of recursion
 // and use only this part of the matrices
 // All containers will have size n, but we will only use dim entries
-void greedy(matrix_TYP* gram, matrix_TYP* s, int n, int dim)
+void greedy(square_matrix_t gram, isometry_t s, int dim)
 {
-  matrix_TYP* tmp, *iso;
+  isometry_t tmp, iso;
   int* perm_norm;
-  int* perm;
+  int perm[QF_RANK];
   int i;
   
 #ifdef DEBUG_LEVEL_FULL
-  matrix_TYP *s0, *q0;
-  matrix_TYP *s_inv, *q_trans;
+  isometry_t s0, s0_inv, s0_inv_s;
+  square_matrix_t q0;
 #endif // DEBUG_LEVEL_FULL
 
 #ifdef DEBUG_LEVEL_FULL
-  s0 = copy_mat(s);
-  q0 = copy_mat(gram);
-#endif // DEBUG_LEVEL_FULL
-
-#ifdef DEBUG_LEVEL_FULL
-  s_inv = mat_inv(s0);
-  s_inv = mat_muleq(s_inv, s);
-  q_trans = transform(s_inv, q0);
-  assert(cmp_mat(q_trans,gram) == 0);
-  free_mat(s_inv);
-  free_mat(q_trans);
+  isometry_init_set(s0, s);
+  square_matrix_set(q0, gram);
 #endif // DEBUG_LEVEL_FULL
     
   if (dim == 1) return;
 
   perm_norm = (int*)malloc(dim*sizeof(int));
-  perm = (int*)malloc(n*sizeof(int));
   
   do {
 
 #ifdef DEBUG_LEVEL_FULL
-    s_inv = mat_inv(s0);
-    s_inv = mat_muleq(s_inv, s);
-    q_trans = transform(s_inv, q0);
-    assert(cmp_mat(q_trans,gram) == 0);
-    free_mat(s_inv);
-    free_mat(q_trans);
+  isometry_inv(s0_inv, s0);
+  isometry_mul(s0_inv_s, s0_inv, s);
+  assert(isometry_is_isom(s0_inv_s, q0, gram));
 #endif // DEBUG_LEVEL_FULL
     
     for (i = 0; i < dim; i++) {
-      perm_norm[i] = gram->array.SZ[i][i];
+      perm_norm[i] = gram[i][i];
       perm[i] = i;
     }
     sort(perm_norm, perm, dim);
 
     // this is to make sure we do not touch these rows
-    for ( i = dim; i < n; i++)
+    for ( i = dim; i < QF_RANK; i++)
       perm[i] = i;
 
-     // temp isometry
-    tmp = init_mat(n,n,"1");
-    tmp->flags.Scalar = tmp->flags.Diagonal = tmp->flags.Symmetric = 0;
+    // temp isometry
+    isometry_init(tmp);
     
     updatePerm(tmp, perm);
 
     // update isometry s = s*tmp;
-    s = mat_muleq(s, tmp);
+    isometry_mul(iso, s, tmp);
+    isometry_init_set(s, iso);
     
     // update gram
-    gram = transform_eq(tmp, gram);
+    isometry_transform_gram(gram, tmp, gram);
     
 #ifdef DEBUG_LEVEL_FULL
-    s_inv = mat_inv(s0);
-    s_inv = mat_muleq(s_inv, s);
-    q_trans = transform(s_inv, q0);
-    assert(cmp_mat(q_trans,gram) == 0);
-    free_mat(s_inv);
-    free_mat(q_trans);
+    isometry_inv(s0_inv, s0);
+    isometry_mul(s0_inv_s, s0_inv, s);
+    assert(isometry_is_isom(s0_inv_s, q0, gram));
 #endif // DEBUG_LEVEL_FULL
-
-    free_mat(tmp);
-
+  
     // !! - TODO - do we really need iso here
     // or could we simply pass s?
-    iso = init_mat(n,n,"1");
-    iso->flags.Scalar = iso->flags.Diagonal = iso->flags.Symmetric = 0;
-    greedy(gram, iso, n, dim-1);
+
+    isometry_init(iso);
+    greedy(gram, iso, dim-1);
 
     //    s = s*iso;
-    s = mat_muleq(s, iso);
+    isometry_mul(tmp, s, iso);
+    isometry_init_set(s, tmp);
 
 #ifdef DEBUG_LEVEL_FULL
-    s_inv = mat_inv(s0);
-    s_inv = mat_muleq(s_inv, s);
-    q_trans = transform(s_inv, q0);
-    assert(cmp_mat(q_trans,gram) == 0);
-    free_mat(s_inv);
-    free_mat(q_trans);
+    isometry_inv(s0_inv, s0);
+    isometry_mul(s0_inv_s, s0_inv, s);
+    assert(isometry_is_isom(s0_inv_s, q0, gram));
 #endif // DEBUG_LEVEL_FULL
 
-    free_mat(iso);
     // !! TODO - one can use subgram to save computations
     // This transformation already happens inside greedy(dim-1)
     //     gram = iso.transform(gram);
@@ -742,17 +751,13 @@ void greedy(matrix_TYP* gram, matrix_TYP* s, int n, int dim)
     closest_lattice_vector(gram, s, dim);
 
 #ifdef DEBUG_LEVEL_FULL
-    s_inv = mat_inv(s0);
-    s_inv = mat_muleq(s_inv, s);
-    q_trans = transform(s_inv, q0);
-    assert(cmp_mat(q_trans,gram) == 0);
-    free_mat(s_inv);
-    free_mat(q_trans);
+    isometry_inv(s0_inv, s0);
+    isometry_mul(s0_inv_s, s0_inv, s);
+    assert(isometry_is_isom(s0_inv_s, q0, gram));
 #endif // DEBUG_LEVEL_FULL
     
-  } while (gram->array.SZ[dim-1][dim-1] < gram->array.SZ[dim-2][dim-2]);
+  } while (gram[dim-1][dim-1] < gram[dim-2][dim-2]);
   
-  free(perm);
   free(perm_norm);
   
   return;
@@ -866,6 +871,7 @@ void mat_irred_charpoly_eigenvector(nf_elem_t* evec, const fmpq_mat_t mat, const
   
   n = fmpq_poly_degree(f);
 
+  assert(fmpq_poly_is_irreducible(f));
   assert( (fmpq_mat_nrows(mat) == n) && (fmpq_mat_ncols(mat) == n) );
   
   if (n == 1) {
@@ -1031,6 +1037,8 @@ void restrict_mat(fmpq_mat_t res_T, const fmpq_mat_t T, const fmpq_mat_t basis_W
     return;
   }
 
+  assert(fmpq_mat_ncols(T) > 0);
+  assert(fmpq_mat_nrows(basis_W) > 0);
   fmpq_mat_init(BA, fmpq_mat_nrows(basis_W), fmpq_mat_ncols(T));
   fmpq_mat_init(BA_t, fmpq_mat_ncols(T), fmpq_mat_nrows(basis_W));
   fmpq_mat_mul(BA, basis_W, T);
@@ -1039,8 +1047,10 @@ void restrict_mat(fmpq_mat_t res_T, const fmpq_mat_t T, const fmpq_mat_t basis_W
   fmpq_mat_init(B_t, fmpq_mat_ncols(basis_W), fmpq_mat_nrows(basis_W));
   fmpq_mat_transpose(B_t, basis_W);
   // transofrming to square matrices so flint will be able to solve it
+  assert(fmpq_mat_ncols(B_t) > 0);
   fmpq_mat_init(B_B_t, fmpq_mat_ncols(B_t), fmpq_mat_ncols(B_t));
   fmpq_mat_mul(B_B_t, basis_W, B_t);
+  assert(fmpq_mat_ncols(BA_t) > 0);
   fmpq_mat_init(B_BA_t, fmpq_mat_ncols(B_t), fmpq_mat_ncols(BA_t));
   fmpq_mat_mul(B_BA_t, basis_W, BA_t);
   
@@ -1066,116 +1076,69 @@ void restrict_mat(fmpq_mat_t res_T, const fmpq_mat_t T, const fmpq_mat_t basis_W
 }
 
 // initializes nf and evec (assumes evec is allocated)
-void get_eigenvector(nf_elem_t* evec, nf_t nf, const fmpq_mat_t T, const fmpq_mat_t basis_W)
+void get_eigenvector(nf_elem_t* evec, nf_t nf, const fmpq_mat_t T)
 {
-  slong i, dim_W, dim;
-  fmpq_mat_t T_W;
-  fmpq_poly_t f;
-  nf_elem_t* evec_W;
+  slong i, dim;
 
-  dim_W = fmpq_mat_nrows(basis_W);
-  dim = fmpq_mat_ncols(basis_W);
-
-  assert ((dim == fmpq_mat_nrows(T)) && (dim == fmpq_mat_ncols(T)) );
+  dim = fmpq_mat_nrows(T);
   
-  evec_W = (nf_elem_t*) malloc(dim_W * sizeof(nf_elem_t));
-
-  fmpq_mat_init(T_W, dim_W, dim_W);
-  restrict_mat(T_W, T, basis_W);
-  fmpq_poly_init(f);
-  fmpq_mat_charpoly(f, T_W);
-  nf_init(nf, f);
+  assert(dim == fmpq_mat_ncols(T));
+  
   for (i = 0; i < dim; i++)
     nf_elem_init(evec[i], nf);
-  for (i = 0; i < dim_W; i++)
-    nf_elem_init(evec_W[i], nf);
-  
-  mat_irred_charpoly_eigenvector(evec_W, T_W, f, nf);
-  nf_elem_vec_mul_fmpq_mat(evec, evec_W, basis_W, nf);
+
+  // !! TODO - we can get rid of the poly parameter, as it is stored in nf
+  mat_irred_charpoly_eigenvector(evec, T, nf->pol, nf);
 
 #ifdef DEBUG
   check_eigenvector(evec, T, nf);
 #endif // DEBUG
   
-  for (i = 0; i < dim_W; i++)
-    nf_elem_clear(evec_W[i], nf);
-  free(evec_W);
+  return;
+}
+
+// tries to get an eigenvecetor for T over the subspace W
+bool get_eigenvector_on_subspace(nf_elem_t* evec, nf_t nf, const fmpq_mat_t T,
+				 const fmpq_mat_t basis_W)
+{
+  slong i, dim_W, dim;
+  fmpq_mat_t T_W;
+  fmpq_poly_t f;
+  nf_elem_t* evec_W;
+  bool is_irred;
+  
+  dim_W = fmpq_mat_nrows(basis_W);
+  dim = fmpq_mat_ncols(basis_W);
+
+  assert ((dim == fmpq_mat_nrows(T)) && (dim == fmpq_mat_ncols(T)) );
+
+  fmpq_mat_init(T_W, dim_W, dim_W);
+  restrict_mat(T_W, T, basis_W);
+  fmpq_poly_init(f);
+  fmpq_mat_charpoly(f, T_W);
+
+  is_irred = fmpq_poly_is_irreducible(f);
+
+  if (is_irred) {
+    nf_init(nf, f);
+    evec_W = (nf_elem_t*) malloc(dim_W * sizeof(nf_elem_t));
+    get_eigenvector(evec_W, nf, T_W);
+    for (i = 0; i < dim; i++)
+      nf_elem_init(evec[i], nf);
+    nf_elem_vec_mul_fmpq_mat(evec, evec_W, basis_W, nf);
+#ifdef DEBUG
+    check_eigenvector(evec, T, nf);
+#endif // DEBUG
+    for (i = 0; i < dim_W; i++)
+      nf_elem_clear(evec_W[i], nf);
+    free(evec_W);
+  }
+  
+  fmpq_poly_clear(f);
+  
   fmpq_mat_clear(T_W);
   
-  return;
-}
-
-void fmpq_poly_factor(fmpq_poly_factor_t factors, const fmpq_poly_t f)
-{
-  slong i;
-  fmpz_poly_t f_int;
-  fmpz_poly_factor_t f_int_fac;
-
-  fmpz_poly_init(f_int);
-  fmpz_poly_factor_init(f_int_fac);
- 
-  fmpq_poly_get_numerator(f_int, f);
-  fmpz_poly_factor_zassenhaus(f_int_fac, f_int);
-  factors->num = f_int_fac->num;
-  factors->p = (fmpq_poly_struct*)malloc(factors->num * sizeof(fmpq_poly_struct));
-  factors->exp = (slong*)malloc(factors->num * sizeof(slong));
-  for (i = 0; i < factors->num; i++) {
-    factors->exp[i] = f_int_fac->exp[i];
-    fmpq_poly_init(&(factors->p[i]));
-    fmpq_poly_set_fmpz_poly(&(factors->p[i]), &(f_int_fac->p[i]));
-  }
-  
-  fmpz_poly_factor_clear(f_int_fac);
-  fmpz_poly_clear(f_int);
-  return;
-}
-
-void fmpq_poly_factor_free(fmpq_poly_factor_t factors)
-{
-  free(factors->p);
-  free(factors->exp);
-}
-
-void fmpq_poly_evaluate_fmpq_mat(fmpq_mat_t res, const fmpq_poly_t poly, const fmpq_mat_t a)
-{
-  slong i, n, r;
-  fmpq_t coeff;
-  fmpq_mat_t scalar;
-  fmpz_mat_t num;
-  fmpz_t denom, mat_gcd;
-
-  fmpz_init(denom);
-  fmpz_init(mat_gcd);
-  fmpq_init(coeff);
-  r = fmpq_mat_nrows(a);
-  assert (r == fmpq_mat_ncols(a));
-  fmpq_mat_init(scalar, r, r);
-  fmpz_mat_init(num, r, r);
-  
-  fmpq_mat_zero(res);
-  n = fmpq_poly_degree(poly);
-  for (i = n; i >= 0; i--) {
-    fmpq_mat_mul(res, res, a);
-    fmpq_poly_get_coeff_fmpq(coeff, poly, i);
-    fmpq_mat_one(scalar);
-    fmpq_mat_scalar_mul_fmpq(scalar, scalar, coeff);
-    fmpq_mat_add(res, res, scalar);
-  }
-
-  if (!fmpq_mat_is_zero(res)) {
-    // reducing size of coefficients
-    fmpq_mat_get_fmpz_mat_matwise(num, denom, res);
-    fmpz_mat_content(mat_gcd, num);
-    fmpq_mat_scalar_div_fmpz(res, res, mat_gcd);
-  }
-
-  fmpz_mat_clear(num);
-  fmpq_mat_clear(scalar);
-  fmpz_clear(denom);
-  fmpz_clear(mat_gcd);
-  fmpq_clear(coeff);
-      
-  return;
+  return is_irred;
 }
 
 /* // initializes the kernel */
@@ -1218,8 +1181,10 @@ void fmpq_mat_kernel(fmpq_mat_t ker, const fmpq_mat_t mat)
   fmpq_mat_get_fmpz_mat_matwise(num, den, mat);
   rank = fmpz_mat_nullspace(int_ker, num);
 
-  fmpz_mat_content(mat_gcd, int_ker);
-  fmpz_mat_scalar_divexact_fmpz(int_ker, int_ker, mat_gcd);
+  if (rank != 0) {
+    fmpz_mat_content(mat_gcd, int_ker);
+    fmpz_mat_scalar_divexact_fmpz(int_ker, int_ker, mat_gcd);
+  }
   
   //fmpq_mat_init(ker, fmpq_mat_ncols(mat), rank);
   fmpq_mat_init(ker, rank, fmpq_mat_ncols(mat)); 
@@ -1233,6 +1198,8 @@ void fmpq_mat_kernel(fmpq_mat_t ker, const fmpq_mat_t mat)
   fmpz_mat_clear(num);
   fmpz_clear(mat_gcd);
   fmpz_clear(den);
+
+  return;
 }
 
 // not sure now if we are doing left kernel or right kernel. 
@@ -1282,10 +1249,10 @@ void print_content_and_coeff_size(const fmpq_mat_t A, const char* name)
 void kernel_on(fmpq_mat_t ker, const fmpq_mat_t A, const fmpq_mat_t B)
 {
   fmpq_mat_t ker_A;
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
   print_content_and_coeff_size(A, "A");
   print_content_and_coeff_size(B, "B");
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
   
   // fmpq_mat_kernel(ker, A);
   fmpq_mat_left_kernel(ker_A, A);
@@ -1371,113 +1338,3 @@ void nmod_mat_init_set_fmpz_mat(nmod_mat_t dest, const fmpz_mat_t mat, mp_limb_t
   return;
 }
 
-eigenvalues* get_eigenvalues(matrix_TYP* mat)
-{
-  fmpz_mat_t M;
-  fmpz_poly_t cp;
-  fmpz_poly_factor_t cp_fac;
-  fmpq_poly_t nf_poly;
-  int row, col, i, j;
-  eigenvalues* evs;
-  nf_mat_t M_K, ker, lambda;
-  
-  fmpz_mat_init(M, mat->rows, mat->cols);
-
-  for (row = 0; row < mat->rows; row++)
-    for (col = 0; col  < mat->cols; col++)
-      *fmpz_mat_entry(M, row, col) = mat->array.SZ[row][col];
-
-  fmpz_poly_init(cp);
-  fmpz_mat_charpoly(cp, M);
-#ifdef DEBUG_LEVEL_FULL
-  fmpz_poly_print_pretty(cp, "x");
-  printf("\n");
-#endif // DEBUG_LEVEL_FULL
-  fmpz_poly_factor_init(cp_fac);
-  fmpz_poly_factor_zassenhaus(cp_fac, cp);
-
-#ifdef DEBUG_LEVEL_FULL
-  for (i = 0; i < cp_fac->num; i++) {
-    fmpz_poly_print_pretty(&(cp_fac->p[i]), "x");
-    printf("\n");
-  }
-#endif // DEBUG_LEVEL_FULL
-
-  evs = (eigenvalues*)malloc(sizeof(eigenvalues));
-  
-  evs->num = cp_fac->num;
-  evs->dim = mat->rows;
-  evs->nfs = (nf_t*)malloc(cp_fac->num * sizeof(nf_t));
-  evs->eigenvals = (nf_elem_t*)malloc(cp_fac->num * sizeof(nf_elem_t));
-  evs->eigenvecs = (nf_elem_t**)malloc(cp_fac->num * sizeof(nf_elem_t*));
-  
-  for (i = 0; i < cp_fac->num; i++) {
-    evs->eigenvecs[i] = (nf_elem_t*)malloc(mat->rows * sizeof(nf_elem_t));
-    fmpq_poly_init(nf_poly);
-    fmpq_poly_set_fmpz_poly(nf_poly, &(cp_fac->p[i]));
-    nf_init(evs->nfs[i], nf_poly);
-    nf_elem_init(evs->eigenvals[i], evs->nfs[i]);
-    nf_elem_gen(evs->eigenvals[i], evs->nfs[i]);
-    nf_mat_init(M_K, &(evs->nfs[i]), mat->rows, mat->cols);
-    nf_mat_init(lambda, &(evs->nfs[i]), mat->rows, mat->cols);
-    fmpz_mat_get_nf_mat(M_K, M);
-    nf_mat_one(lambda);
-    nf_mat_scalar_mul_nf(lambda, lambda, evs->eigenvals[i]);
-    nf_mat_sub(M_K, M_K, lambda);
-    nf_mat_kernel(ker, M_K);
-#ifdef DEBUG
-    printf("ker = \n");
-    nf_mat_print_pretty(ker);
-#endif // DEBUG
-    for (j = 0; j < mat->rows; j++) {
-      nf_elem_init(evs->eigenvecs[i][j], evs->nfs[i]);
-      nf_elem_set(evs->eigenvecs[i][j], *nf_mat_entry(ker, 0, j), evs->nfs[i]);
-    }
-    nf_mat_clear(ker);
-    nf_mat_clear(M_K);
-    nf_mat_clear(lambda);
-  }
-
-  fmpz_mat_clear(M);
-  fmpz_poly_factor_clear(cp_fac);
-  fmpz_poly_clear(cp);
-  
-  return evs;
-}
-
-void eigenvalues_init(eigenvalues** evs, slong num, slong dim)
-{
-  slong i;
-  
-  (*evs)->num = num;
-  (*evs)->dim = dim;
-  (*evs)->nfs = (nf_t*)malloc(num * sizeof(nf_t));
-  (*evs)->eigenvals = (nf_elem_t*)malloc(num * sizeof(nf_elem_t));
-  (*evs)->eigenvecs = (nf_elem_t**)malloc(num * sizeof(nf_elem_t*));
-  for (i = 0; i < num; i++)
-    (*evs)->eigenvecs[i] = (nf_elem_t*)malloc(dim * sizeof(nf_elem_t));
-  
-  return;
-}
-
-void free_eigenvalues(eigenvalues* evs)
-{
-  int i, j;
-
-  for (i = 0; i < evs->num; i++) {
-    for (j = 0; j < evs->dim; j++) {
-      nf_elem_clear(evs->eigenvecs[i][j], evs->nfs[i]);
-    }
-    free(evs->eigenvecs[i]);
-    nf_elem_clear(evs->eigenvals[i], evs->nfs[i]);
-    nf_clear(evs->nfs[i]);
-  }
-
-  free(evs->eigenvecs);
-  free(evs->eigenvals);
-  free(evs->nfs);
-  
-  free(evs);
-  
-  return;
-}

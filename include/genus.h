@@ -4,12 +4,15 @@
 #include <carat/matrix.h>
 
 #include "hash.h"
+#include "isometry.h"
 #include "spinor.h"
+#include "square_matrix.h"
 
 typedef struct
 {
   hash_table_t genus_reps;
   spinor_t spinor;
+  fmpz_t disc;
   
   slong* dims;
   slong* conductors;
@@ -17,15 +20,21 @@ typedef struct
   slong** lut_positions;
   slong num_conductors;
 
-  matrix_TYP** isoms; // isometries corresponding to the genus representatives
-  slong* isom_denoms; // the denominators for the isometries
+  isometry_t* isoms; // isometries corresponding to the genus representatives
   
 } genus_struct;
 
 typedef genus_struct genus_t[1];
 
 /* compute the genus of a quadratic form */
-void genus_init(genus_t genus, matrix_TYP* Q);
+void genus_init_square_matrix(genus_t genus, const square_matrix_t Q, int h);
+
+/* set the genus from a list */
+void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps, size_t genus_size);
+
+void genus_init_empty(genus_t genus, size_t disc);
+
+void genus_init_file(genus_t genus, const char* genus_fname, size_t disc);
 
 void genus_clear(genus_t genus);
 

@@ -43,6 +43,7 @@ int fmpz_valuation(const fmpz_t x, const fmpz_t p)
   fmpz_t a;
   int a_val;
 
+  assert(!fmpz_is_zero(x));
   fmpz_init(a);
 
   a_val = fmpz_valuation_unit(a,x,p);
@@ -54,6 +55,7 @@ int fmpz_valuation(const fmpz_t x, const fmpz_t p)
 
 int fmpq_valuation(const fmpq_t x, const fmpz_t p)
 {
+  assert(!fmpq_is_zero(x));
   return fmpz_valuation(fmpq_numref(x), p) - fmpz_valuation(fmpq_denref(x), p);
 }
 
@@ -108,9 +110,9 @@ int hilbert_symbol(const fmpz_t x, const fmpz_t y, const fmpz_t p)
 
 /* Recursive function for a temporary extended Euclidean algorithm. */
 /* It uses pointers to return multiple values. */
-int gcdext(int a, int b, int *x, int *y)
+Z64 gcdext(Z64 a, Z64 b, Z64 *x, Z64 *y)
 {
-  int _x, _y, gcd;
+  Z64 _x, _y, gcd;
   
   if (a == 0) {
     *x = 0;
@@ -141,7 +143,7 @@ int rational_lt(rational a, rational b)
 
 rational rational_sum(rational a, rational b)
 {
-  int d, dummy1, dummy2;
+  Z64 d, dummy1, dummy2;
   rational c;
 
   c.z = a.z * b.n + b.z * a.n;

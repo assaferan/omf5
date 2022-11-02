@@ -1,3 +1,4 @@
+#include <assert.h>
 #include "pivot_data.h"
 
 void pivot_data_init(pivot_data_t pivots, slong dim, slong aniso, slong k)
@@ -5,6 +6,8 @@ void pivot_data_init(pivot_data_t pivots, slong dim, slong aniso, slong k)
   pivot_data_t pivots2;
   slong i,j;
 
+  assert(k > 0);
+  
   pivots->is_params_init = false;
   
   // Base case.
@@ -97,4 +100,6 @@ void pivot_data_params_clear(pivot_data_t pivots)
   fq_nmod_mpoly_mat_clear(pivots->p_isotropic_param, pivots->R);
   fq_nmod_mpoly_ctx_clear(pivots->R);
   pivots->is_params_init = false;
+
+  return;
 }

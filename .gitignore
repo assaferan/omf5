@@ -1,3 +1,9 @@
+gmon.out
+data
+Makefile
+Makefile.in
+src/Makefile
+src/Makefile.in
 *~
 *.py~
 *.sage.py

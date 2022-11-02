@@ -20,7 +20,7 @@ int hilbert_symbol(const fmpz_t x, const fmpz_t y, const fmpz_t p);
 /* Recursive function for a temporary extended Euclidean algorithm. */
 /* It uses pointers to return multiple values. */
 
-int gcdext(int a, int b, int *x, int *y);
+Z64 gcdext(Z64 a, Z64 b, Z64 *x, Z64 *y);
 
 int rational_lt(rational a, rational b);
 

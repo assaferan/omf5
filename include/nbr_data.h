@@ -9,6 +9,7 @@
 #include <flint/fq_nmod_mpoly.h>
 
 #include "pivot_data.h"
+#include "square_matrix.h"
 #include "typedefs.h"
 
 typedef struct
@@ -49,7 +50,7 @@ typedef struct
 
 typedef nbr_data nbr_data_t[1];
 
-void nbr_data_init(nbr_data_t nbr_man, matrix_TYP* q, slong p_int, slong k);
+void nbr_data_init(nbr_data_t nbr_man, const square_matrix_t q, slong p_int, slong k);
 
 void nbr_data_clear(nbr_data_t nbr_man);
 void nbr_data_params_init(pivot_data_t pivots, const nbr_data_t nbr_man);

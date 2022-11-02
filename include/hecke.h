@@ -5,6 +5,8 @@
 
 #include <antic/nf_elem.h>
 
+#include "decomposition.h"
+#include "eigenvalues.h"
 #include "genus.h"
 #include "matrix_tools.h"
 #include "nbr_data.h"
@@ -15,7 +17,7 @@
 int process_isotropic_vector_nbr_data(nbr_data_t nbr_man, int* T, const genus_t genus, 
 				      double* theta_time, double* isom_time, double* total_time, int* num_isom);
 
-int process_isotropic_vector(neighbor_manager* nbr_man, int* T, const genus_t genus,
+int process_isotropic_vector(neighbor_manager_t nbr_man, int* T, const genus_t genus,
 			     double* theta_time, double* isom_time, double* total_time, int* num_isom);
 
 
@@ -27,14 +29,31 @@ int process_neighbour_chunk_nbr_data(int* T, int p, int k, int gen_idx, const ge
 
 void hecke_col_nbr_data(int* T, int p, int k, int gen_idx, const genus_t genus);
 
+slong hecke_col_nbr_data_all_conductors(W64* spin_vals, int p, int k, int gen_idx, const genus_t genus);
+
 void hecke_col(int* T, int p, int gen_idx, const genus_t genus);
 
-void get_hecke_ev_nbr_data(nf_elem_t e, const genus_t genus, eigenvalues* evs, int p, int k, int ev_idx);
+slong hecke_col_all_conductors(W64* spin_vals, int p, int gen_idx, const genus_t genus);
 
-void get_hecke_ev(nf_elem_t e, const genus_t genus, eigenvalues* evs, int p, int ev_idx);
+int** hecke_col_all_conds_sparse(int p, int col_idx, const genus_t genus);
+
+matrix_TYP** hecke_matrices_all_conductors(const genus_t genus, int p);
+
+void get_hecke_ev_nbr_data(nf_elem_t e, const genus_t genus, const eigenvalues_t evs, int p, int k, int ev_idx);
+
+void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus, const eigenvalues_t evs, int p, int k, int ev_idx, slong c);
+
+void get_hecke_ev(nf_elem_t e, const genus_t genus, const eigenvalues_t evs, int p, int ev_idx);
+void get_hecke_ev_all_conductors(nf_elem_t e, const genus_t genus,
+				 const eigenvalues_t evs,
+				 int p, int ev_idx, slong ev_cond);
 
 matrix_TYP* hecke_matrix(const genus_t genus, int p);
 
-eigenvalues* hecke_eigenforms(const genus_t genus);
+void get_hecke_fmpq_mat_all_conductors(fmpq_mat_t* hecke_fmpq_mat, const genus_t genus, int p, int k);
+
+void hecke_eigenforms(eigenvalues_t evs, const decomposition_t D, const genus_t genus, slong c);
+
+eigenvalues_t* hecke_eigenforms_all_conductors(const genus_t genus);
 
 #endif // __HECKE_H__

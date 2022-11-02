@@ -1,12 +1,12 @@
 #ifndef __JORDAN_H__
 #define __JORDAN_H__
 
-#include <carat/matrix.h>
-
 #include <flint/fmpz.h>
 #include <flint/fmpq.h>
 #include <flint/fmpq_mat.h>
 #include <flint/fmpz_mat.h>
+
+#include "square_matrix.h"
 
 typedef struct {
   fmpq_mat_t* matrices;
@@ -24,6 +24,6 @@ void jordan_data_clear(jordan_data_t jordan);
 void inner_product(fmpq_t res, const fmpz_mat_t G,
 		   const fmpq_mat_t S, ulong idx1, ulong idx2);
 
-void jordan_decomposition(jordan_data_t jordan, const matrix_TYP* q, const fmpz_t p);
+void jordan_decomposition(jordan_data_t jordan, const square_matrix_t q, const fmpz_t p);
 
 #endif // __JORDAN_H__
