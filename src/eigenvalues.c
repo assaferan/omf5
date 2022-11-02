@@ -1,3 +1,5 @@
+#include <assert.h>
+
 #include <flint/fmpz.h>
 #include <flint/fmpz_mat.h>
 #include <flint/fmpz_poly.h>
@@ -147,6 +149,122 @@ bool nf_elem_is_square(const nf_elem_t x, const nf_t K)
   return is_sqr;
 }
 
+bool nf_elem_is_square_fast(const nf_elem_t x, const nf_t K)
+{
+  // we do it in a weird way because of the lack of functionality of nf_elem
+
+  slong i, n;
+  slong coeff_int, p_int;
+  fmpz_t den, coeff, p, prod, bound;
+  nf_elem_t x_int;
+  fmpz_poly_t f_int;
+  nmod_poly_t f_int_mod_p, g_int_mod_p, r_int_mod_p;
+  nmod_poly_factor_t fac;
+  fq_nmod_ctx_t F; // the finite field
+  fq_nmod_t r;
+
+  n = fmpq_poly_degree(K->pol);
+  
+  fmpz_init(den);
+  fmpz_init(coeff);
+  fmpz_init(p);
+  fmpz_init(bound);
+  nf_elem_init(x_int, K);
+  fmpz_poly_init(f_int);
+  nmod_poly_factor_init(fac);
+  
+  nf_elem_get_den(den, x, K);
+  fmpz_mul(den, den, den);
+  nf_elem_scalar_mul_fmpz(x_int, x, den, K);
+
+  fmpz_one(bound);
+  for (i = 0; i < n; i ++) {
+    nf_elem_get_coeff_fmpz(coeff, x_int, i, K);
+    if (fmpz_cmpabs(bound, coeff) < 0)
+      fmpz_abs(bound, coeff);
+  }
+
+  fmpz_mul(bound, bound, bound);
+  // bound^2 is not enough!! Consider 21/2*(7 + sqrt(13))
+  fmpz_mul(bound, bound, bound);
+  fmpz_init(prod);
+  fmpz_one(prod);
+
+  // This is only probabilistic -
+  // should really go only up to bound, reconstruct using CRT and check
+  while (fmpz_cmp(prod, bound) < 0) {
+    // construct the finite field mod p
+    fmpz_nextprime(p, p, true);
+    fmpz_mul(prod, prod, p);
+    p_int = fmpz_get_si(p);
+    fmpq_poly_get_numerator(f_int, K->pol);
+    nmod_poly_init2(f_int_mod_p, p_int, n+1);
+    for (i = 0; i <= n; i++) {
+      fmpz_poly_get_coeff_fmpz(coeff, f_int, i);
+      fmpz_mod_ui(coeff, coeff, p_int);
+      coeff_int = fmpz_get_ui(coeff);
+      /*
+      coeff_int = fmpz_poly_get_coeff_si(f_int, i);
+      if (coeff_int < 0)
+	coeff_int += p_int * ((-coeff_int) / p_int + 1);
+      */
+      nmod_poly_set_coeff_ui(f_int_mod_p, i, coeff_int);
+    }
+    
+    nmod_poly_init2(g_int_mod_p, p_int, n);
+    for (i = 0; i < n; i++) {
+      nf_elem_get_coeff_fmpz(coeff, x_int, i, K);
+      fmpz_mod_ui(coeff, coeff, p_int);
+      coeff_int = fmpz_get_ui(coeff);
+      /*
+      coeff_int = fmpz_get_si(coeff);
+      if (coeff_int < 0)
+	coeff_int += p_int * ((-coeff_int) / p_int + 1);
+      */
+      nmod_poly_set_coeff_ui(g_int_mod_p, i, coeff_int);
+    }
+
+    nmod_poly_factor(fac, f_int_mod_p);
+    for (i = 0; i < fac->num; i++) {
+      nmod_poly_init(r_int_mod_p, p_int);
+      nmod_poly_rem(r_int_mod_p, g_int_mod_p, &(fac->p[i]));
+      fq_nmod_ctx_init_modulus(F, &(fac->p[i]), "x");
+      fq_nmod_init(r, F);
+      fq_nmod_set(r, r_int_mod_p, F);
+      if (!fq_nmod_is_square(r, F)) {
+	fq_nmod_clear(r, F);
+	fq_nmod_ctx_clear(F);
+	nmod_poly_clear(r_int_mod_p);
+	nmod_poly_clear(g_int_mod_p);
+	nmod_poly_clear(f_int_mod_p);
+	nf_elem_clear(x_int, K);
+	nmod_poly_factor_clear(fac);
+	fmpz_poly_clear(f_int);
+	fmpz_clear(p);
+	fmpz_clear(coeff);
+	fmpz_clear(den);
+	return false;
+      }
+      fq_nmod_clear(r, F);
+      fq_nmod_ctx_clear(F);
+      nmod_poly_clear(r_int_mod_p);
+    }
+
+    nmod_poly_clear(g_int_mod_p);
+    nmod_poly_clear(f_int_mod_p);
+  }
+  fmpz_clear(prod);
+
+  nf_elem_clear(x_int, K);
+  nmod_poly_factor_clear(fac);
+  fmpz_poly_clear(f_int);
+  fmpz_clear(p);
+  fmpz_clear(coeff);
+  fmpz_clear(den);
+  
+  return true;
+}
+
 bool ev_is_lpoly_reducible(const eigenvalues_t evs, slong ev_idx, slong p, slong c, const genus_t genus)
 {
   int k;
@@ -177,12 +295,21 @@ bool ev_is_lpoly_reducible(const eigenvalues_t evs, slong ev_idx, slong p, slong
 #ifdef DEBUG
   printf("disc = "); 
   nf_elem_print_pretty(disc, evs->nfs[ev_idx], "a");
+  printf(" over ");
+  nf_print(evs->nfs[ev_idx]);
   printf("\n");
 #endif // DEBUG
-  
-  is_lift = nf_elem_is_square(disc, evs->nfs[ev_idx]);
+
+  // !! TODO - this is not good enough, we might miss forms!
+  // e.g. 889. otoh, nf_elem_is_square is too slow.
+  // Should do CRT reconstruction
+  is_lift = nf_elem_is_square_fast(disc, evs->nfs[ev_idx]);
+  assert(is_lift == nf_elem_is_square(disc, evs->nfs[ev_idx]));
   
   nf_elem_clear(disc, evs->nfs[ev_idx]);
+  for (k = 1; k < 3; k++) {
+    nf_elem_clear(a[k-1], evs->nfs[ev_idx]);
+  }
   
   return is_lift;
 }

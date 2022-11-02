@@ -3,9 +3,8 @@
 // This is somewhat of a duplicate for cholesky,
 // but this one keeps everything integral.
 // Maybe replace by cholesky from flint?
-void orthogonalize_gram(fmpz_mat_t D, const fmpz_mat_t Q)
+void orthogonalize_gram_and_isom(fmpz_mat_t D, fmpz_mat_t L, const fmpz_mat_t Q)
 {
-  fmpz_mat_t L;
   fmpz_t prod_diag, d, inner_sum, tmp_prod;
   int i, j, k, r;
   slong n;
@@ -16,8 +15,6 @@ void orthogonalize_gram(fmpz_mat_t D, const fmpz_mat_t Q)
   fmpz_init(tmp_prod);
   n = fmpz_mat_nrows(Q);
 
-  fmpz_mat_init(L, n, n);
- 
   fmpz_one(prod_diag);
   fmpz_zero(d);
   fmpz_zero(inner_sum);
@@ -73,11 +70,22 @@ void orthogonalize_gram(fmpz_mat_t D, const fmpz_mat_t Q)
   printf("\n");
 #endif // DEBUG_LEVEL_FULL
 
-  fmpz_mat_clear(L);
-
   fmpz_clear(d);
   fmpz_clear(prod_diag);
   fmpz_clear(inner_sum);
   fmpz_clear(tmp_prod);
   return;
+}
+
+void orthogonalize_gram(fmpz_mat_t D, const fmpz_mat_t Q)
+{
+   fmpz_mat_t L;
+   slong n;
+
+   n = fmpz_mat_nrows(Q);
+   fmpz_mat_init(L, n, n);
+   orthogonalize_gram_and_isom(D, L, Q);
+   fmpz_mat_clear(L);
+   
+   return;
 }

@@ -1,6 +1,7 @@
 #ifndef __SQUARE_MATRIX_H__
 #define __SQUARE_MATRIX_H__
 
+#include <carat/typedef.h>
 #include <flint/fmpz_mat.h>
 
 #include "typedefs.h"

@@ -302,6 +302,16 @@ bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q,
   }
 
   if (dim == 2) {
+
+    // Take care of the easy case first.
+    if (fq_nmod_is_zero(fq_nmod_mat_entry(q, start, start), F)) {
+      fq_nmod_mat_clear(q_copy,F);
+      fq_nmod_mat_clear(sub_B, F);
+      fq_nmod_one(fq_nmod_mat_entry(vec,0,start),F);
+      fq_nmod_zero(fq_nmod_mat_entry(vec,0,start+1),F);
+      return true;
+    }
+    
     fq_nmod_init(a, F);
     fq_nmod_init(b, F);
     fq_nmod_init(c, F);
@@ -823,6 +833,7 @@ void fq_nmod_quad_hyperbolize(fq_nmod_mat_t gram, fq_nmod_mat_t basis, const fq_
     
     fq_nmod_clear(scalar,F);
     fq_nmod_mat_clear(original_gram,F);
+    fq_nmod_mat_clear(vec,F);
     return;
   }
 

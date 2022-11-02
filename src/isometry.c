@@ -140,7 +140,10 @@ void isometry_transform_gram(square_matrix_t gtQg, const isometry_t g, const squ
   square_matrix_transpose(gt, g->s);
   square_matrix_mul(Qg, Q, g->s);
   square_matrix_mul(gtQg, gt, Qg);
-  square_matrix_div_scalar(gtQg, gtQg, (g->denom)*(g->denom));
+  // this might overflow, as denom is only an int
+  // square_matrix_div_scalar(gtQg, gtQg, (g->denom)*(g->denom));
+  square_matrix_div_scalar(gtQg, gtQg, g->denom);
+  square_matrix_div_scalar(gtQg, gtQg, g->denom);
 
   return;
 }

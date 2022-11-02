@@ -17,7 +17,7 @@
 #define likely(x)   __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
 
-slong number_of_isotropic_subspaces(slong q, slong r, slong a, slong f, slong k)
+slong number_of_isotropic_subspaces(slong q, slong r, slong a, slong f, slong k, bool rad_cnt)
 {
   fmpz_t q_z, prod1, prod;
   slong i, num;
@@ -44,6 +44,23 @@ slong number_of_isotropic_subspaces(slong q, slong r, slong a, slong f, slong k)
   }
 
   num = fmpz_get_si(prod);
+
+  if (rad_cnt) {
+    // in this case we also consider the isotropic subspaces in the radical
+    // these are all the k-dimensionl spaces inside the radical
+    fmpz_one(prod);
+    for (i = 1; i <= k; i++) {
+      fmpz_pow_ui(prod1, q_z, f-i+1);
+      fmpz_sub_si(prod1, prod1, 1);
+      fmpz_mul(prod, prod, prod1);
+    }
+    for (i = 1; i <= k; i++) {
+      fmpz_pow_ui(prod1, q_z, i);
+      fmpz_sub_si(prod1, prod1, 1);
+      fmpz_divexact(prod, prod, prod1);
+    }
+    num += fmpz_get_si(prod);
+  }
   
   fmpz_clear(q_z);
   fmpz_clear(prod1);
@@ -52,13 +69,13 @@ slong number_of_isotropic_subspaces(slong q, slong r, slong a, slong f, slong k)
   return num;
 }
 
-slong number_of_neighbors(const nbr_data_t nbr_man)
+slong number_of_neighbors(const nbr_data_t nbr_man, bool rad_cnt)
 {
   slong p, num;
 
   p = fmpz_get_si(fq_nmod_ctx_prime(nbr_man->GF));
   num = number_of_isotropic_subspaces(p, nbr_man->witt_index, nbr_man->aniso_dim,
-				      nbr_man->rad_dim, nbr_man->k);
+				      nbr_man->rad_dim, nbr_man->k, rad_cnt);
   if (nbr_man->k == 2)
     num *= p;
 
@@ -169,6 +186,69 @@ int process_isotropic_vector_nbr_data_all_conductors(nbr_data_t nbr_man, W64* sp
   
   return 0;
 }
+
+int process_isotropic_vector_all_conductors(neighbor_manager_t nbr_man, W64* spin_vals,
+					    const genus_t genus,
+					    double* theta_time, double* isom_time,
+					    double* total_time, int* num_isom, int gen_idx)
+{
+  int i;
+  clock_t cputime;
+  square_matrix_t nbr;
+  isometry_t s_nbr, s_inv;
+  isometry_t hash_isom;
+  bool non_singular;
+
+  assert(genus->genus_reps->num_stored > 0);
+  
+  non_singular = nbr_process_build_nb_and_isom(nbr, s_nbr, nbr_man);
+
+  if (!non_singular)
+    return 0;
+  
+  assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx], nbr));
+  
+  cputime = clock();
+  i = hash_table_index_and_isom(genus->genus_reps, nbr, hash_isom, theta_time, isom_time, num_isom);
+  (*total_time) += clock() - cputime;
+
+#ifdef DEBUG
+  if ((i < 0) || (i > genus->genus_reps->num_stored)) {
+    printf("Error! Couldn't find element in genus!\n");
+    exit(-1);
+  }
+#endif // DEBUG
+
+  // TODO - compute only the upper half, and complete using hermitian property
+  // Determine which subspaces this representative contributes.
+
+  assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx], nbr));
+  assert(isometry_is_isom(genus->isoms[gen_idx], genus->genus_reps->keys[0],
+			  genus->genus_reps->keys[gen_idx]));
+  isometry_muleq_left(s_nbr, genus->isoms[gen_idx]);
+  assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[0], nbr));
+  assert(isometry_is_isom(hash_isom, nbr, genus->genus_reps->keys[i]));
+  isometry_muleq_right(s_nbr, hash_isom);
+  assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[0], genus->genus_reps->keys[i]));
+  assert(isometry_is_isom(genus->isoms[i], genus->genus_reps->keys[0],
+			  genus->genus_reps->keys[i]));
+  isometry_inv(s_inv, genus->isoms[i]);
+  assert(isometry_is_isom(s_inv, genus->genus_reps->keys[i],
+			  genus->genus_reps->keys[0]));
+  isometry_muleq_right(s_nbr, s_inv);
+  assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[0],
+			  genus->genus_reps->keys[0]));
+  
+  *spin_vals = ((i << (genus->spinor->num_primes)) | spinor_norm_isom(genus->spinor, s_nbr));
+
+  isometry_clear(s_nbr);
+  isometry_clear(s_inv);
+  isometry_clear(hash_isom);
+
+  square_matrix_clear(nbr);
+  
+  return 1;
+}
   
 int process_isotropic_vector(neighbor_manager_t nbr_man, int* T, const genus_t genus,
 			     double* theta_time, double* isom_time, double* total_time, int* num_isom)
@@ -178,8 +258,11 @@ int process_isotropic_vector(neighbor_manager_t nbr_man, int* T, const genus_t g
   int i;
   clock_t cputime;
   square_matrix_t nbr;
+  bool non_singular;
 
-  nbr_process_build_nb(nbr, nbr_man);
+  non_singular = nbr_process_build_nb(nbr, nbr_man);
+  if (!non_singular)
+    return 0;
 
   cputime = clock();
   i = hash_table_indexof(genus->genus_reps, nbr, 0, theta_time, isom_time, num_isom);
@@ -191,10 +274,10 @@ int process_isotropic_vector(neighbor_manager_t nbr_man, int* T, const genus_t g
     exit(-1);
   }
 #endif // DEBUG
-  
+
   T[i]++;
   
-  return 0;
+  return 1;
 }
 
 
@@ -219,9 +302,8 @@ int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const genus_t gen
   nbr_process_init(nbr_man, Q, p, i);
 
   while (!(nbr_process_has_ended(nbr_man))) {
-    process_isotropic_vector(nbr_man, T, genus, theta_time, isom_time, total_time, num_isom);
+    lc += process_isotropic_vector(nbr_man, T, genus, theta_time, isom_time, total_time, num_isom);
     nbr_process_advance(nbr_man);
-    lc++;
   }
 
   nbr_process_clear(nbr_man);
@@ -267,6 +349,46 @@ slong hecke_col_nbr_data_all_conductors(W64* spin_vals, int p, int k, int gen_id
 #endif // DEBUG
   
   nbr_data_clear(nbr_man);
+
+  return lc;
+}
+
+slong hecke_col_all_conductors(W64* spin_vals, int p, int gen_idx, const genus_t genus)
+{
+  square_matrix_t Q;
+  neighbor_manager_t nbr_man;
+  int lc, i;
+  int num_isom;
+  double theta_time, isom_time, total_time;
+
+  num_isom = lc = 0;
+  theta_time = isom_time = total_time = 0;
+
+  lc = 0;
+  
+  square_matrix_set(Q,genus->genus_reps->keys[gen_idx]);
+
+#ifdef DEBUG_LEVEL_FULL
+  printf("initialized Q: \n");
+  square_matrix_print(Q);
+#endif // DEBUG_LEVEL_FULL
+
+  for (i = 0; i < p; i++) {
+    nbr_process_init(nbr_man, Q, p, i);
+
+    while (!(nbr_process_has_ended(nbr_man))) {
+      lc += process_isotropic_vector_all_conductors(nbr_man, &(spin_vals[lc]), genus,
+						    &theta_time, &isom_time, &total_time,
+						    &num_isom, gen_idx);
+      nbr_process_advance(nbr_man);
+    }
+    nbr_process_clear(nbr_man);
+  }
+
+#ifdef DEBUG
+  printf("theta_time = %f, isom_time = %f, total_time = %f, num_isom = %d / %d \n",
+	 theta_time/lc, isom_time/lc, total_time, num_isom, lc);
+#endif // DEBUG
 
   return lc;
 }
@@ -368,7 +490,56 @@ int char_val(W64 x)
   return value;
 }
 
-matrix_TYP** hecke_matrices_all_conductors(const genus_t genus, int p, int k)
+int** hecke_col_all_conds_sparse(int p, int col_idx, const genus_t genus)
+{
+  slong c, i;
+
+  nbr_data_t nbr_man;
+  
+  W64* spin_vals;
+  int** hecke;
+  slong npos, rpos, num_nbrs;
+  slong* lut;
+  int* row;
+  slong spin_idx;
+  W64 r;
+
+  hecke = (int**)malloc(genus->num_conductors * sizeof(int*));
+  
+  for (c = 0; c < genus->num_conductors; c++) {
+    hecke[c] = (int*)malloc(genus->dims[c] * sizeof(int));
+    for (i = 0; i < genus->dims[c]; i++)
+      hecke[c][i] = 0;
+  }
+
+  nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, 1);
+  // in neighbor_manager we also go over the radical
+  // Maybe fixed that
+  num_nbrs = number_of_neighbors(nbr_man, false);
+  nbr_data_clear(nbr_man);
+  
+  spin_vals = (W64*)malloc(num_nbrs*sizeof(W64));
+  hecke_col_all_conductors(spin_vals, p, col_idx, genus);
+  
+  for (c = 0; c < genus->num_conductors; c++) {
+    lut = genus->lut_positions[c];
+    npos = lut[col_idx];
+    if (unlikely(npos==-1)) continue;
+    row = hecke[c];
+    for (spin_idx = 0; spin_idx < num_nbrs; spin_idx++) {
+      r = spin_vals[spin_idx] >> (genus->spinor->num_primes);
+      rpos = lut[r];
+      if (unlikely(rpos==-1)) continue;
+      row[rpos] += char_val(spin_vals[spin_idx] & c);
+    }
+  }
+  
+  free(spin_vals);
+ 
+  return hecke;
+}
+
+matrix_TYP** hecke_matrices_nbr_data_all_conductors(const genus_t genus, int p, int k)
 {
   matrix_TYP** hecke;
   nbr_data_t nbr_man;
@@ -394,7 +565,8 @@ matrix_TYP** hecke_matrices_all_conductors(const genus_t genus, int p, int k)
 
   // just computing the number of neighbors, to collect all the spin values at once
   nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, k);
-  num_nbrs = number_of_neighbors(nbr_man);
+  // nbr_data only goes over the isotropic vectors that are not in the radical
+  num_nbrs = number_of_neighbors(nbr_man, false);
   spin_vals = (W64*)malloc(num_nbrs*sizeof(W64));
   nbr_data_clear(nbr_man);
   
@@ -404,6 +576,69 @@ matrix_TYP** hecke_matrices_all_conductors(const genus_t genus, int p, int k)
     assert(nnbrs == num_nbrs);
 #else
     hecke_col_nbr_data_all_conductors(spin_vals, p, k, gen_idx, genus);
+#endif // DEBUG
+    for (c = 0; c < genus->num_conductors; c++) {
+      lut = genus->lut_positions[c];
+      npos = lut[gen_idx];
+      if (unlikely(npos==-1)) continue;
+      row = hecke[c]->array.SZ[hecke_ptr[c]];
+      for (spin_idx = 0; spin_idx < num_nbrs; spin_idx++) {
+	r = spin_vals[spin_idx] >> (genus->spinor->num_primes);
+	rpos = lut[r];
+	if (unlikely(rpos==-1)) continue;
+	row[rpos] += char_val(spin_vals[spin_idx] &c);
+      }
+      hecke_ptr[c]++;
+    }
+    
+  }
+  free(hecke_ptr);
+  free(spin_vals);
+  return hecke;
+}
+
+matrix_TYP** hecke_matrices_all_conductors(const genus_t genus, int p)
+{
+  matrix_TYP** hecke;
+  nbr_data_t nbr_man;
+  int gen_idx, rpos;
+  slong c, npos, num_nbrs, spin_idx;
+#ifdef DEBUG
+  slong nnbrs;
+#endif // DEBUG
+  int* row;
+  slong* lut;
+  W64* spin_vals;
+  W64 r;
+  int* hecke_ptr;
+
+  hecke = (matrix_TYP**)malloc(genus->num_conductors * sizeof(matrix_TYP*));
+  hecke_ptr = (int*)malloc(genus->num_conductors * sizeof(int));
+
+  for (c = 0; c < genus -> num_conductors; c++) {
+    // hecke_ptr[c] = (slong*)malloc(genus->dims[c] * genus->dims[c] * sizeof(slong));
+    hecke[c] = init_mat(genus->dims[c], genus->dims[c], "");
+    hecke_ptr[c] = 0;
+  }
+
+  // just computing the number of neighbors, to collect all the spin values at once
+  if (genus->dims[0] == 0)
+    num_nbrs = 0;
+  else {
+    nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, 1);
+    num_nbrs = number_of_neighbors(nbr_man, false);
+    nbr_data_clear(nbr_man);
+  }
+  
+  spin_vals = (W64*)malloc(num_nbrs*sizeof(W64));
+  
+  
+  for (gen_idx = 0; gen_idx < genus->genus_reps->num_stored; gen_idx++) {
+#ifdef DEBUG
+    nnbrs = hecke_col_all_conductors(spin_vals, p, gen_idx, genus);
+    assert(nnbrs == num_nbrs);
+#else
+    hecke_col_all_conductors(spin_vals, p, gen_idx, genus);
 #endif // DEBUG
     for (c = 0; c < genus->num_conductors; c++) {
       lut = genus->lut_positions[c];
@@ -521,6 +756,7 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
 					  const eigenvalues_t evs,
 					  int p, int k, int ev_idx, slong ev_cond)
 {
+  nf_elem_t e_new;
   nbr_data_t nbr_man;
   int** hecke;
   int i, pivot;
@@ -569,7 +805,7 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
   }
 
   nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, k);
-  num_nbrs = number_of_neighbors(nbr_man);
+  num_nbrs = number_of_neighbors(nbr_man, false);
   nbr_data_clear(nbr_man);
 
   spin_vals = (W64*)malloc(num_nbrs*sizeof(W64));
@@ -606,7 +842,143 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
     nf_elem_mul(prod, prod, evs->eigenvecs[ev_idx][i], evs->nfs[ev_idx]);
     nf_elem_add(e, e, prod, evs->nfs[ev_idx]);
   }
-  nf_elem_div(e, e, evs->eigenvecs[ev_idx][pivot], evs->nfs[ev_idx]);
+  // this line is leaky, so we do it cautiously
+  nf_elem_init(e_new, evs->nfs[ev_idx]);
+  nf_elem_div(e_new, e, evs->eigenvecs[ev_idx][pivot], evs->nfs[ev_idx]);
+  nf_elem_set(e, e_new, evs->nfs[ev_idx]);
+
+  nf_elem_clear(e_new, evs->nfs[ev_idx]);
+
+  // handling the case p divides the discriminant
+  if (genus->genus_reps->num_stored > 0) {
+    fmpz_mat_init_set_square_matrix(q, genus->genus_reps->keys[0]);
+    fmpz_init(disc);
+    fmpz_mat_det(disc, q);
+    fmpz_divexact_si(disc,disc,2);
+    if (fmpz_get_si(disc) % p == 0) {
+      nf_elem_add_si(e, e, (genus->conductors[ev_cond] % p == 0) ? -1 : 1, evs->nfs[ev_idx]);
+    }
+    fmpz_mat_clear(q);
+    fmpz_clear(disc);
+  }
+
+#ifdef DEBUG
+  printf("%4d ", p);
+  nf_elem_print_pretty(e, evs->nfs[ev_idx], "a");
+  printf(" - ");
+  for (num = 0; num < genus->dims[ev_cond]; num++)
+    printf("%10d ", hecke[ev_cond][num]);
+  
+  printf("- %10f\n", cputime);
+#endif // DEBUG
+
+  nf_elem_clear(prod, evs->nfs[ev_idx]);
+
+  for (c = 0; c < genus->num_conductors; c++)
+    free(hecke[c]);
+
+  free(hecke);
+  
+  return;
+}
+
+
+void get_hecke_ev_all_conductors(nf_elem_t e, const genus_t genus,
+				 const eigenvalues_t evs,
+				 int p, int ev_idx, slong ev_cond)
+{
+  nf_elem_t e_new;
+  nbr_data_t nbr_man;
+  int** hecke;
+  int i, pivot;
+  slong num_nbrs, spin_idx;
+#ifdef DEBUG
+  slong nnbrs;
+#endif // DEBUG
+  slong c, npos, rpos, gen_idx;
+  nf_elem_t prod;
+  fmpz_mat_t q;
+  fmpz_t disc;
+  slong* lut;
+  int* row;
+  W64* spin_vals;
+  W64 r;
+#ifdef DEBUG
+  int num;
+  clock_t cpuclock;
+  double cputime;
+  
+  cpuclock = clock();
+#endif // DEBUG
+  
+  nf_elem_init(e, evs->nfs[ev_idx]);
+  nf_elem_init(prod, evs->nfs[ev_idx]);
+
+  for (pivot = 0; pivot < evs->dim;) {
+    if (!(nf_elem_is_zero(evs->eigenvecs[ev_idx][pivot], evs->nfs[ev_idx]))) {
+      break;
+    }
+    pivot++;
+  }
+
+  for (gen_idx = 0; gen_idx < genus->dims[0];) {
+    if (pivot == genus->lut_positions[ev_cond][gen_idx])
+      break;
+    gen_idx++;
+  }
+  
+  hecke = (int**)malloc(genus->num_conductors * sizeof(int*));
+  
+  for (c = 0; c < genus->num_conductors; c++) {
+    hecke[c] = (int*)malloc(genus->dims[c] * sizeof(int));
+    for (i = 0; i < genus->dims[c]; i++)
+      hecke[c][i] = 0;
+  }
+
+  nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, 1);
+  num_nbrs = number_of_neighbors(nbr_man, false);
+  nbr_data_clear(nbr_man);
+
+  spin_vals = (W64*)malloc(num_nbrs*sizeof(W64));
+#ifdef DEBUG
+  nnbrs = hecke_col_all_conductors(spin_vals, p, gen_idx, genus);
+  assert(num_nbrs == nnbrs);
+#else
+  hecke_col_all_conductors(spin_vals, p, gen_idx, genus);
+#endif // DEBUG
+  
+  for (c = 0; c < genus->num_conductors; c++) {
+    lut = genus->lut_positions[c];
+    npos = lut[gen_idx];
+    if (unlikely(npos==-1)) continue;
+    row = hecke[c];
+    for (spin_idx = 0; spin_idx < num_nbrs; spin_idx++) {
+      r = spin_vals[spin_idx] >> (genus->spinor->num_primes);
+      rpos = lut[r];
+      if (unlikely(rpos==-1)) continue;
+      row[rpos] += char_val(spin_vals[spin_idx] & c);
+    }
+  }
+
+  free(spin_vals);
+
+#ifdef DEBUG
+  cpuclock = clock() - cpuclock;
+  cputime = cpuclock / CLOCKS_PER_SEC;
+#endif // DEBUG
+  
+  nf_elem_zero(e, evs->nfs[ev_idx]);
+  for (i = 0; i < evs->dim; i++) {
+    nf_elem_set_si(prod, hecke[ev_cond][i], evs->nfs[ev_idx]);
+    nf_elem_mul(prod, prod, evs->eigenvecs[ev_idx][i], evs->nfs[ev_idx]);
+    nf_elem_add(e, e, prod, evs->nfs[ev_idx]);
+  }
+  // this line is leaky, so we do it cautiously
+  nf_elem_init(e_new, evs->nfs[ev_idx]);
+  nf_elem_div(e_new, e, evs->eigenvecs[ev_idx][pivot], evs->nfs[ev_idx]);
+  nf_elem_set(e, e_new, evs->nfs[ev_idx]);
+
+  nf_elem_clear(e_new, evs->nfs[ev_idx]);
 
   // handling the case p divides the discriminant
   if (genus->genus_reps->num_stored > 0) {
@@ -616,6 +988,7 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
     fmpz_divexact_si(disc,disc,2);
     if (fmpz_get_si(disc) % p == 0) {
       nf_elem_add_si(e, e, 1, evs->nfs[ev_idx]);
+      nf_elem_scalar_mul_si(e, e, (genus->conductors[ev_cond] % p == 0) ? -1 : 1, evs->nfs[ev_idx]); 
     }
     fmpz_mat_clear(q);
     fmpz_clear(disc);
@@ -644,9 +1017,12 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
 
 void get_hecke_ev(nf_elem_t e, const genus_t genus, const eigenvalues_t evs, int p, int ev_idx)
 {
+  nf_elem_t e_new;
   int* a;
   int num, i, pivot;
   nf_elem_t prod;
+  fmpz_mat_t q;
+  fmpz_t disc;
 
   nf_elem_init(e, evs->nfs[ev_idx]);
   nf_elem_init(prod, evs->nfs[ev_idx]);
@@ -680,7 +1056,12 @@ void get_hecke_ev(nf_elem_t e, const genus_t genus, const eigenvalues_t evs, int
     nf_elem_mul(prod, prod, evs->eigenvecs[ev_idx][i], evs->nfs[ev_idx]);
     nf_elem_add(e, e, prod, evs->nfs[ev_idx]);
   }
-  nf_elem_div(e, e, evs->eigenvecs[ev_idx][pivot], evs->nfs[ev_idx]);
+  // this line is leaky, so we do it cautiously
+  nf_elem_init(e_new, evs->nfs[ev_idx]);
+  nf_elem_div(e_new, e, evs->eigenvecs[ev_idx][pivot], evs->nfs[ev_idx]);
+  nf_elem_set(e, e_new, evs->nfs[ev_idx]);
+
+  nf_elem_clear(e_new, evs->nfs[ev_idx]);
 
 #ifdef DEBUG
   printf("%4d ", p);
@@ -691,6 +1072,18 @@ void get_hecke_ev(nf_elem_t e, const genus_t genus, const eigenvalues_t evs, int
   
   printf("- %10f\n", cputime);
 #endif // DEBUG
+
+  if (genus->genus_reps->num_stored > 0) {
+    fmpz_mat_init_set_square_matrix(q, genus->genus_reps->keys[0]);
+    fmpz_init(disc);
+    fmpz_mat_det(disc, q);
+    fmpz_divexact_si(disc,disc,2);
+    if (fmpz_get_si(disc) % p == 0) {
+      nf_elem_add_si(e, e, 1, evs->nfs[ev_idx]);
+    }
+    fmpz_mat_clear(q);
+    fmpz_clear(disc);
+  }
 
   nf_elem_clear(prod, evs->nfs[ev_idx]);
   free(a);
@@ -717,7 +1110,7 @@ void get_hecke_fmpq_mat_all_conductors(fmpq_mat_t* hecke_fmpq_mat, const genus_t
   slong c;
 
   assert(hecke_fmpq_mat != NULL);
-  hecke_matrices = hecke_matrices_all_conductors(genus, p, k);
+  hecke_matrices = hecke_matrices_nbr_data_all_conductors(genus, p, k);
   for (c = 0; c < genus->num_conductors; c++) {
     fmpq_mat_init_set_matrix_TYP(hecke_fmpq_mat[c], hecke_matrices[c]);
     // we transpose to match with our conventions

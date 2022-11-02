@@ -149,6 +149,29 @@ void print_mat(const matrix_TYP* Q)
   return;
 }
 
+void print_mat_dense(const matrix_TYP* Q)
+{
+  int row, col;
+
+  printf("[");
+  for (row = 0; row < Q->rows; row++) {
+    printf("[");
+    for (col = 0; col < Q->cols; col++) {
+      printf("%d", Q->array.SZ[row][col]);
+      if (col != Q->cols - 1)
+	printf(",");
+      else
+	printf("]");
+    }
+    if (row != Q->rows - 1)
+      printf(",");
+  }
+  printf("]");
+
+  return;
+}
+
+
 /* swapping, assumes they do not point to the same thing!!! */
 
 int swap(int** Q, int row1, int col1, int row2, int col2)
@@ -1226,10 +1249,10 @@ void print_content_and_coeff_size(const fmpq_mat_t A, const char* name)
 void kernel_on(fmpq_mat_t ker, const fmpq_mat_t A, const fmpq_mat_t B)
 {
   fmpq_mat_t ker_A;
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
   print_content_and_coeff_size(A, "A");
   print_content_and_coeff_size(B, "B");
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
   
   // fmpq_mat_kernel(ker, A);
   fmpq_mat_left_kernel(ker_A, A);

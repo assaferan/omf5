@@ -104,12 +104,18 @@ W64 spinor_norm(const spinor_t spinor, matrix_TYP* mat, int denom)
   fmpz_init_set_si(denom_fmpz, denom);
   fmpz_mat_init_set_matrix_TYP(mat_fmpz, mat);
 
+  val = spinor_norm_zas_fmpz_mat(spinor, mat_fmpz, denom_fmpz);
+
+  assert(val==spinor_norm_cd_fmpz_mat(spinor, mat_fmpz, denom_fmpz));
+  /*
   if (fmpz_equal_si(fq_nmod_ctx_prime(spinor->fields[0]),2))
     val = spinor_norm_cd_fmpz_mat(spinor, mat_fmpz, denom_fmpz);
   else {
     val = spinor_norm_fmpz_mat(spinor, mat_fmpz, denom_fmpz);
     assert(val==spinor_norm_cd_fmpz_mat(spinor, mat_fmpz, denom_fmpz));
   }
+  assert(val==spinor_norm_zas_fmpz_mat(spinor, mat_fmpz, denom_fmpz));
+  */
 
   fmpz_mat_clear(mat_fmpz);
   fmpz_clear(denom_fmpz);
@@ -125,12 +131,18 @@ W64 spinor_norm_isom(const spinor_t spinor, const isometry_t isom)
   fmpz_init_set_si(denom_fmpz, isom->denom);
   fmpz_mat_init_set_square_matrix(mat_fmpz, isom->s);
 
+  val = spinor_norm_zas_fmpz_mat(spinor, mat_fmpz, denom_fmpz);
+
+  assert(val==spinor_norm_cd_fmpz_mat(spinor, mat_fmpz, denom_fmpz));
+  /*
   if (fmpz_equal_si(fq_nmod_ctx_prime(spinor->fields[0]),2))
     val = spinor_norm_cd_fmpz_mat(spinor, mat_fmpz, denom_fmpz);
   else {
     val = spinor_norm_fmpz_mat(spinor, mat_fmpz, denom_fmpz);
     assert(val==spinor_norm_cd_fmpz_mat(spinor, mat_fmpz, denom_fmpz));
   }
+  assert(val==spinor_norm_zas_fmpz_mat(spinor, mat_fmpz, denom_fmpz));
+  */
 
   fmpz_mat_clear(mat_fmpz);
   fmpz_clear(denom_fmpz);
@@ -544,6 +556,56 @@ int rho(const fmpz_t p, const fmpq_mat_t s, const fmpq_mat_t A)
   fmpq_clear(norm);
 
   return ret;
+}
+
+W64 spinor_norm_zas_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom)
+{
+  fmpq_mat_t mat_q, Q_q, one;
+  fmpq_t det;
+  fmpq_t spinorm;
+  slong prime_idx, n;
+  
+  W64 val;
+
+  n = fmpz_mat_nrows(mat);
+  assert(n == fmpz_mat_ncols(mat));
+  
+  fmpq_mat_init(mat_q, n, n);
+  fmpq_mat_init(Q_q, n, n);
+  fmpq_mat_set_fmpz_mat_div_fmpz(mat_q, mat, denom);
+  fmpq_mat_set_fmpz_mat(Q_q, spinor->Q);
+
+  fmpq_init(det);
+  fmpq_mat_det(det, mat_q);
+  if (fmpq_equal_si(det, -1))
+    fmpq_mat_neg(mat_q, mat_q);
+  fmpq_mat_init(one, n, n);
+  fmpq_mat_one(one);
+  fmpq_mat_add(mat_q, mat_q, one);
+  fmpq_mat_clear(one);
+
+  fmpq_init(spinorm);
+  fmpq_mat_det(spinorm, mat_q);
+  fmpq_mul_si(spinorm, spinorm, 2);
+  if (fmpq_is_zero(spinorm)) {
+    fmpq_clear(spinorm);
+    fmpq_clear(det);
+    fmpq_mat_clear(mat_q);
+    fmpq_mat_clear(Q_q);
+    if (fmpz_equal_si(fq_nmod_ctx_prime(spinor->fields[0]),2))
+      return spinor_norm_cd_fmpz_mat(spinor, mat, denom);
+    return spinor_norm_fmpz_mat(spinor, mat, denom);
+  }
+  val = 0;
+  for (prime_idx = 0; prime_idx < spinor->num_primes; prime_idx++) {
+    val ^= (fmpq_valuation(spinorm, fq_nmod_ctx_prime(spinor->fields[prime_idx])) & 1) << prime_idx;
+  }
+  fmpq_clear(spinorm);
+  fmpq_clear(det);
+  fmpq_mat_clear(mat_q);
+  fmpq_mat_clear(Q_q);
+
+  return val;
 }
 
 W64 spinor_norm_cd_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom)
