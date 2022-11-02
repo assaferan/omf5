@@ -408,9 +408,10 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
 
 #ifdef DEBUG_LEVEL_FULL
   square_matrix_t x_gram;
+  vector_t x_closest;
 #endif // DEBUG_LEVEL_FULL
 
-  vector_t voronoi, x, x_min, x_max, x_num, x_closest;
+  vector_t voronoi, x, x_min, x_max, x_num;
   int i,j, num_xs, x_idx, min_dist;
 
   vector_t y_int, v_int;
@@ -511,8 +512,10 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
     if (xqx < min_dist) {
       min_dist = xqx;
       isometry_init_set(min_g, g);
+#ifdef DEBUG_LEVEL_FULL
       for (j = 0; j < dim-1; j++)
 	x_closest[j] = x[j];
+#endif // DEBUG_LEVEL_FULL
     }
   }
 
