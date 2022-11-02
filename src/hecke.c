@@ -249,7 +249,7 @@ int process_isotropic_vector_all_conductors(neighbor_manager_t nbr_man, W64* spi
   
   return 1;
 }
-  
+
 int process_isotropic_vector(neighbor_manager_t nbr_man, int* T, const genus_t genus,
 			     double* theta_time, double* isom_time, double* total_time, int* num_isom)
 
@@ -259,7 +259,28 @@ int process_isotropic_vector(neighbor_manager_t nbr_man, int* T, const genus_t g
   clock_t cputime;
   square_matrix_t nbr;
   bool non_singular;
+  vector_t g_vec;
+  int vec_cmp;
+  slong orbit_size, stab_size;
 
+  // weird that it isn't already reduced?
+  vector_mod_p(nbr_man->iso_vec, nbr_man->p);
+  // this might be unnecessary, but we want to be on the safe side for now
+  normalize_mod_p(nbr_man->iso_vec, nbr_man->p);
+  // Applying the automorphism group to the isotropic vector
+  stab_size = 0;
+  for (i = 0; i < nbr_man->num_auts; i++) {
+    square_matrix_mul_vec_left(g_vec, nbr_man->iso_vec, nbr_man->auts[i]);
+    vector_mod_p(g_vec, nbr_man->p);
+    normalize_mod_p(g_vec, nbr_man->p);
+    vec_cmp = vector_cmp(g_vec, nbr_man->iso_vec);
+    if (vec_cmp < 0)
+      return 0;
+    if (vec_cmp == 0)
+      stab_size++;
+  }
+  orbit_size = nbr_man->num_auts / stab_size;
+  
   non_singular = nbr_process_build_nb(nbr, nbr_man);
   if (!non_singular)
     return 0;
@@ -275,7 +296,9 @@ int process_isotropic_vector(neighbor_manager_t nbr_man, int* T, const genus_t g
   }
 #endif // DEBUG
 
-  T[i]++;
+  // T[i]++;
+
+  T[i] += orbit_size;
   
   return 1;
 }

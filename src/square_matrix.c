@@ -4,6 +4,7 @@
 #include <carat/matrix.h>
 #include <carat/symm.h>
 
+#include "arith.h"
 #include "square_matrix.h"
 
 void square_matrix_init(square_matrix_t mat)
@@ -143,6 +144,20 @@ matrix_TYP* matrix_TYP_init_set_square_matrix(const square_matrix_t mat)
       nmat->array.SZ[i][j] = mat[i][j];
 
   return nmat;
+}
+
+int vector_cmp(const vector_t vL, const vector_t vR)
+{
+  int i;
+  
+  for (i = 0; i < QF_RANK; i++) {
+    if (vL[i] > vR[i])
+      return 1;
+    if (vL[i] < vR[i])
+      return -1;
+  }
+
+  return 0;
 }
 
 bool square_matrix_is_equal(const square_matrix_t mat1, const square_matrix_t mat2)
@@ -370,11 +385,38 @@ void vector_lin_comb(vector_t res, const vector_t v, const vector_t w, Z64 a_v, 
 void vector_mod_p(vector_t v, Z64 p)
 {
   int i;
-  for (i = 0; i < QF_RANK; i++)
+  for (i = 0; i < QF_RANK; i++) {
     v[i] %= p;
+    if (v[i] < 0)
+      v[i] += p;
+  }
 
   return;
 }
+
+// assumes all coordinates of v are between 0 and p-1
+void normalize_mod_p(vector_t v, Z64 p)
+{
+  int pivot, i;
+  Z64 x,y;
+
+  for (pivot = 0; (pivot < QF_RANK) && (v[pivot] == 0); ) pivot++;
+
+  assert(pivot != QF_RANK);
+
+  gcdext(v[pivot], p, &x, &y);
+
+  assert((x*v[pivot]-1)%p == 0);
+
+  for (i = 0; i < QF_RANK; i++) {
+    v[i] = (x * v[i]) % p;
+    if (v[i] < 0)
+      v[i] += p;
+  }
+  
+  return;
+}
+  
 
 Z64 scalar_product(const vector_t v1, const vector_t v2)
 {

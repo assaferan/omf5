@@ -35,6 +35,7 @@ int square_matrix_set_matrix_TYP(square_matrix_t dest, matrix_TYP* src);
 void fmpz_mat_init_set_square_matrix(fmpz_mat_t dest, const square_matrix_t src);
 matrix_TYP* matrix_TYP_init_set_square_matrix(const square_matrix_t mat);
 
+int vector_cmp(const vector_t vL, const vector_t vR);
 bool square_matrix_is_equal(const square_matrix_t mat1, const square_matrix_t mat2);
 
 void square_matrix_one(square_matrix_t mat);
@@ -64,6 +65,7 @@ void square_matrix_div_scalar(square_matrix_t quo, const square_matrix_t mat, in
 
 void vector_lin_comb(vector_t res, const vector_t v, const vector_t w, Z64 a_v, Z64 a_w);
 void vector_mod_p(vector_t v, Z64 p);
+void normalize_mod_p(vector_t v, Z64 p);
 
 /* resymmetrizing a matrix after working with upper triangular part */
 void square_matrix_resymmetrize(square_matrix_t Q);

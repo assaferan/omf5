@@ -3,6 +3,7 @@
 
 #include <carat/matrix.h>
 
+#include "aut_grp.h"
 #include "isometry.h"
 #include "square_matrix.h"
 #include "typedefs.h"
@@ -17,6 +18,8 @@ typedef struct {
   int i; // the i from Gonzalo's code
   Z64 p;
   bool first_iter;
+  square_matrix_t* auts;
+  slong num_auts;
 } neighbor_manager;
 
 typedef neighbor_manager neighbor_manager_t[1];

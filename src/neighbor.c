@@ -427,6 +427,7 @@ bool get_next_isotropic_vector(neighbor_manager_t nbr_man)
 
 void nbr_process_init(neighbor_manager_t nbr_man, const square_matrix_t Q, Z64 p, int i)
 {
+  aut_grp_t grp;
   bool found;
   
   square_matrix_set(nbr_man->Q, Q);
@@ -456,7 +457,14 @@ void nbr_process_init(neighbor_manager_t nbr_man, const square_matrix_t Q, Z64 p
 
   // It could be that there are no isotropic vectors in this batch
   //  assert(is_isotropic_vector(nbr_man->iso_vec, nbr_man->Q, nbr_man->p));
+
+  aut_grp_init_square_matrix(grp, nbr_man->Q);
+
+  nbr_man->auts = (square_matrix_t*)malloc(grp->order * sizeof(square_matrix_t));
+  aut_grp_get_elements(nbr_man->auts,grp);
+  nbr_man->num_auts = grp->order;
   
+  aut_grp_clear(grp);
   return;
 }
 
@@ -512,7 +520,12 @@ bool nbr_process_has_ended(const neighbor_manager_t nbr_man)
 
 void nbr_process_clear(neighbor_manager_t nbr_man)
 {
-  // we didn't allocate any memory
+  slong i;
+  
+  for (i = 0; i < nbr_man->num_auts; i++)
+    square_matrix_clear(nbr_man->auts[i]);
+
+  free(nbr_man->auts);
   return;
 }
 

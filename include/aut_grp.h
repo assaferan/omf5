@@ -17,6 +17,8 @@ void aut_grp_init_set_bravais_TYP(aut_grp_t grp, const bravais_TYP* brav);
 
 void aut_grp_init_square_matrix(aut_grp_t grp, const square_matrix_t mat);
 
+void aut_grp_get_elements(square_matrix_t* elts, const aut_grp_t grp);
+
 void aut_grp_clear(aut_grp_t grp);
 
 #endif // __AUT_GRP_H__
