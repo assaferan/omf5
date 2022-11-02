@@ -357,15 +357,14 @@ void adjugate(square_matrix_t b, const square_matrix_t a, int dim)
   return;
 }
 
-Z64* voronoi_bounds(int dim)
+void voronoi_bounds(vector_t bounds, int dim)
 {
-  Z64* bounds;
   int i;
   
-  bounds = (Z64 *)malloc(dim*sizeof(Z64));
   for (i = 0; i < dim; i++)
     bounds[i] = 1;
-  return bounds; 
+  
+  return; 
 }
 
 // !! TODO - this is leaky. Should fix that, but make sure timing is not severly comrpomised
@@ -387,25 +386,41 @@ matrix_TYP* transform_eq(matrix_TYP* g, matrix_TYP* Q)
   //  return mat_mul(tr_pose(g), mat_muleq(Q, g));
 }
 
+Z64 vec_len(const vector_t x, const square_matrix_t q, int dim)
+{
+  Z64 xqx;
+  int i,j;
+  
+  xqx = 0;
+  
+  for (i = 0; i < dim; i++)
+    for (j = 0; j < dim; j++)
+      xqx += q[i][j] * x[i] * x[j];
+
+  return xqx;
+}
+
 // right now using integer arithmetic. Should probably run faster with floating point arithmetic
 void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
 {
   isometry_t g, min_g;
-  square_matrix_t H_int, x_gram;
+  square_matrix_t H_int;
 
-  Z64 *voronoi, *x, *x_min, *x_max, *x_num, *x_closest;
+#ifdef DEBUG_LEVEL_FULL
+  square_matrix_t x_gram;
+#endif // DEBUG_LEVEL_FULL
+
+  vector_t voronoi, x, x_min, x_max, x_num, x_closest;
   int i,j, num_xs, x_idx, min_dist;
 
-  Z64 *y_int, *v_int;
-  Z64 tmp, det;
+  vector_t y_int, v_int;
+  Z64 tmp, det, xqx;
 
 #ifdef DEBUG_LEVEL_FULL
   printf("finding closest_lattice_vector with gram:\n");
   square_matrix_print(q);
 #endif // DEBUG_LEVEL_FULL
   
-  // v_int = init_mat(1, dim-1, "");
-  v_int = (Z64 *)malloc((dim-1)*sizeof(Z64));
   isometry_init(g);
   isometry_init(min_g);
 
@@ -425,10 +440,7 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
     printf("%" PRId64 " ", v_int[i]);
   printf("\n");
 #endif // DEBUG_LEVEL_FULL
-  
-  y_int = (Z64 *)malloc((dim-1)*sizeof(Z64));
-  // y_int = mat_mul(v_int, tr_pose(H_int));
-  
+    
   for (i = 0; i < dim-1; i++)
     y_int[i] = 0;
 
@@ -444,12 +456,7 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
   printf("\n");
 #endif // DEBUG_LEVEL_FULL
   
-  voronoi = voronoi_bounds(dim-1);
-  x = (Z64 *)malloc((dim-1)*sizeof(Z64));
-  x_min = (Z64 *)malloc((dim-1)*sizeof(Z64));
-  x_max = (Z64 *)malloc((dim-1)*sizeof(Z64));
-  x_num = (Z64 *)malloc((dim-1)*sizeof(Z64));
-  x_closest = (Z64 *)malloc((dim-1)*sizeof(Z64));
+  voronoi_bounds(voronoi, dim-1);
   
   det = 0;
   for (i = 0; i < dim - 1; i++) {
@@ -487,14 +494,22 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
     for ( i = 0; i < dim-1; i++)
       g->s_inv[i][dim-1] = x[i];
 
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
     square_matrix_mul(x_gram, g->s, g->s_inv);
     assert(square_matrix_is_one(x_gram));
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
 
+    x[dim-1] = -1;
+    xqx = vec_len(x, q, dim);
+
+#ifdef DEBUG_LEVEL_FULL
+   // this is very slow and inefficient, we attempt to replace it by something faster
     isometry_transform_gram(x_gram, g, q);
-    if (x_gram[dim-1][dim-1] < min_dist) {
-      min_dist = x_gram[dim-1][dim-1];
+    assert(xqx == x_gram[dim-1][dim-1]);
+#endif // DEBUG_LEVEL_FULL
+    
+    if (xqx < min_dist) {
+      min_dist = xqx;
       isometry_init_set(min_g, g);
       for (j = 0; j < dim-1; j++)
 	x_closest[j] = x[j];
@@ -520,15 +535,6 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
   square_matrix_print(q);
 #endif // DEBUG_LEVEL_FULL
 
-  //  free_mat(v_int);
-  free(v_int);
-  free(y_int);
-  free(x);
-  free(x_min);
-  free(x_max);
-  free(x_num);
-  free(x_closest);
-  free(voronoi);
   return;
 }
 
