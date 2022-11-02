@@ -24,7 +24,7 @@ void spinor_init(spinor_t spinor, const fmpz_mat_t q)
   fmpz_mat_det(det, q);
   fmpz_divexact_si(det, det, 2);
   fmpz_factor_init(bad_primes);
-  fmpz_factor(bad_primes, det);
+  fmpz_factor(bad_primes, det);  
   fmpz_clear(det);
 
   fmpz_mat_init_set(spinor->Q,q);
@@ -33,21 +33,17 @@ void spinor_init(spinor_t spinor, const fmpz_mat_t q)
   spinor->rads = (fq_nmod_mat_t*)malloc((bad_primes->num) * sizeof(fq_nmod_mat_t));
   spinor->fields = (fq_nmod_ctx_t*)malloc((bad_primes->num) * sizeof(fq_nmod_ctx_t));
 
+  spinor->use_cd = false;
   // !! TODO - when n is not squarefree take only the ones with odd exponents
   for (prime_idx = 0; prime_idx < bad_primes->num; prime_idx++) {
+    // cases where right now the radical trick doesn't work, so we use Cartan-Dieudonne
+    if (fmpz_get_si(&(bad_primes->p[prime_idx])) == 2)
+      spinor->use_cd = true;
+    if (bad_primes->exp[prime_idx] >= 2)
+      spinor->use_cd = true;
     fq_nmod_ctx_init(spinor->fields[prime_idx], &(bad_primes->p[prime_idx]), 1, "1");
     fq_nmod_mat_init_set_fmpz_mat(q_p, q, spinor->fields[prime_idx]);
-    // Is this necessary? Check!!
-    /*
-    if (fmpz_equal_si(&(bad_primes->p[prime_idx]),2)) {
-      fmpz_init(tmp);
-      for (idx = 0; idx < n; idx++) {
-	fmpz_divexact_si(tmp, fmpz_mat_entry(q, idx, idx), 2); 
-	fq_nmod_set_fmpz(fq_nmod_mat_entry(q_p,idx,idx), tmp, spinor->fields[prime_idx]);
-      }
-      fmpz_clear(tmp);
-    }
-    */
+
     fq_nmod_mat_kernel(spinor->rads[prime_idx], q_p, spinor->fields[prime_idx]);
     fq_nmod_mat_clear(q_p, spinor->fields[prime_idx]);
   }
@@ -574,7 +570,7 @@ W64 spinor_norm_zas_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const 
     fmpq_clear(det);
     fmpq_mat_clear(mat_q);
     fmpq_mat_clear(Q_q);
-    if (fmpz_equal_si(fq_nmod_ctx_prime(spinor->fields[0]),2))
+    if (spinor->use_cd)
       return spinor_norm_cd_fmpz_mat(spinor, mat, denom);
     return spinor_norm_fmpz_mat(spinor, mat, denom);
   }

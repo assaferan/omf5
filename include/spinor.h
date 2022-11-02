@@ -16,6 +16,8 @@ typedef struct {
 
   slong num_primes;
   W64 twist;
+
+  bool use_cd;
   
 } spinor;
 
