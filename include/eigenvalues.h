@@ -33,6 +33,8 @@ void eigenvalues_init_set_mat(eigenvalues_t evs, matrix_TYP* mat);
 
 void eigenvalues_set_lifts(eigenvalues_t evs, slong prec, slong c, const genus_t genus);
 
+slong ev_get_pivot(const nf_elem_t* evec, const nf_t K, const genus_t genus, slong cond);
+
 void eigenvalues_clear(eigenvalues_t evs);
 
 #endif // __EIGENVALUES_H__

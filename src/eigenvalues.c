@@ -338,3 +338,21 @@ void eigenvalues_set_lifts(eigenvalues_t evs, slong prec, slong c, const genus_t
   
   return;
 }
+
+slong ev_get_pivot(const nf_elem_t* evec, const nf_t K, const genus_t genus, slong cond)
+{
+  slong pivot, i, max_aut;
+
+  max_aut = 1;
+  pivot = -1;
+  for (i = 0; i < genus->dims[cond]; i++) {
+    if (!nf_elem_is_zero(evec[i], K)) {
+      if (max_aut < genus->num_auts[cond][i]) {
+	max_aut = genus->num_auts[cond][i];
+	pivot = i;
+      }
+    }
+  }
+  
+  return pivot;
+}

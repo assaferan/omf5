@@ -107,15 +107,6 @@ W64 spinor_norm(const spinor_t spinor, matrix_TYP* mat, int denom)
   val = spinor_norm_zas_fmpz_mat(spinor, mat_fmpz, denom_fmpz);
 
   assert(val==spinor_norm_cd_fmpz_mat(spinor, mat_fmpz, denom_fmpz));
-  /*
-  if (fmpz_equal_si(fq_nmod_ctx_prime(spinor->fields[0]),2))
-    val = spinor_norm_cd_fmpz_mat(spinor, mat_fmpz, denom_fmpz);
-  else {
-    val = spinor_norm_fmpz_mat(spinor, mat_fmpz, denom_fmpz);
-    assert(val==spinor_norm_cd_fmpz_mat(spinor, mat_fmpz, denom_fmpz));
-  }
-  assert(val==spinor_norm_zas_fmpz_mat(spinor, mat_fmpz, denom_fmpz));
-  */
 
   fmpz_mat_clear(mat_fmpz);
   fmpz_clear(denom_fmpz);
@@ -134,15 +125,6 @@ W64 spinor_norm_isom(const spinor_t spinor, const isometry_t isom)
   val = spinor_norm_zas_fmpz_mat(spinor, mat_fmpz, denom_fmpz);
 
   assert(val==spinor_norm_cd_fmpz_mat(spinor, mat_fmpz, denom_fmpz));
-  /*
-  if (fmpz_equal_si(fq_nmod_ctx_prime(spinor->fields[0]),2))
-    val = spinor_norm_cd_fmpz_mat(spinor, mat_fmpz, denom_fmpz);
-  else {
-    val = spinor_norm_fmpz_mat(spinor, mat_fmpz, denom_fmpz);
-    assert(val==spinor_norm_cd_fmpz_mat(spinor, mat_fmpz, denom_fmpz));
-  }
-  assert(val==spinor_norm_zas_fmpz_mat(spinor, mat_fmpz, denom_fmpz));
-  */
 
   fmpz_mat_clear(mat_fmpz);
   fmpz_clear(denom_fmpz);
