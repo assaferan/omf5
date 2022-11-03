@@ -319,11 +319,19 @@ W64 spinor_norm_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz
   fmpz_mat_det(det, mat);
   for (prime_idx = 0; prime_idx < spinor->num_primes; prime_idx++) {
     p = spinor->primes[prime_idx];
+    denom_p = fmpz_get_nmod(denom, p);
+    
+    assert(denom_p < p.n);
+    // at the moment, this only works when disc has odd valuation at this prime
+    // !! TODO - add an assertion
+    if (denom_p == 0) {
+      fmpz_clear(det);
+      free(evs);
+      return spinor_norm_zas_fmpz_mat(spinor, mat, denom);
+    }
     nmod_mat_init_set_fmpz_mat(mat_p, mat, p.n);
     nmod_mat_init(mat_p_t, n, n, p.n);
-    denom_p = fmpz_get_nmod(denom, p);
-    // at the moment, we assume mat does not have a scale divisible by p (at the bad primes)
-    assert((denom_p > 0) && (denom_p < p.n));
+      
 #ifdef DEBUG
     if (p.n == 4)
       assert (denom_p != 2);
