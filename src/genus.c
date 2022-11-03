@@ -99,7 +99,8 @@ void conductors_init(genus_t genus)
       ++bits;
       mask = 1LL << bits;
     }
-    value = fmpz_get_si(fq_nmod_ctx_prime(genus->spinor->fields[bits])) * genus->conductors[c ^ mask];
+    value = genus->spinor->primes[bits].n;
+    value *= genus->conductors[c ^ mask];
     genus->conductors[c] = value;
   }  
 
@@ -642,12 +643,11 @@ void genus_init_empty(genus_t genus, size_t disc)
   fmpz_mat_init(genus->spinor->Q,0,0);
   genus->spinor->num_primes = bad_primes->num;
   genus->spinor->twist = (1LL << (bad_primes->num)) - 1;
-  genus->spinor->rads = (fq_nmod_mat_t*)malloc((bad_primes->num) * sizeof(fq_nmod_mat_t));
-  genus->spinor->fields = (fq_nmod_ctx_t*)malloc((bad_primes->num) * sizeof(fq_nmod_ctx_t));
+  genus->spinor->rads = (nmod_mat_t*)malloc((bad_primes->num) * sizeof(nmod_mat_t));
+  genus->spinor->primes = (nmod_t*)malloc((bad_primes->num) * sizeof(nmod_t));
 
   for (prime_idx = 0; prime_idx < bad_primes->num; prime_idx++) {
-    fq_nmod_ctx_init(genus->spinor->fields[prime_idx], &(bad_primes->p[prime_idx]), 1, "1");
-    fq_nmod_mat_init(genus->spinor->rads[prime_idx], 0, 0, genus->spinor->fields[prime_idx]);
+    nmod_mat_init(genus->spinor->rads[prime_idx], 0, 0, genus->spinor->primes[prime_idx].n);
   }
 
   conductors_init(genus);

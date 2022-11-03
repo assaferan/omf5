@@ -148,9 +148,17 @@ void fq_nmod_mat_rref_trans(fq_nmod_mat_t mat, fq_nmod_mat_t trans, const fq_nmo
   fq_nmod_mat_t LU, L_inv;
   fq_nmod_t scalar;
 
+#ifdef DEBUG
+  fq_nmod_mat_t test1, test2;
+#endif // DEBUG
+
   nrows = fq_nmod_mat_nrows(mat, F);
   ncols = fq_nmod_mat_ncols(mat, F);
   P = (slong*)malloc(nrows*sizeof(slong));
+
+#ifdef DEBUG
+  fq_nmod_mat_init_set(test1, mat, F);
+#endif // DEBUG
   
   fq_nmod_mat_init_set(LU, mat, F);
   
@@ -170,7 +178,7 @@ void fq_nmod_mat_rref_trans(fq_nmod_mat_t mat, fq_nmod_mat_t trans, const fq_nmo
   
   for (row = 0; row < nrows; row++) {
     for (col = 0; col < nrows; col++) {
-      fq_nmod_set(fq_nmod_mat_entry(trans,row,col), fq_nmod_mat_entry(L_inv,row,P[col]),F);
+      fq_nmod_set(fq_nmod_mat_entry(trans,row,P[col]), fq_nmod_mat_entry(L_inv,row,col),F);
     }
   }
 
@@ -183,6 +191,16 @@ void fq_nmod_mat_rref_trans(fq_nmod_mat_t mat, fq_nmod_mat_t trans, const fq_nmo
       fq_nmod_set(fq_nmod_mat_entry(mat,row,col), fq_nmod_mat_entry(LU,row,col),F);
     }
   }
+
+#ifdef DEBUG
+  fq_nmod_mat_init(test2, nrows, nrows, F);
+  fq_nmod_mat_mul(test2, trans, test1, F);
+
+  assert(fq_nmod_mat_equal(test2, mat, F));
+  
+  fq_nmod_mat_clear(test1, F);
+  fq_nmod_mat_clear(test2, F);
+#endif // DEBUG
 
 #ifdef DEBUG_LEVEL_FULL
   printf("Before zeroing above the pivots, get: \n");

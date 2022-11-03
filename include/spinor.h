@@ -11,13 +11,12 @@ typedef struct {
 
   fmpz_mat_t Q;
   
-  fq_nmod_mat_t* rads;
-  fq_nmod_ctx_t* fields;
-
+  nmod_mat_t* rads;
+  nmod_t* primes;
+  
   slong num_primes;
   W64 twist;
 
-  bool use_cd;
   
 } spinor;
 
