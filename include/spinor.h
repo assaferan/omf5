@@ -13,6 +13,7 @@ typedef struct {
   
   nmod_mat_t* rads;
   nmod_t* primes;
+  slong* pivots;
   
   slong num_primes;
   W64 twist;
@@ -22,7 +23,9 @@ typedef struct {
 
 typedef spinor spinor_t[1];
 
-void spinor_init(spinor_t spinor, const fmpz_mat_t q);
+void spinor_init_fmpz(spinor_t spinor, const fmpz_t disc);
+void spinor_init_fmpz_mat(spinor_t spinor, const fmpz_mat_t q);
+void spinor_init_square_matrix(spinor_t spinor, const square_matrix_t q);
 void spinor_clear(spinor_t spinor);
 
 W64 spinor_norm_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom);

@@ -131,7 +131,33 @@ slong nmod_mat_nullspace_mod4(nmod_mat_t ker, const nmod_mat_t q)
   return nullity;
 }
 
-void spinor_init(spinor_t spinor, const fmpz_mat_t q)
+void spinor_init_fmpz(spinor_t spinor, const fmpz_t disc)
+{
+  fmpz_factor_t bad_primes;
+  slong prime_idx, p;
+
+  fmpz_factor_init(bad_primes);
+  fmpz_factor(bad_primes, disc);
+
+  fmpz_mat_init(spinor->Q,0,0);
+  spinor->num_primes = bad_primes->num;
+  spinor->twist = (1LL << (bad_primes->num)) - 1;
+  spinor->rads = (nmod_mat_t*)malloc((bad_primes->num) * sizeof(nmod_mat_t));
+  spinor->primes = (nmod_t*)malloc((bad_primes->num) * sizeof(nmod_t));
+  spinor->pivots = (slong*)malloc((bad_primes->num) * sizeof(slong));
+
+  for (prime_idx = 0; prime_idx < bad_primes->num; prime_idx++) {
+    p = fmpz_get_si(&(bad_primes->p[prime_idx]));
+    if (p == 2)
+      p = 4;
+    nmod_init(&(spinor->primes[prime_idx]), p);
+    nmod_mat_init(spinor->rads[prime_idx], 0, 0, spinor->primes[prime_idx].n);
+  }
+
+  return;
+}
+
+void spinor_init_fmpz_mat(spinor_t spinor, const fmpz_mat_t q)
 {
   slong prime_idx;
   fmpz_t det;
@@ -139,7 +165,7 @@ void spinor_init(spinor_t spinor, const fmpz_mat_t q)
   fmpz_factor_t bad_primes;
   nmod_mat_t ker;
   slong nullity, i, j;
-  slong p;
+  slong p, pivot;
 
   fmpz_init(det);
   fmpz_mat_det(det, q);
@@ -153,6 +179,7 @@ void spinor_init(spinor_t spinor, const fmpz_mat_t q)
   spinor->twist = (1LL << (bad_primes->num)) - 1;
   spinor->rads = (nmod_mat_t*)malloc((bad_primes->num) * sizeof(nmod_mat_t));
   spinor->primes = (nmod_t*)malloc((bad_primes->num) * sizeof(nmod_t));
+  spinor->pivots = (slong*)malloc((bad_primes->num) * sizeof(slong));
   
   for (prime_idx = 0; prime_idx < bad_primes->num; prime_idx++) {
     p = fmpz_get_si(&(bad_primes->p[prime_idx]));
@@ -171,10 +198,29 @@ void spinor_init(spinor_t spinor, const fmpz_mat_t q)
     for (i = 0; i < QF_RANK; i++)
       for (j = 0; j < nullity; j++)
 	nmod_mat_set_entry(spinor->rads[prime_idx], j, i, nmod_mat_get_entry(ker, i, j));
+
+    for (pivot = 0; pivot < nmod_mat_ncols(spinor->rads[prime_idx]);) {
+      if (nmod_mat_entry(spinor->rads[prime_idx], 0, pivot) % fmpz_get_si(&(bad_primes->p[prime_idx])) != 0)
+	break;
+      pivot++;
+    }
+    spinor->pivots[prime_idx] = pivot;
+    
     nmod_mat_clear(ker);
     nmod_mat_clear(q_p);
   }
   fmpz_factor_clear(bad_primes);
+  return;
+}
+
+void spinor_init_square_matrix(spinor_t spinor, const square_matrix_t q)
+{
+  fmpz_mat_t q_fmpz;
+
+  fmpz_mat_init_set_square_matrix(q_fmpz, q);
+  spinor_init_fmpz_mat(spinor, q_fmpz);
+  fmpz_mat_clear(q_fmpz);
+  
   return;
 }
 
@@ -189,6 +235,7 @@ void spinor_clear(spinor_t spinor)
   free(spinor->rads);
   
   free(spinor->primes);
+  free(spinor->pivots);
 
   return;
 }
@@ -315,12 +362,8 @@ W64 spinor_norm_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz
     // for now assume rad is a single vector (we choose our lattices this way)
     // !! TODO !! -  modify to determinant so it will work in the general case
     assert(nmod_mat_nrows(spinor->rads[prime_idx]) == 1);
-  
-    for (pivot = 0; pivot < nmod_mat_ncols(spinor->rads[prime_idx]);) {
-      if (nmod_mat_entry(spinor->rads[prime_idx], 0, pivot) != 0) 
-	break;
-      pivot++;
-    }
+
+    pivot = spinor->pivots[prime_idx];
     
     // !! TODO !! - we should always set the pivot in the kernel to be 1
     // so that no arithmetic will be needed here.

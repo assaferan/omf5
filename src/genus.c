@@ -57,17 +57,6 @@ void disc_init_set(fmpz_t disc, const square_matrix_t q)
   return;
 }
 
-void spinor_init_set(spinor_t spinor, const square_matrix_t q)
-{
-  fmpz_mat_t q_fmpz;
-
-  fmpz_mat_init_set_square_matrix(q_fmpz, q);
-  spinor_init(spinor, q_fmpz);
-  fmpz_mat_clear(q_fmpz);
-  
-  return;
-}
-
 size_t genus_size_estimate(const fmpq_t mass)
 {
   fmpz_t genus_size_fmpz;
@@ -236,7 +225,7 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t q, int h)
   printf("\n");
 #endif // DEBUG_LEVEL_FULL
 
-  spinor_init_set(genus->spinor, q);
+  spinor_init_square_matrix(genus->spinor, q);
 
   genus_size = genus_size_estimate(mass);
   
@@ -569,7 +558,7 @@ void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps
 
   hash_table_init(slow_genus, genus_size);
 
-  spinor_init_set(genus->spinor, reps[0]);
+  spinor_init_square_matrix(genus->spinor, reps[0]);
   
   for (i = 0; i < h; i++) {
 #ifdef DEBUG
@@ -631,30 +620,11 @@ void genus_init_file(genus_t genus, const char* genus_fname, size_t disc)
 
 void genus_init_empty(genus_t genus, size_t disc)
 {
-  fmpz_factor_t bad_primes;
-  slong prime_idx, p;
-    
   fmpz_init_set_ui(genus->disc,disc);
 
   hash_table_init(genus->genus_reps, 0);
 
-  // !! TODO - make a separate function in spinor for this one
-  fmpz_factor_init(bad_primes);
-  fmpz_factor(bad_primes, genus->disc);
-
-  fmpz_mat_init(genus->spinor->Q,0,0);
-  genus->spinor->num_primes = bad_primes->num;
-  genus->spinor->twist = (1LL << (bad_primes->num)) - 1;
-  genus->spinor->rads = (nmod_mat_t*)malloc((bad_primes->num) * sizeof(nmod_mat_t));
-  genus->spinor->primes = (nmod_t*)malloc((bad_primes->num) * sizeof(nmod_t));
-
-  for (prime_idx = 0; prime_idx < bad_primes->num; prime_idx++) {
-    p = fmpz_get_si(&(bad_primes->p[prime_idx]));
-    if (p == 2)
-      p = 4;
-    nmod_init(&(genus->spinor->primes[prime_idx]), p);
-    nmod_mat_init(genus->spinor->rads[prime_idx], 0, 0, genus->spinor->primes[prime_idx].n);
-  }
+  spinor_init_fmpz(genus->spinor, genus->disc);
 
   conductors_init(genus);
 
