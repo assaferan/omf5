@@ -618,9 +618,14 @@ STATUS compute_eigenvalues_up_to(const genus_t genus, int prec)
   int num_ps[2];
   int* ps[2];
 
+  /*
   num_ps[0] = primes_up_to(&(ps[0]), prec);
   num_ps[1] = primes_up_to(&(ps[1]), floor(sqrt(prec)));
-
+  */
+  
+  num_ps[0] = primes_up_to_prime_to(&(ps[0]), prec, fmpz_get_si(genus->disc));
+  num_ps[1] = primes_up_to_prime_to(&(ps[1]), floor(sqrt(prec)), fmpz_get_si(genus->disc));
+  
   example_evs_init(dummy, genus->num_conductors, NULL, num_ps, (const int**)ps, NULL);
   ret = test_evs(genus, dummy);
   example_evs_clear(dummy, genus->num_conductors);

@@ -100,6 +100,8 @@ void conductors_init(genus_t genus)
       mask = 1LL << bits;
     }
     value = genus->spinor->primes[bits].n;
+    if (value == 4)
+      value = 2;
     value *= genus->conductors[c ^ mask];
     genus->conductors[c] = value;
   }  

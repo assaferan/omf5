@@ -193,7 +193,7 @@ void fq_nmod_mat_rref_trans(fq_nmod_mat_t mat, fq_nmod_mat_t trans, const fq_nmo
   }
 
 #ifdef DEBUG
-  fq_nmod_mat_init(test2, nrows, nrows, F);
+  fq_nmod_mat_init(test2, nrows, ncols, F);
   fq_nmod_mat_mul(test2, trans, test1, F);
 
   assert(fq_nmod_mat_equal(test2, mat, F));

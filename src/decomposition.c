@@ -38,7 +38,7 @@ bool decomposition_finite_subspace(decomposition_t decomp, const genus_t genus, 
   if (dim_V == 0) {
     return true;
   }
-
+  
   if (idx >= num_ps) {
     (decomp->num[c])++;
     decomp->bases[c] = (fmpq_mat_t*)realloc(decomp->bases[c], (decomp->num[c])*sizeof(fmpq_mat_t));
@@ -46,7 +46,7 @@ bool decomposition_finite_subspace(decomposition_t decomp, const genus_t genus, 
     fmpq_mat_one(decomp->bases[c][decomp->num[c]-1]);
     return false;
   }
-
+  
   fmpq_mat_init(T, dim_V, dim_V);
   fmpq_mat_init(fT, dim_V, dim_V);
   fmpq_poly_init(f);
@@ -131,7 +131,7 @@ bool decomposition_finite(decomposition_t decomp, const genus_t genus, const int
 
 void decompose(decomposition_t decomp, const genus_t genus, slong c)
 {
-  slong bound, num_ps;
+  slong bound, num_ps; /* , prime_idx, idx, p, j;*/
   int* ps;
   bool is_complete;
 
@@ -139,7 +139,24 @@ void decompose(decomposition_t decomp, const genus_t genus, slong c)
   bound = 10;
   
   while (!(is_complete)) {
+    num_ps = primes_up_to_prime_to(&ps, bound, fmpz_get_si(genus->disc));
+    /*
     num_ps = primes_up_to(&ps, bound);
+
+    idx = 0;
+    // we skip the bad primes
+    for (prime_idx = 0; prime_idx < genus->spinor->num_primes; prime_idx++) {
+      p = genus->spinor->primes[prime_idx].n;
+      if (p == 4)
+	p = 2;
+      while ((ps[idx] < p) && (idx < num_ps)) idx++;
+      if ((idx < num_ps) && (ps[idx] == p)) {
+	for (j = idx; j < num_ps-1; j++)
+	  ps[j] = ps[j+1];
+	num_ps--;
+      }
+    }
+    */
 #ifdef DEBUG
     printf("trying to decompose with bound = %ld\n", bound);
 #endif // DEBUG

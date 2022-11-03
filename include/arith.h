@@ -48,4 +48,6 @@ void fmpq_floor(fmpz_t res, const fmpq_t r);
 
 int primes_up_to(int** ps, int bound);
 
+int primes_up_to_prime_to(int** ps, int bound, int bad);
+
 #endif // __ARITH_H

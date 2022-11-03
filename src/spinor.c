@@ -15,8 +15,8 @@
 
 slong nmod_mat_nullspace_mod4(nmod_mat_t ker, const nmod_mat_t q)
 {
-  slong nullity, i, j;
-  fq_nmod_mat_t q_2, ker_2, lift_2, trans, trans_t;
+  slong nullity, i, j, pivot, old_pivot;
+  fq_nmod_mat_t q_2, ker_2, lift_2, trans, trans_t, sol;
   nmod_mat_t lift, lift_q;
   fq_nmod_ctx_t F2;
   fq_nmod_t elt;
@@ -24,7 +24,7 @@ slong nmod_mat_nullspace_mod4(nmod_mat_t ker, const nmod_mat_t q)
 
 #ifdef DEBUG
   fq_nmod_mat_t test1, test2;
-  nmod_mat_t zero;
+  nmod_mat_t zero, ker_t;
 #endif // DEBUG
 
   fmpz_init(two);
@@ -80,15 +80,36 @@ slong nmod_mat_nullspace_mod4(nmod_mat_t ker, const nmod_mat_t q)
   fq_nmod_mat_transpose(trans_t, trans, F2);
   fq_nmod_mat_mul(lift_2, lift_2, trans_t, F2);
 
+  fq_nmod_mat_init(sol, nullity, QF_RANK, F2);
+  
+  pivot = 0;
+  for (i = 0; i < QF_RANK; i++) {
+    old_pivot = pivot;
+    for (; (pivot < QF_RANK) && fq_nmod_is_zero(fq_nmod_mat_entry(q_2, pivot, i) , F2);) pivot++;
+    if ((i == 0) || (old_pivot != pivot)) {
+      for (j = 0; j < nullity; j++) {
+	fq_nmod_set(fq_nmod_mat_entry(sol, j, i), fq_nmod_mat_entry(lift_2, j, pivot), F2);
+      }
+    }
+    else {
+       for (j = 0; j < nullity; j++) {
+	fq_nmod_zero(fq_nmod_mat_entry(sol, j, i), F2);
+      }
+    }
+  }
+  
+  
   for (i = 0; i < nmod_mat_nrows(q); i++)
     for (j = 0; j < nullity; j++) {
-      nmod_mat_set_entry(ker, j, i, nmod_poly_get_coeff_ui(fq_nmod_mat_entry(lift_2, j, i),0) * 2 +
+      nmod_mat_set_entry(ker, i, j, nmod_poly_get_coeff_ui(fq_nmod_mat_entry(sol, j, i),0) * 2 +
 			 nmod_mat_get_entry(lift, j, i));
     }
 
 #ifdef DEBUG
   nmod_mat_init(zero, QF_RANK, QF_RANK, 4);
-  nmod_mat_mul(zero, ker, q);
+  nmod_mat_init(ker_t, QF_RANK, QF_RANK, 4);
+  nmod_mat_transpose(ker_t, ker);
+  nmod_mat_mul(zero, ker_t, q);
   assert(nmod_mat_is_zero(zero));
   nmod_mat_clear(zero);
 #endif // DEBUG
@@ -97,6 +118,7 @@ slong nmod_mat_nullspace_mod4(nmod_mat_t ker, const nmod_mat_t q)
   fq_nmod_mat_clear(ker_2, F2);
   nmod_mat_clear(lift);
   nmod_mat_clear(lift_q);
+  fq_nmod_mat_clear(sol, F2);
   fq_nmod_mat_clear(q_2, F2);
   fq_nmod_mat_clear(trans, F2);
   fq_nmod_mat_clear(trans_t, F2);
@@ -137,13 +159,14 @@ void spinor_init(spinor_t spinor, const fmpz_mat_t q)
     if (p == 2)
       p = 4;
     nmod_init(&(spinor->primes[prime_idx]),p);
-
     nmod_mat_init_set_fmpz_mat(q_p, q, p);
     nmod_mat_init(ker, QF_RANK, QF_RANK, p);
     // apparentaly, this doesn't work for p = 4 !!!
     // we go around that
-    // nullity = nmod_mat_nullspace(ker, q_p);
-    nullity = nmod_mat_nullspace_mod4(ker, q_p);
+    if (p != 4)
+      nullity = nmod_mat_nullspace(ker, q_p);
+    else
+      nullity = nmod_mat_nullspace_mod4(ker, q_p);
     nmod_mat_init(spinor->rads[prime_idx], nullity, QF_RANK, p);
     for (i = 0; i < QF_RANK; i++)
       for (j = 0; j < nullity; j++)
@@ -252,6 +275,10 @@ W64 spinor_norm_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz
     denom_p = fmpz_get_nmod(denom, p);
     // at the moment, we assume mat does not have a scale divisible by p (at the bad primes)
     assert((denom_p > 0) && (denom_p < p.n));
+#ifdef DEBUG
+    if (p.n == 4)
+      assert (denom_p != 2);
+#endif // DEBUG
     
     // scaling the reduced matrix - should be replaced bu a one-line function
     for (row = 0; row < nmod_mat_nrows(mat_p); row++)
@@ -690,6 +717,8 @@ W64 spinor_norm_cd_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const f
   fmpz_init(p);
   for (prime_idx = 0; prime_idx < spinor->num_primes; prime_idx++) {
     fmpz_set_si(p, spinor->primes[prime_idx].n);
+    if (spinor->primes[prime_idx].n == 4)
+      fmpz_set_si(p, 2);
     val ^= (fmpq_valuation(spinorm, p) & 1) << prime_idx;
   }
   fmpq_clear(spinorm);

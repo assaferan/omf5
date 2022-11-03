@@ -525,6 +525,34 @@ int primes_up_to(int** ps, int bound)
   return num_ps;
 }
 
+int primes_up_to_prime_to(int** ps, int bound, int bad)
+{
+  int num_ps, p, i;
+  int* sieve;
+  
+  num_ps = 0;
+  sieve = malloc((bound+2) * sizeof(int));
+  *ps = malloc(bound * sizeof(int));
+  // since bound is small we construct the first primes using aristothenes sieve
+  // replace by fmpz_nextprime if improving.
+  for (i = 0; i <= bound+1; i++)
+    sieve[i] = i;
+  
+  p = 2;
+  while(p <= bound) {
+    if (bad % p != 0) {
+      (*ps)[num_ps] = p;
+      num_ps++;
+    }
+    for (i = p; i <= bound; i+= p)
+      sieve[i] = -1;
+    while(sieve[p] == -1) p++;
+  }
+
+  free(sieve);
+  return num_ps;
+}
+
 // fq_sqrt seems to already exist
 
 /* void fq_sqrt(fq_t sqrt_a, const fq_t a, const fq_ctx_t F) */
