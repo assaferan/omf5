@@ -632,7 +632,7 @@ void genus_init_file(genus_t genus, const char* genus_fname, size_t disc)
 void genus_init_empty(genus_t genus, size_t disc)
 {
   fmpz_factor_t bad_primes;
-  slong prime_idx;
+  slong prime_idx, p;
     
   fmpz_init_set_ui(genus->disc,disc);
 
@@ -649,6 +649,10 @@ void genus_init_empty(genus_t genus, size_t disc)
   genus->spinor->primes = (nmod_t*)malloc((bad_primes->num) * sizeof(nmod_t));
 
   for (prime_idx = 0; prime_idx < bad_primes->num; prime_idx++) {
+    p = fmpz_get_si(&(bad_primes->p[prime_idx]));
+    if (p == 2)
+      p = 4;
+    nmod_init(&(genus->spinor->primes[prime_idx]), p);
     nmod_mat_init(genus->spinor->rads[prime_idx], 0, 0, genus->spinor->primes[prime_idx].n);
   }
 
