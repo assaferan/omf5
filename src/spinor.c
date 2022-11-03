@@ -289,7 +289,8 @@ W64 spinor_norm_isom(const spinor_t spinor, const isometry_t isom)
 
   val = spinor_norm_fmpz_mat(spinor, mat_fmpz, denom_fmpz);
 
-  assert(val==spinor_norm_cd_fmpz_mat(spinor, mat_fmpz, denom_fmpz));
+  // This is not valid when p^2 || n
+  //  assert(val==spinor_norm_cd_fmpz_mat(spinor, mat_fmpz, denom_fmpz));
 
   fmpz_mat_clear(mat_fmpz);
   fmpz_clear(denom_fmpz);
