@@ -112,6 +112,7 @@ slong nmod_mat_nullspace_mod4(nmod_mat_t ker, const nmod_mat_t q)
   nmod_mat_mul(zero, ker_t, q);
   assert(nmod_mat_is_zero(zero));
   nmod_mat_clear(zero);
+  nmod_mat_clear(ker_t);
 #endif // DEBUG
   
   fq_nmod_clear(elt, F2);
