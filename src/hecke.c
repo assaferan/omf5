@@ -532,12 +532,17 @@ void hecke_col_nbr_data(int* T, int p, int k, int gen_idx, const genus_t genus)
 
 void hecke_col(int* T, int p, int gen_idx, const genus_t genus)
 {
+  slong i;
   int num;
   int num_isom, lc;
   double theta_time, isom_time, total_time;
   num_isom = lc = 0;
   theta_time = isom_time = total_time = 0;
 
+  for (i = 0; i < genus->dims[0]; i++) {
+    T[i] = 0;
+  }
+  
   for (num = 0; num < p; num++) {
     lc += process_neighbour_chunk(T, p, num, gen_idx, genus, &theta_time, &isom_time, &total_time, &num_isom);
   }
