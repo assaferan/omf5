@@ -38,4 +38,6 @@ void genus_init_file(genus_t genus, const char* genus_fname, size_t disc);
 
 void genus_clear(genus_t genus);
 
+bool genus_is_trivial_cond(const genus_t genus);
+
 #endif // __GENUS_H__

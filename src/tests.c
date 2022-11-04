@@ -730,6 +730,8 @@ STATUS compute_first_hecke_matrix_all_conds(const genus_t genus)
   while (fmpz_divisible(genus->disc,prime));
 
   p = fmpz_get_si(prime);
+
+ 
   hecke = hecke_matrices_all_conductors(genus,p);
 
   cpuclock_1 = clock();

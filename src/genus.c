@@ -632,3 +632,17 @@ void genus_init_empty(genus_t genus, size_t disc)
   
   return;
 }
+
+bool genus_is_trivial_cond(const genus_t genus)
+{
+  bool only_trivial;
+  slong c;
+  
+  only_trivial = true;
+  for (c = 1; c < genus->num_conductors; c++) {
+    if ((c > 0) && (genus->dims[c] > 0))
+      only_trivial = false;
+  }
+
+  return only_trivial;
+}

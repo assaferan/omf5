@@ -531,13 +531,21 @@ int** hecke_col_all_conds_sparse(int p, int col_idx, const genus_t genus)
   int* row;
   slong spin_idx;
   W64 r;
+  bool only_trivial;
 
   hecke = (int**)malloc(genus->num_conductors * sizeof(int*));
-  
+
+  only_trivial = genus_is_trivial_cond(genus);
+
   for (c = 0; c < genus->num_conductors; c++) {
     hecke[c] = (int*)malloc(genus->dims[c] * sizeof(int));
     for (i = 0; i < genus->dims[c]; i++)
       hecke[c][i] = 0;
+  }
+
+  if (only_trivial) {
+    hecke_col(hecke[0], p, col_idx, genus);
+    return hecke;
   }
 
   nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, 1);
@@ -639,15 +647,27 @@ matrix_TYP** hecke_matrices_all_conductors(const genus_t genus, int p)
   W64* spin_vals;
   W64 r;
   int* hecke_ptr;
+  bool only_trivial;
 
   hecke = (matrix_TYP**)malloc(genus->num_conductors * sizeof(matrix_TYP*));
-  hecke_ptr = (int*)malloc(genus->num_conductors * sizeof(int));
 
-  for (c = 0; c < genus -> num_conductors; c++) {
-    // hecke_ptr[c] = (slong*)malloc(genus->dims[c] * genus->dims[c] * sizeof(slong));
+  only_trivial = genus_is_trivial_cond(genus);
+
+  if (only_trivial)
+    hecke[0] = hecke_matrix(genus, p);
+  else
+    hecke[0] = init_mat(genus->dims[0], genus->dims[0], "");
+
+  for (c = 1; c < genus -> num_conductors; c++)
     hecke[c] = init_mat(genus->dims[c], genus->dims[c], "");
+
+  if (only_trivial)
+    return hecke;
+
+  hecke_ptr = (int*)malloc(genus->num_conductors * sizeof(int));
+  
+  for (c = 0; c < genus -> num_conductors; c++)
     hecke_ptr[c] = 0;
-  }
 
   // just computing the number of neighbors, to collect all the spin values at once
   if (genus->dims[0] == 0)
@@ -659,7 +679,6 @@ matrix_TYP** hecke_matrices_all_conductors(const genus_t genus, int p)
   }
   
   spin_vals = (W64*)malloc(num_nbrs*sizeof(W64));
-  
   
   for (gen_idx = 0; gen_idx < genus->genus_reps->num_stored; gen_idx++) {
 #ifdef DEBUG
