@@ -760,9 +760,11 @@ STATUS compute_first_hecke_matrix_all_conds(const genus_t genus)
 
 STATUS compute_first_large_hecke(const genus_t genus)
 {
-  square_matrix_t** hecke;
+  isometry_t** hecke;
   slong i,j,p;
   fmpz_t prime;
+  fmpq_mat_t* inv_subs;
+  aut_grp_t auts;
 
   clock_t cpuclock_0, cpuclock_1;
   double cputime, cpudiff;
@@ -778,6 +780,24 @@ STATUS compute_first_large_hecke(const genus_t genus)
   while (fmpz_divisible(genus->disc,prime));
 
   p = fmpz_get_si(prime);
+
+  inv_subs = (fmpq_mat_t*)malloc((genus->dims[0]) * sizeof(fmpq_mat_t));
+  for (i = 0; i < genus->dims[0]; i++) {
+    aut_grp_init_square_matrix(auts, genus->genus_reps->keys[i]);
+    invariant_subspace(inv_subs[i], auts);
+    aut_grp_clear(auts);
+    fmpq_mat_print(inv_subs[i]);
+  }
+  for (i = 0; i < genus->dims[0]; i++) {
+    fmpq_mat_clear(inv_subs[i]);
+  }
+  free(inv_subs);
+
+  // print the base change isometries
+  for (i = 0; i < genus->dims[0]; i++) {
+    isometry_print(genus->isoms[i]);
+  }
+  
   hecke = hecke_matrices_isometries(genus,p);
 
   cpuclock_1 = clock();
@@ -789,7 +809,7 @@ STATUS compute_first_large_hecke(const genus_t genus)
   for (i = 0; i < genus->dims[0]; i++) {
     printf("[");
     for (j = 0; j < genus->dims[0]; j++) {
-      square_matrix_print(hecke[i][j]);
+      isometry_print(hecke[i][j]);
       if (j != genus->dims[0]-1)
 	printf(",");
     }
@@ -803,7 +823,7 @@ STATUS compute_first_large_hecke(const genus_t genus)
   
   for (i = 0; i < genus->dims[0]; i++) {
     for (j = 0; j < genus->dims[0]; j++) {
-      square_matrix_clear(hecke[i][j]);
+      isometry_clear(hecke[i][j]);
     }
     free(hecke[i]);
   }

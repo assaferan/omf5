@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <inttypes.h>
 
 #include <carat/autgrp.h>
 #include <carat/symm.h>
@@ -44,6 +45,44 @@ void isometry_init_set_fmpz_mat(isometry_t isom, const fmpz_mat_t s, int denom)
   isom->denom = denom;
   isom->inv_denom = square_matrix_inv(isom->s_inv, isom->s, isom->denom);
 
+  return;
+}
+
+void isometry_zero(isometry_t isom)
+{
+  square_matrix_zero(isom->s);
+  square_matrix_zero(isom->s_inv);
+  isom->denom = 1;
+  isom->inv_denom = 1;
+
+  return;
+}
+
+
+void isometry_add(isometry_t sum, const isometry_t s1, const isometry_t s2)
+{
+  fmpz_t lcm, denom1, denom2;
+  square_matrix_t scaled;
+
+  fmpz_init_set_si(denom1, s1->denom);
+  fmpz_init_set_si(denom2, s2->denom);
+  fmpz_init(lcm);
+  fmpz_lcm(lcm, denom1, denom2);
+  
+  sum->denom = fmpz_get_si(lcm);
+  square_matrix_mul_scalar(sum->s, s1->s, (sum->denom) / (s1->denom));
+  square_matrix_mul_scalar(scaled, s2->s, (sum->denom) / (s2->denom));
+  square_matrix_add(sum->s, sum->s, scaled);
+  // When we add we do not update the inverse matrix, as it might not exist
+  // We also won't be needing it
+  square_matrix_zero(sum->s_inv);
+  sum->inv_denom = 1;
+  // sum->inv_denom = square_matrix_inv(sum->s_inv, sum->s, sum->denom);
+  
+  fmpz_clear(lcm);
+  fmpz_clear(denom1);
+  fmpz_clear(denom2);
+  
   return;
 }
 
@@ -334,5 +373,25 @@ void isometry_vec_scalar_mul(isometry_t isom, int col, int scalar)
   assert(denom == isom->inv_denom);
 #endif // DEBUG
 
+  return;
+}
+
+void isometry_print(const isometry_t isom)
+{
+  int i,j;
+
+  printf("[");
+  for (i = 0; i < QF_RANK; i++) {
+    printf("[");
+    for (j = 0; j < QF_RANK; j++) {
+      printf("%" PRId64 "/%d", isom->s[i][j], isom->denom);
+      if (j != QF_RANK - 1)
+	printf(",");
+    }
+    printf("]");
+    if (i != QF_RANK-1)
+      printf(",");
+  }
+  printf("]");
   return;
 }

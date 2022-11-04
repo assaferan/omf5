@@ -1347,3 +1347,65 @@ void nmod_mat_init_set_fmpz_mat(nmod_mat_t dest, const fmpz_mat_t mat, mp_limb_t
   return;
 }
 
+void fmpq_mat_direct_sum(fmpq_mat_t sum, const fmpq_mat_t A, const fmpq_mat_t B)
+{
+  slong i ,j;
+  
+  fmpq_mat_zero(sum);
+
+  for (i = 0; i < fmpq_mat_nrows(A); i++)
+    for (j = 0; j < fmpq_mat_ncols(A); j++)
+      fmpq_set(fmpq_mat_entry(sum,i,j), fmpq_mat_entry(A,i,j));
+  
+  for (i = 0; i < fmpq_mat_nrows(B); i++)
+    for (j = 0; j < fmpq_mat_ncols(B); j++)
+      fmpq_set(fmpq_mat_entry(sum,fmpq_mat_nrows(A) + i,fmpq_mat_ncols(A) + j), fmpq_mat_entry(B,i,j));
+
+  return;
+}
+
+void fmpq_mat_vertical_join(fmpq_mat_t join, const fmpq_mat_t A, const fmpq_mat_t B)
+{
+  slong i ,j;
+
+  assert(fmpq_mat_ncols(A) == fmpq_mat_ncols(B));
+  
+  for (i = 0; i < fmpq_mat_nrows(A); i++)
+    for (j = 0; j < fmpq_mat_ncols(A); j++)
+      fmpq_set(fmpq_mat_entry(join,i,j), fmpq_mat_entry(A,i,j));
+  
+  for (i = 0; i < fmpq_mat_nrows(B); i++)
+    for (j = 0; j < fmpq_mat_ncols(B); j++)
+      fmpq_set(fmpq_mat_entry(join,fmpq_mat_nrows(A) + i,j), fmpq_mat_entry(B,i,j));
+
+  return;
+}
+
+void fmpq_mat_meet(fmpq_mat_t intersect, const fmpq_mat_t A, const fmpq_mat_t B)
+{
+  slong i,j;
+  fmpq_mat_t AB, ker, proj;
+
+  assert(fmpq_mat_ncols(A) == fmpq_mat_ncols(B));
+  
+  fmpq_mat_init(AB, fmpq_mat_nrows(A) + fmpq_mat_nrows(B), fmpq_mat_ncols(A));
+
+  fmpq_mat_vertical_join(AB, A, B);
+  
+  fmpq_mat_left_kernel(ker, AB);
+
+  fmpq_mat_init(proj, fmpq_mat_nrows(ker), fmpq_mat_nrows(A));
+
+  for (i = 0; i < fmpq_mat_nrows(ker); i++)
+    for (j = 0; j < fmpq_mat_nrows(A); j++)
+      fmpq_set(fmpq_mat_entry(proj, i, j), fmpq_mat_entry(ker, i, j));
+
+  fmpq_mat_init(intersect, fmpq_mat_nrows(proj), fmpq_mat_ncols(A));
+  fmpq_mat_mul(intersect, proj, A);
+  
+  fmpq_mat_clear(proj);
+  fmpq_mat_clear(ker);
+  fmpq_mat_clear(AB);
+
+  return;
+}

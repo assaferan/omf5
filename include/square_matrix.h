@@ -59,6 +59,8 @@ void square_matrix_muleq_left(square_matrix_t prod, const square_matrix_t matL);
 
 void square_matrix_mul_vec_left(vector_t prod, const vector_t vec, const square_matrix_t mat);
 
+void square_matrix_mul_scalar(square_matrix_t prod, const square_matrix_t mat, int scalar);
+
 Z64 scalar_product(const vector_t v1, const vector_t v2);
 
 int square_matrix_inv(square_matrix_t inv, const square_matrix_t mat, int denom);

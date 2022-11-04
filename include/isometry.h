@@ -24,6 +24,11 @@ void isometry_init(isometry_t isom);
 void isometry_init_set(isometry_t dest, const isometry_t src);
 void isometry_init_set_square_matrix(isometry_t isom, const square_matrix_t s, int denom);
 void isometry_init_set_fmpz_mat(isometry_t, const fmpz_mat_t s, int denom);
+
+void isometry_zero(isometry_t isom);
+// Note : the sum of two isometries is not an isometry.
+// However, we allow for it as this is still an element of GO(Q) and it is relevant when working in higher weights
+void isometry_add(isometry_t sum, const isometry_t s1, const isometry_t s2);
 void isometry_mul(isometry_t prod, const isometry_t sL, const isometry_t sR);
 void isometry_muleq_right(isometry_t sL, const isometry_t sR);
 void isometry_muleq_left(isometry_t sR, const isometry_t sL);
@@ -46,5 +51,7 @@ void isometry_add_vec(isometry_t isom, int target_col, Z64 c, int src_col);
 void isometry_replace_vec(isometry_t isom, int col, const vector_t x);
 void isometry_vec_scalar_div(isometry_t isom, int col, int scalar);
 void isometry_vec_scalar_mul(isometry_t isom, int col, int scalar);
+
+void isometry_print(const isometry_t s);
 
 #endif // __ISOMETRY_H__

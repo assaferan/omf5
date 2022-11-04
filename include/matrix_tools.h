@@ -50,5 +50,9 @@ void kernel_on(fmpq_mat_t ker, const fmpq_mat_t A, const fmpq_mat_t B);
 
 void fmpq_mat_kernel(fmpq_mat_t ker, const fmpq_mat_t mat);
 void fmpq_mat_left_kernel(fmpq_mat_t ker, const fmpq_mat_t mat);
+void fmpq_mat_direct_sum(fmpq_mat_t sum, const fmpq_mat_t A, const fmpq_mat_t B);
+void fmpq_mat_vertical_join(fmpq_mat_t join, const fmpq_mat_t A, const fmpq_mat_t B);
+void fmpq_mat_meet(fmpq_mat_t intersect, const fmpq_mat_t basis1, const fmpq_mat_t basis2);
 
 #endif // __MATRIX_TOOLS_H__
+

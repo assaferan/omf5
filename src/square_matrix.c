@@ -370,6 +370,18 @@ int square_matrix_inv(square_matrix_t inv, const square_matrix_t mat, int denom)
   return inv_denom;
 }
 
+void square_matrix_mul_scalar(square_matrix_t prod, const square_matrix_t mat, int scalar)
+{
+  int i,j;
+  
+  for (i = 0; i < QF_RANK; i++)
+    for (j = 0; j < QF_RANK; j++)
+      prod[i][j] = mat[i][j] * scalar;
+
+  return;
+  
+}
+
 void square_matrix_div_scalar(square_matrix_t quo, const square_matrix_t mat, int denom)
 {
   int i,j;

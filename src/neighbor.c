@@ -460,9 +460,9 @@ void nbr_process_init(neighbor_manager_t nbr_man, const square_matrix_t Q, Z64 p
 
   aut_grp_init_square_matrix(grp, nbr_man->Q);
 
-  nbr_man->auts = (square_matrix_t*)malloc(grp->order * sizeof(square_matrix_t));
-  aut_grp_get_elements(nbr_man->auts,grp);
-  nbr_man->num_auts = grp->order;
+  nbr_man->auts = (square_matrix_t*)malloc((grp->order / 2) * sizeof(square_matrix_t));
+  aut_grp_get_special_elements(nbr_man->auts,grp);
+  nbr_man->num_auts = grp->order / 2;
   
   aut_grp_clear(grp);
   return;
