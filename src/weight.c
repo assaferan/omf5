@@ -201,12 +201,9 @@ slong hecke_col_isometries(square_matrix_t** large_hecke,
 square_matrix_t** hecke_matrices_isometries(const genus_t genus, int p)
 {
   square_matrix_t** hecke;
-  nbr_data_t nbr_man;
+ 
   int gen_idx;
-  slong i, j, num_nbrs;
-#ifdef DEBUG
-  slong nnbrs;
-#endif // DEBUG
+  slong i, j;
 
   hecke = (square_matrix_t**)malloc(genus->dims[0] * sizeof(square_matrix_t*));
 
@@ -215,24 +212,9 @@ square_matrix_t** hecke_matrices_isometries(const genus_t genus, int p)
     for (j = 0; j < genus->dims[0]; j++)
       square_matrix_zero(hecke[i][j]);
   }
-
-  // just computing the number of neighbors, to collect all the spin values at once
-  if (genus->dims[0] == 0)
-    num_nbrs = 0;
-  else {
-    nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, 1);
-    num_nbrs = number_of_neighbors(nbr_man, false);
-    nbr_data_clear(nbr_man);
-  }
   
-  for (gen_idx = 0; gen_idx < genus->dims[0]; gen_idx++) {
-#ifdef DEBUG
-    nnbrs = hecke_col_isometries(hecke, p, gen_idx, genus);
-    assert(nnbrs == num_nbrs);
-#else
+  for (gen_idx = 0; gen_idx < genus->dims[0]; gen_idx++)
     hecke_col_isometries(hecke, p, gen_idx, genus);
-#endif // DEBUG  
-  }
   
   return hecke;
 }
