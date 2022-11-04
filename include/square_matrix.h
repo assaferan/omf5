@@ -52,6 +52,7 @@ bool vector_is_zero(const vector_t vec);
 bool square_matrix_is_bad_prime(const square_matrix_t mat, Z64 p);
 
 void square_matrix_transpose(square_matrix_t tr, const square_matrix_t mat);
+void square_matrix_add(square_matrix_t sum, const square_matrix_t matL, const square_matrix_t matR);
 void square_matrix_mul(square_matrix_t prod, const square_matrix_t matL, const square_matrix_t matR);
 void square_matrix_muleq_right(square_matrix_t prod, const square_matrix_t matR);
 void square_matrix_muleq_left(square_matrix_t prod, const square_matrix_t matL);

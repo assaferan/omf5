@@ -86,15 +86,16 @@ slong nmod_mat_nullspace_mod4(nmod_mat_t ker, const nmod_mat_t q)
   for (i = 0; i < QF_RANK; i++) {
     old_pivot = pivot;
     for (; (pivot < QF_RANK) && fq_nmod_is_zero(fq_nmod_mat_entry(q_2, pivot, i) , F2);) pivot++;
-    if (((i == 0) || (old_pivot != pivot)) & (pivot < QF_RANK) ) {
+    if (((i == 0) || (old_pivot != pivot)) && (pivot < QF_RANK) ) {
       for (j = 0; j < nullity; j++) {
 	fq_nmod_set(fq_nmod_mat_entry(sol, j, i), fq_nmod_mat_entry(lift_2, j, pivot), F2);
       }
     }
     else {
-       for (j = 0; j < nullity; j++) {
+      for (j = 0; j < nullity; j++) {
 	fq_nmod_zero(fq_nmod_mat_entry(sol, j, i), F2);
       }
+      pivot = old_pivot;
     }
   }
   

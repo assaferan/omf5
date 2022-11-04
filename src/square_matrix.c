@@ -284,6 +284,17 @@ void square_matrix_transpose(square_matrix_t tr, const square_matrix_t mat)
   return;
 }
 
+void square_matrix_add(square_matrix_t sum, const square_matrix_t matL, const square_matrix_t matR)
+{
+  int i,j;
+
+  for (i = 0; i < QF_RANK; i++)
+    for (j = 0; j < QF_RANK; j++)
+      sum[i][j] = matL[i][j]+matR[i][j];
+
+  return;
+}
+
 // !! TODO - this could be made faster
 void square_matrix_mul(square_matrix_t prod, const square_matrix_t matL, const square_matrix_t matR)
 {
@@ -452,6 +463,27 @@ void square_matrix_swap_elts(square_matrix_t Q, int row1, int col1, int row2, in
 }
 
 void square_matrix_print(const square_matrix_t mat)
+{
+  int i,j;
+
+  printf("[");
+  for (i = 0; i < QF_RANK; i++) {
+    printf("[");
+    for (j = 0; j < QF_RANK; j++) {
+      printf("%" PRId64 " ", mat[i][j]);
+      if (j != QF_RANK - 1)
+	printf(",");
+    }
+    printf("]");
+    if (i != QF_RANK-1)
+      printf(",");
+  }
+  printf("]");
+
+  return;
+}
+
+void square_matrix_print_pretty(const square_matrix_t mat)
 {
   int i,j;
 

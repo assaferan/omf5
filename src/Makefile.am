@@ -50,10 +50,12 @@ SOURCES += neighbor.c
 SOURCES += nf_mat.c
 SOURCES += orthogonalize.c
 SOURCES += pivot_data.c
+SOURCES += qf_inv.c
 SOURCES += spinor.c
 SOURCES += square_matrix.c
 SOURCES += tests.c
-SOURCES += qf_inv.c
+SOURCES += weight.c
+
 
 omf5_dbg_full_SOURCES = omf5.c $(SOURCES)
 omf5_dbg_full_CFLAGS = $(DBG_FULL_CFLAGS)

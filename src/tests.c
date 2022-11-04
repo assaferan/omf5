@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <inttypes.h>
 #include <math.h>
 #include <time.h>
 
@@ -9,6 +10,7 @@
 #include "io.h"
 #include "matrix_tools.h"
 #include "tests.h"
+#include "weight.h"
 
 void print_conductors(const genus_t genus)
 {
@@ -747,6 +749,62 @@ STATUS compute_first_hecke_matrix_all_conds(const genus_t genus)
   
   for (c = 0; c < genus->num_conductors; c++)
     free_mat(hecke[c]);
+
+  free(hecke);
+  fmpz_clear(prime);
+ 
+  return SUCCESS;
+}
+
+STATUS compute_first_large_hecke(const genus_t genus)
+{
+  square_matrix_t** hecke;
+  slong i,j,p;
+  fmpz_t prime;
+
+  clock_t cpuclock_0, cpuclock_1;
+  double cputime, cpudiff;
+  
+  cpuclock_0 = clock();
+
+  fmpz_init(prime);
+  fmpz_set_ui(prime, 1);
+  
+  do {
+    fmpz_nextprime(prime, prime, true);
+  }
+  while (fmpz_divisible(genus->disc,prime));
+
+  p = fmpz_get_si(prime);
+  hecke = hecke_matrices_isometries(genus,p);
+
+  cpuclock_1 = clock();
+  cpudiff = cpuclock_1 - cpuclock_0;
+  cputime = cpudiff / CLOCKS_PER_SEC;
+
+  printf("%ld, ", p);
+  printf("[");
+  for (i = 0; i < genus->dims[0]; i++) {
+    printf("[");
+    for (j = 0; j < genus->dims[0]; j++) {
+      square_matrix_print(hecke[i][j]);
+      if (j != genus->dims[0]-1)
+	printf(",");
+    }
+    printf("]");
+    if (i != genus->dims[0]-1)
+      printf(",");
+  }
+  printf("]");
+
+  fprintf(stderr, "computing hecke matrices took %f sec\n", cputime);
+  
+  for (i = 0; i < genus->dims[0]; i++) {
+    for (j = 0; j < genus->dims[0]; j++) {
+      square_matrix_clear(hecke[i][j]);
+    }
+    free(hecke[i]);
+  }
 
   free(hecke);
   fmpz_clear(prime);

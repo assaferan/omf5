@@ -19,7 +19,7 @@ int main(int argc, char* argv[])
   char* genus_fname;
   int max_args;
   bool do_tests, is_valid, is_prec, is_format, is_p, is_c, is_genus, is_disc;
-  bool has_quad, has_format, has_prec, has_p, has_hecke, has_c, has_genus, has_disc;
+  bool has_quad, has_format, has_prec, has_p, has_hecke, has_c, has_genus, has_disc, has_large;
   int i;
   genus_t genus;
 
@@ -33,7 +33,7 @@ int main(int argc, char* argv[])
   }
 
   do_tests = false;
-  has_quad = has_format = has_prec  = has_p = has_hecke = has_c = has_genus = has_disc = false;
+  has_quad = has_format = has_prec  = has_p = has_hecke = has_c = has_genus = has_disc = has_large = false;
   
   for (i = 1; i < argc; i++) {
     is_valid = false;
@@ -46,6 +46,11 @@ int main(int argc, char* argv[])
 
     if (strcmp(argv[i], "-hecke") == 0) {
       has_hecke = true;
+      is_valid = true;
+    }
+
+    if (strcmp(argv[i], "-large") == 0) {
+      has_large = true;
       is_valid = true;
     }
 
@@ -132,7 +137,10 @@ int main(int argc, char* argv[])
 	  test_res |= compute_eigenvalues(genus, p);
       else {
 	if (has_hecke)
-	  test_res |= compute_first_hecke_matrix_all_conds(genus);
+	  if (has_large)
+	    test_res |= compute_first_large_hecke(genus);
+	  else
+	    test_res |= compute_first_hecke_matrix_all_conds(genus);
 	else
 	  test_res |= compute_eigenvectors(genus);
       }

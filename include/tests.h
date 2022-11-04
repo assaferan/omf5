@@ -47,4 +47,6 @@ STATUS compute_first_hecke_matrix_all_conds(const genus_t genus);
 
 void compute_genus(genus_t genus, const int* Q_coeffs, const char* format);
 
+STATUS compute_first_large_hecke(const genus_t genus);
+
 #endif // __TESTS_H__
