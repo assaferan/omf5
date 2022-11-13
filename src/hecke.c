@@ -69,22 +69,19 @@ int process_isotropic_vector_nbr_data_all_conductors(nbr_data_t nbr_man, W64* sp
   nbr_data_build_neighbor(nbr_fmpz, nbr_isom, nbr_man);
   square_matrix_set_fmpz_mat(nbr, nbr_fmpz);
   isometry_init_set_fmpz_mat(s_nbr, nbr_isom, fmpz_get_si(fq_nmod_ctx_prime(nbr_man->GF)));
+  assert(gen_idx < genus->genus_reps->num_stored);
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx], nbr));
   
   cputime = clock();
   i = hash_table_index_and_isom(genus->genus_reps, nbr, hash_isom, theta_time, isom_time, num_isom);
   (*total_time) += clock() - cputime;
 
-#ifdef DEBUG
-  if ((i < 0) || (i > genus->genus_reps->num_stored)) {
-    printf("Error! Couldn't find element in genus!\n");
-    exit(-1);
-  }
-#endif // DEBUG
+  assert( (0 <= i) && (i < genus->genus_reps->num_stored) );
 
   // TODO - compute only the upper half, and complete using hermitian property
   // Determine which subspaces this representative contributes.
 
+  assert(gen_idx < genus->genus_reps->num_stored);
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx], nbr));
   assert(isometry_is_isom(genus->isoms[gen_idx], genus->genus_reps->keys[0],
 			  genus->genus_reps->keys[gen_idx]));
@@ -135,7 +132,7 @@ int process_isotropic_vector_all_conductors(neighbor_manager_t nbr_man, W64* spi
   W64 spinorm;
   vector_t g_vec;
   
-  assert(genus->genus_reps->num_stored > 0);
+  assert(genus->genus_reps->num_stored > gen_idx);
 
   orbit = (vector_t*)malloc(nbr_man->num_auts * sizeof(vector_t));
   orbit_isom = (isometry_t*)malloc(nbr_man->num_auts * sizeof(isometry_t));
@@ -315,6 +312,7 @@ int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const genus_t gen
   
   lc = 0;
 
+  assert(gen_idx < genus->genus_reps->num_stored);
   square_matrix_set(Q,genus->genus_reps->keys[gen_idx]);
 
 #ifdef DEBUG_LEVEL_FULL
@@ -347,6 +345,7 @@ slong hecke_col_nbr_data_all_conductors(W64* spin_vals, int p, int k, int gen_id
 
   lc = 0;
   
+  assert(gen_idx < genus->genus_reps->num_stored);
   square_matrix_set(Q,genus->genus_reps->keys[gen_idx]);
 
 #ifdef DEBUG_LEVEL_FULL
@@ -388,7 +387,8 @@ slong hecke_col_all_conductors(W64* spin_vals, int p, int gen_idx, const genus_t
   theta_time = isom_time = total_time = 0;
 
   lc = 0;
-  
+
+  assert(gen_idx < genus->genus_reps->num_stored);
   square_matrix_set(Q,genus->genus_reps->keys[gen_idx]);
 
 #ifdef DEBUG_LEVEL_FULL
@@ -425,6 +425,7 @@ int process_neighbour_chunk_nbr_data(int* T, int p, int k, int gen_idx, const ge
 
   lc = 0;
 
+  assert(gen_idx < genus->genus_reps->num_stored);
   square_matrix_set(Q,genus->genus_reps->keys[gen_idx]);
 
 #ifdef DEBUG_LEVEL_FULL
@@ -474,6 +475,9 @@ void hecke_col(int* T, int p, int gen_idx, const genus_t genus)
   num_isom = lc = 0;
   theta_time = isom_time = total_time = 0;
 
+  if (genus->dims[0] == 0)
+    return;
+  
   for (i = 0; i < genus->dims[0]; i++) {
     T[i] = 0;
   }
@@ -548,6 +552,7 @@ int** hecke_col_all_conds_sparse(int p, int col_idx, const genus_t genus)
     return hecke;
   }
 
+  assert(genus->genus_reps->num_stored > 0);
   nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, 1);
   // in neighbor_manager we also go over the radical
   // Maybe fixed that
@@ -600,6 +605,7 @@ matrix_TYP** hecke_matrices_nbr_data_all_conductors(const genus_t genus, int p, 
   }
 
   // just computing the number of neighbors, to collect all the spin values at once
+  assert(genus->genus_reps->num_stored > 0);
   nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, k);
   // nbr_data only goes over the isotropic vectors that are not in the radical
   num_nbrs = number_of_neighbors(nbr_man, false);
@@ -673,6 +679,7 @@ matrix_TYP** hecke_matrices_all_conductors(const genus_t genus, int p)
   if (genus->dims[0] == 0)
     num_nbrs = 0;
   else {
+    assert(genus->genus_reps->num_stored > 0);
     nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, 1);
     num_nbrs = number_of_neighbors(nbr_man, false);
     nbr_data_clear(nbr_man);
@@ -841,6 +848,7 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
       hecke[c][i] = 0;
   }
 
+  assert(genus->genus_reps->num_stored > 0);
   nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, k);
   num_nbrs = number_of_neighbors(nbr_man, false);
   nbr_data_clear(nbr_man);
@@ -967,6 +975,7 @@ void get_hecke_ev_all_conductors(nf_elem_t e, const genus_t genus,
       hecke[c][i] = 0;
   }
 
+  assert(genus->genus_reps->num_stored > 0);
   nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, 1);
   num_nbrs = number_of_neighbors(nbr_man, false);
   nbr_data_clear(nbr_man);
