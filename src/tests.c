@@ -45,7 +45,7 @@ void compute_genus(genus_t genus, const int* Q_coeffs, const char* format)
   cpudiff = cpuclock_1 - cpuclock_0;
   cputime = cpudiff / CLOCKS_PER_SEC;
   
-  printf("computing genus took %f sec\n", cputime);
+  fprintf(stderr, "computing genus took %f sec\n", cputime);
 
   square_matrix_clear(Q);
 
@@ -55,7 +55,7 @@ void compute_genus(genus_t genus, const int* Q_coeffs, const char* format)
   cpudiff = cpuclock_1 - cpuclock_0;
   cputime = cpudiff / CLOCKS_PER_SEC;
   
-  printf("recomputing genus took %f sec\n", cputime);
+  fprintf(stderr, "recomputing genus took %f sec\n", cputime);
 
   genus_clear(old_genus);
 
@@ -219,7 +219,7 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex)
   cpudiff = cpuclock_1 - cpuclock_0;
   cputime = cpudiff / CLOCKS_PER_SEC;
   
-  printf("computing eigenvectors took %f sec\n", cputime);
+  fprintf(stderr, "computing eigenvectors took %f sec\n", cputime);
 
   if (ex->num_forms != NULL)
     for (c = 0; c < num_conductors; c++)
@@ -258,7 +258,7 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex)
 	  cpudiff = cpuclock_1 - cpuclock_0;
 	  cputime = cpudiff / CLOCKS_PER_SEC;
 	  // printf("cpudiff = %f, clocks_per_sec = %d\n", cpudiff, CLOCKS_PER_SEC);
-	  printf("computing eigenvalues for k = %d, took %f sec\n", k+1, cputime);
+	  fprintf(stderr, "computing eigenvalues for k = %d, took %f sec\n", k+1, cputime);
 	}
       }
   }
@@ -671,7 +671,7 @@ STATUS compute_hecke_col_all_conds(const genus_t genus, slong p, int gen_idx)
   printf("}");
   //printf("} }");
 
-  printf("computing hecke took %f sec\n", cputime);
+  fprintf(stderr, "computing hecke took %f sec\n", cputime);
   
   for (c = 0; c < genus->num_conductors; c++)
     free(hecke[c]);
@@ -723,7 +723,7 @@ STATUS compute_hecke_col(const genus_t genus, slong p, slong c)
 
   printf("}");
 
-  printf("computing hecke took %f sec\n", cputime);
+  fprintf(stderr, "computing hecke took %f sec\n", cputime);
   
   free(hecke);
 
@@ -762,7 +762,7 @@ STATUS compute_hecke_matrix(const genus_t genus, slong p, slong c)
   printf("}");
   //  printf("} }");
 
-  printf("computing hecke took %f sec\n", cputime);
+  fprintf(stderr, "computing hecke took %f sec\n", cputime);
   
   free_mat(hecke);
 
