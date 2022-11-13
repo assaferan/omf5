@@ -39,9 +39,13 @@ STATUS compute_eigenvalues(const genus_t genus, int p);
 
 STATUS compute_eigenvalues_up_to(const genus_t genus, int prec);
 
-STATUS compute_hecke_col(const genus_t genus, int p, int c);
+STATUS compute_hecke_col(const genus_t genus, slong p, slong c);
 
-STATUS compute_hecke_col_all_conds(const genus_t genus, int p, int gen_idx);
+STATUS compute_hecke_col_all_conds(const genus_t genus, slong p, int gen_idx);
+
+STATUS compute_hecke_matrix(const genus_t genus, slong p, slong c);
+
+STATUS compute_hecke_matrix_all_conds(const genus_t genus, slong p);
 
 STATUS compute_first_hecke_matrix_all_conds(const genus_t genus);
 

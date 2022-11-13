@@ -19,7 +19,8 @@ int main(int argc, char* argv[])
   char* genus_fname;
   int max_args;
   bool do_tests, is_valid, is_prec, is_format, is_p, is_c, is_genus, is_disc;
-  bool has_quad, has_format, has_prec, has_p, has_hecke, has_c, has_genus, has_disc, has_large;
+  bool has_quad, has_format, has_prec, has_p, has_hecke, has_c;
+  bool has_genus, has_disc, has_large, has_row;
   int i;
   genus_t genus;
 
@@ -33,7 +34,8 @@ int main(int argc, char* argv[])
   }
 
   do_tests = false;
-  has_quad = has_format = has_prec  = has_p = has_hecke = has_c = has_genus = has_disc = has_large = false;
+  has_quad = has_format = has_prec  = has_p = has_hecke = has_c = false;
+  has_row = has_genus = has_disc = has_large = false;
   
   for (i = 1; i < argc; i++) {
     is_valid = false;
@@ -46,6 +48,11 @@ int main(int argc, char* argv[])
 
     if (strcmp(argv[i], "-hecke") == 0) {
       has_hecke = true;
+      is_valid = true;
+    }
+
+    if (strcmp(argv[i], "-row") == 0) {
+      has_row = true;
       is_valid = true;
     }
 
@@ -126,12 +133,20 @@ int main(int argc, char* argv[])
     else
       if (has_p)
 	if (has_hecke) {
-	  // !! TODO - right now it doesn't matter which column we take, so we take 0 index,
-	  // might change in the future.
-	  if (has_c)
-	    test_res |= compute_hecke_col(genus, p, c);
-	  else
-	    test_res |= compute_hecke_col_all_conds(genus, p, 0);
+	  if (has_row) {
+	    // !! TODO - right now it doesn't matter which column we take,
+	    // so we take 0 index,
+	    // might change in the future.
+	    if (has_c)
+	      test_res |= compute_hecke_col(genus, p, c);
+	    else
+	      test_res |= compute_hecke_col_all_conds(genus, p, 0);
+	  } else {
+	    if (has_c)
+	      test_res |= compute_hecke_matrix(genus, p, c);
+	    else
+	      test_res |= compute_hecke_matrix_all_conds(genus, p);
+	  }
 	}
 	else
 	  test_res |= compute_eigenvalues(genus, p);

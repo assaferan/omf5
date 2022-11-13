@@ -638,7 +638,7 @@ STATUS compute_eigenvalues_up_to(const genus_t genus, int prec)
   return ret;
 }
 
-STATUS compute_hecke_col_all_conds(const genus_t genus, int p, int gen_idx)
+STATUS compute_hecke_col_all_conds(const genus_t genus, slong p, int gen_idx)
 {
   int** hecke;
   slong c, i;
@@ -654,12 +654,20 @@ STATUS compute_hecke_col_all_conds(const genus_t genus, int p, int gen_idx)
   cpudiff = cpuclock_1 - cpuclock_0;
   cputime = cpudiff / CLOCKS_PER_SEC;
   
+  printf("{%ld : {", p);
   for (c = 0; c < genus->num_conductors; c++) {
-    printf("cond=%ld: ", genus->conductors[c]);
-    for (i = 0; i < genus->dims[c]; i++)
-      printf("%4d ", hecke[c][i]);
-    printf("\n");
+    printf("%ld : ", genus->conductors[c]);
+    printf("[");
+    for (i = 0; i < genus->dims[c]; i++) {
+      printf("%d", hecke[c][i]);
+      if (i != genus->dims[c]-1)
+	printf(",");
+    }
+    printf("]");
+    if (c != genus->num_conductors-1)
+      printf(",");
   }
+  printf("} }");
 
   printf("computing hecke took %f sec\n", cputime);
   
@@ -671,7 +679,7 @@ STATUS compute_hecke_col_all_conds(const genus_t genus, int p, int gen_idx)
   return SUCCESS;
 }
 
-STATUS compute_hecke_col(const genus_t genus, int p, int c)
+STATUS compute_hecke_col(const genus_t genus, slong p, slong c)
 {
   int* hecke;
   int c_idx, i, gen_idx;
@@ -699,9 +707,18 @@ STATUS compute_hecke_col(const genus_t genus, int p, int c)
   cpudiff = cpuclock_1 - cpuclock_0;
   cputime = cpudiff / CLOCKS_PER_SEC;
 
-  for (i = 0; i < genus->dims[0]; i++)
-      printf("%4d ", hecke[i]);
-  printf("\n");
+  printf("{%ld : {", p);
+  
+  printf("%ld : ", genus->conductors[c]);
+  printf("[");
+  for (i = 0; i < genus->dims[c]; i++) {
+    printf("%d", hecke[i]);
+    if (i != genus->dims[c]-1)
+      printf(",");
+  }
+  printf("]");
+
+  printf("}");
 
   printf("computing hecke took %f sec\n", cputime);
   
@@ -710,27 +727,53 @@ STATUS compute_hecke_col(const genus_t genus, int p, int c)
   return SUCCESS;
 }
 
-STATUS compute_first_hecke_matrix_all_conds(const genus_t genus)
+STATUS compute_hecke_matrix(const genus_t genus, slong p, slong c)
+{
+  matrix_TYP* hecke;
+  int c_idx, gen_idx;
+
+  clock_t cpuclock_0, cpuclock_1;
+  double cputime, cpudiff;  
+
+  for (c_idx = 0; (c_idx < genus->num_conductors) && (genus->conductors[c_idx] != c);) c_idx++;
+
+  gen_idx = 0;
+  while (genus->lut_positions[c_idx][gen_idx] == -1)
+    gen_idx++;
+  
+  // right now we only handle differently the trivial spinor norm case
+  if (c_idx != 0)
+    return compute_hecke_matrix_all_conds(genus, p);
+
+  cpuclock_0 = clock();
+
+  hecke = hecke_matrix(genus, p);
+
+  cpuclock_1 = clock();
+  cpudiff = cpuclock_1 - cpuclock_0;
+  cputime = cpudiff / CLOCKS_PER_SEC;
+
+  printf("{%ld : {", p);
+  printf("%ld : ", genus->conductors[0]);
+  print_mat_dense(hecke);
+  printf("} }");
+
+  printf("computing hecke took %f sec\n", cputime);
+  
+  free_mat(hecke);
+
+  return SUCCESS;
+}
+
+STATUS compute_hecke_matrix_all_conds(const genus_t genus, slong p)
 {
   matrix_TYP** hecke;
-  slong c, p;
-  fmpz_t prime;
-
+  slong c;
+ 
   clock_t cpuclock_0, cpuclock_1;
   double cputime, cpudiff;
   
   cpuclock_0 = clock();
-
-  fmpz_init(prime);
-  fmpz_set_ui(prime, 1);
-  
-  do {
-    fmpz_nextprime(prime, prime, true);
-  }
-  while (fmpz_divisible(genus->disc,prime));
-
-  p = fmpz_get_si(prime);
-
  
   hecke = hecke_matrices_all_conductors(genus,p);
 
@@ -753,6 +796,28 @@ STATUS compute_first_hecke_matrix_all_conds(const genus_t genus)
     free_mat(hecke[c]);
 
   free(hecke);
+ 
+  return SUCCESS;
+  
+}
+
+STATUS compute_first_hecke_matrix_all_conds(const genus_t genus)
+{
+  slong p;
+  fmpz_t prime;
+
+  fmpz_init(prime);
+  fmpz_set_ui(prime, 1);
+  
+  do {
+    fmpz_nextprime(prime, prime, true);
+  }
+  while (fmpz_divisible(genus->disc,prime));
+
+  p = fmpz_get_si(prime);
+
+  compute_hecke_matrix_all_conds(genus, p);
+ 
   fmpz_clear(prime);
  
   return SUCCESS;
