@@ -654,7 +654,8 @@ STATUS compute_hecke_col_all_conds(const genus_t genus, slong p, int gen_idx)
   cpudiff = cpuclock_1 - cpuclock_0;
   cputime = cpudiff / CLOCKS_PER_SEC;
   
-  printf("{%ld : {", p);
+  // printf("{%ld : {", p);
+  printf("{");
   for (c = 0; c < genus->num_conductors; c++) {
     printf("%ld : ", genus->conductors[c]);
     printf("[");
@@ -667,7 +668,8 @@ STATUS compute_hecke_col_all_conds(const genus_t genus, slong p, int gen_idx)
     if (c != genus->num_conductors-1)
       printf(",");
   }
-  printf("} }");
+  printf("}");
+  //printf("} }");
 
   printf("computing hecke took %f sec\n", cputime);
   
@@ -707,9 +709,10 @@ STATUS compute_hecke_col(const genus_t genus, slong p, slong c)
   cpudiff = cpuclock_1 - cpuclock_0;
   cputime = cpudiff / CLOCKS_PER_SEC;
 
-  printf("{%ld : {", p);
+  // We stop printing out the p, p will be part of the filename (externally)
+  //   printf("{%ld : {", p);
   
-  printf("%ld : ", genus->conductors[c]);
+  printf("{%ld : ", genus->conductors[c]);
   printf("[");
   for (i = 0; i < genus->dims[c]; i++) {
     printf("%d", hecke[i]);
@@ -753,10 +756,11 @@ STATUS compute_hecke_matrix(const genus_t genus, slong p, slong c)
   cpudiff = cpuclock_1 - cpuclock_0;
   cputime = cpudiff / CLOCKS_PER_SEC;
 
-  printf("{%ld : {", p);
-  printf("%ld : ", genus->conductors[0]);
+  //printf("{%ld : {", p);
+  printf("{%ld : ", genus->conductors[0]);
   print_mat_dense(hecke);
-  printf("} }");
+  printf("}");
+  //  printf("} }");
 
   printf("computing hecke took %f sec\n", cputime);
   
@@ -781,14 +785,16 @@ STATUS compute_hecke_matrix_all_conds(const genus_t genus, slong p)
   cpudiff = cpuclock_1 - cpuclock_0;
   cputime = cpudiff / CLOCKS_PER_SEC;
 
-  printf("{%ld : {", p);
+  // printf("{%ld : {", p);
+  printf("{");
   for (c = 0; c < genus->num_conductors; c++) {
     printf("%ld : ", genus->conductors[c]);
     print_mat_dense(hecke[c]);
     if (c != genus->num_conductors-1)
       printf(",");
   }
-  printf("} }");
+  printf("}");
+  //  printf("} }");
 
   fprintf(stderr, "computing hecke matrices took %f sec\n", cputime);
   
