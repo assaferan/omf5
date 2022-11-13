@@ -5,8 +5,8 @@ from sage.all import prime_range
 
 os.system("export LD_LIBRARY_PATH=/home/assaferan/lib")
 
-MAX_DISC = 1000
-MAX_P_ROW = 100
+MAX_DISC = 10
+MAX_P_ROW = 10
 MAX_P_FULL = 10
 
 #runnning over all discriminants up to 1000
