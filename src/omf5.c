@@ -13,7 +13,7 @@ int print_param_desc(char* argv[]);
 int main(int argc, char* argv[])
 {
   int prec, p, c, disc;
-  int Q_coeffs[15];
+  Z64 Q_coeffs[15];
   STATUS test_res;
   char* input_type;
   char* genus_fname;
@@ -63,7 +63,7 @@ int main(int argc, char* argv[])
 
     // checking whether this is a matrix input
     if (strncmp(argv[i], "-quad=", 6) == 0) {
-      is_valid = parse_matrix(argv[i]+6, Q_coeffs);
+      is_valid = parse_matrix(Q_coeffs, argv[i]+6);
       has_quad = is_valid;
     }
 
