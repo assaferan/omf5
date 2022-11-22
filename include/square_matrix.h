@@ -25,7 +25,7 @@ typedef Z64 square_matrix_t[QF_RANK][QF_RANK];
 void square_matrix_init(square_matrix_t mat);
 void square_matrix_clear(square_matrix_t mat);
 
-void square_matrix_init_set_symm(square_matrix_t mat, const int* coeff_vec, const char* inp_type);
+void square_matrix_init_set_symm(square_matrix_t mat, const Z64* coeff_vec, const char* inp_type);
 
 void square_matrix_set(square_matrix_t dest, const square_matrix_t src);
 void vector_set(vector_t dest, const vector_t src);

@@ -108,6 +108,22 @@ int hilbert_symbol(const fmpz_t x, const fmpz_t y, const fmpz_t p)
   return hilbert;
 }
 
+int lcm(int a, int b)
+{
+  fmpz_t a_Z, b_Z, m_Z;
+  int m;
+
+  fmpz_init_set_si(a_Z, a);
+  fmpz_init_set_si(b_Z, b);
+  fmpz_lcm(m_Z, a_Z, b_Z);
+  m = fmpz_get_si(m_Z);
+
+  fmpz_clear(a_Z);
+  fmpz_clear(b_Z);
+  fmpz_clear(m_Z);
+  return m;
+}
+
 /* Recursive function for a temporary extended Euclidean algorithm. */
 /* It uses pointers to return multiple values. */
 Z64 gcdext(Z64 a, Z64 b, Z64 *x, Z64 *y)

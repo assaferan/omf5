@@ -19,7 +19,7 @@ void square_matrix_clear(square_matrix_t mat)
   return;
 }
 
-void square_matrix_init_set_symm_A(square_matrix_t Q, const int* coeff_vec)
+void square_matrix_init_set_symm_A(square_matrix_t Q, const Z64* coeff_vec)
 {
   int row, col, idx;
   
@@ -41,7 +41,7 @@ void square_matrix_init_set_symm_A(square_matrix_t Q, const int* coeff_vec)
   return;
 }
 
-void square_matrix_init_set_symm_GG(square_matrix_t Q, const int* coeff_vec)
+void square_matrix_init_set_symm_GG(square_matrix_t Q, const Z64* coeff_vec)
 {
   int row, col, idx;
 
@@ -70,7 +70,7 @@ void square_matrix_init_set_symm_GG(square_matrix_t Q, const int* coeff_vec)
   return;
 }
 
-void square_matrix_init_set_symm(square_matrix_t mat, const int* coeff_vec, const char* alg)
+void square_matrix_init_set_symm(square_matrix_t mat, const Z64* coeff_vec, const char* alg)
 {
   if (strcmp(alg,"A") == 0)
     return square_matrix_init_set_symm_A(mat, coeff_vec);

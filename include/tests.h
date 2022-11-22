@@ -6,7 +6,7 @@
 
 typedef struct {
 
-  int Q_coeffs[15];
+  Z64 Q_coeffs[15];
   const char* format;
   
   int num_conductors;
@@ -49,7 +49,7 @@ STATUS compute_hecke_matrix_all_conds(const genus_t genus, slong p);
 
 STATUS compute_first_hecke_matrix_all_conds(const genus_t genus);
 
-void compute_genus(genus_t genus, const int* Q_coeffs, const char* format);
+void compute_genus(genus_t genus, const Z64* Q_coeffs, const char* format);
 
 STATUS compute_first_large_hecke(const genus_t genus);
 

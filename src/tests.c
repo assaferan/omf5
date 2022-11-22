@@ -28,7 +28,7 @@ void print_conductors(const genus_t genus)
 }
 
 // Now this also checks initialization from a list of matrices
-void compute_genus(genus_t genus, const int* Q_coeffs, const char* format)
+void compute_genus(genus_t genus, const Z64* Q_coeffs, const char* format)
 {
   clock_t cpuclock_0, cpuclock_1;
   double cputime, cpudiff;
@@ -540,7 +540,7 @@ STATUS test_69()
   return ret;
 }
 
-STATUS test_greedy(const int* Q_coeffs, const int* red_Q_coeffs)
+STATUS test_greedy(const Z64* Q_coeffs, const Z64* red_Q_coeffs)
 {
   square_matrix_t Q, red_Q;
   isometry_t s;
@@ -569,10 +569,10 @@ STATUS test_greedy_overflow()
 {
   STATUS ret;
   
-  int Q1[15] = {8,2,26,2,5,292,3,13,-115,1956,298,69,-60,88,11166};
-  int Q2[15] = {12,6,16,-4,-4,842,-5,-5,175,23596,-125,772,-5402,-1517,88494};
-  int red_Q[15] = {2,0,2,1,1,2,0,1,0,6,1,1,1,1,8};
-  int red_Q2[15] = {2,1,2,1,0,2,1,0,1,6,1,1,1,0,8};
+  Z64 Q1[15] = {8,2,26,2,5,292,3,13,-115,1956,298,69,-60,88,11166};
+  Z64 Q2[15] = {12,6,16,-4,-4,842,-5,-5,175,23596,-125,772,-5402,-1517,88494};
+  Z64 red_Q[15] = {2,0,2,1,1,2,0,1,0,6,1,1,1,1,8};
+  Z64 red_Q2[15] = {2,1,2,1,0,2,1,0,1,6,1,1,1,0,8};
 
   ret = test_greedy(Q1, red_Q) << 1;
 

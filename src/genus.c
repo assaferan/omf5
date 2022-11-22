@@ -603,13 +603,63 @@ void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps
   return;
 }
 
-void genus_init_file(genus_t genus, const char* genus_fname, size_t disc)
+void genus_init_set_square_matrix_vec_and_isoms(genus_t genus, const square_matrix_t* reps,
+						const isometry_t* isoms, size_t h)
+{
+  size_t genus_size;
+  hash_table_t slow_genus;
+  
+  size_t i;
+
+  assert(h > 0);
+  disc_init_set(genus->disc, reps[0]);
+
+  genus_size = (4 * h) / 3; // load factor
+
+  hash_table_init(slow_genus, genus_size);
+
+  spinor_init_square_matrix(genus->spinor, reps[0]);
+  
+  for (i = 0; i < h; i++)
+    hash_table_add(slow_genus, reps[i]);
+
+  hash_table_recalibrate(genus->genus_reps, slow_genus);
+
+  hash_table_clear(slow_genus);
+
+  // constructing isometries between the forms
+  genus->isoms = (isometry_t*)malloc(h * sizeof(isometry_t));
+  for (i = 0; i < h; i++) {
+    isometry_init_set(genus->isoms[i], isoms[i]);
+    assert(isometry_is_isom(genus->isoms[i], genus->genus_reps->keys[0], genus->genus_reps->keys[i]));
+  }
+  
+  // initializing the conductors
+  
+  conductors_init(genus);
+
+  assert(genus->genus_reps->num_stored > 0);
+
+  dimensions_init(genus);
+      
+  return;
+}
+
+
+void genus_init_file(genus_t genus, const char* genus_fname, size_t disc, bool with_isom)
 {
   square_matrix_t* genus_reps = NULL;
+  isometry_t* isoms = NULL;
   size_t genus_size;
+
+  if (with_isom)
+    genus_size = read_genus_and_isom(&genus_reps, &isoms, genus_fname, disc);
+  else
+    genus_size = read_genus(&genus_reps, genus_fname, disc);
   
-  genus_size = read_genus(&genus_reps, genus_fname, disc);
-  if (genus_size > 0)
+  if ((genus_size > 0) && (with_isom))
+    genus_init_set_square_matrix_vec_and_isoms(genus, genus_reps, isoms, genus_size);
+  else if (genus_size > 0)
     genus_init_set_square_matrix_vec(genus, genus_reps, genus_size);
   else
     genus_init_empty(genus, disc);
