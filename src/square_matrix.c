@@ -4,6 +4,11 @@
 #include <carat/matrix.h>
 #include <carat/symm.h>
 
+#include <flint/fmpq.h>
+#include <flint/fmpq_mat.h>
+#include <flint/fmpz.h>
+#include <flint/fmpz_mat.h>
+
 #include "arith.h"
 #include "square_matrix.h"
 
@@ -347,28 +352,64 @@ void square_matrix_mul_vec_left(vector_t prod, const vector_t vec, const square_
 
 int square_matrix_inv(square_matrix_t inv, const square_matrix_t mat, int denom)
 {
-  // !! TODO - at the moment we just use matrix_TYP*, see if we can do better
-  matrix_TYP *s, *s_inv;
+  // !! TODO - at the moment we just use fmpq_mat, which is slow. Can do better
+  fmpq_mat_t s, s_inv;
   int inv_denom, i, j;
+  fmpz_t inv_denom_Z;
+  fmpz_mat_t s_inv_int;
 
-  s = init_mat(QF_RANK,QF_RANK,"");
-  for (i = 0 ; i < QF_RANK; i++)
-    for (j = 0; j < QF_RANK; j++)
-      s->array.SZ[i][j] = mat[i][j];
-  s->kgv = denom;
-
-  s_inv = mat_inv(s);
-  for (i = 0 ; i < QF_RANK; i++)
-    for (j = 0; j < QF_RANK; j++)
-      inv[i][j] = s_inv->array.SZ[i][j];
-
-  inv_denom = s_inv->kgv;
+  fmpq_mat_init(s, QF_RANK, QF_RANK);
+  fmpq_mat_init(s_inv, QF_RANK, QF_RANK);
+  fmpz_mat_init(s_inv_int, QF_RANK, QF_RANK);
+  fmpz_init(inv_denom_Z);
   
-  free_mat(s);
-  free_mat(s_inv);
+  for (i = 0 ; i < QF_RANK; i++)
+    for (j = 0; j < QF_RANK; j++) {
+      fmpq_init(fmpq_mat_entry(s,i,j));
+      fmpq_set_si(fmpq_mat_entry(s,i,j),mat[i][j], denom);
+    }
+  fmpq_mat_inv(s_inv, s);
+  fmpq_mat_get_fmpz_mat_matwise(s_inv_int, inv_denom_Z, s_inv);
+  
+  for (i = 0 ; i < QF_RANK; i++)
+    for (j = 0; j < QF_RANK; j++)
+      inv[i][j] = fmpz_get_si(fmpz_mat_entry(s_inv_int,i,j));
+
+  inv_denom = fmpz_get_si(inv_denom_Z);
+  
+  fmpz_clear(inv_denom_Z);
+  fmpz_mat_clear(s_inv_int);
+  fmpq_mat_clear(s_inv);
+  fmpq_mat_clear(s);
 
   return inv_denom;
 }
+
+// old code - overflows when entries are too large
+/* int square_matrix_inv(square_matrix_t inv, const square_matrix_t mat, int denom) */
+/* { */
+/*   // !! TODO - at the moment we just use matrix_TYP*, which can cause overflow, see if we can do better */
+/*   matrix_TYP *s, *s_inv; */
+/*   int inv_denom, i, j; */
+
+/*   s = init_mat(QF_RANK,QF_RANK,""); */
+/*   for (i = 0 ; i < QF_RANK; i++) */
+/*     for (j = 0; j < QF_RANK; j++) */
+/*       s->array.SZ[i][j] = mat[i][j]; */
+/*   s->kgv = denom; */
+
+/*   s_inv = mat_inv(s); */
+/*   for (i = 0 ; i < QF_RANK; i++) */
+/*     for (j = 0; j < QF_RANK; j++) */
+/*       inv[i][j] = s_inv->array.SZ[i][j]; */
+
+/*   inv_denom = s_inv->kgv; */
+  
+/*   free_mat(s); */
+/*   free_mat(s_inv); */
+
+/*   return inv_denom; */
+/* } */
 
 void square_matrix_div_scalar(square_matrix_t quo, const square_matrix_t mat, int denom)
 {
