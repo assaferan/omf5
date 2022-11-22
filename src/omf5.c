@@ -20,7 +20,7 @@ int main(int argc, char* argv[])
   int max_args;
   bool do_tests, is_valid, is_prec, is_format, is_p, is_c, is_genus, is_disc;
   bool has_quad, has_format, has_prec, has_p, has_hecke, has_c;
-  bool has_genus, has_disc, has_large, has_row;
+  bool has_genus, has_disc, has_large, has_row, has_isom;
   int i;
   genus_t genus;
 
@@ -35,7 +35,7 @@ int main(int argc, char* argv[])
 
   do_tests = false;
   has_quad = has_format = has_prec  = has_p = has_hecke = has_c = false;
-  has_row = has_genus = has_disc = has_large = false;
+  has_row = has_genus = has_disc = has_large = has_isom = false;
   
   for (i = 1; i < argc; i++) {
     is_valid = false;
@@ -51,16 +51,21 @@ int main(int argc, char* argv[])
       is_valid = true;
     }
 
-    if (strcmp(argv[i], "-row") == 0) {
-      has_row = true;
+    if (strcmp(argv[i], "-isom") == 0) {
+      has_isom = true;
       is_valid = true;
     }
-
+    
     if (strcmp(argv[i], "-large") == 0) {
       has_large = true;
       is_valid = true;
     }
 
+    if (strcmp(argv[i], "-row") == 0) {
+      has_row = true;
+      is_valid = true;
+    }
+    
     // checking whether this is a matrix input
     if (strncmp(argv[i], "-quad=", 6) == 0) {
       is_valid = parse_matrix(Q_coeffs, argv[i]+6);
@@ -122,7 +127,7 @@ int main(int argc, char* argv[])
   if (has_quad && has_format)
     compute_genus(genus, Q_coeffs, input_type);
   else if (has_genus && has_disc)
-    genus_init_file(genus, genus_fname, disc);
+    genus_init_file(genus, genus_fname, disc, has_isom);
 
   has_genus = (has_quad && has_format) || (has_genus && has_disc);
 

@@ -48,6 +48,7 @@ bool parse_array_rat(Z64* num, int* denom,
   char *original;
   char *cpy;
   char *token;
+  char *slash_pos, *comma_pos;
 
   idx = 0;
   offset = 0;
@@ -59,13 +60,37 @@ bool parse_array_rat(Z64* num, int* denom,
   }
   original = (char*)malloc((len+1)*sizeof(char));
   memcpy(original, arr_str+offset, len+1);
+  original[len] = '\0';
   cpy = original;
-  token = strsep(&cpy, "/");
+  token = cpy;
   while(token != NULL) {
-    num[idx] = atoi(token);
-    token = strsep(&cpy, ",");
-    denom[idx++] = atoi(token);
-    token = strsep(&cpy, "/");
+    slash_pos = strstr(cpy, "/");
+    comma_pos = strstr(cpy, ",");
+    if ((slash_pos != NULL) && (comma_pos != NULL) && (slash_pos < comma_pos)) {
+      token[slash_pos - cpy] = '\0';
+      num[idx] = atoi(token);
+      slash_pos++;
+      slash_pos[comma_pos - slash_pos] = '\0';
+      denom[idx++] = atoi(slash_pos);
+      cpy = comma_pos + 2;
+    }
+    else if (comma_pos!= NULL) { 
+      token[comma_pos-cpy] = '\0';
+      num[idx] = atoi(token);
+      denom[idx++] = 1;
+      cpy = comma_pos + 2;
+    } else if (slash_pos != NULL) {
+      token[slash_pos - cpy] = '\0';
+      num[idx] = atoi(token);
+      slash_pos++;
+      denom[idx++] = atoi(slash_pos);
+      cpy = NULL;
+    } else {
+      num[idx] = atoi(token);
+      denom[idx++] = 1;
+      cpy = NULL;
+    }
+    token = cpy;
   }
   free(original);
   return (idx == num_entries);
@@ -84,14 +109,20 @@ bool parse_int_matrix_full(square_matrix_t Q, const char* mat_str)
   char *token;
 
   idx = 0;
-  len = strlen(mat_str);
+  len = strlen(mat_str)-2;
   original = (char*)malloc((len+1)*sizeof(char));
-  memcpy(original, mat_str, len+1);
+  memcpy(original, mat_str+1, len);
+  original[len] = '\0';
   cpy = original;
-  token = strsep(&cpy, ",");
+  token = cpy;
   while(token != NULL) {
+    cpy = strstr(cpy, "],");
+    if (cpy != NULL) {
+      token[cpy-token+1] = '\0';
+      cpy += 3;
+    }
     parse_array_int(Q[idx++], token, QF_RANK);
-    token = strsep(&cpy, ",");
+    token = cpy;
   }
   free(original);
   return (idx == QF_RANK);
@@ -107,16 +138,24 @@ bool parse_isom(isometry_t isom, const char* mat_str)
   square_matrix_t isom_num;
   int old_isom_den;
   int isom_den;
+  bool success;
 
   idx = 0;
-  len = strlen(mat_str);
+  len = strlen(mat_str)-2;
   original = (char*)malloc((len+1)*sizeof(char));
-  memcpy(original, mat_str, len+1);
+  memcpy(original, mat_str+1, len);
+  original[len] = '\0';
   cpy = original;
-  token = strsep(&cpy, ",");
+  token = cpy;
   isom_den = 1;
   while(token != NULL) {
-    parse_array_rat(isom_num[idx], denom, token, QF_RANK);
+    cpy = strstr(cpy, "],");
+    if (cpy != NULL) {
+      token[cpy-token+1] = '\0';
+      cpy += 3;
+    }
+    success = parse_array_rat(isom_num[idx], denom, token, QF_RANK);
+    if (!success) return false;
     old_isom_den = isom_den;
     for (j = 0; j < QF_RANK; j++)
       isom_den = lcm(isom_den, denom[j]);
@@ -126,7 +165,7 @@ bool parse_isom(isometry_t isom, const char* mat_str)
       for (j = 0; j < QF_RANK; j++)
 	isom_num[i][j] *= (isom_den / old_isom_den);
     idx++;
-    token = strsep(&cpy, ",");
+    token = cpy;
   }
   isometry_init_set_square_matrix(isom, isom_num, isom_den);
   free(original);
@@ -138,15 +177,15 @@ bool parse_mat_and_isom(square_matrix_t Q, isometry_t isom,
 {
   bool success;
   int len;
-  char *original;
   char *isom_str;
   char *intmat_str;
 
-  len = strlen(mat_str);
-  original = (char*)malloc((len+1)*sizeof(char));
-  memcpy(original, mat_str, len+1);
-  isom_str = original;
-  intmat_str = strsep(&isom_str, "]");
+  len = strlen(mat_str)-2;
+  intmat_str = (char*)malloc((len+1)*sizeof(char));
+  memcpy(intmat_str, mat_str+1, len);
+  intmat_str[len] = '\0';
+  isom_str = strstr(intmat_str, "],[") + 2;
+  intmat_str[isom_str-intmat_str-1] = '\0';
   success = parse_int_matrix_full(Q, intmat_str);
   if (!success) return false;
   success = parse_isom(isom, isom_str);
@@ -248,9 +287,19 @@ size_t read_genus_and_isom(square_matrix_t** p_genus,
       switch(buffer[i]) {
       case '[':
 	depth++;
+	if (depth >= 3) {
+	  if (cur_disc == disc) {
+	    matrix_buffer[mat_buf_idx++] = buffer[i];
+	  }
+	}
 	break;
       case ']':
 	depth--;
+	if (depth >= 2) {
+	  if (cur_disc == disc) {
+	    matrix_buffer[mat_buf_idx++] = buffer[i];
+	  }
+	}
 	if (depth == 1) {
 	  if (cur_disc == disc) {
 	    if (mat_buf_idx != 0) {
@@ -277,6 +326,8 @@ size_t read_genus_and_isom(square_matrix_t** p_genus,
 	    }
 	    break;
 	  case 3:
+	  case 4:
+	  case 5:
 	    matrix_buffer[mat_buf_idx++] = buffer[i];
 	    break;
 	  default:
