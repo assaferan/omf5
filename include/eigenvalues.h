@@ -11,13 +11,21 @@
 #include "genus.h"
 #include "typedefs.h"
 
+typedef enum {
+  G,
+  Y, // I thought we were not supposed to see Yoshida lifts, because paramodular ?
+  P,
+  F
+} aut_type;
+
 typedef struct {
   nf_t* nfs;
   nf_elem_t* eigenvals; // right now only stores the eigenvalue of the Hecke operator used to construct it. rethink that
   nf_elem_t** eigenvecs; 
   slong num;
   slong dim;
-  bool* is_lift;
+  // bool* is_lift;
+  aut_type* lift_type;
 } eigenvalues;
 
 typedef eigenvalues eigenvalues_t[1];

@@ -16,14 +16,14 @@ void print_conductors(const genus_t genus)
 {
   slong c;
   
-  printf("The possible conductors are: \n");
+  fprintf(stderr, "The possible conductors are: \n");
   for (c = 0; c < genus->num_conductors; c++)
-    printf("%ld ", genus->conductors[c]);
-  printf("\n");
-  printf("The corresponding dimensions are: ");
+    fprintf(stderr, "%ld ", genus->conductors[c]);
+  fprintf(stderr, "\n");
+  fprintf(stderr, "The corresponding dimensions are: ");
   for (c = 0; c < genus->num_conductors; c++)
-    printf("%ld ", genus->dims[c]);
-  printf("\n");
+    fprintf(stderr, "%ld ", genus->dims[c]);
+  fprintf(stderr, "\n");
   return;
 }
 
@@ -69,25 +69,22 @@ void print_eigenvectors(const eigenvalues_t evs)
   int i, j;
   slong deg;
   
-  printf("eigenvectors are:\n");
+  fprintf(stderr, "eigenvectors are:\n");
   for (i = 0; i < evs->num; i++) {
     deg = fmpq_poly_degree(evs->nfs[i]->pol);
-    if (deg < 10) {
-      for (j = 0; j < evs->dim; j++) {
-	nf_elem_print_pretty(evs->eigenvecs[i][j], evs->nfs[i], "a");
-	printf(" ");
-      }
-    }
+    if (deg < 10)
+      for (j = 0; j < evs->dim; j++)
+	fprintf(stderr, "%s ", nf_elem_get_str_pretty(evs->eigenvecs[i][j], "a", evs->nfs[i]));
     else
-      printf("a vector of length %ld ", evs->dim);
-    printf("over ");
+      fprintf(stderr, "a vector of length %ld ", evs->dim);
+    fprintf(stderr, "over Number field with defining polynomial ");
     if (deg < 10) {
-      nf_print(evs->nfs[i]);
+      fmpq_poly_fprint_pretty(stderr, evs->nfs[i]->pol, "x");
     }
     else {
-      printf("a number field of degree %ld", deg);
+      fprintf(stderr, "a number field of degree %ld", deg);
     }
-    printf("\n");
+    fprintf(stderr, "\n");
   }
 
   return;
@@ -95,7 +92,7 @@ void print_eigenvectors(const eigenvalues_t evs)
 
 STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
 			int num_evs, int form_idx, const int* ps,
-			const int* test_evs, int k, int c)
+			const int* test_evs, int k, int c, bool ev_print)
 {
   int i;
   nf_elem_t ev;
@@ -106,8 +103,16 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
 #endif // DEBUG_LEVEL_FULL
 
   fmpq_init(trace);
+
+  fprintf(stderr, "traces of hecke eigenvalues of T_{p^%d} are:\n", k);
+
+  if (ev_print) {
+    if (k == 1)
+      printf("'lambda_p' : [");
+    if (k == 2)
+      printf("'lambda_p_square' : [");
+  }
   
-  printf("traces of hecke eigenvalues of T_{p^%d} are:\n", k);
   for (i = 0; i < num_evs; i++) {
     if (c == 0)
       if (k == 1)
@@ -119,12 +124,19 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
 	get_hecke_ev_all_conductors(ev, genus, evs, ps[i], form_idx, c);
       else
 	get_hecke_ev_nbr_data_all_conductors(ev, genus, evs, ps[i], k, form_idx, c);
+
+    if (ev_print) {
+      printf("'");
+      nf_elem_print_pretty(ev, evs->nfs[form_idx], "a");
+      printf("',");
+      fflush(stdout);
+    }
     
     nf_elem_trace(trace, ev, evs->nfs[form_idx]);
-    fmpq_print(trace);
-    // nf_elem_print_pretty(ev, evs->nfs[form_idx], "a");
-    printf(" ");
-    fflush(stdout); //make sure to print every time it computes an eigenvalue
+    fmpq_fprint(stderr, trace);
+    fprintf(stderr, " ");
+    fflush(stderr); // make sure to print every time it computes an eigenvalue
+    
     nf_elem_clear(ev, evs->nfs[form_idx]);
     if (test_evs != NULL) {
       // if (!nf_elem_equal_si(ev, test_evs[i], evs->nfs[form_idx])) {
@@ -139,7 +151,7 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
       hecke = hecke_matrix(genus, ps[i]);
       print_mat(hecke);
     }
-    printf("traces of all hecke eigenvalues are:\n");
+    fprintf(stderr, "traces of all hecke eigenvalues are:\n");
     for (j = 0; j < evs->num; j++) {
       if (c == 0)
 	if (k == 1)
@@ -154,18 +166,21 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
       
       nf_elem_trace(trace, ev, evs->nfs[j]);
       // nf_elem_print_pretty(ev, evs->nfs[j], "a");
-      fmpq_print(trace);
-      printf(" ");
+      fmpq_fprint(stderr, trace);
+      fprintf(stderr, " ");
       nf_elem_clear(ev, evs->nfs[j]);
     }
-    printf("\n");
+    fprintf(stderr, "\n");
     if (k == 1)
       free_mat(hecke);
 #endif // DEBUG_LEVEL_FULL
    
   }
 
-  printf("\n");
+  if (ev_print)
+     printf("], ");
+
+  fprintf(stderr, "\n");
 
   fmpq_clear(trace);
   return SUCCESS;
@@ -190,7 +205,7 @@ STATUS test_genus(genus_t genus, const example_genus_t ex)
   return SUCCESS;
 }
 
-STATUS test_evs(const genus_t genus, const example_evs_t ex)
+STATUS test_evs(const genus_t genus, const example_evs_t ex, bool nonlifts)
 {
   int form_idx, k;
   slong c, c2, num_conductors;
@@ -201,6 +216,8 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex)
   eigenvalues_t* evs;
   bool has_spinor = false;
   const int* test_evs = NULL;
+
+  char lift_types[4] = {'G', 'Y', 'P', 'F'};
 
   num_conductors = genus->num_conductors;
   for (c = 1; c < num_conductors; c++)
@@ -226,7 +243,7 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex)
       assert(evs[c]->num == ex->num_forms[c]);
   else
     for (c = 0; c < num_conductors; c++) {
-      printf("For conductor %ld, ", genus->conductors[c]);
+      fprintf(stderr, "For conductor %ld, ", genus->conductors[c]);
       print_eigenvectors(evs[c]);
     }
 
@@ -235,20 +252,26 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex)
     eigenvalues_set_lifts(evs[c], 2, c, genus);
     if (c != 0)
       for (form_idx = 0; form_idx < evs[c]->num; form_idx++)
-	if (!(evs[c]->is_lift[form_idx]))
+	if ((!nonlifts) || (evs[c]->lift_type[form_idx] == G))
 	  has_spinor = true;
   }
-  
+
+  printf("{");
   for (c = 0; c < num_conductors; c++) {
-    printf("For conductor %ld:\n", genus->conductors[c]);
+    printf("%ld : [", genus->conductors[c]);
+    fprintf(stderr, "For conductor %ld:\n", genus->conductors[c]);
     for (form_idx = 0; form_idx < evs[c]->num; form_idx++)
-      if (!(evs[c]->is_lift[form_idx])) {
+      if ((!nonlifts) || (evs[c]->lift_type[form_idx] == G)) {
+	printf("{ 'aut_rep_type' : '%c', ", lift_types[evs[c]->lift_type[form_idx]]); 
+	printf("'field_poly' : '");
+	fmpq_poly_print(evs[c]->nfs[form_idx]->pol);
+	printf("', ");
 	for (k = 0; k < 2; k++) {
 	  if (ex->test_evs != NULL)
 	    test_evs = ex->test_evs[c][form_idx][k];
 	  cpuclock_0 = clock();
 	  if (test_eigenvalues(genus, evs[c], ex->num_ps[k], form_idx,
-			       ex->ps[k], test_evs, k+1, c) == FAIL) {
+			       ex->ps[k], test_evs, k+1, c, true) == FAIL) {
 	    for (c2 = 0; c2 < num_conductors; c2++)
 	      eigenvalues_clear(evs[c2]);
 	    free(evs);
@@ -260,8 +283,11 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex)
 	  // printf("cpudiff = %f, clocks_per_sec = %d\n", cpudiff, CLOCKS_PER_SEC);
 	  fprintf(stderr, "computing eigenvalues for k = %d, took %f sec\n", k+1, cputime);
 	}
+	printf("}, ");
       }
+    printf("], ");
   }
+  printf("}");
 
   for (c = 0; c < num_conductors; c++)
     eigenvalues_clear(evs[c]);
@@ -509,7 +535,7 @@ STATUS test_61()
     return ret;
   
   example_evs_init_61(ex_61_evs);
-  ret = test_evs(genus, ex_61_evs);
+  ret = test_evs(genus, ex_61_evs, true);
   example_evs_clear(ex_61_evs, genus->num_conductors);
 
   genus_clear(genus);
@@ -532,7 +558,7 @@ STATUS test_69()
     return ret;
   
   example_evs_init_69(ex_69_evs);
-  ret = test_evs(genus, ex_69_evs);
+  ret = test_evs(genus, ex_69_evs, true);
   example_evs_clear(ex_69_evs, genus->num_conductors);
 
   genus_clear(genus);
@@ -581,7 +607,7 @@ STATUS test_greedy_overflow()
   return ret;
 }
 
-STATUS compute_eigenvectors(const genus_t genus)
+STATUS compute_eigenvectors(const genus_t genus, bool nonlifts)
 {
   example_evs_t dummy;
   STATUS ret;
@@ -589,13 +615,13 @@ STATUS compute_eigenvectors(const genus_t genus)
 
   example_evs_init(dummy, genus->num_conductors, NULL, num_ps, NULL, NULL);
   
-  ret = test_evs(genus, dummy);
+  ret = test_evs(genus, dummy, nonlifts);
   example_evs_clear(dummy, genus->num_conductors);
 
   return ret;
 }
 
-STATUS compute_eigenvalues(const genus_t genus, int p)
+STATUS compute_eigenvalues(const genus_t genus, int p, bool nonlifts)
 {
   example_evs_t dummy;
   STATUS ret;
@@ -607,29 +633,24 @@ STATUS compute_eigenvalues(const genus_t genus, int p)
 
   example_evs_init(dummy, genus->num_conductors, NULL, num_ps, ps, NULL);
   
-  ret = test_evs(genus, dummy);
+  ret = test_evs(genus, dummy, nonlifts);
   example_evs_clear(dummy, genus->num_conductors);
 
   return ret;
 }
 
-STATUS compute_eigenvalues_up_to(const genus_t genus, int prec)
+STATUS compute_eigenvalues_up_to(const genus_t genus, int prec, bool nonlifts)
 {
   example_evs_t dummy;
   STATUS ret;
   int num_ps[2];
   int* ps[2];
-
-  /*
-  num_ps[0] = primes_up_to(&(ps[0]), prec);
-  num_ps[1] = primes_up_to(&(ps[1]), floor(sqrt(prec)));
-  */
   
   num_ps[0] = primes_up_to_prime_to(&(ps[0]), prec, fmpz_get_si(genus->disc));
   num_ps[1] = primes_up_to_prime_to(&(ps[1]), floor(sqrt(prec)), fmpz_get_si(genus->disc));
   
   example_evs_init(dummy, genus->num_conductors, NULL, num_ps, (const int**)ps, NULL);
-  ret = test_evs(genus, dummy);
+  ret = test_evs(genus, dummy, nonlifts);
   example_evs_clear(dummy, genus->num_conductors);
 
   free(ps[0]);

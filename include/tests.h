@@ -33,11 +33,11 @@ STATUS test_61();
 STATUS test_69();
 STATUS test_greedy_overflow();
 
-STATUS compute_eigenvectors(const genus_t genus);
+STATUS compute_eigenvectors(const genus_t genus, bool nonlifts);
 
-STATUS compute_eigenvalues(const genus_t genus, int p);
+STATUS compute_eigenvalues(const genus_t genus, int p, bool nonlifts);
 
-STATUS compute_eigenvalues_up_to(const genus_t genus, int prec);
+STATUS compute_eigenvalues_up_to(const genus_t genus, int prec, bool nonlifts);
 
 STATUS compute_hecke_col(const genus_t genus, slong p, slong c);
 
