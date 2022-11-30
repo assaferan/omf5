@@ -1190,11 +1190,11 @@ eigenvalues_t* hecke_eigenforms_all_conductors(const genus_t genus)
   all_evs = (eigenvalues_t*)malloc(genus->num_conductors * sizeof(eigenvalues_t));
   for (c = 0; c < genus->num_conductors; c++) {
 #ifdef DEBUG
-    printf("decomposing conductor %ld\n", genus->conductors[c]);
+    fprintf(stderr, "decomposing conductor %ld\n", genus->conductors[c]);
 #endif // DEBUG
     decompose(D, genus, c);
 #ifdef DEBUG
-    printf("computing eigenvectors\n");
+    fprintf(stderr, "computing eigenvectors\n");
 #endif // DEBUG
     hecke_eigenforms(all_evs[c], D, genus, c);
   }
