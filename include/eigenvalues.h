@@ -15,7 +15,8 @@ typedef enum {
   G,
   Y, // I thought we were not supposed to see Yoshida lifts, because paramodular ?
   P,
-  F
+  F,
+  O // oldform
 } aut_type;
 
 typedef struct {

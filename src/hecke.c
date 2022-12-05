@@ -1171,9 +1171,15 @@ void hecke_eigenforms(eigenvalues_t evs, const decomposition_t D, const genus_t 
       ev_init = get_eigenvector_on_subspace(evs->eigenvecs[i], evs->nfs[i],
 					    D->hecke[p_idx][c], D->bases[c][i]);
       p_idx++;
-    } while (!ev_init);
-    nf_elem_init(evs->eigenvals[i], evs->nfs[i]);
-    nf_elem_gen(evs->eigenvals[i], evs->nfs[i]);
+    } while ((!ev_init) && (p_idx < D->num_primes));
+    if (ev_init) {
+      nf_elem_init(evs->eigenvals[i], evs->nfs[i]);
+      nf_elem_gen(evs->eigenvals[i], evs->nfs[i]);
+      evs->lift_type[i] = G; // default
+    }
+    else {
+      evs->lift_type[i] = O; // it's an old form
+    }
   }
   
   return;

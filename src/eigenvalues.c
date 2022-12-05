@@ -345,6 +345,8 @@ void eigenvalues_set_lifts(eigenvalues_t evs, slong prec, slong c, const genus_t
     while (fmpz_divisible(genus->disc, p))
       fmpz_nextprime(p, p, true);
     for (i = 0; i < evs->num; i++) {
+      if (evs->lift_type[i] == O)
+	continue;
       lift_type = ev_is_lpoly_reducible(evs, i, fmpz_get_si(p), c, genus);
       if (cnt == 0) 
 	evs->lift_type[i] = lift_type;

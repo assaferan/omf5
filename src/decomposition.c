@@ -136,11 +136,13 @@ void decompose(decomposition_t decomp, const genus_t genus, slong c)
   slong bound, num_ps; /* , prime_idx, idx, p, j;*/
   int* ps;
   bool is_complete;
+  // !! TODO - figure out degeneracy maps. Until we do, we use a fixed bound.
+  slong MAX_BOUND = 20;
 
   is_complete = false;
   bound = 10;
   
-  while (!(is_complete)) {
+  while (!(is_complete) && (bound <= MAX_BOUND)) {
     num_ps = primes_up_to_prime_to(&ps, bound, fmpz_get_si(genus->disc));
 #ifdef DEBUG
     fprintf(stderr, "trying to decompose with bound = %ld\n", bound);
