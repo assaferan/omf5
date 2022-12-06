@@ -135,11 +135,33 @@ void isometry_clear(isometry_t isom)
 // !! TODO - we can make this operation faster by doing it all at once
 void isometry_transform_gram(square_matrix_t gtQg, const isometry_t g, const square_matrix_t Q)
 {
-  square_matrix_t gt, Qg;
-  
+  int i,j,k,l;
+  square_matrix_t /* gt, Qg, */ gtQg2;
+
+  /*
   square_matrix_transpose(gt, g->s);
   square_matrix_mul(Qg, Q, g->s);
-  square_matrix_mul(gtQg, gt, Qg);
+  */
+  
+  for (i = 0; i < QF_RANK; i++)
+    for (j = i; j < QF_RANK; j++) {
+      gtQg2[i][j] = 0;
+      for (k = 0; k < QF_RANK; k++)
+	for (l = 0; l < QF_RANK; l++)
+	  gtQg2[i][j] += Q[k][l] * (g->s)[k][i] * (g->s)[l][j];
+    }
+
+  // square_matrix_mul(gtQg, gt, Qg);
+  
+  for (i = 0; i < QF_RANK; i++) {
+    for (j = 0; j < i; j++)
+      gtQg[i][j] = gtQg2[j][i];
+    for (j = i; j < QF_RANK; j++)
+      gtQg[i][j] = gtQg2[i][j];
+  }
+
+  //  assert(square_matrix_is_equal(gtQg, gtQg2));
+  
   // this might overflow, as denom is only an int
   // square_matrix_div_scalar(gtQg, gtQg, (g->denom)*(g->denom));
   square_matrix_div_scalar(gtQg, gtQg, g->denom);
