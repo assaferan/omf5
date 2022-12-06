@@ -115,6 +115,7 @@ int lcm(int a, int b)
 
   fmpz_init_set_si(a_Z, a);
   fmpz_init_set_si(b_Z, b);
+  fmpz_init(m_Z);
   fmpz_lcm(m_Z, a_Z, b_Z);
   m = fmpz_get_si(m_Z);
 
