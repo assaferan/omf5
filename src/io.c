@@ -189,6 +189,7 @@ bool parse_mat_and_isom(square_matrix_t Q, isometry_t isom,
   success = parse_int_matrix_full(Q, intmat_str);
   if (!success) return false;
   success = parse_isom(isom, isom_str);
+  free(intmat_str);
   return success;
 }
 

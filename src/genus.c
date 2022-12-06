@@ -665,6 +665,7 @@ void genus_init_file(genus_t genus, const char* genus_fname, size_t disc, bool w
     genus_init_empty(genus, disc);
   
   free(genus_reps);
+  free(isoms);
   return;
 }
 
