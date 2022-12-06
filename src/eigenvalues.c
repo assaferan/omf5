@@ -325,6 +325,7 @@ aut_type ev_is_lpoly_reducible(const eigenvalues_t evs, slong ev_idx, slong p, s
     if ( (lift_type == P) &&
 	 (nf_elem_equal_si(a[0], (p*p*p + p*p + p + 1), evs->nfs[ev_idx])) )
       lift_type = F;
+    nf_elem_clear(root, evs->nfs[ev_idx]);
   }
   
   nf_elem_clear(disc, evs->nfs[ev_idx]);
