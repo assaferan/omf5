@@ -68,6 +68,7 @@ void print_eigenvectors(const eigenvalues_t evs)
 {
   int i, j;
   slong deg;
+  char* nf_str;
   
   fprintf(stderr, "eigenvectors are:\n");
   for (i = 0; i < evs->num; i++) {
@@ -75,8 +76,11 @@ void print_eigenvectors(const eigenvalues_t evs)
       continue;
     deg = fmpq_poly_degree(evs->nfs[i]->pol);
     if (deg < 10)
-      for (j = 0; j < evs->dim; j++)
-	fprintf(stderr, "%s ", nf_elem_get_str_pretty(evs->eigenvecs[i][j], "a", evs->nfs[i]));
+      for (j = 0; j < evs->dim; j++) {
+	nf_str = nf_elem_get_str_pretty(evs->eigenvecs[i][j], "a", evs->nfs[i]);
+	fprintf(stderr, "%s ", nf_str);
+	free(nf_str);
+      }
     else
       fprintf(stderr, "a vector of length %ld ", evs->dim);
     fprintf(stderr, "over Number field with defining polynomial ");
