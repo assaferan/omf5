@@ -71,6 +71,8 @@ void print_eigenvectors(const eigenvalues_t evs)
   
   fprintf(stderr, "eigenvectors are:\n");
   for (i = 0; i < evs->num; i++) {
+    if (evs->lift_type[i] == O)
+      continue;
     deg = fmpq_poly_degree(evs->nfs[i]->pol);
     if (deg < 10)
       for (j = 0; j < evs->dim; j++)

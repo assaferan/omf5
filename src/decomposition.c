@@ -28,12 +28,6 @@ bool decomposition_finite_subspace(decomposition_t decomp, const genus_t genus, 
   fmpq_poly_t f;
   fmpq_poly_factor_t fac;
   bool is_complete, is_complete_W;
-
-#ifdef DEBUG
-  fprintf(stderr, "decomposing subspace with basis ");
-  fmpq_mat_print(basis_V);
-  fprintf(stderr, "idx = %ld, ps[idx] = %d, num_ps = %ld\n", idx, ps[idx], num_ps);
-#endif // DEBUG
   
   dim_V = fmpq_mat_nrows(basis_V);
   if (dim_V == 0) {
@@ -43,10 +37,16 @@ bool decomposition_finite_subspace(decomposition_t decomp, const genus_t genus, 
   if (idx >= num_ps) {
     (decomp->num[c])++;
     decomp->bases[c] = (fmpq_mat_t*)realloc(decomp->bases[c], (decomp->num[c])*sizeof(fmpq_mat_t));
-    fmpq_mat_init(decomp->bases[c][decomp->num[c]-1], dim_V, dim_V);
-    fmpq_mat_one(decomp->bases[c][decomp->num[c]-1]);
+    fmpq_mat_init(decomp->bases[c][decomp->num[c]-1], dim_V, fmpq_mat_ncols(basis_V));
+    fmpq_mat_set(decomp->bases[c][decomp->num[c]-1], basis_V);
     return false;
   }
+
+#ifdef DEBUG
+  fprintf(stderr, "decomposing subspace with basis ");
+  fmpq_mat_print(basis_V);
+  fprintf(stderr, "idx = %ld, ps[idx] = %d, num_ps = %ld\n", idx, ps[idx], num_ps);
+#endif // DEBUG
   
   fmpq_mat_init(T, dim_V, dim_V);
   fmpq_mat_init(fT, dim_V, dim_V);
@@ -83,6 +83,8 @@ bool decomposition_finite_subspace(decomposition_t decomp, const genus_t genus, 
     fmpq_poly_evaluate_fmpq_mat(fT, &(fac->p[i]), T);
     kernel_on(W, fT, basis_V);
     assert(W->rows != 0);
+    // We lift the basis to vectors of the original space
+    fmpq_mat_mul(W, W, basis_V);
     // optimally, we will already compute the eigenvectors at this point.
     if (fac->exp[i] == 1) { // test for irreduciblity
       (decomp->num[c])++;
@@ -93,6 +95,7 @@ bool decomposition_finite_subspace(decomposition_t decomp, const genus_t genus, 
     else {
       next_idx = (fmpq_mat_nrows(W) == dim_V) ? idx+1 : 0;
       is_complete_W = decomposition_finite_subspace(decomp, genus, W, ps, next_idx, num_ps, c);
+      
     }
     is_complete = (is_complete) && (is_complete_W);
     fmpq_mat_clear(W);
@@ -133,24 +136,24 @@ bool decomposition_finite(decomposition_t decomp, const genus_t genus, const int
 
 void decompose(decomposition_t decomp, const genus_t genus, slong c)
 {
-  slong bound, num_ps; /* , prime_idx, idx, p, j;*/
+  slong /*bound, */ num_ps; /* , prime_idx, idx, p, j;*/
   int* ps;
-  bool is_complete;
+  //  bool is_complete;
   // !! TODO - figure out degeneracy maps. Until we do, we use a fixed bound.
   slong MAX_BOUND = 20;
 
-  is_complete = false;
-  bound = 10;
+  // is_complete = false;
+  // bound = 10;
   
-  while (!(is_complete) && (bound <= MAX_BOUND)) {
-    num_ps = primes_up_to_prime_to(&ps, bound, fmpz_get_si(genus->disc));
+  // while (!(is_complete) && (bound <= MAX_BOUND)) {
+  num_ps = primes_up_to_prime_to(&ps, /* bound */ MAX_BOUND, fmpz_get_si(genus->disc));
 #ifdef DEBUG
-    fprintf(stderr, "trying to decompose with bound = %ld\n", bound);
+  fprintf(stderr, "trying to decompose with bound = %ld\n", /*bound*/ MAX_BOUND);
 #endif // DEBUG
-    is_complete = decomposition_finite(decomp, genus, ps, num_ps, c);
-    free(ps);
-    bound *= 2;
-  }
+  /*is_complete = */ decomposition_finite(decomp, genus, ps, num_ps, c);
+  free(ps);
+  // bound *= 2;
+  // }
 
   return;
 }

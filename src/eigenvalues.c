@@ -98,6 +98,8 @@ void eigenvalues_clear(eigenvalues_t evs)
   int i, j;
 
   for (i = 0; i < evs->num; i++) {
+    if (evs->lift_type[i] == O)
+      continue;
     for (j = 0; j < evs->dim; j++) {
       nf_elem_clear(evs->eigenvecs[i][j], evs->nfs[i]);
     }
