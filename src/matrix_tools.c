@@ -735,10 +735,10 @@ void updatePerm(isometry_t isom, int* perm)
     for ( j = 0; j < QF_RANK; j++)
       isom->s_inv[i][j] = temp[perm[i]][j];
 
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
   square_matrix_mul(temp, isom->s, isom->s_inv);
   assert(square_matrix_is_one(temp));
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
   
   return;
 }
