@@ -880,8 +880,8 @@ void mat_irred_charpoly_eigenvector(nf_elem_t* evec, const fmpq_mat_t mat, const
   
   n = fmpq_poly_degree(f);
 
-  assert(fmpq_poly_is_irreducible(f));
-  assert( (fmpq_mat_nrows(mat) == n) && (fmpq_mat_ncols(mat) == n) );
+  // assert(fmpq_poly_is_irreducible(f));
+  // assert( (fmpq_mat_nrows(mat) == n) && (fmpq_mat_ncols(mat) == n) );
   
   if (n == 1) {
     nf_elem_one(evec[0], nf);
@@ -1115,6 +1115,7 @@ bool get_eigenvector_on_subspace(nf_elem_t* evec, nf_t nf, const fmpq_mat_t T,
   fmpq_poly_t f;
   nf_elem_t* evec_W;
   bool is_irred;
+  fmpq_poly_factor_t fac;
   
   dim_W = fmpq_mat_nrows(basis_W);
   dim = fmpq_mat_ncols(basis_W);
@@ -1126,11 +1127,32 @@ bool get_eigenvector_on_subspace(nf_elem_t* evec, nf_t nf, const fmpq_mat_t T,
   fmpq_poly_init(f);
   fmpq_mat_charpoly(f, T_W);
 
+  fprintf(stderr, "constructing eigenvector for poly\n");
+  fmpq_poly_fprint_pretty(stderr, f, "x");
+  fprintf(stderr, "\n");
+  
   is_irred = fmpq_poly_is_irreducible(f);
 
   if (is_irred) {
     nf_init(nf, f);
     evec_W = (nf_elem_t*) malloc(dim_W * sizeof(nf_elem_t));
+    get_eigenvector(evec_W, nf, T_W);
+    for (i = 0; i < dim; i++)
+      nf_elem_init(evec[i], nf);
+    nf_elem_vec_mul_fmpq_mat(evec, evec_W, basis_W, nf);
+#ifdef DEBUG
+    check_eigenvector(evec, T, nf);
+#endif // DEBUG
+    for (i = 0; i < dim_W; i++)
+      nf_elem_clear(evec_W[i], nf);
+    free(evec_W);
+  }
+  else {
+    fmpq_poly_factor(fac, f);
+    assert(fac->num == 1);
+    nf_init(nf, &(fac->p[0]));
+    evec_W = (nf_elem_t*) malloc(dim_W * sizeof(nf_elem_t));
+    // !! TODO : This might not work
     get_eigenvector(evec_W, nf, T_W);
     for (i = 0; i < dim; i++)
       nf_elem_init(evec[i], nf);
