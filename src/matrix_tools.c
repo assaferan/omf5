@@ -1004,7 +1004,7 @@ void check_eigenvector(const nf_elem_t* evec, const fmpq_mat_t M, const nf_t nf)
 // evec and nf should already be allocated and initialized
 void mat_irred_charpoly_eigenvector(nf_elem_t* evec, const fmpq_mat_t mat, const fmpq_poly_t f, const nf_t nf)
 {
-  slong i, j, n;
+  slong i, j, n, m;
   fmpz_t denom, g;
   fmpq_t coeff, denom_scale, scale;
   nf_elem_t a, b, tmp;
@@ -1014,9 +1014,12 @@ void mat_irred_charpoly_eigenvector(nf_elem_t* evec, const fmpq_mat_t mat, const
   bool is_zero;
   
   n = fmpq_poly_degree(f);
+  m = fmpq_mat_nrows(mat);
 
-  // assert(fmpq_poly_is_irreducible(f));
+  assert(fmpq_poly_is_irreducible(f));
+  // m could be different from n if there is an oldform with multiplicity
   // assert( (fmpq_mat_nrows(mat) == n) && (fmpq_mat_ncols(mat) == n) );
+  assert(fmpq_mat_ncols(mat) == m);
   
   if (n == 1) {
     nf_elem_one(evec[0], nf);
@@ -1031,27 +1034,27 @@ void mat_irred_charpoly_eigenvector(nf_elem_t* evec, const fmpq_mat_t mat, const
   fmpq_init(scale);
   fmpz_init(denom);
   fmpz_init(g);
-  fmpz_mat_init(scaled_mat, n, n);
+  fmpz_mat_init(scaled_mat, m, m);
 
   nf_elem_gen(a, nf);
   nf_elem_inv(b, a, nf);
 
   c = (nf_elem_t*) malloc(n*sizeof(nf_elem_t));
-  u = (nf_elem_t*) malloc(n*sizeof(nf_elem_t));
+  u = (nf_elem_t*) malloc(m*sizeof(nf_elem_t));
   
   for (i = 0; i < n; i++)
     nf_elem_init(c[i], nf);
 
-  for (i = 0; i < n; i++)
+  for (i = 0; i < m; i++)
     nf_elem_init(u[i], nf);
 
-  v = (fmpz_t*) malloc(n*sizeof(fmpz_t));
-  vv = (fmpz_t*) malloc(n*sizeof(fmpz_t));
+  v = (fmpz_t*) malloc(m*sizeof(fmpz_t));
+  vv = (fmpz_t*) malloc(m*sizeof(fmpz_t));
 
-  for (i = 0; i < n; i++)
+  for (i = 0; i < m; i++)
     fmpz_init(v[i]);
   
-  for (i = 0; i < n; i++)
+  for (i = 0; i < m; i++)
     fmpz_init(vv[i]);
 
   // c[0] = -b*f(0)
@@ -1074,16 +1077,16 @@ void mat_irred_charpoly_eigenvector(nf_elem_t* evec, const fmpq_mat_t mat, const
   fmpq_set_fmpz(denom_scale, denom);
   fmpq_inv(denom_scale, denom_scale);
   
-  for (i = 0; i < n; i++)
+  for (i = 0; i < m; i++)
     fmpz_zero(v[i]);
 
   srand(time(NULL));
   do {
     i = rand()/((RAND_MAX + 1u)/n);
     fmpz_add_ui(v[i],v[i],1);
-    for (j = 0; j < n; j++)
+    for (j = 0; j < m; j++)
       nf_elem_scalar_mul_fmpz(evec[j], c[0], v[j], nf);
-    for (j = 0; j < n; j++)
+    for (j = 0; j < m; j++)
       fmpz_set(vv[j], v[j]);
     fmpq_set(scale, denom_scale);
     for (i = 1; i < n; i++) {
@@ -1092,30 +1095,30 @@ void mat_irred_charpoly_eigenvector(nf_elem_t* evec, const fmpq_mat_t mat, const
 	nf_elem_set_fmpz(u[j], vv[j], nf);
       if (!(fmpq_is_one(denom_scale))) {
 	fmpz_zero(g);
-	for (j = 0; j < n; j++)
+	for (j = 0; j < m; j++)
 	  fmpz_gcd(g,g,vv[j]);
 	if (!(fmpz_is_one(g))) {
-	  for (j = 0; j < n; j++)
+	  for (j = 0; j < m; j++)
 	    fmpz_divexact(vv[j], vv[j], g);
 	  fmpq_mul_fmpz(scale, scale, g);
 	}
-	for (j = 0; j < n; j++)
+	for (j = 0; j < m; j++)
 	  nf_elem_set_fmpz(u[j], vv[j], nf);
-	for (j = 0; j < n; j++)
+	for (j = 0; j < m; j++)
 	  nf_elem_scalar_mul_fmpq(u[j],u[j],scale,nf);
 	fmpq_mul(scale, scale, denom_scale);
       }
       else {
-	for (j = 0; j < n; j++)
+	for (j = 0; j < m; j++)
 	  nf_elem_set_fmpz(u[j], vv[j], nf);
       }
-      for (j = 0; j < n; j++) {
+      for (j = 0; j < m; j++) {
 	nf_elem_mul(tmp, c[i], u[j], nf);
 	nf_elem_add(evec[j], evec[j], tmp, nf);
       }
     }
     is_zero = true;
-    for (j = 0; j < n; j++) {
+    for (j = 0; j < m; j++) {
       if (!(nf_elem_is_zero(evec[j], nf))) {
 	is_zero = false;
 	break;
@@ -1127,13 +1130,13 @@ void mat_irred_charpoly_eigenvector(nf_elem_t* evec, const fmpq_mat_t mat, const
   check_eigenvector(evec, mat, nf);
 #endif // DEBUG
   
-  for (i = 0; i < n; i++)
+  for (i = 0; i < m; i++)
     fmpz_clear(vv[i]);
   free(vv);
-  for (i = 0; i < n; i++)
+  for (i = 0; i < m; i++)
     fmpz_clear(v[i]);
   free(v);
-  for (i = 0; i < n; i++)
+  for (i = 0; i < m; i++)
     nf_elem_clear(u[i], nf);
   free(u);
   for (i = 0; i < n; i++)
