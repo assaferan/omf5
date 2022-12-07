@@ -482,6 +482,54 @@ void find_x_closest(vector_t x_closest, const vector_t y_int, const vector_t vor
   return;
 }
 
+void update_isom_closest(isometry_t iso, const vector_t x_closest, int dim)
+{
+  vector_t iso_x;
+  int i,j;
+  
+  // here xq is actually iso*x
+
+  for (i = 0; i < QF_RANK; i++) {
+    iso_x[i] = 0;
+    for (j = 0; j < QF_RANK; j++) {
+      iso_x[i] += x_closest[j]*iso->s[i][j];
+    }
+  }
+  
+  for (i = 0; i < QF_RANK; i++) {
+    iso->s[i][dim-1] -= iso_x[i];
+  }
+
+  for (i = 0; i < dim - 1; i++) {
+   for (j = 0; j < QF_RANK; j++) {
+      iso->s_inv[i][j] += x_closest[i]*iso->s_inv[dim-1][j];
+    }
+  }
+
+  return;
+}
+
+void update_gram_closest(square_matrix_t q, const vector_t x_closest, int dim)
+{
+  vector_t xq;
+  int i;
+  
+  square_matrix_mul_vec_left(xq, x_closest, q);
+  
+  for (i = 0; i < QF_RANK; i++) {
+    q[i][dim-1] -= xq[i];
+  }
+
+  for (i = 0; i < QF_RANK; i++) {
+    q[dim-1][i] -= xq[i];
+  }
+
+  for (i = 0; i < QF_RANK; i++)
+    q[dim-1][dim-1] += x_closest[i] * xq[i];
+  
+  return;
+}
+
 // right now using integer arithmetic. Should probably run faster with floating point arithmetic
 void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
 {
@@ -489,16 +537,15 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
 
 #ifdef DEBUG_LEVEL_FULL
   isometry_t g,min_g;
-  // square_matrix_t q_trans, x_gram;
 #endif // DEBUG_LEVEL_FULL
   
   vector_t x_closest;
 
-  vector_t voronoi, /* x, x_min, x_max, x_num, */ xq;
-  int i,j /* , num_xs, x_idx, min_dist */;
+  vector_t voronoi;
+  int i,j;
 
   vector_t y_int, v_int;
-  Z64 tmp, det /*, xqx */;
+  Z64 tmp, det;
 
 #ifdef DEBUG_LEVEL_FULL
   printf("finding closest_lattice_vector with gram:\n");
@@ -551,38 +598,10 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
   for (i = dim-1; i < QF_RANK; i++)
     x_closest[i] = 0;
 
-  // here xq is actually iso*x
-  //  square_matrix_mul_vec_left(xq, x_closest, iso->s);
-  for (i = 0; i < QF_RANK; i++) {
-    xq[i] = 0;
-    for (j = 0; j < QF_RANK; j++) {
-      xq[i] += x_closest[j]*iso->s[i][j];
-    }
-  }
+  update_isom_closest(iso, x_closest, dim);
+
+  update_gram_closest(q, x_closest, dim);
   
-  for (i = 0; i < QF_RANK; i++) {
-    iso->s[i][dim-1] -= xq[i];
-  }
-
-  for (i = 0; i < dim - 1; i++) {
-   for (j = 0; j < QF_RANK; j++) {
-      iso->s_inv[i][j] += x_closest[i]*iso->s_inv[dim-1][j];
-    }
-  }
-
-  square_matrix_mul_vec_left(xq, x_closest, q);
-  
-  for (i = 0; i < QF_RANK; i++) {
-    q[i][dim-1] -= xq[i];
-  }
-
-  for (i = 0; i < QF_RANK; i++) {
-    q[dim-1][i] -= xq[i];
-  }
-
-  for (i = 0; i < QF_RANK; i++)
-    q[dim-1][dim-1] += x_closest[i] * xq[i];
-
   return;
 }
 
