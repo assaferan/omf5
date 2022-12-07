@@ -750,18 +750,17 @@ void updatePerm(isometry_t isom, int* perm)
 // All containers will have size n, but we will only use dim entries
 void greedy(square_matrix_t gram, isometry_t s, int dim)
 {
-  isometry_t tmp, iso;
+  isometry_t tmp;
   int* perm_norm;
   int perm[QF_RANK];
   int i, j;
 
   square_matrix_t gram_tmp;
-  
+
 #ifdef DEBUG_LEVEL_FULL
+  square_matrix_t gram_copy;
+  isometry_t s_copy, iso;
   square_matrix_t gram_trans;
-#endif // DEBUG_LEVEL_FULL
-  
-#ifdef DEBUG_LEVEL_FULL
   isometry_t s0, s0_inv, s0_inv_s;
   square_matrix_t q0;
 
@@ -845,19 +844,21 @@ void greedy(square_matrix_t gram, isometry_t s, int dim)
     isometry_inv(s0_inv, s0);
     isometry_mul(s0_inv_s, s0_inv, s);
     assert(isometry_is_isom(s0_inv_s, q0, gram));
+    square_matrix_set(gram_copy, gram);
+    isometry_init_set(s_copy, s);
 #endif // DEBUG_LEVEL_FULL
-  
-    // !! - TODO - do we really need iso here
-    // or could we simply pass s?
-
-    isometry_init(iso);
-    greedy(gram, iso, dim-1);
-
-    //    s = s*iso;
-    isometry_mul(tmp, s, iso);
-    isometry_init_set(s, tmp);
+    
+    greedy(gram, s, dim-1);
 
 #ifdef DEBUG_LEVEL_FULL
+    isometry_init(iso);
+    greedy(gram_copy, iso, dim-1);
+    //    s = s*iso;
+    isometry_mul(tmp, s_copy, iso);
+    //isometry_init_set(s, tmp);
+    assert(square_matrix_is_equal(s->s, tmp->s));
+    assert(square_matrix_is_equal(s->s_inv, tmp->s_inv));
+
     isometry_inv(s0_inv, s0);
     isometry_mul(s0_inv_s, s0_inv, s);
     assert(isometry_is_isom(s0_inv_s, q0, gram));
