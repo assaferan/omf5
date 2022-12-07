@@ -468,6 +468,47 @@ void normalize_mod_p(vector_t v, Z64 p)
   
   return;
 }
+
+int vector_cmp_unred(const vector_t vL, const vector_t vR, Z64 p)
+{
+  int pivot, i;
+  Z64 x,y,z;
+
+  for (pivot = 0; (pivot < QF_RANK) && (vR[pivot] == 0); ) pivot++;
+
+  assert(pivot != QF_RANK);
+
+  for (i = 0; i < pivot; i++)
+    if (vL[i] % p != 0)
+      return 1;
+
+  if (vL[pivot] % p == 0)
+    return -1;
+  
+  gcdext(vR[pivot], p, &x, &y);
+
+  assert((x*vR[pivot]-1)%p == 0);
+
+  y = (x * vL[pivot]) % p;
+  
+  if ((y != 1) && (y + p != 1))
+    return 1;
+  
+  for (i = pivot + 1; i < QF_RANK; i++) {
+    y = (x * vL[i]) % p;
+    z = (x * vR[i]) % p;
+    if (y < 0)
+      y += p;
+    if (z < 0)
+      z += p;
+    if (y > z)
+      return 1;
+    if (z < y)
+      return -1;
+  }
+
+  return 0;
+}
   
 
 Z64 scalar_product(const vector_t v1, const vector_t v2)
