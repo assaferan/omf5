@@ -425,10 +425,12 @@ bool get_next_isotropic_vector(neighbor_manager_t nbr_man)
   return false;
 }
 
-void nbr_process_init(neighbor_manager_t nbr_man, const square_matrix_t Q, Z64 p, int i)
+void nbr_process_init(neighbor_manager_t nbr_man, const square_matrix_t Q, Z64 p, int i, const isometry_t isom)
 {
   aut_grp_t grp;
   bool found;
+  int aut_idx;
+  square_matrix_t aut_tr;
   
   square_matrix_set(nbr_man->Q, Q);
   nbr_man->p = p;
@@ -461,8 +463,15 @@ void nbr_process_init(neighbor_manager_t nbr_man, const square_matrix_t Q, Z64 p
   aut_grp_init_square_matrix(grp, nbr_man->Q);
 
   nbr_man->auts = (square_matrix_t*)malloc(grp->order * sizeof(square_matrix_t));
+  nbr_man->conj_auts = (square_matrix_t*)malloc(grp->order * sizeof(square_matrix_t));
   aut_grp_get_elements(nbr_man->auts,grp);
   nbr_man->num_auts = grp->order;
+  // conjugating the automorphisms
+  for (aut_idx = 0; aut_idx < grp->order; aut_idx++) {
+    square_matrix_transpose(nbr_man->conj_auts[aut_idx], nbr_man->auts[aut_idx]);
+    square_matrix_mul(aut_tr, nbr_man->conj_auts[aut_idx], isom->s);
+    square_matrix_mul(nbr_man->conj_auts[aut_idx], isom->s_inv, aut_tr);
+  }
   
   aut_grp_clear(grp);
   return;

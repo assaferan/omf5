@@ -19,12 +19,13 @@ typedef struct {
   Z64 p;
   bool first_iter;
   square_matrix_t* auts;
+  square_matrix_t* conj_auts;
   slong num_auts;
 } neighbor_manager;
 
 typedef neighbor_manager neighbor_manager_t[1];
 
-void nbr_process_init(neighbor_manager_t nbr_man, const square_matrix_t Q, Z64 p, int i);
+void nbr_process_init(neighbor_manager_t nbr_man, const square_matrix_t Q, Z64 p, int i, const isometry_t isom);
 
 void nbr_process_advance(neighbor_manager_t nbr_man);
 

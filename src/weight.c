@@ -178,7 +178,7 @@ slong hecke_col_isometries(square_matrix_t** large_hecke,
 #endif // DEBUG_LEVEL_FULL
 
   for (i = 0; i < p; i++) {
-    nbr_process_init(nbr_man, Q, p, i);
+    nbr_process_init(nbr_man, Q, p, i, genus->isoms[gen_idx]);
 
     while (!(nbr_process_has_ended(nbr_man))) {
       lc += process_isotropic_vector_isometries(nbr_man, large_hecke, genus,

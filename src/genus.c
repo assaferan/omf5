@@ -290,7 +290,7 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t q, int h)
       /* sets, by index as Gonzalo did */
       
       while ((i < p) && (!genus_full)) {
-	nbr_process_init(nbr_man, slow_genus->keys[current], p, i);
+	nbr_process_init(nbr_man, slow_genus->keys[current], p, i, genus->isoms[current]);
 	while ((!(nbr_process_has_ended(nbr_man))) && (!genus_full)) {
 	  nbr_process_build_nb_and_isom(nbr, s, nbr_man);
 #else
@@ -464,7 +464,7 @@ bool square_matrix_is_Q_isometric(isometry_t isom, const square_matrix_t A, cons
   p = 2;
   i = 0;
   while (!found) {
-    nbr_process_init(nbr_man, A, p, i);
+    nbr_process_init(nbr_man, A, p, i, isom_A);
     while (!nbr_process_has_ended(nbr_man)) {
       nbr_process_build_nb_and_isom(nbr, isom_A, nbr_man);
       found = is_isometric(isom_B, B, nbr);
