@@ -84,7 +84,7 @@ bool decomposition_finite_subspace(decomposition_t decomp, const genus_t genus, 
     kernel_on(W, fT, basis_V);
     assert(W->rows != 0);
     // We lift the basis to vectors of the original space
-    fmpq_mat_mul(W, W, basis_V);
+    // fmpq_mat_mul(W, W, basis_V);
     // optimally, we will already compute the eigenvectors at this point.
     if (fac->exp[i] == 1) { // test for irreduciblity
       (decomp->num[c])++;
