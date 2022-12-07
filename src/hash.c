@@ -489,13 +489,19 @@ int hash_table_index_and_isom(const hash_table_t table, const square_matrix_t ke
 	if (table->red_on_isom) {
 	  isometry_init(s);
 	  greedy(key_copy, s, QF_RANK);
+#ifdef DEBUG_LEVEL_FULL
 	  assert(isometry_is_isom(s, key, key_copy));
+#endif // DEBUG_LEVEL_FULL
 	}
 	if (is_isometric(isom, key_copy, table->keys[offset])) {
+#ifdef DEBUG_LEVEL_FULL
 	  assert(isometry_is_isom(isom, key_copy, table->keys[offset]));
+#endif // DEBUG_LEVEL_FULL
 	  if (table->red_on_isom) {
 	    isometry_muleq_left(isom, s);
+#ifdef DEBUG_LEVEL_FULL
 	    assert(isometry_is_isom(isom, key, table->keys[offset]));
+#endif // DEBUg_LEVEL_FULL
 	    isometry_clear(s);
 	  }
 	  (*isom_time) += clock() - cputime;

@@ -113,18 +113,20 @@ slong ignore_set(bool* ignore, const genus_t genus, slong genus_idx)
     ignore[c] = false;
 
   for (gen_idx = 0; gen_idx < aut_grp->num_gens; gen_idx++) {
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
     isometry_init_set_square_matrix(s, aut_grp->gens[gen_idx], 1);
     assert(isometry_is_isom(s, genus->genus_reps->keys[genus_idx], genus->genus_reps->keys[genus_idx]));
     isometry_clear(s);
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
 
     isometry_init(s);
     isometry_inv(s, genus->isoms[genus_idx]);
     isometry_mul_mateq_left(s, aut_grp->gens[gen_idx], 1);
     isometry_muleq_left(s, genus->isoms[genus_idx]);
-    
+
+#ifdef DEBUG_LEVEL_FULL
     assert(isometry_is_isom(s, genus->genus_reps->keys[0], genus->genus_reps->keys[0]));
+#endif // DEBUG_LEVEL_FULL
 	
     vals = spinor_norm_isom(genus->spinor, s);
     // !! TODO - we can break the loop after we find one, right?
@@ -330,14 +332,14 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t q, int h)
 #ifdef NBR_DATA
 	    isometry_init_set_fmpz_mat(s, nbr_isom, p); 
 #endif // NBR_DATA
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
 	    assert(isometry_is_isom(s, slow_genus->keys[current], nbr));
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
 	    
 	    greedy(nbr, s, QF_RANK);
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
 	    assert(isometry_is_isom(s, slow_genus->keys[current], nbr));
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
 
 	    // rellocating to have enough room
 	    if (slow_genus->num_stored == slow_genus->capacity)
@@ -350,8 +352,10 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t q, int h)
 	    // these isometries so that they are rational isometries between the
 	    // "mother" quadratic form and the genus rep.
 	    isometry_mul(genus->isoms[slow_genus->num_stored-1], genus->isoms[current], s);
-	    
+
+#ifdef DEBUG_LEVEL_FULL
 	    assert(isometry_is_isom(genus->isoms[slow_genus->num_stored-1], q, nbr));
+#endif // DEBUG_LEVEL_FULL
 	    
 	    isometry_clear(s);
 	    
@@ -464,13 +468,19 @@ bool square_matrix_is_Q_isometric(isometry_t isom, const square_matrix_t A, cons
     while (!nbr_process_has_ended(nbr_man)) {
       nbr_process_build_nb_and_isom(nbr, isom_A, nbr_man);
       found = is_isometric(isom_B, B, nbr);
+#ifdef DEBUG_LEVEL_FULL
       assert(isometry_is_isom(isom_A, A, nbr));
+#endif // DEBUG_LEVEL_FULL
       if (found) {
 	isometry_inv(isom_B_inv, isom_B);
+#ifdef DEBUG_LEVEL_FULL
 	assert(isometry_is_isom(isom_B, B, nbr));
 	assert(isometry_is_isom(isom_B_inv, nbr, B));
+#endif // DEBUG_LEVEL_FULL
 	isometry_mul(isom, isom_A, isom_B_inv);
+#ifdef DEBUG_LEVEL_FULL
 	assert(isometry_is_isom(isom, A, B));
+#endif // DEBUG_LEVEL_FULL
 	break;
       }
       nbr_process_advance(nbr_man);
@@ -511,11 +521,15 @@ void square_matrix_find_isometries(isometry_t* isoms, const square_matrix_t A, c
 
   for (i = 0; i < genus->dims[0]; i++) {
     rep_idx = hash_table_index_and_isom(genus->genus_reps, B[i], isom_B, &theta_time, &isom_time, &num_isom);
+#ifdef DEBUG_LEVEL_FULL
     assert(isometry_is_isom(isom_B, B[i], genus->genus_reps->keys[rep_idx]));
     assert(isometry_is_isom(genus->isoms[rep_idx], A, genus->genus_reps->keys[rep_idx]));
+#endif // DEBUG_LEVEL_FULL
     isometry_inv(isom_B_inv, isom_B);
     isometry_mul(isoms[i], genus->isoms[rep_idx], isom_B_inv);
+#ifdef DEBUG_LEVEL_FULL
     assert(isometry_is_isom(isoms[i], A, B[i]));
+#endif // DEBUG_LEVEL_FULL
   }
   
   isometry_clear(isom_B);
@@ -631,7 +645,9 @@ void genus_init_set_square_matrix_vec_and_isoms(genus_t genus, const square_matr
   genus->isoms = (isometry_t*)malloc(h * sizeof(isometry_t));
   for (i = 0; i < h; i++) {
     isometry_init_set(genus->isoms[i], isoms[i]);
+#ifdef DEBUG_LEVEL_FULL
     assert(isometry_is_isom(genus->isoms[i], genus->genus_reps->keys[0], genus->genus_reps->keys[i]));
+#endif // DEBUG_LEVEL_FULL
   }
   
   // initializing the conductors

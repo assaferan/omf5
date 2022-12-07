@@ -70,7 +70,9 @@ int process_isotropic_vector_nbr_data_all_conductors(nbr_data_t nbr_man, W64* sp
   square_matrix_set_fmpz_mat(nbr, nbr_fmpz);
   isometry_init_set_fmpz_mat(s_nbr, nbr_isom, fmpz_get_si(fq_nmod_ctx_prime(nbr_man->GF)));
   assert(gen_idx < genus->genus_reps->num_stored);
+#ifdef DEBUG_LEVEL_FULL
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx], nbr));
+#endif // DEBUG_LEVEL_FULL
   
   cputime = clock();
   i = hash_table_index_and_isom(genus->genus_reps, nbr, hash_isom, theta_time, isom_time, num_isom);
@@ -82,22 +84,32 @@ int process_isotropic_vector_nbr_data_all_conductors(nbr_data_t nbr_man, W64* sp
   // Determine which subspaces this representative contributes.
 
   assert(gen_idx < genus->genus_reps->num_stored);
+#ifdef DEBUG_LEVEL_FULL
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx], nbr));
   assert(isometry_is_isom(genus->isoms[gen_idx], genus->genus_reps->keys[0],
 			  genus->genus_reps->keys[gen_idx]));
+#endif // DEBUG_LEVEL_FULL
   isometry_muleq_left(s_nbr, genus->isoms[gen_idx]);
+#ifdef DEBUG_LEVEL_FULL
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[0], nbr));
   assert(isometry_is_isom(hash_isom, nbr, genus->genus_reps->keys[i]));
+#endif // DEBUG_LEVEL_FULL
   isometry_muleq_right(s_nbr, hash_isom);
+#ifdef DEBUG_LEVEL_FULL
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[0], genus->genus_reps->keys[i]));
   assert(isometry_is_isom(genus->isoms[i], genus->genus_reps->keys[0],
 			  genus->genus_reps->keys[i]));
+#endif // DEBUG_LEVEL_FULL
   isometry_inv(s_inv, genus->isoms[i]);
+#ifdef DEBUG_LEVEL_FULL
   assert(isometry_is_isom(s_inv, genus->genus_reps->keys[i],
 			  genus->genus_reps->keys[0]));
+#endif // DEBUG_LEVEL_FULL
   isometry_muleq_right(s_nbr, s_inv);
+#ifdef DEBUG_LEVEL_FULL
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[0],
 			  genus->genus_reps->keys[0]));
+#endif // DEBUG_LEVEL_FULL
   
   *spin_vals = ((i << (genus->spinor->num_primes)) | spinor_norm_isom(genus->spinor, s_nbr));
 
@@ -183,8 +195,10 @@ int process_isotropic_vector_all_conductors(neighbor_manager_t nbr_man, W64* spi
     free(orbit_isom);
     return 0;
   }
-  
+
+#ifdef DEBUG_LEVEL_FULL
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx], nbr));
+#endif // DEBUG_LEVEL_FULL
   
   cputime = clock();
   i = hash_table_index_and_isom(genus->genus_reps, nbr, hash_isom, theta_time, isom_time, num_isom);
@@ -197,45 +211,54 @@ int process_isotropic_vector_all_conductors(neighbor_manager_t nbr_man, W64* spi
 
   // TODO - reduce the number of actual computations required here
 
+#ifdef DEBUG_LEVEL_FULL
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx], nbr));
   for (j = 0; j < orb_size; j++)
     assert(isometry_is_isom(orbit_isom[j], genus->genus_reps->keys[gen_idx], genus->genus_reps->keys[gen_idx]));
   assert(isometry_is_isom(genus->isoms[gen_idx], genus->genus_reps->keys[0],
 			  genus->genus_reps->keys[gen_idx]));
+#endif // DEBUG_LEVEL_FULL
   
   isometry_muleq_left(s_nbr, genus->isoms[gen_idx]);
   for (j = 0; j < orb_size; j++)
      isometry_muleq_left(orbit_isom[j], genus->isoms[gen_idx]);
-  
+#ifdef DEBUG_LEVEL_FULL
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[0], nbr));
   for (j = 0; j < orb_size; j++)
      assert(isometry_is_isom(orbit_isom[j], genus->genus_reps->keys[0], genus->genus_reps->keys[gen_idx]));
-
+#endif // DEBUG_LEVEL_FULL
   isometry_inv(s_inv, genus->isoms[gen_idx]);
   for (j = 0; j < orb_size; j++)
      isometry_muleq_right(orbit_isom[j], s_inv);
-  
+
+#ifdef DEBUG_LEVEL_FULL
   for (j = 0; j < orb_size; j++)
     assert(isometry_is_isom(orbit_isom[j], genus->genus_reps->keys[0],
 			    genus->genus_reps->keys[0]));
   
   assert(isometry_is_isom(hash_isom, nbr, genus->genus_reps->keys[i]));
+#endif // DEBUG_LEVEL_FULL
   
   isometry_muleq_right(s_nbr, hash_isom);
-  
+
+#ifdef DEBUG_LEVEL_FULL
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[0], genus->genus_reps->keys[i]));
   assert(isometry_is_isom(genus->isoms[i], genus->genus_reps->keys[0],
 			  genus->genus_reps->keys[i]));
-  
+#endif // DEBUG_LEVEL_FULL
   isometry_inv(s_inv, genus->isoms[i]);
-  
+
+#ifdef DEBUG_LEVEL_FULL
   assert(isometry_is_isom(s_inv, genus->genus_reps->keys[i],
 			  genus->genus_reps->keys[0]));
+#endif // DEBUG_LEVEL_FULL
   
   isometry_muleq_right(s_nbr, s_inv);
-  
+
+#ifdef DEBUG_LEVEL_FULL
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[0],
 			  genus->genus_reps->keys[0]));
+#endif // DEBUG_LEVEL_FULL
   
   spinorm = spinor_norm_isom(genus->spinor, s_nbr);
   for (j = 0; j < orb_size; j++) {
