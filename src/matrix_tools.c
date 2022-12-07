@@ -394,9 +394,14 @@ Z64 vec_len(const vector_t x, const square_matrix_t q, int dim)
   xqx = 0;
   
   for (i = 0; i < dim; i++)
-    for (j = 0; j < dim; j++)
+    for (j = i+1; j < dim; j++)
       xqx += q[i][j] * x[i] * x[j];
+  
+  xqx *= 2;
 
+  for (i = 0; i < dim; i++)
+    xqx += q[i][i] * x[i] * x[i];
+  
   return xqx;
 }
 
