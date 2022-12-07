@@ -406,12 +406,18 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
   isometry_t g, min_g;
   square_matrix_t H_int;
 
+#ifdef DEBUG
+  square_matrix_t q_trans;
+#endif // DEBUG
+  
 #ifdef DEBUG_LEVEL_FULL
   square_matrix_t x_gram;
-  vector_t x_closest;
 #endif // DEBUG_LEVEL_FULL
+  
+  vector_t x_closest;
+  // #endif // DEBUG_LEVEL_FULL
 
-  vector_t voronoi, x, x_min, x_max, x_num;
+  vector_t voronoi, x, x_min, x_max, x_num, xq;
   int i,j, num_xs, x_idx, min_dist;
 
   vector_t y_int, v_int;
@@ -512,10 +518,10 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
     if (xqx < min_dist) {
       min_dist = xqx;
       isometry_init_set(min_g, g);
-#ifdef DEBUG_LEVEL_FULL
+      //#ifdef DEBUG_LEVEL_FULL
       for (j = 0; j < dim-1; j++)
 	x_closest[j] = x[j];
-#endif // DEBUG_LEVEL_FULL
+      //#endif // DEBUG_LEVEL_FULL
     }
   }
 
@@ -529,7 +535,26 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
   isometry_mul(g,iso,min_g);
   isometry_init_set(iso, g);
 
-  isometry_transform_gram(q, min_g, q);
+#ifdef DEBUG
+  isometry_transform_gram(q_trans, min_g, q);
+#endif // DEBUG
+  // we take advantage of the fact that min_g is in simply replacing one basis vector
+
+  square_matrix_mul_vec_left(xq, x_closest, q);
+
+  x_closest[dim-1] = 1;
+  for (i = dim; i < QF_RANK; i++)
+    x_closest[i] = 0;
+  
+  for (i = 0; i < QF_RANK; i++) {
+    q[i][dim-1] -= xq[i];
+  }
+
+  q[dim-1][dim-1] += min_dist;
+
+#ifdef DEBUG
+  assert(square_matrix_is_equal(q, q_trans));
+#endif //DEBUG
 
 #ifdef DEBUG_LEVEL_FULL
   printf("returning isometry: \n");
