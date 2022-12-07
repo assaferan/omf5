@@ -534,7 +534,11 @@ void nbr_process_clear(neighbor_manager_t nbr_man)
   for (i = 0; i < nbr_man->num_auts; i++)
     square_matrix_clear(nbr_man->auts[i]);
 
+  for (i = 0; i < nbr_man->num_auts; i++)
+    square_matrix_clear(nbr_man->conj_auts[i]);
+
   free(nbr_man->auts);
+  free(nbr_man->conj_auts);
   return;
 }
 
