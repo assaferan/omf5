@@ -740,14 +740,18 @@ void greedy(square_matrix_t gram, isometry_t s, int dim)
   isometry_t tmp, iso;
   int* perm_norm;
   int perm[QF_RANK];
-  int i;
+  int i, j;
+
+  square_matrix_t gram_tmp;
+  
+#ifdef DEBUG_LEVEL_FULL
+  square_matrix_t gram_trans;
+#endif // DEBUG_LEVEL_FULL
   
 #ifdef DEBUG_LEVEL_FULL
   isometry_t s0, s0_inv, s0_inv_s;
   square_matrix_t q0;
-#endif // DEBUG_LEVEL_FULL
 
-#ifdef DEBUG_LEVEL_FULL
   isometry_init_set(s0, s);
   square_matrix_set(q0, gram);
 #endif // DEBUG_LEVEL_FULL
@@ -784,9 +788,24 @@ void greedy(square_matrix_t gram, isometry_t s, int dim)
     isometry_init_set(s, iso);
     
     // update gram
-    isometry_transform_gram(gram, tmp, gram);
+#ifdef DEBUG_LEVEL_FULL
+    isometry_transform_gram(gram_trans, tmp, gram);
+#endif // DEBUG_LEVEL_FULL
+
+    for (i = 0; i < dim; i++)
+      for (j = i; j < QF_RANK; j++)
+	gram_tmp[i][j] = gram[perm[i]][perm[j]];
+
+    for (i = 0; i < dim; i++)
+      for (j = i; j < QF_RANK; j++)
+	gram[i][j] = gram_tmp[i][j];
+
+    for (i = 0; i < QF_RANK; i++)
+      for (j = 0; j < i; j++)
+	gram[i][j] = gram[j][i];
     
 #ifdef DEBUG_LEVEL_FULL
+    assert(square_matrix_is_equal(gram_trans, gram));
     isometry_inv(s0_inv, s0);
     isometry_mul(s0_inv_s, s0_inv, s);
     assert(isometry_is_isom(s0_inv_s, q0, gram));
