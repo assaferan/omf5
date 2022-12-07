@@ -153,12 +153,12 @@ int process_isotropic_vector_all_conductors(neighbor_manager_t nbr_man, W64* spi
   isometry_init(orbit_isom[0]);
 
   // right now we grow the orbit. Could also compute on the fly and in the end divide by the stabilizer's size
-#ifdef DEBUG_LEVEL_FULL
+#ifdef DEBUG
   // weird that it isn't already reduced?
   vector_mod_p(nbr_man->iso_vec, nbr_man->p);
   // this might be unnecessary, but we want to be on the safe side for now
   normalize_mod_p(nbr_man->iso_vec, nbr_man->p);
-#endif // DEBUG_LEVEL_FULL
+#endif // DEBUG
   vector_set(orbit[0], nbr_man->iso_vec);
   // Applying the automorphism group to the isotropic vector
   stab_size = 0;
@@ -294,12 +294,12 @@ int process_isotropic_vector(neighbor_manager_t nbr_man, int* T, const genus_t g
   int vec_cmp;
   slong orbit_size, stab_size;
 
-#ifdef DEBUG_LEVEL_FULL
+#ifdef DEBUG
   // weird that it isn't already reduced?
   vector_mod_p(nbr_man->iso_vec, nbr_man->p);
   // this might be unnecessary, but we want to be on the safe side for now
   normalize_mod_p(nbr_man->iso_vec, nbr_man->p);
-#endif // DEBUG_LEVEL_FULL
+#endif // DEBUG
   // Applying the automorphism group to the isotropic vector
   stab_size = 0;
   for (i = 0; i < nbr_man->num_auts; i++) {
