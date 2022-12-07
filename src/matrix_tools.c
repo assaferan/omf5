@@ -784,8 +784,31 @@ void greedy(square_matrix_t gram, isometry_t s, int dim)
     updatePerm(tmp, perm);
 
     // update isometry s = s*tmp;
+#ifdef DEBUG_LEVEL_FULL
     isometry_mul(iso, s, tmp);
-    isometry_init_set(s, iso);
+    // isometry_init_set(s, iso);
+#endif // DEBUG_LEVEL_FULL
+
+    for (i = 0; i < QF_RANK; i++)
+      for (j = 0; j < dim; j++)
+	gram_tmp[i][j] = s->s[i][perm[j]];
+
+     for (i = 0; i < QF_RANK; i++)
+       for (j = 0; j < dim; j++)
+	 s->s[i][j] = gram_tmp[i][j];
+
+     for (i = 0; i < dim; i++)
+       for (j = 0; j < QF_RANK; j++)
+	 gram_tmp[i][j] = s->s_inv[perm[i]][j];
+
+     for (i = 0; i < dim; i++)
+       for (j = 0; j < QF_RANK; j++)
+	 s->s_inv[i][j] = gram_tmp[i][j];
+
+#ifdef DEBUG_LEVEL_FULL
+    assert(square_matrix_is_equal(iso->s, s->s));
+    assert(square_matrix_is_equal(iso->s_inv, s->s_inv));
+#endif // DEBUG_LEVEL_FULL
     
     // update gram
 #ifdef DEBUG_LEVEL_FULL
