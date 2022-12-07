@@ -532,9 +532,11 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
   printf("\n");
 #endif // DEBUG_LEVEL_FULL
 
+#ifdef DEBUG_LEVEL_FULL
   isometry_mul(g,iso,min_g);
-  isometry_init_set(iso, g);
-
+  // isometry_init_set(iso, g);
+#endif // DEBUG_LEVEL_FULL
+  
 #ifdef DEBUG_LEVEL_FULL
   isometry_transform_gram(q_trans, min_g, q);
 #endif // DEBUG_LEVEL_FULL
@@ -542,6 +544,30 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
 
   for (i = dim-1; i < QF_RANK; i++)
     x_closest[i] = 0;
+
+  // here xq is actually iso*x
+  //  square_matrix_mul_vec_left(xq, x_closest, iso->s);
+  for (i = 0; i < QF_RANK; i++) {
+    xq[i] = 0;
+    for (j = 0; j < QF_RANK; j++) {
+      xq[i] += x_closest[j]*iso->s[i][j];
+    }
+  }
+  
+  for (i = 0; i < QF_RANK; i++) {
+    iso->s[i][dim-1] -= xq[i];
+  }
+
+  for (i = 0; i < dim - 1; i++) {
+   for (j = 0; j < QF_RANK; j++) {
+      iso->s_inv[i][j] += x_closest[i]*iso->s_inv[dim-1][j];
+    }
+  }
+
+#ifdef DEBUG_LEVEL_FULL
+  assert(square_matrix_is_equal(iso->s, g->s));
+  assert(square_matrix_is_equal(iso->s_inv, g->s_inv));
+#endif // DEBUG_LEVEL_FULL
   
   square_matrix_mul_vec_left(xq, x_closest, q);
   
