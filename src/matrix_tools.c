@@ -720,6 +720,49 @@ void updatePerm(isometry_t isom, int* perm)
   return;
 }
 
+void update_isom_perm(isometry_t s, const int* perm, int dim)
+{
+  square_matrix_t s_tmp;
+  int i,j;
+
+  for (i = 0; i < QF_RANK; i++)
+    for (j = 0; j < dim; j++)
+      s_tmp[i][j] = s->s[i][perm[j]];
+
+  for (i = 0; i < QF_RANK; i++)
+    for (j = 0; j < dim; j++)
+      s->s[i][j] = s_tmp[i][j];
+
+  for (i = 0; i < dim; i++)
+    for (j = 0; j < QF_RANK; j++)
+      s_tmp[i][j] = s->s_inv[perm[i]][j];
+
+  for (i = 0; i < dim; i++)
+    for (j = 0; j < QF_RANK; j++)
+      s->s_inv[i][j] = s_tmp[i][j];
+
+  return;
+}
+
+void update_gram_perm(square_matrix_t gram, const int* perm, int dim)
+{
+  square_matrix_t gram_tmp;
+  int i,j;
+
+  for (i = 0; i < dim; i++)
+    for (j = i; j < QF_RANK; j++)
+      gram_tmp[i][j] = gram[perm[i]][perm[j]];
+
+  for (i = 0; i < dim; i++)
+    for (j = i; j < QF_RANK; j++)
+      gram[i][j] = gram_tmp[i][j];
+
+  for (i = 0; i < QF_RANK; i++)
+    for (j = 0; j < i; j++)
+      gram[i][j] = gram[j][i];
+  
+  return;
+}
 
 // to avoid recursive template instantiation,
 // we supply a parameter defining the level of recursion
@@ -727,14 +770,12 @@ void updatePerm(isometry_t isom, int* perm)
 // All containers will have size n, but we will only use dim entries
 void greedy(square_matrix_t gram, isometry_t s, int dim)
 {
-  isometry_t tmp;
   int* perm_norm;
   int perm[QF_RANK];
-  int i, j;
-
-  square_matrix_t gram_tmp;
+  int i;
 
 #ifdef DEBUG_LEVEL_FULL
+  isometry_t tmp;
   square_matrix_t gram_copy;
   isometry_t s_copy, iso;
   square_matrix_t gram_trans;
@@ -767,33 +808,17 @@ void greedy(square_matrix_t gram, isometry_t s, int dim)
     for ( i = dim; i < QF_RANK; i++)
       perm[i] = i;
 
+#ifdef DEBUG_LEVEL_FULL
     // temp isometry
     isometry_init(tmp);
-    
     updatePerm(tmp, perm);
-
     // update isometry s = s*tmp;
-#ifdef DEBUG_LEVEL_FULL
     isometry_mul(iso, s, tmp);
     // isometry_init_set(s, iso);
 #endif // DEBUG_LEVEL_FULL
 
-    for (i = 0; i < QF_RANK; i++)
-      for (j = 0; j < dim; j++)
-	gram_tmp[i][j] = s->s[i][perm[j]];
-
-     for (i = 0; i < QF_RANK; i++)
-       for (j = 0; j < dim; j++)
-	 s->s[i][j] = gram_tmp[i][j];
-
-     for (i = 0; i < dim; i++)
-       for (j = 0; j < QF_RANK; j++)
-	 gram_tmp[i][j] = s->s_inv[perm[i]][j];
-
-     for (i = 0; i < dim; i++)
-       for (j = 0; j < QF_RANK; j++)
-	 s->s_inv[i][j] = gram_tmp[i][j];
-
+    update_isom_perm(s, perm, dim);
+ 
 #ifdef DEBUG_LEVEL_FULL
     assert(square_matrix_is_equal(iso->s, s->s));
     assert(square_matrix_is_equal(iso->s_inv, s->s_inv));
@@ -804,6 +829,8 @@ void greedy(square_matrix_t gram, isometry_t s, int dim)
     isometry_transform_gram(gram_trans, tmp, gram);
 #endif // DEBUG_LEVEL_FULL
 
+    update_gram_perm(gram, perm, dim);
+    /*
     for (i = 0; i < dim; i++)
       for (j = i; j < QF_RANK; j++)
 	gram_tmp[i][j] = gram[perm[i]][perm[j]];
@@ -815,6 +842,7 @@ void greedy(square_matrix_t gram, isometry_t s, int dim)
     for (i = 0; i < QF_RANK; i++)
       for (j = 0; j < i; j++)
 	gram[i][j] = gram[j][i];
+    */
     
 #ifdef DEBUG_LEVEL_FULL
     assert(square_matrix_is_equal(gram_trans, gram));
