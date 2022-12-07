@@ -476,8 +476,10 @@ int vector_cmp_unred(const vector_t vL, const vector_t vR, Z64 p)
 
   for (pivot = 0; (pivot < QF_RANK) && (vR[pivot] == 0); ) pivot++;
 
+#ifdef DEBUG_LEVEL_FULL
   assert(pivot != QF_RANK);
-
+#endif // DEBUG_LEVEL_FULL
+  
   for (i = 0; i < pivot; i++)
     if (vL[i] % p != 0)
       return 1;
@@ -488,9 +490,11 @@ int vector_cmp_unred(const vector_t vL, const vector_t vR, Z64 p)
   gcdext(vR[pivot], p, &x, &z);
   gcdext(vL[pivot], p, &y, &z);
 
+#ifdef DEBUG_LEVEL_FULL
   assert((x*vR[pivot]-1)%p == 0);
   assert((y*vL[pivot]-1)%p == 0);
-
+#endif // DEBUG_LEVEL_FULL
+  
   for (i = pivot + 1; i < QF_RANK; i++) {
     w = (y * vL[i]) % p;
     z = (x * vR[i]) % p;

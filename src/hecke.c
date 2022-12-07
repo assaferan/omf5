@@ -153,27 +153,24 @@ int process_isotropic_vector_all_conductors(neighbor_manager_t nbr_man, W64* spi
   isometry_init(orbit_isom[0]);
 
   // right now we grow the orbit. Could also compute on the fly and in the end divide by the stabilizer's size
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
   // weird that it isn't already reduced?
   vector_mod_p(nbr_man->iso_vec, nbr_man->p);
   // this might be unnecessary, but we want to be on the safe side for now
   normalize_mod_p(nbr_man->iso_vec, nbr_man->p);
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
   vector_set(orbit[0], nbr_man->iso_vec);
   // Applying the automorphism group to the isotropic vector
   stab_size = 0;
   orb_size = 1;
   for (i = 0; i < nbr_man->num_auts; i++) {
     square_matrix_mul_vec_left(g_vec, nbr_man->iso_vec, nbr_man->auts[i]);
-    // vector_mod_p(g_vec, nbr_man->p);
-    // normalize_mod_p(g_vec, nbr_man->p);
-    // vec_cmp = vector_cmp(g_vec, nbr_man->iso_vec);
     vec_cmp = vector_cmp_unred(g_vec, nbr_man->iso_vec, nbr_man->p);
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
     vector_mod_p(g_vec, nbr_man->p);
     normalize_mod_p(g_vec, nbr_man->p);
     assert(vec_cmp == vector_cmp(g_vec, nbr_man->iso_vec));
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
     if (vec_cmp < 0) {
       free(orbit);
       free(orbit_isom);
@@ -297,24 +294,22 @@ int process_isotropic_vector(neighbor_manager_t nbr_man, int* T, const genus_t g
   int vec_cmp;
   slong orbit_size, stab_size;
 
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
   // weird that it isn't already reduced?
   vector_mod_p(nbr_man->iso_vec, nbr_man->p);
   // this might be unnecessary, but we want to be on the safe side for now
   normalize_mod_p(nbr_man->iso_vec, nbr_man->p);
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
   // Applying the automorphism group to the isotropic vector
   stab_size = 0;
   for (i = 0; i < nbr_man->num_auts; i++) {
     square_matrix_mul_vec_left(g_vec, nbr_man->iso_vec, nbr_man->auts[i]);
-    // vector_mod_p(g_vec, nbr_man->p);
-    // normalize_mod_p(g_vec, nbr_man->p);
     vec_cmp = vector_cmp_unred(g_vec, nbr_man->iso_vec, nbr_man->p);
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
     vector_mod_p(g_vec, nbr_man->p);
     normalize_mod_p(g_vec, nbr_man->p);
     assert(vec_cmp == vector_cmp(g_vec, nbr_man->iso_vec));
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
     if (vec_cmp < 0)
       return 0;
     if (vec_cmp == 0)
