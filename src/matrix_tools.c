@@ -405,84 +405,20 @@ Z64 vec_len(const vector_t x, const square_matrix_t q, int dim)
   return xqx;
 }
 
-// right now using integer arithmetic. Should probably run faster with floating point arithmetic
-void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
+void find_x_closest(vector_t x_closest, const vector_t y_int, const vector_t voronoi, Z64 det, int dim, const square_matrix_t q)
 {
-  isometry_t g;
-#ifdef DEBUG_LEVEL_FULL
-  isometry_t min_g;
-#endif // DEBUG_LEVEL_FULL
-  square_matrix_t H_int;
+  vector_t x, x_min, x_max, x_num;
+  int i, j, num_xs, x_idx;
+  Z64 min_dist, xqx, tmp;
 
 #ifdef DEBUG_LEVEL_FULL
-  square_matrix_t q_trans;
-#endif // DEBUG_LEVEL_FULL
-  
-#ifdef DEBUG_LEVEL_FULL
+  isometry_t g,min_g;
   square_matrix_t x_gram;
-#endif // DEBUG_LEVEL_FULL
-  
-  vector_t x_closest;
-  // #endif // DEBUG_LEVEL_FULL
-
-  vector_t voronoi, x, x_min, x_max, x_num, xq;
-  int i,j, num_xs, x_idx, min_dist;
-
-  vector_t y_int, v_int;
-  Z64 tmp, det, xqx;
-
-#ifdef DEBUG_LEVEL_FULL
-  printf("finding closest_lattice_vector with gram:\n");
-  square_matrix_print(q);
-#endif // DEBUG_LEVEL_FULL
   
   isometry_init(g);
-
-#ifdef DEBUG_LEVEL_FULL
   isometry_init(min_g);
 #endif // DEBUG_LEVEL_FULL
   
-  adjugate(H_int, q, dim-1);
-  
-  for (i = 0; i < dim-1; i++) {
-    v_int[i] = q[i][dim-1];
-  }
-
-#ifdef DEBUG_LEVEL_FULL
-  printf("H_int = \n");
-  square_matrix_print(H_int);
-
-  printf("v_int = \n");
-  //  print_mat(v_int);
-  for (i = 0; i < dim-1; i++)
-    printf("%" PRId64 " ", v_int[i]);
-  printf("\n");
-#endif // DEBUG_LEVEL_FULL
-    
-  for (i = 0; i < dim-1; i++)
-    y_int[i] = 0;
-
-  for (i = 0; i < dim-1; i++)
-    for (j = 0; j < dim-1; j++)
-      y_int[i] += H_int[i][j] * v_int[j];
-
-#ifdef DEBUG_LEVEL_FULL
-  printf("y_int = \n");
-  //  print_mat(y_int);
-  for (i = 0; i < dim-1; i++)
-    printf("%" PRId64 " ", y_int[i]);
-  printf("\n");
-#endif // DEBUG_LEVEL_FULL
-  
-  voronoi_bounds(voronoi, dim-1);
-  
-  det = 0;
-  for (i = 0; i < dim - 1; i++) {
-    tmp = H_int[0][i];
-    det += tmp*q[i][0];
-  }
-  det = llabs(det);
-
   for ( i = 0; i < dim-1; i++) {
     tmp =  y_int[i] - det*voronoi[i];
     x_min[i] = ((tmp >= 0) ? tmp+det-1 : tmp)/det;
@@ -507,12 +443,12 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
       x[j] = x_min[j] + (tmp % x_num[j]);
       tmp /= x_num[j];
     }
+    
+#ifdef DEBUG_LEVEL_FULL
     for ( i = 0; i < dim-1; i++)
       g->s[i][dim-1] = -x[i];
     for ( i = 0; i < dim-1; i++)
       g->s_inv[i][dim-1] = x[i];
-
-#ifdef DEBUG_LEVEL_FULL
     square_matrix_mul(x_gram, g->s, g->s_inv);
     assert(square_matrix_is_one(x_gram));
 #endif // DEBUG_LEVEL_FULL
@@ -531,10 +467,8 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
 #ifdef DEBUG_LEVEL_FULL
       isometry_init_set(min_g, g);
 #endif // DEBUG_LEVEL_FULL
-      //#ifdef DEBUG_LEVEL_FULL
       for (j = 0; j < dim-1; j++)
 	x_closest[j] = x[j];
-      //#endif // DEBUG_LEVEL_FULL
     }
   }
 
@@ -545,16 +479,75 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
   printf("\n");
 #endif // DEBUG_LEVEL_FULL
 
+  return;
+}
+
+// right now using integer arithmetic. Should probably run faster with floating point arithmetic
+void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
+{
+  square_matrix_t H_int;
+
 #ifdef DEBUG_LEVEL_FULL
-  isometry_mul(g,iso,min_g);
-  // isometry_init_set(iso, g);
+  isometry_t g,min_g;
+  // square_matrix_t q_trans, x_gram;
 #endif // DEBUG_LEVEL_FULL
   
-#ifdef DEBUG_LEVEL_FULL
-  isometry_transform_gram(q_trans, min_g, q);
-#endif // DEBUG_LEVEL_FULL
-  // we take advantage of the fact that min_g is in simply replacing one basis vector
+  vector_t x_closest;
 
+  vector_t voronoi, /* x, x_min, x_max, x_num, */ xq;
+  int i,j /* , num_xs, x_idx, min_dist */;
+
+  vector_t y_int, v_int;
+  Z64 tmp, det /*, xqx */;
+
+#ifdef DEBUG_LEVEL_FULL
+  printf("finding closest_lattice_vector with gram:\n");
+  square_matrix_print(q);
+  isometry_init(g);
+  isometry_init(min_g);
+#endif // DEBUG_LEVEL_FULL
+  
+  adjugate(H_int, q, dim-1);
+  
+  for (i = 0; i < dim-1; i++) {
+    v_int[i] = q[i][dim-1];
+  }
+
+#ifdef DEBUG_LEVEL_FULL
+  printf("H_int = \n");
+  square_matrix_print(H_int);
+
+  printf("v_int = \n");
+  for (i = 0; i < dim-1; i++)
+    printf("%" PRId64 " ", v_int[i]);
+  printf("\n");
+#endif // DEBUG_LEVEL_FULL
+    
+  for (i = 0; i < dim-1; i++)
+    y_int[i] = 0;
+
+  for (i = 0; i < dim-1; i++)
+    for (j = 0; j < dim-1; j++)
+      y_int[i] += H_int[i][j] * v_int[j];
+
+#ifdef DEBUG_LEVEL_FULL
+  printf("y_int = \n");
+  for (i = 0; i < dim-1; i++)
+    printf("%" PRId64 " ", y_int[i]);
+  printf("\n");
+#endif // DEBUG_LEVEL_FULL
+  
+  voronoi_bounds(voronoi, dim-1);
+  
+  det = 0;
+  for (i = 0; i < dim - 1; i++) {
+    tmp = H_int[0][i];
+    det += tmp*q[i][0];
+  }
+  det = llabs(det);
+
+  find_x_closest(x_closest, y_int, voronoi, det, dim, q);
+  
   for (i = dim-1; i < QF_RANK; i++)
     x_closest[i] = 0;
 
@@ -577,11 +570,6 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
     }
   }
 
-#ifdef DEBUG_LEVEL_FULL
-  assert(square_matrix_is_equal(iso->s, g->s));
-  assert(square_matrix_is_equal(iso->s_inv, g->s_inv));
-#endif // DEBUG_LEVEL_FULL
-  
   square_matrix_mul_vec_left(xq, x_closest, q);
   
   for (i = 0; i < QF_RANK; i++) {
@@ -594,17 +582,6 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
 
   for (i = 0; i < QF_RANK; i++)
     q[dim-1][dim-1] += x_closest[i] * xq[i];
-
-#ifdef DEBUG_LEVEL_FULL
-  assert(square_matrix_is_equal(q, q_trans));
-#endif //DEBUG_LEVEL_FULL
-
-#ifdef DEBUG_LEVEL_FULL
-  printf("returning isometry: \n");
-  square_matrix_print(iso->s);
-  printf("transformed gram to: \n");
-  square_matrix_print(q);
-#endif // DEBUG_LEVEL_FULL
 
   return;
 }
