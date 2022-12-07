@@ -408,7 +408,10 @@ Z64 vec_len(const vector_t x, const square_matrix_t q, int dim)
 // right now using integer arithmetic. Should probably run faster with floating point arithmetic
 void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
 {
-  isometry_t g, min_g;
+  isometry_t g;
+#ifdef DEBUG_LEVEL_FULL
+  isometry_t min_g;
+#endif // DEBUG_LEVEL_FULL
   square_matrix_t H_int;
 
 #ifdef DEBUG_LEVEL_FULL
@@ -434,8 +437,11 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
 #endif // DEBUG_LEVEL_FULL
   
   isometry_init(g);
-  isometry_init(min_g);
 
+#ifdef DEBUG_LEVEL_FULL
+  isometry_init(min_g);
+#endif // DEBUG_LEVEL_FULL
+  
   adjugate(H_int, q, dim-1);
   
   for (i = 0; i < dim-1; i++) {
@@ -522,7 +528,9 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
     
     if (xqx < min_dist) {
       min_dist = xqx;
+#ifdef DEBUG_LEVEL_FULL
       isometry_init_set(min_g, g);
+#endif // DEBUG_LEVEL_FULL
       //#ifdef DEBUG_LEVEL_FULL
       for (j = 0; j < dim-1; j++)
 	x_closest[j] = x[j];
