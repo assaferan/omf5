@@ -472,7 +472,7 @@ void normalize_mod_p(vector_t v, Z64 p)
 int vector_cmp_unred(const vector_t vL, const vector_t vR, Z64 p)
 {
   int pivot, i;
-  Z64 x,y,z;
+  Z64 x,y,z,w;
 
   for (pivot = 0; (pivot < QF_RANK) && (vR[pivot] == 0); ) pivot++;
 
@@ -485,25 +485,22 @@ int vector_cmp_unred(const vector_t vL, const vector_t vR, Z64 p)
   if (vL[pivot] % p == 0)
     return -1;
   
-  gcdext(vR[pivot], p, &x, &y);
+  gcdext(vR[pivot], p, &x, &z);
+  gcdext(vL[pivot], p, &y, &z);
 
   assert((x*vR[pivot]-1)%p == 0);
+  assert((y*vL[pivot]-1)%p == 0);
 
-  y = (x * vL[pivot]) % p;
-  
-  if ((y != 1) && (y + p != 1))
-    return 1;
-  
   for (i = pivot + 1; i < QF_RANK; i++) {
-    y = (x * vL[i]) % p;
+    w = (y * vL[i]) % p;
     z = (x * vR[i]) % p;
-    if (y < 0)
-      y += p;
+    if (w < 0)
+      w += p;
     if (z < 0)
       z += p;
-    if (y > z)
+    if (w > z)
       return 1;
-    if (z < y)
+    if (w < z)
       return -1;
   }
 
