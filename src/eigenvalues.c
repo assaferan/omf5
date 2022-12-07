@@ -357,6 +357,7 @@ void eigenvalues_set_lifts(eigenvalues_t evs, slong prec, slong c, const genus_t
 	if (evs->lift_type[i] != lift_type)
 	  evs->lift_type[i] = G;
     }
+    fmpz_nextprime(p, p, true);
   }
 
   fmpz_clear(p);

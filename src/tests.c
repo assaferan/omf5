@@ -72,8 +72,10 @@ void print_eigenvectors(const eigenvalues_t evs)
   
   fprintf(stderr, "eigenvectors are:\n");
   for (i = 0; i < evs->num; i++) {
+    /*
     if (evs->lift_type[i] == O)
       continue;
+    */
     deg = fmpq_poly_degree(evs->nfs[i]->pol);
     if (deg < 10)
       for (j = 0; j < evs->dim; j++) {
@@ -223,7 +225,7 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex, bool nonlifts)
   bool has_spinor = false;
   const int* test_evs = NULL;
 
-  char lift_types[4] = {'G', 'Y', 'P', 'F'};
+  char lift_types[5] = {'G', 'Y', 'P', 'F', 'O'};
 
   num_conductors = genus->num_conductors;
   for (c = 1; c < num_conductors; c++)

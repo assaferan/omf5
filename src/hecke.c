@@ -1178,6 +1178,8 @@ void hecke_eigenforms(eigenvalues_t evs, const decomposition_t D, const genus_t 
       evs->lift_type[i] = G; // default
     }
     else {
+      nf_elem_init(evs->eigenvals[i], evs->nfs[i]);
+      nf_elem_gen(evs->eigenvals[i], evs->nfs[i]);
       evs->lift_type[i] = O; // it's an old form
     }
   }
