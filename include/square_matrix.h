@@ -36,7 +36,6 @@ void fmpz_mat_init_set_square_matrix(fmpz_mat_t dest, const square_matrix_t src)
 matrix_TYP* matrix_TYP_init_set_square_matrix(const square_matrix_t mat);
 
 int vector_cmp(const vector_t vL, const vector_t vR);
-int vector_cmp_unred(const vector_t vL, const vector_t vR, Z64 p);
 bool square_matrix_is_equal(const square_matrix_t mat1, const square_matrix_t mat2);
 
 void square_matrix_one(square_matrix_t mat);
