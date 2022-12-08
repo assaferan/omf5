@@ -474,7 +474,7 @@ int vector_cmp_unred(const vector_t vL, const vector_t vR, Z64 p)
   int pivot, i;
   Z64 x,y,z,w;
 
-  for (pivot = 0; (pivot < QF_RANK) && (vR[pivot] == 0); ) pivot++;
+  for (pivot = 0; (pivot < QF_RANK) && ((vR[pivot] % p) == 0); ) pivot++;
 
 #ifdef DEBUG_LEVEL_FULL
   assert(pivot != QF_RANK);
