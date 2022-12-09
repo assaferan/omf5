@@ -358,3 +358,13 @@ void isometry_vec_scalar_mul(isometry_t isom, int col, int scalar)
 
   return;
 }
+
+bool isometry_is_equal(const isometry_t isom1, const isometry_t isom2)
+{
+  square_matrix_t scaled_isom1, scaled_isom2;
+
+  square_matrix_mul_scalar(scaled_isom1, isom1->s, isom2->denom);
+  square_matrix_mul_scalar(scaled_isom2, isom2->s, isom1->denom);
+
+  return square_matrix_is_equal(scaled_isom1, scaled_isom2);
+}

@@ -424,6 +424,18 @@ void square_matrix_div_scalar(square_matrix_t quo, const square_matrix_t mat, in
   return;
 }
 
+void square_matrix_mul_scalar(square_matrix_t prod, const square_matrix_t mat, int scalar)
+{
+  int i,j;
+  
+  for (i = 0; i < QF_RANK; i++)
+    for (j = 0; j < QF_RANK; j++) {
+      prod[i][j] = mat[i][j] * scalar;
+    }
+
+  return;
+}
+
 void vector_lin_comb(vector_t res, const vector_t v, const vector_t w, Z64 a_v, Z64 a_w)
 {
   int i;

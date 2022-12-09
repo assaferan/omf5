@@ -19,7 +19,7 @@ typedef struct {
   Z64 p;
   bool first_iter;
   square_matrix_t* auts;
-  square_matrix_t* conj_auts;
+  isometry_t* conj_auts;
   slong num_auts;
 } neighbor_manager;
 

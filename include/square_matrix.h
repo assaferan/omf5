@@ -63,6 +63,7 @@ Z64 scalar_product(const vector_t v1, const vector_t v2);
 
 int square_matrix_inv(square_matrix_t inv, const square_matrix_t mat, int denom);
 void square_matrix_div_scalar(square_matrix_t quo, const square_matrix_t mat, int denom);
+void square_matrix_mul_scalar(square_matrix_t prod, const square_matrix_t mat, int scalar);
 
 void vector_lin_comb(vector_t res, const vector_t v, const vector_t w, Z64 a_v, Z64 a_w);
 void vector_mod_p(vector_t v, Z64 p);

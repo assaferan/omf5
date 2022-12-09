@@ -463,14 +463,16 @@ void nbr_process_init(neighbor_manager_t nbr_man, const square_matrix_t Q, Z64 p
   aut_grp_init_square_matrix(grp, nbr_man->Q);
 
   nbr_man->auts = (square_matrix_t*)malloc(grp->order * sizeof(square_matrix_t));
-  nbr_man->conj_auts = (square_matrix_t*)malloc(grp->order * sizeof(square_matrix_t));
+  nbr_man->conj_auts = (isometry_t*)malloc(grp->order * sizeof(isometry_t));
   aut_grp_get_elements(nbr_man->auts,grp);
   nbr_man->num_auts = grp->order;
   // conjugating the automorphisms
   for (aut_idx = 0; aut_idx < grp->order; aut_idx++) {
-    square_matrix_transpose(nbr_man->conj_auts[aut_idx], nbr_man->auts[aut_idx]);
-    square_matrix_mul(aut_tr, nbr_man->conj_auts[aut_idx], isom->s);
-    square_matrix_mul(nbr_man->conj_auts[aut_idx], isom->s_inv, aut_tr);
+    square_matrix_transpose(nbr_man->conj_auts[aut_idx]->s, nbr_man->auts[aut_idx]);
+    square_matrix_mul(aut_tr, isom->s, nbr_man->conj_auts[aut_idx]->s);
+    square_matrix_mul(nbr_man->conj_auts[aut_idx]->s, aut_tr, isom->s_inv);
+    nbr_man->conj_auts[aut_idx]->denom = (isom->denom) * (isom->inv_denom);
+    nbr_man->conj_auts[aut_idx]->inv_denom = square_matrix_inv(nbr_man->conj_auts[aut_idx]->s_inv, nbr_man->conj_auts[aut_idx]->s, nbr_man->conj_auts[aut_idx]->denom);
   }
   
   aut_grp_clear(grp);
@@ -535,7 +537,7 @@ void nbr_process_clear(neighbor_manager_t nbr_man)
     square_matrix_clear(nbr_man->auts[i]);
 
   for (i = 0; i < nbr_man->num_auts; i++)
-    square_matrix_clear(nbr_man->conj_auts[i]);
+    isometry_clear(nbr_man->conj_auts[i]);
 
   free(nbr_man->auts);
   free(nbr_man->conj_auts);
