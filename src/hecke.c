@@ -132,7 +132,7 @@ int process_isotropic_vector_all_conductors(neighbor_manager_t nbr_man, W64* spi
 {
   int i, j;
   clock_t cputime;
-  square_matrix_t nbr /* , aut_tr */;
+  square_matrix_t nbr;
   isometry_t s_nbr, s_inv;
   isometry_t hash_isom;
   bool non_singular;
@@ -143,6 +143,12 @@ int process_isotropic_vector_all_conductors(neighbor_manager_t nbr_man, W64* spi
   bool found;
   W64 spinorm;
   vector_t g_vec;
+#ifdef DEBUG
+  isometry_t* orbit_isom_orig;
+  square_matrix_t aut_tr;
+
+  orbit_isom_orig = (isometry_t*)malloc(nbr_man->num_auts * sizeof(isometry_t));
+#endif // DEBUG
 
   cputime = clock();
   
@@ -182,8 +188,10 @@ int process_isotropic_vector_all_conductors(neighbor_manager_t nbr_man, W64* spi
 	}
       if (!found) {
 	vector_set(orbit[orb_size], g_vec);
-	// square_matrix_transpose(aut_tr, nbr_man->conj_auts[i]);
-	// isometry_init_set_square_matrix(orbit_isom[orb_size], aut_tr, 1);
+#ifdef DEBUG
+	square_matrix_transpose(aut_tr, nbr_man->auts[i]);
+	isometry_init_set_square_matrix(orbit_isom_orig[orb_size], aut_tr, 1);
+#endif // DEBUG
 	isometry_init_set_square_matrix(orbit_isom[orb_size], nbr_man->conj_auts[i], 1);
 	orb_size++;
       }
@@ -199,9 +207,9 @@ int process_isotropic_vector_all_conductors(neighbor_manager_t nbr_man, W64* spi
     return 0;
   }
 
-#ifdef DEBUG_LEVEL_FULL
+#ifdef DEBUG
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx], nbr));
-#endif // DEBUG_LEVEL_FULL
+#endif // DEBUG
   
 
   i = hash_table_index_and_isom(genus->genus_reps, nbr, hash_isom, theta_time, isom_time, num_isom);
@@ -213,37 +221,33 @@ int process_isotropic_vector_all_conductors(neighbor_manager_t nbr_man, W64* spi
 
   // TODO - reduce the number of actual computations required here
 
-#ifdef DEBUG_LEVEL_FULL
+#ifdef DEBUG
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx], nbr));
   for (j = 0; j < orb_size; j++)
-    assert(isometry_is_isom(orbit_isom[j], genus->genus_reps->keys[gen_idx], genus->genus_reps->keys[gen_idx]));
+    assert(isometry_is_isom(orbit_isom_orig[j], genus->genus_reps->keys[gen_idx], genus->genus_reps->keys[gen_idx]));
   assert(isometry_is_isom(genus->isoms[gen_idx], genus->genus_reps->keys[0],
 			  genus->genus_reps->keys[gen_idx]));
-#endif // DEBUG_LEVEL_FULL
+#endif // DEBUG
   
   isometry_muleq_left(s_nbr, genus->isoms[gen_idx]);
   // now the automorphisms are already conjugated
-  /*
+#ifdef DEBUG
   for (j = 0; j < orb_size; j++)
-     isometry_muleq_left(orbit_isom[j], genus->isoms[gen_idx]);
-  */
-#ifdef DEBUG_LEVEL_FULL
+     isometry_muleq_left(orbit_isom_orig[j], genus->isoms[gen_idx]);
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[0], nbr));
   for (j = 0; j < orb_size; j++)
-     assert(isometry_is_isom(orbit_isom[j], genus->genus_reps->keys[0], genus->genus_reps->keys[gen_idx]));
-#endif // DEBUG_LEVEL_FULL
+     assert(isometry_is_isom(orbit_isom_orig[j], genus->genus_reps->keys[0], genus->genus_reps->keys[gen_idx]));
   isometry_inv(s_inv, genus->isoms[gen_idx]);
-  /*
   for (j = 0; j < orb_size; j++)
-     isometry_muleq_right(orbit_isom[j], s_inv);
-  */
-#ifdef DEBUG_LEVEL_FULL
+     isometry_muleq_right(orbit_isom_orig[j], s_inv);
   for (j = 0; j < orb_size; j++)
-    assert(isometry_is_isom(orbit_isom[j], genus->genus_reps->keys[0],
+    assert(isometry_is_isom(orbit_isom_orig[j], genus->genus_reps->keys[0],
 			    genus->genus_reps->keys[0]));
   
   assert(isometry_is_isom(hash_isom, nbr, genus->genus_reps->keys[i]));
-#endif // DEBUG_LEVEL_FULL
+  for (j = 0; j < orb_size; j++)
+    assert(square_matrix_is_equal(orbit_isom_orig[j]->s, orbit_isom[j]->s));
+#endif // DEBUG
   
   isometry_muleq_right(s_nbr, hash_isom);
 
@@ -279,6 +283,9 @@ int process_isotropic_vector_all_conductors(neighbor_manager_t nbr_man, W64* spi
 
   free(orbit);
   free(orbit_isom);
+#ifdef DEBUG
+  free(orbit_isom_orig);
+#endif // DEBUG
 
   (*total_time) += clock() - cputime;
   
