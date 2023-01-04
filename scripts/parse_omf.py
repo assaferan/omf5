@@ -1,4 +1,5 @@
 import pickle
+from sage.all import (PolynomialRing, QQ, NumberField)
 from sage.misc.persist import SagePickler
 
 def parse_omf5(k,j,N,folder,suffix="_nl_200_",hecke_ring=False,max_deg=20,B=200):
@@ -91,7 +92,8 @@ def is_lift(f, N, prime_bound):
     primes_N = [p for p in prime_range(prime_bound) if N % p != 0]
     if (len(f['lambda_p_square']) > 1):
         K = f['lambda_p'][0].parent()
-        _.<x> = PolynomialRing(K)
+        Kx = PolynomialRing(K, name = "x")
+        x = Kx.gens()[0]
         lps = [p^6 * x^4 - f['lambda_p'][i]*p^3*x^3 + (f['lambda_p_square'][i] + p^2 + 1)*p*x^2 - f['lambda_p'][i] * x + 1 for i,p in enumerate(primes_N[:len(f['lambda_p_square'])])]
         if any([lp.is_irreducible() for lp in lps]):
             return False, 'G'
