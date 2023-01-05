@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/local/bin/sage -python
 
 import sys
 from parse_omf import pickle_omf5
