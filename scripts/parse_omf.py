@@ -1,5 +1,5 @@
 import pickle
-from sage.all import (PolynomialRing, QQ, NumberField)
+from sage.all import (PolynomialRing, QQ, NumberField, prime_range, prime_divisors)
 from sage.misc.persist import SagePickler
 
 def parse_omf5(k,j,N,folder,suffix="_nl_200_",hecke_ring=False,max_deg=20,B=200):
