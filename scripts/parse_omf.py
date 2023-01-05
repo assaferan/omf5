@@ -94,7 +94,7 @@ def is_lift(f, N, prime_bound):
         K = f['lambda_p'][0].parent()
         Kx = PolynomialRing(K, name = "x")
         x = Kx.gens()[0]
-        lps = [p^6 * x^4 - f['lambda_p'][i]*p^3*x^3 + (f['lambda_p_square'][i] + p^2 + 1)*p*x^2 - f['lambda_p'][i] * x + 1 for i,p in enumerate(primes_N[:len(f['lambda_p_square'])])]
+        lps = [p**6 * x**4 - f['lambda_p'][i]*p**3*x**3 + (f['lambda_p_square'][i] + p**2 + 1)*p*x**2 - f['lambda_p'][i] * x + 1 for i,p in enumerate(primes_N[:len(f['lambda_p_square'])])]
         if any([lp.is_irreducible() for lp in lps]):
             return False, 'G'
         if (len(lps[0].factor()) == 3):
