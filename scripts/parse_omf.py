@@ -183,6 +183,7 @@ def check_yoshida(ap_array, primes_N, divs_N, dim, alpha_q={}):
 def aut_rep(f, N, B):
     primes_N = [p for p in prime_range(B) if N % p != 0]
     divs_N = divisors(N)
+    dim = len(f['field_poly'])-1
     if (len(f['lambda_p']) > 0):
         q = primes_N[0]
         disc = (f['lambda_p'][0])^2-4*q*(f['lambda_p_square'][0]+1-q^2)
@@ -200,12 +201,10 @@ def aut_rep(f, N, B):
     
         # check eisenstein
         if (((y2 == q + 1) and (x1 == q^3 + 1)) or ((y1 == q + 1) and (x2 == q^3 + 1))):
-            is_eis = check_eis(tr_array, N, B)
+            is_eis, labels = check_eis(tr_array, N, B)
             if (is_eis):
-                return 'F', []
+                return 'F', labels
         
-        dim = len(f['field_poly'])-1
-            
         # check sk
         if (y1 == q + 1):
             alpha_q = {q : ZZ(x2.trace())}
@@ -232,9 +231,9 @@ def aut_rep(f, N, B):
                 return 'Y', labels
     else:
         tr_array = f['trace_lambda_p']
-        is_eis = check_eis(tr_array, N, B)
+        is_eis, labels = check_eis(tr_array, N, B)
         if (is_eis):
-                return 'F', []
+                return 'F', labels
         is_sk, labels = check_sk(tr_array, primes_N, divs_N, dim)
         if (is_sk):
             return 'P', labels
@@ -264,6 +263,8 @@ def update_ev_data_class(ev_data, B):
     for N in range(len(ev_data)):
         print(N)
         for f in ev_data[N]:
+            if (f['aut_rep_type'] == 'O'):
+                continue
             is_new = is_newform(f, N, ev_data, B)
             if (not is_new):
                 f['aut_rep_type'] = 'O'
