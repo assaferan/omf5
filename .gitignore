@@ -45,3 +45,7 @@ src/omf5_nbr_data_dbg_full
 *.Plo
 *.log
 omf5
+logs
+short
+__pycache__
+*.pyc

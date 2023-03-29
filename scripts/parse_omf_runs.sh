@@ -1,4 +1,4 @@
 for N in {1..999}
 do
-parse_omf_run.py N
+../../omf5/scripts/parse_omf_run.py $N &
 done
