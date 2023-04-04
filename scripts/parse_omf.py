@@ -48,7 +48,7 @@ def parse_omf5(k,j,N,folder,suffix="_nl_200_",hecke_ring=True,B=200,max_deg=20):
                 nbound = 0
                 while (type(f['lambda_p'][p_idx]) == str):
                     p_idx += 1
-                while ((index != 1) and (p_idx < len(f['lambda_p']))):
+                while ((index != 1) and (p_idx < len(f['lambda_p']) and (p_idx < 18))):
                     print("p_idx = ", p_idx)
                     H = F.order([x for x in f['lambda_p'][:p_idx+1] if type(x) != str])
                     new_index = H.index_in(F.ring_of_integers())
