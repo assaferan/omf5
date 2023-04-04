@@ -2,28 +2,28 @@ import pickle
 from sage.all import (PolynomialRing, QQ, NumberField, prime_range, prime_divisors, divisors, is_square, ZZ)
 from sage.misc.persist import SagePickler
 
-def parse_omf5(k,j,N,folder,suffix="_nl_200_",hecke_ring=True,max_deg=20,B=200):
+def parse_omf5(k,j,N,folder,suffix="_nl_200_",hecke_ring=True,B=200,max_deg=20):
     fname = folder + "hecke_ev_%d_%d%s%d.dat" %(k,j,suffix,N)
     Qx = PolynomialRing(QQ, name="x")
     x = Qx.gens()[0]
     al_signs = eval(open(fname).read())
     ret = []
+    bad_ps = [p for p in prime_range(B) if N % p == 0]
+    ps = prime_range(B)
+    good_ps = [p for p in ps if p not in bad_ps]
+    square_ps = prime_range(B.sqrt())
+    good_square_ps = [p for p in square_ps if p not in bad_ps]
     for al_sign in al_signs:
         forms = al_signs[al_sign]
-        if (len(forms) > 0):
-            f = forms[0]
-            bad_ps = [p for p in primes_first_n(len(f['lambda_p'])) if N % p == 0]
-            ps = primes_first_n(len(f['lambda_p']) + len(bad_ps))
-            good_ps = [p for p in ps if p not in bad_ps]
-            assert len(good_ps) == len(f['lambda_p'])
-            
         for f in forms:
             pol = Qx([int(c) for c in f['field_poly'].split()[1:]])
             F = NumberField(pol, name = "a")
             a = F.gens()[0]
+            assert len(good_ps) == len(f['lambda_p'])
+            assert len(good_square_ps) == len(f['lambda_p_square'])
             f['lambda_p'] = ['NULL' if ps[i] in bad_ps else F(f['lambda_p'][good_ps.index(ps[i])]) for i in range(len(ps))]
             f['lambda_p_square'] = ['NULL' if ps[i] in bad_ps else F(f['lambda_p_square'][good_ps.index(ps[i])])
-                                    for i in range(len(f['lambda_p_square']))]
+                                    for i in range(len(square_ps))]
             # At the moment can't do it on toby - needs to set up LMFDB there
             # aut_tp, friends = aut_rep(f,N,B,db)
             # f['aut_rep_type'] = aut_tp
@@ -63,9 +63,9 @@ def parse_omf5(k,j,N,folder,suffix="_nl_200_",hecke_ring=True,max_deg=20,B=200):
             ret.append(f)
     return ret
 
-def pickle_omf5(k,j,N,folder,suffix="_nl_200_"):
+def pickle_omf5(k,j,N,folder,suffix="_nl_200_",B=200):
     fname = folder + "hecke_ev_%d_%d%s%d.dat" %(k,j,suffix,N)
-    parsed = parse_omf5(k,j,N,folder)
+    parsed = parse_omf5(k,j,N,folder,suffix,B=B)
     f = open(fname, "wb")
     gherkin = SagePickler.dumps(parsed)
     _ = f.write(gherkin)
