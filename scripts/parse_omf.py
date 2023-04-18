@@ -115,6 +115,34 @@ def unplain_omf5(k,j,N,folder,suffix="_"):
         #    form['hecke_ring_denominators'] = F.order([F([QQ(y[1]) for y in x]) for x in form['hecke_ring']])
     return forms
 
+def unplain_omf5_2(k,j,N,folder,suffix="_"):
+    fname = folder + "hecke_ev_%d_%d%s%d.dat" %(k,j,suffix,N)
+    f = open(fname, "r")
+    plain = f.read()
+    f.close()
+    forms = eval(plain)
+    Qx = PolynomialRing(QQ, name="x")
+    x = Qx.gens()[0]
+    for form in forms:
+        pol = Qx(form['field_poly'])
+        F = NumberField(pol, name = "a")
+        if 'hecke_ring' in form:
+            basis = form['hecke_ring'].basis()
+            _ = form.pop('hecke_ring')
+            form['hecke_ring_power_basis'] = False
+            mat = Matrix([list(b) for b in basis])
+            form['hecke_ring_denominators'] = [row.denominator() for row in mat]
+            form['hecke_ring_numerators'] = [list(row.denominator()*row) for row in mat]  
+            form['hecke_ring_inverse_denominators'] = [row.denominator() for row in mat**(-1)]
+            form['hecke_ring_inverse_numerators'] = [list(row.denominator()*row) for row in mat**(-1)]   
+            # form['hecke_ring'] = [list(x) for x in form['hecke_ring'].basis()]
+            # form['hecke_ring'] = [[[y.numerator(), y.denominator()] for y in x] for x in form['hecke_ring']]
+            inv_coeff_data = zip(form['hecke_ring_inverse_numerators'], form['hecke_ring_inverse_denominators'])
+            inv_basis = [sum([nums[i] * nu**i for i in range(len(nums))])/den for (nums, den) in inv_coeff_data]
+            form['lambda_p'] = nf_elts_to_lists(form['lambda_p'], inv_basis)
+            form['lambda_p_square'] = nf_elts_to_lists(form['lambda_p_square'], inv_basis)
+    return forms
+
 def nf_elts_to_lists(elts, inv_basis):
     d = len(inv_basis)
     def to_list(elt):
@@ -132,6 +160,8 @@ def py3_pickle_to_plain(k,j,N,folder,suffix="_"):
     f.close()
     # py2pickle = pickle.dumps(pickle.loads(pickled),2)
     forms = pickle.loads(pickled)
+    Qx = PolynomialRing(QQ, name="x")
+    x = Qx.gens()[0]
     for form in forms:
         F = NumberField(Qx(form['field_poly']), name = "nu")
         nu = F.gen(0)
@@ -210,7 +240,7 @@ def is_newform(f, N, G_type, prime_bound):
 #        ap = [x.trace() for x in f['lambda_p']]
 #    else:
 #        ap = f['trace_lambda_p']
-    ap = f['trace_lambda_p']
+    ap = [x for x in f['trace_lambda_p'] if x != 'NULL']
     for d in divs:
         primes_d = [p for p in prime_range(prime_bound) if d % p != 0]
         inds = [i for i in range(len(primes_d)) if primes_d[i] in primes_N]
@@ -220,7 +250,9 @@ def is_newform(f, N, G_type, prime_bound):
 #                bp = [x.trace() for x in bp]
 #            else:
 #                bp = [g['trace_lambda_p'][i] for i in inds]
-            bp = [g['trace_lambda_p'][i] for i in inds]
+            g_trace = [x for x in g['trace_lambda_p'] if x != 'NULL']
+            #bp = [g['trace_lambda_p'][i] for i in inds]
+            bp = [g_trace[i] for i in inds]
             if (ap[:len(inds)] == bp):
                 return False
     return True
@@ -360,7 +392,7 @@ def aut_rep(f, N, B, db):
 #            if (is_yosh):
 #                return 'Y', labels
 #    else:
-    tr_array = f['trace_lambda_p']
+    tr_array = [ x for x in f['trace_lambda_p'] if x != 'NULL']
     is_eis, labels = check_eis(tr_array, N, B)
     if (is_eis):
         return 'F', labels
@@ -398,7 +430,8 @@ def update_ev_data_class(ev_data, B, db, start = 0):
             is_new = is_newform(f, N, ev_data, B)
             if (not is_new):
                 f['aut_rep_type'] = 'O'
-            elif (N % 210 != 0):
+            # elif (N % 210 != 0):
+            else:
                 aut_tp, friends = aut_rep(f,N,B,db)
                 f['aut_rep_type'] = aut_tp
                 if aut_tp in ['Y', 'P']:
