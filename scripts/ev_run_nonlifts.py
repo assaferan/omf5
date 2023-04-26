@@ -4,7 +4,7 @@ import os
 
 os.system("export LD_LIBRARY_PATH=/home/assaferan/lib")
 
-MAX_DISC = 1000
+MAX_DISC = 100
 MAX_PREC = 200
 k = 3
 j = 0
