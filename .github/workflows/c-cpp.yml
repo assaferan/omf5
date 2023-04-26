@@ -26,6 +26,7 @@ jobs:
       with:
         repository: wbhart/antic
         path: antic
+        ref: v0.2.1
     - name: Checkout carat
       uses: actions/checkout@v3
       with:
