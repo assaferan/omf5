@@ -572,6 +572,7 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
     
   for (i = 0; i < dim-1; i++)
     y_int[i] = 0;
+  y_int[dim-1] = 0;
 
   for (i = 0; i < dim-1; i++)
     for (j = 0; j < dim-1; j++)
@@ -585,6 +586,7 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
 #endif // DEBUG_LEVEL_FULL
   
   voronoi_bounds(voronoi, dim-1);
+  voronoi[dim-1] = 0;
   
   det = 0;
   for (i = 0; i < dim - 1; i++) {
