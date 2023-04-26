@@ -34,7 +34,7 @@ jobs:
     - name: Install autotools
       run: brew update && brew install autoconf automake libtool
     - name: Install flint
-      run:  cd flint2 && ./configure && make && make install && cd ..
+      run:  cd flint2 && ./bootstrap.sh && ./configure && make && make install && cd ..
     - name: Install antic
       run: cd antic && ./configure && make && make install && cd ..
     - name: Install carat
