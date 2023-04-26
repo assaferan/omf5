@@ -746,11 +746,11 @@ STATUS compute_hecke_col(const genus_t genus, slong p, slong c)
   // We stop printing out the p, p will be part of the filename (externally)
   //   printf("{%ld : {", p);
   
-  printf("{%ld : ", genus->conductors[c]);
+  printf("{%ld : ", genus->conductors[c_idx]);
   printf("[");
-  for (i = 0; i < genus->dims[c]; i++) {
+  for (i = 0; i < genus->dims[c_idx]; i++) {
     printf("%d", hecke[i]);
-    if (i != genus->dims[c]-1)
+    if (i != genus->dims[c_idx]-1)
       printf(",");
   }
   printf("]");
@@ -791,7 +791,7 @@ STATUS compute_hecke_matrix(const genus_t genus, slong p, slong c)
   cputime = cpudiff / CLOCKS_PER_SEC;
 
   //printf("{%ld : {", p);
-  printf("{%ld : ", genus->conductors[0]);
+  printf("{%ld : ", genus->conductors[c_idx]);
   print_mat_dense(hecke);
   printf("}");
   //  printf("} }");
