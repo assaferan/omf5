@@ -39,20 +39,23 @@ Installation of all the requirements on macOS can be done as follows, from a fol
 
 ## Installation
 
-To build, simply type
+To build as a C library on a standard Linux/Mac OS system with autotools:
 
-   make
+    ./autogen.sh
+    ./configure --prefix=DIR
+    make
+    make install
 
-If you have installed one of the previous libraries, e.g. antic in a non-standrad path, this information can be supplied to the makefile via
+Or all at once:
 
-  make ANTIC_PATH={antic_location}
+   ./autogen.sh && ./configure && make && make install
 
 ## Usage
 
 The executable is bin/omf5.
 It runs with command-line arguments as follows
 
-bin/omf5 [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-p=p] [-genus=g] [-disc=d] [-cond=c] 
+src/omf5 [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-p=p] [-genus=g] [-disc=d] [-cond=c] 
 
 where the  arguments are:
 
@@ -71,7 +74,7 @@ If the flag -tests is supplied, additionally runs standard tests.
 Example runs:
 
 1. Decomposition:
-> bin/omf5 -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG
+> src/omf5 -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG
 computing genus took 0.088564 sec
 recomputing genus took 0.120246 sec
 The possible conductors are: 
@@ -93,7 +96,7 @@ computing eigenvalues for k = 2, took 0.000002 sec
 For conductor 61:
 
 2. Hecke eigenvalues:
-> bin/omf5 -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=100
+> src/omf5 -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=100
 computing genus took 0.090954 sec
 recomputing genus took 0.120304 sec
 The possible conductors are: 
@@ -114,7 +117,7 @@ traces of hecke eigenvalues of T_{p^2} are:
 computing eigenvalues for k = 2, took 0.178717 sec
 For conductor 61:
 
-> bin/omf5 -quad=1,1,0,1,0,1,0,0,0,1,1,0,1,1,34 -format=GG -prec=31  
+> src/omf5 -quad=1,1,0,1,0,1,0,0,0,1,1,0,1,1,34 -format=GG -prec=31  
 computing genus took 0.470110 sec
 recomputing genus took 0.640326 sec
 The possible conductors are: 
