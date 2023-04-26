@@ -4,6 +4,12 @@
 #include <carat/matrix.h>
 #include <carat/symm.h>
 
+#include <flint/fmpq.h>
+#include <flint/fmpq_mat.h>
+#include <flint/fmpz.h>
+#include <flint/fmpz_mat.h>
+
+#include "arith.h"
 #include "square_matrix.h"
 
 void square_matrix_init(square_matrix_t mat)
@@ -18,7 +24,7 @@ void square_matrix_clear(square_matrix_t mat)
   return;
 }
 
-void square_matrix_init_set_symm_A(square_matrix_t Q, const int* coeff_vec)
+void square_matrix_init_set_symm_A(square_matrix_t Q, const Z64* coeff_vec)
 {
   int row, col, idx;
   
@@ -40,7 +46,7 @@ void square_matrix_init_set_symm_A(square_matrix_t Q, const int* coeff_vec)
   return;
 }
 
-void square_matrix_init_set_symm_GG(square_matrix_t Q, const int* coeff_vec)
+void square_matrix_init_set_symm_GG(square_matrix_t Q, const Z64* coeff_vec)
 {
   int row, col, idx;
 
@@ -69,7 +75,7 @@ void square_matrix_init_set_symm_GG(square_matrix_t Q, const int* coeff_vec)
   return;
 }
 
-void square_matrix_init_set_symm(square_matrix_t mat, const int* coeff_vec, const char* alg)
+void square_matrix_init_set_symm(square_matrix_t mat, const Z64* coeff_vec, const char* alg)
 {
   if (strcmp(alg,"A") == 0)
     return square_matrix_init_set_symm_A(mat, coeff_vec);
@@ -143,6 +149,20 @@ matrix_TYP* matrix_TYP_init_set_square_matrix(const square_matrix_t mat)
       nmat->array.SZ[i][j] = mat[i][j];
 
   return nmat;
+}
+
+int vector_cmp(const vector_t vL, const vector_t vR)
+{
+  int i;
+  
+  for (i = 0; i < QF_RANK; i++) {
+    if (vL[i] > vR[i])
+      return 1;
+    if (vL[i] < vR[i])
+      return -1;
+  }
+
+  return 0;
 }
 
 bool square_matrix_is_equal(const square_matrix_t mat1, const square_matrix_t mat2)
@@ -269,6 +289,17 @@ void square_matrix_transpose(square_matrix_t tr, const square_matrix_t mat)
   return;
 }
 
+void square_matrix_add(square_matrix_t sum, const square_matrix_t matL, const square_matrix_t matR)
+{
+  int i,j;
+
+  for (i = 0; i < QF_RANK; i++)
+    for (j = 0; j < QF_RANK; j++)
+      sum[i][j] = matL[i][j]+matR[i][j];
+
+  return;
+}
+
 // !! TODO - this could be made faster
 void square_matrix_mul(square_matrix_t prod, const square_matrix_t matL, const square_matrix_t matR)
 {
@@ -321,28 +352,64 @@ void square_matrix_mul_vec_left(vector_t prod, const vector_t vec, const square_
 
 int square_matrix_inv(square_matrix_t inv, const square_matrix_t mat, int denom)
 {
-  // !! TODO - at the moment we just use matrix_TYP*, see if we can do better
-  matrix_TYP *s, *s_inv;
+  // !! TODO - at the moment we just use fmpq_mat, which is slow. Can do better
+  fmpq_mat_t s, s_inv;
   int inv_denom, i, j;
+  fmpz_t inv_denom_Z;
+  fmpz_mat_t s_inv_int;
 
-  s = init_mat(QF_RANK,QF_RANK,"");
-  for (i = 0 ; i < QF_RANK; i++)
-    for (j = 0; j < QF_RANK; j++)
-      s->array.SZ[i][j] = mat[i][j];
-  s->kgv = denom;
-
-  s_inv = mat_inv(s);
-  for (i = 0 ; i < QF_RANK; i++)
-    for (j = 0; j < QF_RANK; j++)
-      inv[i][j] = s_inv->array.SZ[i][j];
-
-  inv_denom = s_inv->kgv;
+  fmpq_mat_init(s, QF_RANK, QF_RANK);
+  fmpq_mat_init(s_inv, QF_RANK, QF_RANK);
+  fmpz_mat_init(s_inv_int, QF_RANK, QF_RANK);
+  fmpz_init(inv_denom_Z);
   
-  free_mat(s);
-  free_mat(s_inv);
+  for (i = 0 ; i < QF_RANK; i++)
+    for (j = 0; j < QF_RANK; j++) {
+      fmpq_init(fmpq_mat_entry(s,i,j));
+      fmpq_set_si(fmpq_mat_entry(s,i,j),mat[i][j], denom);
+    }
+  fmpq_mat_inv(s_inv, s);
+  fmpq_mat_get_fmpz_mat_matwise(s_inv_int, inv_denom_Z, s_inv);
+  
+  for (i = 0 ; i < QF_RANK; i++)
+    for (j = 0; j < QF_RANK; j++)
+      inv[i][j] = fmpz_get_si(fmpz_mat_entry(s_inv_int,i,j));
+
+  inv_denom = fmpz_get_si(inv_denom_Z);
+  
+  fmpz_clear(inv_denom_Z);
+  fmpz_mat_clear(s_inv_int);
+  fmpq_mat_clear(s_inv);
+  fmpq_mat_clear(s);
 
   return inv_denom;
 }
+
+// old code - overflows when entries are too large
+/* int square_matrix_inv(square_matrix_t inv, const square_matrix_t mat, int denom) */
+/* { */
+/*   // !! TODO - at the moment we just use matrix_TYP*, which can cause overflow, see if we can do better */
+/*   matrix_TYP *s, *s_inv; */
+/*   int inv_denom, i, j; */
+
+/*   s = init_mat(QF_RANK,QF_RANK,""); */
+/*   for (i = 0 ; i < QF_RANK; i++) */
+/*     for (j = 0; j < QF_RANK; j++) */
+/*       s->array.SZ[i][j] = mat[i][j]; */
+/*   s->kgv = denom; */
+
+/*   s_inv = mat_inv(s); */
+/*   for (i = 0 ; i < QF_RANK; i++) */
+/*     for (j = 0; j < QF_RANK; j++) */
+/*       inv[i][j] = s_inv->array.SZ[i][j]; */
+
+/*   inv_denom = s_inv->kgv; */
+  
+/*   free_mat(s); */
+/*   free_mat(s_inv); */
+
+/*   return inv_denom; */
+/* } */
 
 void square_matrix_div_scalar(square_matrix_t quo, const square_matrix_t mat, int denom)
 {
@@ -352,6 +419,18 @@ void square_matrix_div_scalar(square_matrix_t quo, const square_matrix_t mat, in
     for (j = 0; j < QF_RANK; j++) {
       assert(quo[i][j] % denom == 0);
       quo[i][j] = mat[i][j] / denom;
+    }
+
+  return;
+}
+
+void square_matrix_mul_scalar(square_matrix_t prod, const square_matrix_t mat, int scalar)
+{
+  int i,j;
+  
+  for (i = 0; i < QF_RANK; i++)
+    for (j = 0; j < QF_RANK; j++) {
+      prod[i][j] = mat[i][j] * scalar;
     }
 
   return;
@@ -370,11 +449,38 @@ void vector_lin_comb(vector_t res, const vector_t v, const vector_t w, Z64 a_v, 
 void vector_mod_p(vector_t v, Z64 p)
 {
   int i;
-  for (i = 0; i < QF_RANK; i++)
+  for (i = 0; i < QF_RANK; i++) {
     v[i] %= p;
+    if (v[i] < 0)
+      v[i] += p;
+  }
 
   return;
 }
+
+// assumes all coordinates of v are between 0 and p-1
+void normalize_mod_p(vector_t v, Z64 p)
+{
+  int pivot, i;
+  Z64 x,y;
+
+  for (pivot = 0; (pivot < QF_RANK) && (v[pivot] == 0); ) pivot++;
+
+  assert(pivot != QF_RANK);
+
+  gcdext(v[pivot], p, &x, &y);
+
+  assert((x*v[pivot]-1)%p == 0);
+
+  for (i = 0; i < QF_RANK; i++) {
+    v[i] = (x * v[i]) % p;
+    if (v[i] < 0)
+      v[i] += p;
+  }
+  
+  return;
+}
+  
 
 Z64 scalar_product(const vector_t v1, const vector_t v2)
 {
@@ -410,6 +516,27 @@ void square_matrix_swap_elts(square_matrix_t Q, int row1, int col1, int row2, in
 }
 
 void square_matrix_print(const square_matrix_t mat)
+{
+  int i,j;
+
+  printf("[");
+  for (i = 0; i < QF_RANK; i++) {
+    printf("[");
+    for (j = 0; j < QF_RANK; j++) {
+      printf("%" PRId64 " ", mat[i][j]);
+      if (j != QF_RANK - 1)
+	printf(",");
+    }
+    printf("]");
+    if (i != QF_RANK-1)
+      printf(",");
+  }
+  printf("]");
+
+  return;
+}
+
+void square_matrix_print_pretty(const square_matrix_t mat)
 {
   int i,j;
 

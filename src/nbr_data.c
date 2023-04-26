@@ -1379,3 +1379,70 @@ bool nbr_data_has_ended(const nbr_data_t nbr_man)
 {
   return nbr_man->is_done;
 }
+
+
+slong number_of_isotropic_subspaces(slong q, slong r, slong a, slong f, slong k, bool rad_cnt)
+{
+  fmpz_t q_z, prod1, prod;
+  slong i, num;
+
+  fmpz_init_set_si(q_z,q);
+  fmpz_init(prod1);
+  fmpz_init(prod);
+
+  fmpz_pow_ui(prod, q_z, k*f);
+  
+  for (i = 1; i <= k; i++) {
+    fmpz_pow_ui(prod1, q_z, r-i+1);
+    fmpz_sub_si(prod1, prod1, 1);
+    fmpz_mul(prod, prod, prod1);
+    fmpz_pow_ui(prod1, q_z, r+a-i);
+    fmpz_add_si(prod1, prod1, 1);
+    fmpz_mul(prod, prod, prod1);
+  }
+
+  for (i = 1; i <= k; i++) {
+    fmpz_pow_ui(prod1, q_z, i);
+    fmpz_sub_si(prod1, prod1, 1);
+    fmpz_divexact(prod, prod, prod1);
+  }
+
+  num = fmpz_get_si(prod);
+
+  if (rad_cnt) {
+    // in this case we also consider the isotropic subspaces in the radical
+    // these are all the k-dimensionl spaces inside the radical
+    fmpz_one(prod);
+    for (i = 1; i <= k; i++) {
+      fmpz_pow_ui(prod1, q_z, f-i+1);
+      fmpz_sub_si(prod1, prod1, 1);
+      fmpz_mul(prod, prod, prod1);
+    }
+    for (i = 1; i <= k; i++) {
+      fmpz_pow_ui(prod1, q_z, i);
+      fmpz_sub_si(prod1, prod1, 1);
+      fmpz_divexact(prod, prod, prod1);
+    }
+    num += fmpz_get_si(prod);
+  }
+  
+  fmpz_clear(q_z);
+  fmpz_clear(prod1);
+  fmpz_clear(prod);
+  
+  return num;
+}
+
+slong number_of_neighbors(const nbr_data_t nbr_man, bool rad_cnt)
+{
+  slong p, num;
+
+  p = fmpz_get_si(fq_nmod_ctx_prime(nbr_man->GF));
+  num = number_of_isotropic_subspaces(p, nbr_man->witt_index, nbr_man->aniso_dim,
+				      nbr_man->rad_dim, nbr_man->k, rad_cnt);
+  if (nbr_man->k == 2)
+    num *= p;
+
+  return num;
+}
+

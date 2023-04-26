@@ -65,4 +65,6 @@ void nbr_data_get_next_neighbor(nbr_data_t nbr_man);
 
 bool nbr_data_has_ended(const nbr_data_t nbr_man);
 
+slong number_of_neighbors(const nbr_data_t nbr_man, bool rad_cnt);
+
 #endif // __NBR_DATA_H__

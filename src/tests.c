@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <inttypes.h>
 #include <math.h>
 #include <time.h>
 
@@ -9,24 +10,25 @@
 #include "io.h"
 #include "matrix_tools.h"
 #include "tests.h"
+#include "weight.h"
 
 void print_conductors(const genus_t genus)
 {
   slong c;
   
-  printf("The possible conductors are: \n");
+  fprintf(stderr, "The possible conductors are: \n");
   for (c = 0; c < genus->num_conductors; c++)
-    printf("%ld ", genus->conductors[c]);
-  printf("\n");
-  printf("The corresponding dimensions are: ");
+    fprintf(stderr, "%ld ", genus->conductors[c]);
+  fprintf(stderr, "\n");
+  fprintf(stderr, "The corresponding dimensions are: ");
   for (c = 0; c < genus->num_conductors; c++)
-    printf("%ld ", genus->dims[c]);
-  printf("\n");
+    fprintf(stderr, "%ld ", genus->dims[c]);
+  fprintf(stderr, "\n");
   return;
 }
 
 // Now this also checks initialization from a list of matrices
-void compute_genus(genus_t genus, const int* Q_coeffs, const char* format)
+void compute_genus(genus_t genus, const Z64* Q_coeffs, const char* format)
 {
   clock_t cpuclock_0, cpuclock_1;
   double cputime, cpudiff;
@@ -43,7 +45,7 @@ void compute_genus(genus_t genus, const int* Q_coeffs, const char* format)
   cpudiff = cpuclock_1 - cpuclock_0;
   cputime = cpudiff / CLOCKS_PER_SEC;
   
-  printf("computing genus took %f sec\n", cputime);
+  fprintf(stderr, "computing genus took %f sec\n", cputime);
 
   square_matrix_clear(Q);
 
@@ -53,7 +55,7 @@ void compute_genus(genus_t genus, const int* Q_coeffs, const char* format)
   cpudiff = cpuclock_1 - cpuclock_0;
   cputime = cpudiff / CLOCKS_PER_SEC;
   
-  printf("recomputing genus took %f sec\n", cputime);
+  fprintf(stderr, "recomputing genus took %f sec\n", cputime);
 
   genus_clear(old_genus);
 
@@ -66,26 +68,31 @@ void print_eigenvectors(const eigenvalues_t evs)
 {
   int i, j;
   slong deg;
+  char* nf_str;
   
-  printf("eigenvectors are:\n");
+  fprintf(stderr, "eigenvectors are:\n");
   for (i = 0; i < evs->num; i++) {
+    /*
+    if (evs->lift_type[i] == O)
+      continue;
+    */
     deg = fmpq_poly_degree(evs->nfs[i]->pol);
-    if (deg < 10) {
+    if (deg < 10)
       for (j = 0; j < evs->dim; j++) {
-	nf_elem_print_pretty(evs->eigenvecs[i][j], evs->nfs[i], "a");
-	printf(" ");
+	nf_str = nf_elem_get_str_pretty(evs->eigenvecs[i][j], "a", evs->nfs[i]);
+	fprintf(stderr, "%s ", nf_str);
+	free(nf_str);
       }
-    }
     else
-      printf("a vector of length %ld ", evs->dim);
-    printf("over ");
+      fprintf(stderr, "a vector of length %ld ", evs->dim);
+    fprintf(stderr, "over Number field with defining polynomial ");
     if (deg < 10) {
-      nf_print(evs->nfs[i]);
+      fmpq_poly_fprint_pretty(stderr, evs->nfs[i]->pol, "x");
     }
     else {
-      printf("a number field of degree %ld", deg);
+      fprintf(stderr, "a number field of degree %ld", deg);
     }
-    printf("\n");
+    fprintf(stderr, "\n");
   }
 
   return;
@@ -93,7 +100,7 @@ void print_eigenvectors(const eigenvalues_t evs)
 
 STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
 			int num_evs, int form_idx, const int* ps,
-			const int* test_evs, int k, int c)
+			const int* test_evs, int k, int c, bool ev_print)
 {
   int i;
   nf_elem_t ev;
@@ -104,8 +111,16 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
 #endif // DEBUG_LEVEL_FULL
 
   fmpq_init(trace);
+
+  fprintf(stderr, "traces of hecke eigenvalues of T_{p^%d} are:\n", k);
+
+  if (ev_print) {
+    if (k == 1)
+      printf("'lambda_p' : [");
+    if (k == 2)
+      printf("'lambda_p_square' : [");
+  }
   
-  printf("traces of hecke eigenvalues of T_{p^%d} are:\n", k);
   for (i = 0; i < num_evs; i++) {
     if (c == 0)
       if (k == 1)
@@ -117,12 +132,19 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
 	get_hecke_ev_all_conductors(ev, genus, evs, ps[i], form_idx, c);
       else
 	get_hecke_ev_nbr_data_all_conductors(ev, genus, evs, ps[i], k, form_idx, c);
+
+    if (ev_print) {
+      printf("'");
+      nf_elem_print_pretty(ev, evs->nfs[form_idx], "a");
+      printf("',");
+      fflush(stdout);
+    }
     
     nf_elem_trace(trace, ev, evs->nfs[form_idx]);
-    fmpq_print(trace);
-    // nf_elem_print_pretty(ev, evs->nfs[form_idx], "a");
-    printf(" ");
-    fflush(stdout); //make sure to print every time it computes an eigenvalue
+    fmpq_fprint(stderr, trace);
+    fprintf(stderr, " ");
+    fflush(stderr); // make sure to print every time it computes an eigenvalue
+    
     nf_elem_clear(ev, evs->nfs[form_idx]);
     if (test_evs != NULL) {
       // if (!nf_elem_equal_si(ev, test_evs[i], evs->nfs[form_idx])) {
@@ -137,7 +159,7 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
       hecke = hecke_matrix(genus, ps[i]);
       print_mat(hecke);
     }
-    printf("traces of all hecke eigenvalues are:\n");
+    fprintf(stderr, "traces of all hecke eigenvalues are:\n");
     for (j = 0; j < evs->num; j++) {
       if (c == 0)
 	if (k == 1)
@@ -152,18 +174,21 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
       
       nf_elem_trace(trace, ev, evs->nfs[j]);
       // nf_elem_print_pretty(ev, evs->nfs[j], "a");
-      fmpq_print(trace);
-      printf(" ");
+      fmpq_fprint(stderr, trace);
+      fprintf(stderr, " ");
       nf_elem_clear(ev, evs->nfs[j]);
     }
-    printf("\n");
+    fprintf(stderr, "\n");
     if (k == 1)
       free_mat(hecke);
 #endif // DEBUG_LEVEL_FULL
    
   }
 
-  printf("\n");
+  if (ev_print)
+     printf("], ");
+
+  fprintf(stderr, "\n");
 
   fmpq_clear(trace);
   return SUCCESS;
@@ -188,7 +213,7 @@ STATUS test_genus(genus_t genus, const example_genus_t ex)
   return SUCCESS;
 }
 
-STATUS test_evs(const genus_t genus, const example_evs_t ex)
+STATUS test_evs(const genus_t genus, const example_evs_t ex, bool nonlifts)
 {
   int form_idx, k;
   slong c, c2, num_conductors;
@@ -199,6 +224,8 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex)
   eigenvalues_t* evs;
   bool has_spinor = false;
   const int* test_evs = NULL;
+
+  char lift_types[5] = {'G', 'Y', 'P', 'F', 'O'};
 
   num_conductors = genus->num_conductors;
   for (c = 1; c < num_conductors; c++)
@@ -217,14 +244,14 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex)
   cpudiff = cpuclock_1 - cpuclock_0;
   cputime = cpudiff / CLOCKS_PER_SEC;
   
-  printf("computing eigenvectors took %f sec\n", cputime);
+  fprintf(stderr, "computing eigenvectors took %f sec\n", cputime);
 
   if (ex->num_forms != NULL)
     for (c = 0; c < num_conductors; c++)
       assert(evs[c]->num == ex->num_forms[c]);
   else
     for (c = 0; c < num_conductors; c++) {
-      printf("For conductor %ld, ", genus->conductors[c]);
+      fprintf(stderr, "For conductor %ld, ", genus->conductors[c]);
       print_eigenvectors(evs[c]);
     }
 
@@ -233,20 +260,26 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex)
     eigenvalues_set_lifts(evs[c], 2, c, genus);
     if (c != 0)
       for (form_idx = 0; form_idx < evs[c]->num; form_idx++)
-	if (!(evs[c]->is_lift[form_idx]))
+	if ((!nonlifts) || (evs[c]->lift_type[form_idx] == G))
 	  has_spinor = true;
   }
-  
+
+  printf("{");
   for (c = 0; c < num_conductors; c++) {
-    printf("For conductor %ld:\n", genus->conductors[c]);
+    printf("%ld : [", genus->conductors[c]);
+    fprintf(stderr, "For conductor %ld:\n", genus->conductors[c]);
     for (form_idx = 0; form_idx < evs[c]->num; form_idx++)
-      if (!(evs[c]->is_lift[form_idx])) {
+      if ((!nonlifts) || (evs[c]->lift_type[form_idx] == G)) {
+	printf("{ 'aut_rep_type' : '%c', ", lift_types[evs[c]->lift_type[form_idx]]); 
+	printf("'field_poly' : '");
+	fmpq_poly_print(evs[c]->nfs[form_idx]->pol);
+	printf("', ");
 	for (k = 0; k < 2; k++) {
 	  if (ex->test_evs != NULL)
 	    test_evs = ex->test_evs[c][form_idx][k];
 	  cpuclock_0 = clock();
 	  if (test_eigenvalues(genus, evs[c], ex->num_ps[k], form_idx,
-			       ex->ps[k], test_evs, k+1, c) == FAIL) {
+			       ex->ps[k], test_evs, k+1, c, true) == FAIL) {
 	    for (c2 = 0; c2 < num_conductors; c2++)
 	      eigenvalues_clear(evs[c2]);
 	    free(evs);
@@ -256,10 +289,13 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex)
 	  cpudiff = cpuclock_1 - cpuclock_0;
 	  cputime = cpudiff / CLOCKS_PER_SEC;
 	  // printf("cpudiff = %f, clocks_per_sec = %d\n", cpudiff, CLOCKS_PER_SEC);
-	  printf("computing eigenvalues for k = %d, took %f sec\n", k+1, cputime);
+	  fprintf(stderr, "computing eigenvalues for k = %d, took %f sec\n", k+1, cputime);
 	}
+	printf("}, ");
       }
+    printf("], ");
   }
+  printf("}");
 
   for (c = 0; c < num_conductors; c++)
     eigenvalues_clear(evs[c]);
@@ -507,7 +543,7 @@ STATUS test_61()
     return ret;
   
   example_evs_init_61(ex_61_evs);
-  ret = test_evs(genus, ex_61_evs);
+  ret = test_evs(genus, ex_61_evs, true);
   example_evs_clear(ex_61_evs, genus->num_conductors);
 
   genus_clear(genus);
@@ -530,7 +566,7 @@ STATUS test_69()
     return ret;
   
   example_evs_init_69(ex_69_evs);
-  ret = test_evs(genus, ex_69_evs);
+  ret = test_evs(genus, ex_69_evs, true);
   example_evs_clear(ex_69_evs, genus->num_conductors);
 
   genus_clear(genus);
@@ -538,7 +574,7 @@ STATUS test_69()
   return ret;
 }
 
-STATUS test_greedy(const int* Q_coeffs, const int* red_Q_coeffs)
+STATUS test_greedy(const Z64* Q_coeffs, const Z64* red_Q_coeffs)
 {
   square_matrix_t Q, red_Q;
   isometry_t s;
@@ -567,10 +603,10 @@ STATUS test_greedy_overflow()
 {
   STATUS ret;
   
-  int Q1[15] = {8,2,26,2,5,292,3,13,-115,1956,298,69,-60,88,11166};
-  int Q2[15] = {12,6,16,-4,-4,842,-5,-5,175,23596,-125,772,-5402,-1517,88494};
-  int red_Q[15] = {2,0,2,1,1,2,0,1,0,6,1,1,1,1,8};
-  int red_Q2[15] = {2,1,2,1,0,2,1,0,1,6,1,1,1,0,8};
+  Z64 Q1[15] = {8,2,26,2,5,292,3,13,-115,1956,298,69,-60,88,11166};
+  Z64 Q2[15] = {12,6,16,-4,-4,842,-5,-5,175,23596,-125,772,-5402,-1517,88494};
+  Z64 red_Q[15] = {2,0,2,1,1,2,0,1,0,6,1,1,1,1,8};
+  Z64 red_Q2[15] = {2,1,2,1,0,2,1,0,1,6,1,1,1,0,8};
 
   ret = test_greedy(Q1, red_Q) << 1;
 
@@ -579,7 +615,7 @@ STATUS test_greedy_overflow()
   return ret;
 }
 
-STATUS compute_eigenvectors(const genus_t genus)
+STATUS compute_eigenvectors(const genus_t genus, bool nonlifts)
 {
   example_evs_t dummy;
   STATUS ret;
@@ -587,13 +623,13 @@ STATUS compute_eigenvectors(const genus_t genus)
 
   example_evs_init(dummy, genus->num_conductors, NULL, num_ps, NULL, NULL);
   
-  ret = test_evs(genus, dummy);
+  ret = test_evs(genus, dummy, nonlifts);
   example_evs_clear(dummy, genus->num_conductors);
 
   return ret;
 }
 
-STATUS compute_eigenvalues(const genus_t genus, int p)
+STATUS compute_eigenvalues(const genus_t genus, int p, bool nonlifts)
 {
   example_evs_t dummy;
   STATUS ret;
@@ -605,24 +641,29 @@ STATUS compute_eigenvalues(const genus_t genus, int p)
 
   example_evs_init(dummy, genus->num_conductors, NULL, num_ps, ps, NULL);
   
-  ret = test_evs(genus, dummy);
+  ret = test_evs(genus, dummy, nonlifts);
   example_evs_clear(dummy, genus->num_conductors);
 
   return ret;
 }
 
-STATUS compute_eigenvalues_up_to(const genus_t genus, int prec)
+STATUS compute_eigenvalues_up_to(const genus_t genus, int prec, bool nonlifts)
 {
   example_evs_t dummy;
   STATUS ret;
   int num_ps[2];
   int* ps[2];
+  
+  num_ps[0] = primes_up_to_prime_to(&(ps[0]), prec, fmpz_get_si(genus->disc));
+  num_ps[1] = primes_up_to_prime_to(&(ps[1]), floor(sqrt(prec)), fmpz_get_si(genus->disc));
 
-  num_ps[0] = primes_up_to(&(ps[0]), prec);
-  num_ps[1] = primes_up_to(&(ps[1]), floor(sqrt(prec)));
-
+  // This doens't work in general at the moment - figure out why and how to fix it
+  
+  // num_ps[0] = primes_up_to_prime_to(&(ps[0]), prec, 1);
+  // num_ps[1] = primes_up_to_prime_to(&(ps[1]), floor(sqrt(prec)), 1);
+  
   example_evs_init(dummy, genus->num_conductors, NULL, num_ps, (const int**)ps, NULL);
-  ret = test_evs(genus, dummy);
+  ret = test_evs(genus, dummy, nonlifts);
   example_evs_clear(dummy, genus->num_conductors);
 
   free(ps[0]);
@@ -631,7 +672,7 @@ STATUS compute_eigenvalues_up_to(const genus_t genus, int prec)
   return ret;
 }
 
-STATUS compute_hecke_col_all_conds(const genus_t genus, int p, int gen_idx)
+STATUS compute_hecke_col_all_conds(const genus_t genus, slong p, int gen_idx)
 {
   int** hecke;
   slong c, i;
@@ -647,14 +688,24 @@ STATUS compute_hecke_col_all_conds(const genus_t genus, int p, int gen_idx)
   cpudiff = cpuclock_1 - cpuclock_0;
   cputime = cpudiff / CLOCKS_PER_SEC;
   
+  // printf("{%ld : {", p);
+  printf("{");
   for (c = 0; c < genus->num_conductors; c++) {
-    printf("cond=%ld: ", genus->conductors[c]);
-    for (i = 0; i < genus->dims[c]; i++)
-      printf("%4d ", hecke[c][i]);
-    printf("\n");
+    printf("%ld : ", genus->conductors[c]);
+    printf("[");
+    for (i = 0; i < genus->dims[c]; i++) {
+      printf("%d", hecke[c][i]);
+      if (i != genus->dims[c]-1)
+	printf(",");
+    }
+    printf("]");
+    if (c != genus->num_conductors-1)
+      printf(",");
   }
+  printf("}");
+  //printf("} }");
 
-  printf("computing hecke took %f sec\n", cputime);
+  fprintf(stderr, "computing hecke took %f sec\n", cputime);
   
   for (c = 0; c < genus->num_conductors; c++)
     free(hecke[c]);
@@ -664,7 +715,7 @@ STATUS compute_hecke_col_all_conds(const genus_t genus, int p, int gen_idx)
   return SUCCESS;
 }
 
-STATUS compute_hecke_col(const genus_t genus, int p, int c)
+STATUS compute_hecke_col(const genus_t genus, slong p, slong c)
 {
   int* hecke;
   int c_idx, i, gen_idx;
@@ -692,21 +743,130 @@ STATUS compute_hecke_col(const genus_t genus, int p, int c)
   cpudiff = cpuclock_1 - cpuclock_0;
   cputime = cpudiff / CLOCKS_PER_SEC;
 
-  for (i = 0; i < genus->dims[0]; i++)
-      printf("%4d ", hecke[i]);
-  printf("\n");
+  // We stop printing out the p, p will be part of the filename (externally)
+  //   printf("{%ld : {", p);
+  
+  printf("{%ld : ", genus->conductors[c]);
+  printf("[");
+  for (i = 0; i < genus->dims[c]; i++) {
+    printf("%d", hecke[i]);
+    if (i != genus->dims[c]-1)
+      printf(",");
+  }
+  printf("]");
 
-  printf("computing hecke took %f sec\n", cputime);
+  printf("}");
+
+  fprintf(stderr, "computing hecke took %f sec\n", cputime);
   
   free(hecke);
 
   return SUCCESS;
 }
 
-STATUS compute_first_hecke_matrix_all_conds(const genus_t genus)
+STATUS compute_hecke_matrix(const genus_t genus, slong p, slong c)
+{
+  matrix_TYP* hecke;
+  int c_idx, gen_idx;
+
+  clock_t cpuclock_0, cpuclock_1;
+  double cputime, cpudiff;  
+
+  for (c_idx = 0; (c_idx < genus->num_conductors) && (genus->conductors[c_idx] != c);) c_idx++;
+
+  gen_idx = 0;
+  while (genus->lut_positions[c_idx][gen_idx] == -1)
+    gen_idx++;
+  
+  // right now we only handle differently the trivial spinor norm case
+  if (c_idx != 0)
+    return compute_hecke_matrix_all_conds(genus, p);
+
+  cpuclock_0 = clock();
+
+  hecke = hecke_matrix(genus, p);
+
+  cpuclock_1 = clock();
+  cpudiff = cpuclock_1 - cpuclock_0;
+  cputime = cpudiff / CLOCKS_PER_SEC;
+
+  //printf("{%ld : {", p);
+  printf("{%ld : ", genus->conductors[0]);
+  print_mat_dense(hecke);
+  printf("}");
+  //  printf("} }");
+
+  fprintf(stderr, "computing hecke took %f sec\n", cputime);
+  
+  free_mat(hecke);
+
+  return SUCCESS;
+}
+
+STATUS compute_hecke_matrix_all_conds(const genus_t genus, slong p)
 {
   matrix_TYP** hecke;
-  slong c, p;
+  slong c;
+ 
+  clock_t cpuclock_0, cpuclock_1;
+  double cputime, cpudiff;
+  
+  cpuclock_0 = clock();
+ 
+  hecke = hecke_matrices_all_conductors(genus,p);
+
+  cpuclock_1 = clock();
+  cpudiff = cpuclock_1 - cpuclock_0;
+  cputime = cpudiff / CLOCKS_PER_SEC;
+
+  // printf("{%ld : {", p);
+  printf("{");
+  for (c = 0; c < genus->num_conductors; c++) {
+    printf("%ld : ", genus->conductors[c]);
+    print_mat_dense(hecke[c]);
+    if (c != genus->num_conductors-1)
+      printf(",");
+  }
+  printf("}");
+  //  printf("} }");
+
+  fprintf(stderr, "computing hecke matrices took %f sec\n", cputime);
+  
+  for (c = 0; c < genus->num_conductors; c++)
+    free_mat(hecke[c]);
+
+  free(hecke);
+ 
+  return SUCCESS;
+  
+}
+
+STATUS compute_first_hecke_matrix_all_conds(const genus_t genus)
+{
+  slong p;
+  fmpz_t prime;
+
+  fmpz_init(prime);
+  fmpz_set_ui(prime, 1);
+  
+  do {
+    fmpz_nextprime(prime, prime, true);
+  }
+  while (fmpz_divisible(genus->disc,prime));
+
+  p = fmpz_get_si(prime);
+
+  compute_hecke_matrix_all_conds(genus, p);
+ 
+  fmpz_clear(prime);
+ 
+  return SUCCESS;
+}
+
+STATUS compute_first_large_hecke(const genus_t genus)
+{
+  square_matrix_t** hecke;
+  slong i,j,p;
   fmpz_t prime;
 
   clock_t cpuclock_0, cpuclock_1;
@@ -723,25 +883,35 @@ STATUS compute_first_hecke_matrix_all_conds(const genus_t genus)
   while (fmpz_divisible(genus->disc,prime));
 
   p = fmpz_get_si(prime);
-  hecke = hecke_matrices_all_conductors(genus,p);
+  hecke = hecke_matrices_isometries(genus,p);
 
   cpuclock_1 = clock();
   cpudiff = cpuclock_1 - cpuclock_0;
   cputime = cpudiff / CLOCKS_PER_SEC;
 
-  printf("{%ld : {", p);
-  for (c = 0; c < genus->num_conductors; c++) {
-    printf("%ld : ", genus->conductors[c]);
-    print_mat_dense(hecke[c]);
-    if (c != genus->num_conductors-1)
+  printf("%ld, ", p);
+  printf("[");
+  for (i = 0; i < genus->dims[0]; i++) {
+    printf("[");
+    for (j = 0; j < genus->dims[0]; j++) {
+      square_matrix_print(hecke[i][j]);
+      if (j != genus->dims[0]-1)
+	printf(",");
+    }
+    printf("]");
+    if (i != genus->dims[0]-1)
       printf(",");
   }
-  printf("} }");
+  printf("]");
 
   fprintf(stderr, "computing hecke matrices took %f sec\n", cputime);
   
-  for (c = 0; c < genus->num_conductors; c++)
-    free_mat(hecke[c]);
+  for (i = 0; i < genus->dims[0]; i++) {
+    for (j = 0; j < genus->dims[0]; j++) {
+      square_matrix_clear(hecke[i][j]);
+    }
+    free(hecke[i]);
+  }
 
   free(hecke);
   fmpz_clear(prime);

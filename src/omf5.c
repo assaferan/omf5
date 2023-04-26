@@ -13,19 +13,20 @@ int print_param_desc(char* argv[]);
 int main(int argc, char* argv[])
 {
   int prec, p, c, disc;
-  int Q_coeffs[15];
+  Z64 Q_coeffs[15];
   STATUS test_res;
   char* input_type;
   char* genus_fname;
   int max_args;
   bool do_tests, is_valid, is_prec, is_format, is_p, is_c, is_genus, is_disc;
-  bool has_quad, has_format, has_prec, has_p, has_hecke, has_c, has_genus, has_disc;
+  bool has_quad, has_format, has_prec, has_p, has_hecke, has_c;
+  bool has_genus, has_disc, has_large, has_row, has_isom, has_nonlifts;
   int i;
   genus_t genus;
 
   input_type = NULL;
   genus_fname = NULL;
-  max_args = 6;
+  max_args = 8;
   
   if ((argc > max_args) || (argc == 1)) {
     // print correct usage
@@ -33,7 +34,8 @@ int main(int argc, char* argv[])
   }
 
   do_tests = false;
-  has_quad = has_format = has_prec  = has_p = has_hecke = has_c = has_genus = has_disc = false;
+  has_quad = has_format = has_prec  = has_p = has_hecke = has_c = false;
+  has_row = has_genus = has_disc = has_large = has_isom = has_nonlifts = false;
   
   for (i = 1; i < argc; i++) {
     is_valid = false;
@@ -49,9 +51,29 @@ int main(int argc, char* argv[])
       is_valid = true;
     }
 
+    if (strcmp(argv[i], "-isom") == 0) {
+      has_isom = true;
+      is_valid = true;
+    }
+
+    if (strcmp(argv[i], "-nonlifts") == 0) {
+      has_nonlifts = true;
+      is_valid = true;
+    }
+    
+    if (strcmp(argv[i], "-large") == 0) {
+      has_large = true;
+      is_valid = true;
+    }
+
+    if (strcmp(argv[i], "-row") == 0) {
+      has_row = true;
+      is_valid = true;
+    }
+    
     // checking whether this is a matrix input
     if (strncmp(argv[i], "-quad=", 6) == 0) {
-      is_valid = parse_matrix(argv[i]+6, Q_coeffs);
+      is_valid = parse_matrix(Q_coeffs, argv[i]+6);
       has_quad = is_valid;
     }
 
@@ -110,31 +132,42 @@ int main(int argc, char* argv[])
   if (has_quad && has_format)
     compute_genus(genus, Q_coeffs, input_type);
   else if (has_genus && has_disc)
-    genus_init_file(genus, genus_fname, disc);
+    genus_init_file(genus, genus_fname, disc, has_isom);
 
   has_genus = (has_quad && has_format) || (has_genus && has_disc);
 
   if (has_genus) {
     test_res <<= 1;
     if (has_prec)
-      test_res |= compute_eigenvalues_up_to(genus, prec);
+      test_res |= compute_eigenvalues_up_to(genus, prec, has_nonlifts);
     else
       if (has_p)
 	if (has_hecke) {
-	  // !! TODO - right now it doesn't matter which column we take, so we take 0 index,
-	  // might change in the future.
-	  if (has_c)
-	    test_res |= compute_hecke_col(genus, p, c);
-	  else
-	    test_res |= compute_hecke_col_all_conds(genus, p, 0);
+	  if (has_row) {
+	    // !! TODO - right now it doesn't matter which column we take,
+	    // so we take 0 index,
+	    // might change in the future.
+	    if (has_c)
+	      test_res |= compute_hecke_col(genus, p, c);
+	    else
+	      test_res |= compute_hecke_col_all_conds(genus, p, 0);
+	  } else {
+	    if (has_c)
+	      test_res |= compute_hecke_matrix(genus, p, c);
+	    else
+	      test_res |= compute_hecke_matrix_all_conds(genus, p);
+	  }
 	}
 	else
-	  test_res |= compute_eigenvalues(genus, p);
+	  test_res |= compute_eigenvalues(genus, p, has_nonlifts);
       else {
 	if (has_hecke)
-	  test_res |= compute_first_hecke_matrix_all_conds(genus);
+	  if (has_large)
+	    test_res |= compute_first_large_hecke(genus);
+	  else
+	    test_res |= compute_first_hecke_matrix_all_conds(genus);
 	else
-	  test_res |= compute_eigenvectors(genus);
+	  test_res |= compute_eigenvectors(genus, has_nonlifts);
       }
   }
   else {
@@ -180,19 +213,20 @@ bool handle_flag_int(const char* flag_name, const char* param_str, int* flag_val
 
 int print_param_desc(char* argv[])
 {
-  printf("Usage: %s [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-p=p] [-genus=g] [-disc=d] [-cond=c] \n", argv[0]);
-  printf("The genus can be specified in one of two ways. Either via Q and f - \n");
-  printf("[Q] is the quinary quadratic form (lattice) given as 15 comma-separated integers in a format specified by f,\n");
-  printf("[f] is either 'GG' or 'A', the former for the format in Rama-Toranria webpage, the latter for the Magma format,\n");
-  printf("in which case, the genus will be computed using p-neighbors, or via g and d - \n");
-  printf("[g] is the name of a file containing the list of genera,\n");
-  printf("[d] is the discriminant of the lattice, so that g[d] is the relevant genus,\n");
-  printf("[p] is a prime at which to compute the Hecke matrix/eigenvalue, \n"); 
-  printf("[L] is the preicision up to which to compute the hecke matrices/eigenvalues (a_p for p <= L and a_{p^2} for p^2 <= L),\n");
-  printf("[c] is the conductor of the spinor norm character. If not specified, the program will compute all of them. At the moment, only relevant for computing a column of the Hecke matrix.");
-  printf("If the flag -hecke is supplied, computes a column of the Hecke matrix, otherwise computes the Hecke eigenvalues of forms that are non-lifts. If p is not supplied, computes the Hecke matrix of the first prime not dividing the discriminant.\n");
-  printf("If either L or p is not supplied, only decomposes the space, and finds Hecke eigenvectors.\n");
-  
-  printf("If the flag -tests is supplied, additionally runs standard tests.\n");
+  fprintf(stderr, "Usage: %s [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-row] [-p=p] [-genus=g] [-isom] [-disc=d] [-cond=c] \n", argv[0]);
+  fprintf(stderr, "The genus can be specified in one of two ways. Either via Q and f - \n");
+  fprintf(stderr, "[Q] is the quinary quadratic form (lattice) given as 15 comma-separated integers in a format specified by f,\n");
+  fprintf(stderr, "[f] is either 'GG' or 'A', the former for the format in Rama-Toranria webpage, the latter for the Magma format,\n");
+  fprintf(stderr, "in which case, the genus will be computed using p-neighbors, or via g and d - \n");
+  fprintf(stderr, "[g] is the name of a file containing the list of genera,\n");
+  fprintf(stderr, "[d] is the discriminant of the lattice, so that g[d] is the relevant genus,\n");
+  fprintf(stderr, "[p] is a prime at which to compute the Hecke matrix/eigenvalue, \n"); 
+  fprintf(stderr, "[L] is the preicision up to which to compute the hecke matrices/eigenvalues (a_p for p <= L and a_{p^2} for p^2 <= L),\n");
+  fprintf(stderr, "[c] is the conductor of the spinor norm character. If not specified, the program will compute all of them. At the moment, only relevant for computing a column of the Hecke matrix.");
+  fprintf(stderr, "If the flag -hecke is supplied, computes a column of the Hecke matrix, otherwise computes the Hecke eigenvalues of forms that are non-lifts. If p is not supplied, computes the Hecke matrix of the first prime not dividing the discriminant.\n");
+  fprintf(stderr, "If either L or p is not supplied, only decomposes the space, and finds Hecke eigenvectors.\n");
+  fprintf(stderr, "If the flag -row is supplied in addition to -hecke, computes a single row.\n");
+  fprintf(stderr, "If the flag -isom is supplied in addition to -genus=g, the genus includes the isometries.\n");
+  fprintf(stderr, "If the flag -tests is supplied, additionally runs standard tests.\n");
   return -1;
 }

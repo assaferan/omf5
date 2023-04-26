@@ -22,7 +22,7 @@ void eigenvalues_init(eigenvalues_t evs, slong num, slong dim)
   evs->eigenvecs = (nf_elem_t**)malloc(num * sizeof(nf_elem_t*));
   for (i = 0; i < num; i++)
     evs->eigenvecs[i] = (nf_elem_t*)malloc(dim * sizeof(nf_elem_t));
-  evs->is_lift = (bool*)malloc(num * sizeof(bool));
+  evs->lift_type = (aut_type*)malloc(num * sizeof(aut_type));
 			       
   return;
 }
@@ -98,6 +98,8 @@ void eigenvalues_clear(eigenvalues_t evs)
   int i, j;
 
   for (i = 0; i < evs->num; i++) {
+    if (evs->lift_type[i] == O)
+      continue;
     for (j = 0; j < evs->dim; j++) {
       nf_elem_clear(evs->eigenvecs[i][j], evs->nfs[i]);
     }
@@ -109,7 +111,7 @@ void eigenvalues_clear(eigenvalues_t evs)
   free(evs->eigenvecs);
   free(evs->eigenvals);
   free(evs->nfs);
-  free(evs->is_lift);
+  free(evs->lift_type);
   
   return;
 }
@@ -265,12 +267,14 @@ bool nf_elem_is_square_fast(const nf_elem_t x, const nf_t K)
   return true;
 }
 
-bool ev_is_lpoly_reducible(const eigenvalues_t evs, slong ev_idx, slong p, slong c, const genus_t genus)
+aut_type ev_is_lpoly_reducible(const eigenvalues_t evs, slong ev_idx, slong p, slong c, const genus_t genus)
 {
   int k;
   nf_elem_t a[2];
   nf_elem_t disc; // discriminant of the quadratic controlling lifts
+  nf_elem_t root;
   bool is_lift;
+  aut_type lift_type;
   
   for (k = 1; k < 3; k++) {
     get_hecke_ev_nbr_data_all_conductors(a[k-1], genus, evs, p, k, ev_idx, c);
@@ -305,22 +309,38 @@ bool ev_is_lpoly_reducible(const eigenvalues_t evs, slong ev_idx, slong p, slong
   // Should do CRT reconstruction
   is_lift = nf_elem_is_square_fast(disc, evs->nfs[ev_idx]);
   assert(is_lift == nf_elem_is_square(disc, evs->nfs[ev_idx]));
+
+  lift_type = is_lift ? Y : G;
+
+  // if a lift, find which type of lift
+  if (is_lift) {
+    nf_elem_init(root, evs->nfs[ev_idx]);
+    // check whether (2*p*(p+1) - a[0])^2 == disc for Saito-Kurokawa, i.e. p(p+1) is a root
+    nf_elem_sub_si(root, a[0], 2*p*(p+1), evs->nfs[ev_idx]);
+    nf_elem_mul(root, root, root, evs->nfs[ev_idx]);
+    if (nf_elem_equal(root, disc, evs->nfs[ev_idx]))
+      lift_type = P;
+    
+    // check whether Siegel-Eisenstein - a[0] = p^3 + p^2 + p + 1
+    if ( (lift_type == P) &&
+	 (nf_elem_equal_si(a[0], (p*p*p + p*p + p + 1), evs->nfs[ev_idx])) )
+      lift_type = F;
+    nf_elem_clear(root, evs->nfs[ev_idx]);
+  }
   
   nf_elem_clear(disc, evs->nfs[ev_idx]);
   for (k = 1; k < 3; k++) {
     nf_elem_clear(a[k-1], evs->nfs[ev_idx]);
   }
   
-  return is_lift;
+  return lift_type;
 }
 
 void eigenvalues_set_lifts(eigenvalues_t evs, slong prec, slong c, const genus_t genus)
 {
   slong cnt, i;
   fmpz_t p;
-
-  for (i = 0; i < evs->num; i++)
-    evs->is_lift[i] = true;
+  aut_type lift_type;
   
   fmpz_init_set_si(p,2); // p = 2
   
@@ -328,13 +348,37 @@ void eigenvalues_set_lifts(eigenvalues_t evs, slong prec, slong c, const genus_t
     while (fmpz_divisible(genus->disc, p))
       fmpz_nextprime(p, p, true);
     for (i = 0; i < evs->num; i++) {
-      if (!(ev_is_lpoly_reducible(evs, i, fmpz_get_si(p), c, genus))) {
-	evs->is_lift[i]= false;
-      }
+      if (evs->lift_type[i] == O)
+	continue;
+      lift_type = ev_is_lpoly_reducible(evs, i, fmpz_get_si(p), c, genus);
+      if (cnt == 0) 
+	evs->lift_type[i] = lift_type;
+      else
+	if (evs->lift_type[i] != lift_type)
+	  evs->lift_type[i] = G;
     }
+    fmpz_nextprime(p, p, true);
   }
 
   fmpz_clear(p);
   
   return;
+}
+
+slong ev_get_pivot(const nf_elem_t* evec, const nf_t K, const genus_t genus, slong cond)
+{
+  slong pivot, i, max_aut;
+
+  max_aut = 1;
+  pivot = -1;
+  for (i = 0; i < genus->dims[cond]; i++) {
+    if (!nf_elem_is_zero(evec[i], K)) {
+      if (max_aut < genus->num_auts[cond][i]) {
+	max_aut = genus->num_auts[cond][i];
+	pivot = i;
+      }
+    }
+  }
+  
+  return pivot;
 }

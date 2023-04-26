@@ -106,13 +106,15 @@ double get_isom_cost(const hash_table_t table, double* red_cost)
 #ifdef NBR_DATA
     nbr_data_init(nbr_man, table->keys[offset], 3, 1);
 #else
+    isometry_init(s);
     do {
-      nbr_process_init(nbr_man, table->keys[offset], 3, idx);
+      nbr_process_init(nbr_man, table->keys[offset], 3, idx, s);
       idx++;
       has_ended = nbr_process_has_ended(nbr_man);
       if (has_ended)
 	nbr_process_clear(nbr_man);
     } while (has_ended);
+    isometry_clear(s);
 #endif // NBR_DATA
     for (i = 0; i <  NUM_ISOMS; i++) {
 #ifdef NBR_DATA
@@ -140,11 +142,13 @@ double get_isom_cost(const hash_table_t table, double* red_cost)
       }
 #else
       nbr_process_advance(nbr_man);
+      isometry_init(s);
       while (nbr_process_has_ended(nbr_man)) {
 	nbr_process_clear(nbr_man);
-	nbr_process_init(nbr_man, table->keys[offset], 3, idx);
+	nbr_process_init(nbr_man, table->keys[offset], 3, idx, s);
 	idx++;
       }
+      isometry_clear(s);
 #endif // NBR_DATA
     }
 #ifdef NBR_DATA
@@ -489,13 +493,19 @@ int hash_table_index_and_isom(const hash_table_t table, const square_matrix_t ke
 	if (table->red_on_isom) {
 	  isometry_init(s);
 	  greedy(key_copy, s, QF_RANK);
+#ifdef DEBUG_LEVEL_FULL
 	  assert(isometry_is_isom(s, key, key_copy));
+#endif // DEBUG_LEVEL_FULL
 	}
 	if (is_isometric(isom, key_copy, table->keys[offset])) {
+#ifdef DEBUG_LEVEL_FULL
 	  assert(isometry_is_isom(isom, key_copy, table->keys[offset]));
+#endif // DEBUG_LEVEL_FULL
 	  if (table->red_on_isom) {
 	    isometry_muleq_left(isom, s);
+#ifdef DEBUG_LEVEL_FULL
 	    assert(isometry_is_isom(isom, key, table->keys[offset]));
+#endif // DEBUg_LEVEL_FULL
 	    isometry_clear(s);
 	  }
 	  (*isom_time) += clock() - cputime;

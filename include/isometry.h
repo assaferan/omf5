@@ -36,6 +36,8 @@ void isometry_transform_gram(square_matrix_t gtQg, const isometry_t g, const squ
 bool isometry_is_isom(isometry_t s, const square_matrix_t q1, const square_matrix_t q2);
 void isometry_clear(isometry_t isom);
 
+bool isometry_is_equal(const isometry_t isom1, const isometry_t isom2);
+
 // bool is_isometry(matrix_TYP* s, matrix_TYP* q1, matrix_TYP* q2, int denom);
 
 bool is_isometric(isometry_t isom, const square_matrix_t q1, const square_matrix_t q2);

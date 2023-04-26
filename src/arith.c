@@ -108,6 +108,23 @@ int hilbert_symbol(const fmpz_t x, const fmpz_t y, const fmpz_t p)
   return hilbert;
 }
 
+int lcm(int a, int b)
+{
+  fmpz_t a_Z, b_Z, m_Z;
+  int m;
+
+  fmpz_init_set_si(a_Z, a);
+  fmpz_init_set_si(b_Z, b);
+  fmpz_init(m_Z);
+  fmpz_lcm(m_Z, a_Z, b_Z);
+  m = fmpz_get_si(m_Z);
+
+  fmpz_clear(a_Z);
+  fmpz_clear(b_Z);
+  fmpz_clear(m_Z);
+  return m;
+}
+
 /* Recursive function for a temporary extended Euclidean algorithm. */
 /* It uses pointers to return multiple values. */
 Z64 gcdext(Z64 a, Z64 b, Z64 *x, Z64 *y)
@@ -516,6 +533,34 @@ int primes_up_to(int** ps, int bound)
   while(p <= bound) {
     (*ps)[num_ps] = p;
     num_ps++;
+    for (i = p; i <= bound; i+= p)
+      sieve[i] = -1;
+    while(sieve[p] == -1) p++;
+  }
+
+  free(sieve);
+  return num_ps;
+}
+
+int primes_up_to_prime_to(int** ps, int bound, int bad)
+{
+  int num_ps, p, i;
+  int* sieve;
+  
+  num_ps = 0;
+  sieve = malloc((bound+2) * sizeof(int));
+  *ps = malloc(bound * sizeof(int));
+  // since bound is small we construct the first primes using aristothenes sieve
+  // replace by fmpz_nextprime if improving.
+  for (i = 0; i <= bound+1; i++)
+    sieve[i] = i;
+  
+  p = 2;
+  while(p <= bound) {
+    if (bad % p != 0) {
+      (*ps)[num_ps] = p;
+      num_ps++;
+    }
     for (i = p; i <= bound; i+= p)
       sieve[i] = -1;
     while(sieve[p] == -1) p++;

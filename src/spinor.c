@@ -13,45 +13,216 @@
 #include "spinor.h"
 #include "typedefs.h"
 
-void spinor_init(spinor_t spinor, const fmpz_mat_t q)
+slong nmod_mat_nullspace_mod4(nmod_mat_t ker, const nmod_mat_t q)
 {
-  slong prime_idx /*, idx */;
-  fmpz_t /* tmp, */ det;
-  fq_nmod_mat_t q_p;
+  slong nullity, i, j, pivot, old_pivot;
+  fq_nmod_mat_t q_2, ker_2, lift_2, trans, trans_t, sol;
+  nmod_mat_t lift, lift_q;
+  fq_nmod_ctx_t F2;
+  fq_nmod_t elt;
+  fmpz_t two;
+
+#ifdef DEBUG
+  fq_nmod_mat_t test1, test2;
+  nmod_mat_t zero, ker_t;
+#endif // DEBUG
+
+  fmpz_init(two);
+  fmpz_set_si(two, 2);
+
+  fq_nmod_ctx_init(F2, two, 1, "1");
+  fq_nmod_mat_init(q_2, QF_RANK, QF_RANK, F2);
+  fq_nmod_init(elt, F2);
+  for (i = 0; i < QF_RANK; i++)
+    for (j = 0; j < QF_RANK; j++) {
+      fq_nmod_set_si(elt, nmod_mat_get_entry(q, i, j), F2);
+      fq_nmod_set(fq_nmod_mat_entry(q_2, i, j), elt, F2);
+    }
+
+  fq_nmod_mat_kernel(ker_2, q_2, F2);
+  nullity = fq_nmod_mat_nrows(ker_2, F2);
+
+  nmod_mat_init(lift, nullity, QF_RANK, 4);
+  for (i = 0; i < QF_RANK; i++)
+    for (j = 0; j < nullity; j++)
+      nmod_mat_set_entry(lift, j, i, nmod_poly_get_coeff_ui(fq_nmod_mat_entry(ker_2, j, i),0));
+
+  nmod_mat_init(lift_q, nullity, QF_RANK, 4);
+  nmod_mat_mul(lift_q, lift, q);
+  fq_nmod_mat_init(lift_2, nullity, QF_RANK, F2);
+  for (i = 0; i < QF_RANK; i++)
+    for (j = 0; j < nullity; j++) {
+      fq_nmod_set_si(elt, nmod_mat_get_entry(lift_q, j, i) / 2, F2);
+      fq_nmod_set(fq_nmod_mat_entry(lift_2, j, i), elt, F2);
+    }
+
+  // Does that even work?
+  // Compute the Echelon form of the matrix.
+  fq_nmod_mat_init(trans, QF_RANK, QF_RANK, F2);
+
+#ifdef DEBUG
+  fq_nmod_mat_init_set(test1, q_2, F2);
+#endif // DEBUG
+  
+  fq_nmod_mat_rref_trans(q_2, trans, F2);
+
+#ifdef DEBUG
+  fq_nmod_mat_init(test2, QF_RANK, QF_RANK, F2);
+  fq_nmod_mat_mul(test2, trans, test1, F2);
+
+  assert(fq_nmod_mat_equal(test2, q_2, F2));
+  
+  fq_nmod_mat_clear(test1, F2);
+  fq_nmod_mat_clear(test2, F2);
+#endif // DEBUG
+
+  fq_nmod_mat_init(trans_t, QF_RANK, QF_RANK, F2);
+  fq_nmod_mat_transpose(trans_t, trans, F2);
+  fq_nmod_mat_mul(lift_2, lift_2, trans_t, F2);
+
+  fq_nmod_mat_init(sol, nullity, QF_RANK, F2);
+  
+  pivot = 0;
+  for (i = 0; i < QF_RANK; i++) {
+    old_pivot = pivot;
+    for (; (pivot < QF_RANK) && fq_nmod_is_zero(fq_nmod_mat_entry(q_2, pivot, i) , F2);) pivot++;
+    if (((i == 0) || (old_pivot != pivot)) && (pivot < QF_RANK) ) {
+      for (j = 0; j < nullity; j++) {
+	fq_nmod_set(fq_nmod_mat_entry(sol, j, i), fq_nmod_mat_entry(lift_2, j, pivot), F2);
+      }
+    }
+    else {
+      for (j = 0; j < nullity; j++) {
+	fq_nmod_zero(fq_nmod_mat_entry(sol, j, i), F2);
+      }
+      pivot = old_pivot;
+    }
+  }
+  
+  
+  for (i = 0; i < nmod_mat_nrows(q); i++)
+    for (j = 0; j < nullity; j++) {
+      nmod_mat_set_entry(ker, i, j, nmod_poly_get_coeff_ui(fq_nmod_mat_entry(sol, j, i),0) * 2 +
+			 nmod_mat_get_entry(lift, j, i));
+    }
+
+#ifdef DEBUG
+  nmod_mat_init(zero, QF_RANK, QF_RANK, 4);
+  nmod_mat_init(ker_t, QF_RANK, QF_RANK, 4);
+  nmod_mat_transpose(ker_t, ker);
+  nmod_mat_mul(zero, ker_t, q);
+  assert(nmod_mat_is_zero(zero));
+  nmod_mat_clear(zero);
+  nmod_mat_clear(ker_t);
+#endif // DEBUG
+  
+  fq_nmod_clear(elt, F2);
+  fq_nmod_mat_clear(ker_2, F2);
+  nmod_mat_clear(lift);
+  nmod_mat_clear(lift_q);
+  fq_nmod_mat_clear(sol, F2);
+  fq_nmod_mat_clear(q_2, F2);
+  fq_nmod_mat_clear(trans, F2);
+  fq_nmod_mat_clear(trans_t, F2);
+  fq_nmod_mat_clear(lift_2, F2);
+
+  fq_nmod_ctx_clear(F2);
+
+  fmpz_clear(two);
+  
+  return nullity;
+}
+
+void spinor_init_fmpz(spinor_t spinor, const fmpz_t disc)
+{
   fmpz_factor_t bad_primes;
+  slong prime_idx, p;
+
+  fmpz_factor_init(bad_primes);
+  fmpz_factor(bad_primes, disc);
+
+  fmpz_mat_init(spinor->Q,0,0);
+  spinor->num_primes = bad_primes->num;
+  spinor->twist = (1LL << (bad_primes->num)) - 1;
+  spinor->rads = (nmod_mat_t*)malloc((bad_primes->num) * sizeof(nmod_mat_t));
+  spinor->primes = (nmod_t*)malloc((bad_primes->num) * sizeof(nmod_t));
+  spinor->pivots = (slong*)malloc((bad_primes->num) * sizeof(slong));
+
+  for (prime_idx = 0; prime_idx < bad_primes->num; prime_idx++) {
+    p = fmpz_get_si(&(bad_primes->p[prime_idx]));
+    if (p == 2)
+      p = 4;
+    nmod_init(&(spinor->primes[prime_idx]), p);
+    nmod_mat_init(spinor->rads[prime_idx], 0, 0, spinor->primes[prime_idx].n);
+  }
+
+  return;
+}
+
+void spinor_init_fmpz_mat(spinor_t spinor, const fmpz_mat_t q)
+{
+  slong prime_idx;
+  fmpz_t det;
+  nmod_mat_t q_p;
+  fmpz_factor_t bad_primes;
+  nmod_mat_t ker;
+  slong nullity, i, j;
+  slong p, pivot;
 
   fmpz_init(det);
   fmpz_mat_det(det, q);
   fmpz_divexact_si(det, det, 2);
   fmpz_factor_init(bad_primes);
-  fmpz_factor(bad_primes, det);
+  fmpz_factor(bad_primes, det);  
   fmpz_clear(det);
 
   fmpz_mat_init_set(spinor->Q,q);
   spinor->num_primes = bad_primes->num;
   spinor->twist = (1LL << (bad_primes->num)) - 1;
-  spinor->rads = (fq_nmod_mat_t*)malloc((bad_primes->num) * sizeof(fq_nmod_mat_t));
-  spinor->fields = (fq_nmod_ctx_t*)malloc((bad_primes->num) * sizeof(fq_nmod_ctx_t));
-
-  // !! TODO - when n is not squarefree take only the ones with odd exponents
+  spinor->rads = (nmod_mat_t*)malloc((bad_primes->num) * sizeof(nmod_mat_t));
+  spinor->primes = (nmod_t*)malloc((bad_primes->num) * sizeof(nmod_t));
+  spinor->pivots = (slong*)malloc((bad_primes->num) * sizeof(slong));
+  
   for (prime_idx = 0; prime_idx < bad_primes->num; prime_idx++) {
-    fq_nmod_ctx_init(spinor->fields[prime_idx], &(bad_primes->p[prime_idx]), 1, "1");
-    fq_nmod_mat_init_set_fmpz_mat(q_p, q, spinor->fields[prime_idx]);
-    // Is this necessary? Check!!
-    /*
-    if (fmpz_equal_si(&(bad_primes->p[prime_idx]),2)) {
-      fmpz_init(tmp);
-      for (idx = 0; idx < n; idx++) {
-	fmpz_divexact_si(tmp, fmpz_mat_entry(q, idx, idx), 2); 
-	fq_nmod_set_fmpz(fq_nmod_mat_entry(q_p,idx,idx), tmp, spinor->fields[prime_idx]);
-      }
-      fmpz_clear(tmp);
+    p = fmpz_get_si(&(bad_primes->p[prime_idx]));
+    if (p == 2)
+      p = 4;
+    nmod_init(&(spinor->primes[prime_idx]),p);
+    nmod_mat_init_set_fmpz_mat(q_p, q, p);
+    nmod_mat_init(ker, QF_RANK, QF_RANK, p);
+    // apparentaly, this doesn't work for p = 4 !!!
+    // we go around that
+    if (p != 4)
+      nullity = nmod_mat_nullspace(ker, q_p);
+    else
+      nullity = nmod_mat_nullspace_mod4(ker, q_p);
+    nmod_mat_init(spinor->rads[prime_idx], nullity, QF_RANK, p);
+    for (i = 0; i < QF_RANK; i++)
+      for (j = 0; j < nullity; j++)
+	nmod_mat_set_entry(spinor->rads[prime_idx], j, i, nmod_mat_get_entry(ker, i, j));
+
+    for (pivot = 0; pivot < nmod_mat_ncols(spinor->rads[prime_idx]);) {
+      if (nmod_mat_entry(spinor->rads[prime_idx], 0, pivot) % fmpz_get_si(&(bad_primes->p[prime_idx])) != 0)
+	break;
+      pivot++;
     }
-    */
-    fq_nmod_mat_kernel(spinor->rads[prime_idx], q_p, spinor->fields[prime_idx]);
-    fq_nmod_mat_clear(q_p, spinor->fields[prime_idx]);
+    spinor->pivots[prime_idx] = pivot;
+    
+    nmod_mat_clear(ker);
+    nmod_mat_clear(q_p);
   }
   fmpz_factor_clear(bad_primes);
+  return;
+}
+
+void spinor_init_square_matrix(spinor_t spinor, const square_matrix_t q)
+{
+  fmpz_mat_t q_fmpz;
+
+  fmpz_mat_init_set_square_matrix(q_fmpz, q);
+  spinor_init_fmpz_mat(spinor, q_fmpz);
+  fmpz_mat_clear(q_fmpz);
+  
   return;
 }
 
@@ -61,32 +232,28 @@ void spinor_clear(spinor_t spinor)
 
   fmpz_mat_clear(spinor->Q);
   for (prime_idx = 0; prime_idx < spinor->num_primes; prime_idx++) {
-    fq_nmod_mat_clear(spinor->rads[prime_idx], spinor->fields[prime_idx]);
-    fq_nmod_ctx_clear(spinor->fields[prime_idx]);
+    nmod_mat_clear(spinor->rads[prime_idx]);
   }
   free(spinor->rads);
-  free(spinor->fields);
+  
+  free(spinor->primes);
+  free(spinor->pivots);
 
   return;
 }
 
-W64 spinor_compute_vals(const spinor_t spinor, const fq_nmod_t* a)
+// assumes a is a vector of mod p values?
+W64 spinor_compute_vals(const spinor_t spinor, const mp_limb_t* a)
 {
   W64 val, mask;
   slong i;
-#ifdef DEBUG
-  fq_nmod_t neg;
-#endif // DEBUG
 
   val = 0;
   mask = 1;
   for (i = 0; i < spinor->num_primes; i++) {
-    if (!fq_nmod_is_one(a[i],spinor->fields[i])) {
+    if (a[i] != 1) {
 #ifdef DEBUG
-      fq_nmod_init(neg, spinor->fields[i]);
-      fq_nmod_neg(neg, a[i], spinor->fields[i]);
-      assert(fq_nmod_is_one(neg, spinor->fields[i]));
-      fq_nmod_clear(neg, spinor->fields[i]);
+      assert(a[i] == spinor->primes[i].n-1);
 #endif // DEBUG
       val ^= mask;
     }
@@ -104,18 +271,9 @@ W64 spinor_norm(const spinor_t spinor, matrix_TYP* mat, int denom)
   fmpz_init_set_si(denom_fmpz, denom);
   fmpz_mat_init_set_matrix_TYP(mat_fmpz, mat);
 
-  val = spinor_norm_zas_fmpz_mat(spinor, mat_fmpz, denom_fmpz);
-
+  val = spinor_norm_fmpz_mat(spinor, mat_fmpz, denom_fmpz);
+  
   assert(val==spinor_norm_cd_fmpz_mat(spinor, mat_fmpz, denom_fmpz));
-  /*
-  if (fmpz_equal_si(fq_nmod_ctx_prime(spinor->fields[0]),2))
-    val = spinor_norm_cd_fmpz_mat(spinor, mat_fmpz, denom_fmpz);
-  else {
-    val = spinor_norm_fmpz_mat(spinor, mat_fmpz, denom_fmpz);
-    assert(val==spinor_norm_cd_fmpz_mat(spinor, mat_fmpz, denom_fmpz));
-  }
-  assert(val==spinor_norm_zas_fmpz_mat(spinor, mat_fmpz, denom_fmpz));
-  */
 
   fmpz_mat_clear(mat_fmpz);
   fmpz_clear(denom_fmpz);
@@ -131,141 +289,114 @@ W64 spinor_norm_isom(const spinor_t spinor, const isometry_t isom)
   fmpz_init_set_si(denom_fmpz, isom->denom);
   fmpz_mat_init_set_square_matrix(mat_fmpz, isom->s);
 
-  val = spinor_norm_zas_fmpz_mat(spinor, mat_fmpz, denom_fmpz);
+  val = spinor_norm_fmpz_mat(spinor, mat_fmpz, denom_fmpz);
 
-  assert(val==spinor_norm_cd_fmpz_mat(spinor, mat_fmpz, denom_fmpz));
-  /*
-  if (fmpz_equal_si(fq_nmod_ctx_prime(spinor->fields[0]),2))
-    val = spinor_norm_cd_fmpz_mat(spinor, mat_fmpz, denom_fmpz);
-  else {
-    val = spinor_norm_fmpz_mat(spinor, mat_fmpz, denom_fmpz);
-    assert(val==spinor_norm_cd_fmpz_mat(spinor, mat_fmpz, denom_fmpz));
-  }
-  assert(val==spinor_norm_zas_fmpz_mat(spinor, mat_fmpz, denom_fmpz));
-  */
+  // This is not valid when p^2 || n
+  //  assert(val==spinor_norm_cd_fmpz_mat(spinor, mat_fmpz, denom_fmpz));
 
   fmpz_mat_clear(mat_fmpz);
   fmpz_clear(denom_fmpz);
   return val;
 }
 
+// TODO - use the modular arithmetic built in inside nmod_t instead of gcdext
 // Here mat/denom is the isometry, and we're computing the spinor norm at all spinor primes
 W64 spinor_norm_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom)
 {
-  fq_nmod_t denom_p;
-  fq_nmod_mat_t mat_p, mat_p_t, rad_mat;
+  nmod_mat_t mat_p, mat_p_t, rad_mat;
   slong idx, row, col, pivot, prime_idx, n;
   fmpz_t det; // for some reason det is not implemented for fq_nmod_mat. we reduce the det mod p instead
-  fq_nmod_t det_p;
-  fq_nmod_t* evs;
+  mp_limb_t denom_p, det_p;
+  mp_limb_t* evs;
   W64 norm;
+  nmod_t p;
 
   n = fmpz_mat_nrows(mat);
   assert(n == fmpz_mat_ncols(mat));
   
-  evs = (fq_nmod_t*)malloc((spinor->num_primes)*sizeof(fq_nmod_t));
+  evs = (mp_limb_t*)malloc((spinor->num_primes)*sizeof(mp_limb_t));
 
   fmpz_init(det);
   fmpz_mat_det(det, mat);
   for (prime_idx = 0; prime_idx < spinor->num_primes; prime_idx++) {
-    fq_nmod_mat_init_set_fmpz_mat(mat_p, mat, spinor->fields[prime_idx]);
-    fq_nmod_mat_init(mat_p_t, n, n, spinor->fields[prime_idx]);
-    fq_nmod_init(denom_p, spinor->fields[prime_idx]);
-    fq_nmod_set_fmpz(denom_p, denom, spinor->fields[prime_idx]);
-    // at the moment, when mat has scale divisible by p (at the bad primes)
-    // we compute the Cartan-Dieudonne instead
-    if (fq_nmod_is_zero(denom_p, spinor->fields[prime_idx])) {
-      // fq_nmod_mat_one(mat_p, spinor->fields[prime_idx]);
-      fq_nmod_clear(denom_p, spinor->fields[prime_idx]);
-      fq_nmod_mat_clear(mat_p, spinor->fields[prime_idx]);
-      fq_nmod_mat_clear(mat_p_t, spinor->fields[prime_idx]);
-      return spinor_norm_cd_fmpz_mat(spinor, mat, denom);
+    p = spinor->primes[prime_idx];
+    denom_p = fmpz_get_nmod(denom, p);
+    
+    assert(denom_p < p.n);
+    // at the moment, this only works when disc has odd valuation at this prime
+    // !! TODO - add an assertion
+    if (denom_p == 0) {
+      fmpz_clear(det);
+      free(evs);
+      return spinor_norm_zas_fmpz_mat(spinor, mat, denom);
     }
-    else {
-      fq_nmod_inv(denom_p, denom_p, spinor->fields[prime_idx]);
-      // scaling the reduced matrix - should be replaced bu a one-line function
-      for (row = 0; row < fq_nmod_mat_nrows(mat_p, spinor->fields[prime_idx]); row++)
-	for (col = 0; col < fq_nmod_mat_ncols(mat_p, spinor->fields[prime_idx]); col++)
-	  fq_nmod_mul(fq_nmod_mat_entry(mat_p,row,col), fq_nmod_mat_entry(mat_p,row,col),
-		      denom_p, spinor->fields[prime_idx]);
-      // !! TODO - we could instead multiply the end result by the determinant?
-      fq_nmod_init(det_p, spinor->fields[prime_idx]);
-      fq_nmod_set_fmpz(det_p, det, spinor->fields[prime_idx]);
-      // scaling the determinant
-      for (idx = 0; idx < n; idx++)
-	fq_nmod_mul(det_p, det_p, denom_p, spinor->fields[prime_idx]);
-      // If the matrix has determinant -1, we modify it to have a matrix in SO
-      if (!fq_nmod_is_one(det_p, spinor->fields[prime_idx])) {
-	fq_nmod_mat_neg(mat_p, mat_p, spinor->fields[prime_idx]);
-      }
-      fq_nmod_clear(det_p, spinor->fields[prime_idx]);
-    }
+    nmod_mat_init_set_fmpz_mat(mat_p, mat, p.n);
+    nmod_mat_init(mat_p_t, n, n, p.n);
+      
+#ifdef DEBUG
+    if (p.n == 4)
+      assert (denom_p != 2);
+#endif // DEBUG
+    
+    // scaling the reduced matrix - should be replaced bu a one-line function
+    for (row = 0; row < nmod_mat_nrows(mat_p); row++)
+      for (col = 0; col < nmod_mat_ncols(mat_p); col++)
+	nmod_mat_set_entry(mat_p, row, col, nmod_div(nmod_mat_entry(mat_p, row, col), denom_p, p));
 
+    // !! TODO - we could instead multiply the end result by the determinant?
+    det_p = fmpz_get_nmod(det, p);  
+    // scaling the determinant
+    for (idx = 0; idx < n; idx++)
+      det_p = nmod_div(det_p, denom_p, p);
+    // If the matrix has determinant -1, we modify it to have a matrix in SO
+    if (det_p != 1) {
+      assert(det_p == p.n-1);
+      nmod_mat_neg(mat_p, mat_p);
+    }
+    
 #ifdef DEBUG_LEVEL_FULL
     printf("rad = \n");
-    fq_nmod_mat_print_pretty(spinor->rads[prime_idx], spinor->fields[prime_idx]);
+    nmod_mat_print_pretty(spinor->rads[prime_idx]);
     printf("\n");
     printf("s_p =  \n");
-    fq_nmod_mat_print_pretty(mat_p, spinor->fields[prime_idx]);
+    nmod_mat_print_pretty(mat_p);
     printf("\n");
-    printf("scale (inverse) =  \n");
-    fq_nmod_print_pretty(denom_p, spinor->fields[prime_idx]);
-    printf("\n");
+    printf("scale (inverse) = %lu (mod %lu)\n", denom_p, p.n);
 #endif // DEBUG_LEVEL_FULL
     
-    fq_nmod_mat_init(rad_mat, fq_nmod_mat_nrows(spinor->rads[prime_idx], spinor->fields[prime_idx]),
-		     fq_nmod_mat_ncols(mat_p, spinor->fields[prime_idx]), spinor->fields[prime_idx]);
+    nmod_mat_init(rad_mat, nmod_mat_nrows(spinor->rads[prime_idx]),
+		  nmod_mat_ncols(mat_p), p.n);
     // we need to transpose, given the direction of our isometries
-    fq_nmod_mat_transpose(mat_p_t, mat_p, spinor->fields[prime_idx]);
-    fq_nmod_mat_mul(rad_mat, spinor->rads[prime_idx], mat_p_t, spinor->fields[prime_idx]);
+    nmod_mat_transpose(mat_p_t, mat_p);
+    nmod_mat_mul(rad_mat, spinor->rads[prime_idx], mat_p_t);
 
     // for now assume rad is a single vector (we choose our lattices this way)
     // !! TODO !! -  modify to determinant so it will work in the general case
-    assert(fq_nmod_mat_nrows(spinor->rads[prime_idx], spinor->fields[prime_idx]) == 1);
-  
-    for (pivot = 0; pivot < fq_nmod_mat_ncols(spinor->rads[prime_idx], spinor->fields[prime_idx]);) {
-      if (!(fq_nmod_is_zero(fq_nmod_mat_entry(spinor->rads[prime_idx], 0, pivot), spinor->fields[prime_idx]))) {
-	break;
-      }
-      pivot++;
-    }
+    assert(nmod_mat_nrows(spinor->rads[prime_idx]) == 1);
+
+    pivot = spinor->pivots[prime_idx];
     
-    fq_nmod_init(evs[prime_idx], spinor->fields[prime_idx]);
     // !! TODO !! - we should always set the pivot in the kernel to be 1
     // so that no arithmetic will be needed here.
-    // we can also save the kernels upon initialization
-    fq_nmod_inv(evs[prime_idx], fq_nmod_mat_entry(spinor->rads[prime_idx], 0, pivot), spinor->fields[prime_idx]);
-    fq_nmod_mul(evs[prime_idx], evs[prime_idx], fq_nmod_mat_entry(rad_mat, 0, pivot), spinor->fields[prime_idx]);
-    
-    //    norm = (fq_nmod_is_one(ev, spinor->fields[prime_idx]) ? 1 : -1);
+    evs[prime_idx] = nmod_div(nmod_mat_entry(rad_mat, 0, pivot),
+			      nmod_mat_entry(spinor->rads[prime_idx], 0, pivot), p);
 
-#ifdef DEBUG
-    if (!fq_nmod_is_one(evs[prime_idx], spinor->fields[prime_idx]) ) {
-      fq_nmod_init(det_p, spinor->fields[prime_idx]);
-      fq_nmod_neg(det_p, evs[prime_idx], spinor->fields[prime_idx]);
-      assert(fq_nmod_is_one(det_p, spinor->fields[prime_idx]));
-      fq_nmod_clear(det_p, spinor->fields[prime_idx]);
-    }
-#endif // DEBUG
+    assert((evs[prime_idx] == 1) || (evs[prime_idx] == p.n-1));
 
-    fq_nmod_mat_clear(rad_mat, spinor->fields[prime_idx]);
-    fq_nmod_clear(denom_p, spinor->fields[prime_idx]);
-    fq_nmod_mat_clear(mat_p_t, spinor->fields[prime_idx]);
-    fq_nmod_mat_clear(mat_p, spinor->fields[prime_idx]);
+    nmod_mat_clear(rad_mat);
+    nmod_mat_clear(mat_p_t);
+    nmod_mat_clear(mat_p);
   }
   fmpz_clear(det);
 
   norm = spinor_compute_vals(spinor, evs);
 
-  for (prime_idx = 0; prime_idx < spinor->num_primes; prime_idx++)
-    fq_nmod_clear(evs[prime_idx], spinor->fields[prime_idx]);
-  
   free(evs);
   
   return norm;
 }
 
-// When p = 2 the above doesn't work (1 == -1). We write here the slow way of computing (the global) spinor norm until we figure out a better way
+// Here below we write the spinor norm according to the Cartan-Dieudonne decomposition
 
 // builds a reflection through y with respect to A
 // we assume y is given as a row vector, and A is symmetric
@@ -558,12 +689,14 @@ int rho(const fmpz_t p, const fmpq_mat_t s, const fmpq_mat_t A)
   return ret;
 }
 
+// this is zassenhaus' method of computing the spinor norm
 W64 spinor_norm_zas_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom)
 {
   fmpq_mat_t mat_q, Q_q, one;
   fmpq_t det;
   fmpq_t spinorm;
   slong prime_idx, n;
+  fmpz_t p;
   
   W64 val;
 
@@ -592,14 +725,15 @@ W64 spinor_norm_zas_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const 
     fmpq_clear(det);
     fmpq_mat_clear(mat_q);
     fmpq_mat_clear(Q_q);
-    if (fmpz_equal_si(fq_nmod_ctx_prime(spinor->fields[0]),2))
-      return spinor_norm_cd_fmpz_mat(spinor, mat, denom);
-    return spinor_norm_fmpz_mat(spinor, mat, denom);
+    return spinor_norm_cd_fmpz_mat(spinor, mat, denom);
   }
   val = 0;
+  fmpz_init(p);
   for (prime_idx = 0; prime_idx < spinor->num_primes; prime_idx++) {
-    val ^= (fmpq_valuation(spinorm, fq_nmod_ctx_prime(spinor->fields[prime_idx])) & 1) << prime_idx;
+    fmpz_set_si(p, spinor->primes[prime_idx].n);
+    val ^= (fmpq_valuation(spinorm, p) & 1) << prime_idx;
   }
+  fmpz_clear(p);
   fmpq_clear(spinorm);
   fmpq_clear(det);
   fmpq_mat_clear(mat_q);
@@ -614,6 +748,7 @@ W64 spinor_norm_cd_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const f
   fmpq_t det;
   fmpq_t spinorm;
   slong prime_idx, n;
+  fmpz_t p;
   
   W64 val;
 
@@ -633,8 +768,12 @@ W64 spinor_norm_cd_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const f
   fmpq_init(spinorm);
   spinor_norm_cd(spinorm, mat_q, Q_q);
   val = 0;
+  fmpz_init(p);
   for (prime_idx = 0; prime_idx < spinor->num_primes; prime_idx++) {
-    val ^= (fmpq_valuation(spinorm, fq_nmod_ctx_prime(spinor->fields[prime_idx])) & 1) << prime_idx;
+    fmpz_set_si(p, spinor->primes[prime_idx].n);
+    if (spinor->primes[prime_idx].n == 4)
+      fmpz_set_si(p, 2);
+    val ^= (fmpq_valuation(spinorm, p) & 1) << prime_idx;
   }
   fmpq_clear(spinorm);
   fmpq_clear(det);

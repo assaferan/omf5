@@ -425,9 +425,12 @@ bool get_next_isotropic_vector(neighbor_manager_t nbr_man)
   return false;
 }
 
-void nbr_process_init(neighbor_manager_t nbr_man, const square_matrix_t Q, Z64 p, int i)
+void nbr_process_init(neighbor_manager_t nbr_man, const square_matrix_t Q, Z64 p, int i, const isometry_t isom)
 {
+  aut_grp_t grp;
   bool found;
+  int aut_idx;
+  square_matrix_t aut_tr;
   
   square_matrix_set(nbr_man->Q, Q);
   nbr_man->p = p;
@@ -456,7 +459,23 @@ void nbr_process_init(neighbor_manager_t nbr_man, const square_matrix_t Q, Z64 p
 
   // It could be that there are no isotropic vectors in this batch
   //  assert(is_isotropic_vector(nbr_man->iso_vec, nbr_man->Q, nbr_man->p));
+
+  aut_grp_init_square_matrix(grp, nbr_man->Q);
+
+  nbr_man->auts = (square_matrix_t*)malloc(grp->order * sizeof(square_matrix_t));
+  nbr_man->conj_auts = (isometry_t*)malloc(grp->order * sizeof(isometry_t));
+  aut_grp_get_elements(nbr_man->auts,grp);
+  nbr_man->num_auts = grp->order;
+  // conjugating the automorphisms
+  for (aut_idx = 0; aut_idx < grp->order; aut_idx++) {
+    square_matrix_transpose(nbr_man->conj_auts[aut_idx]->s, nbr_man->auts[aut_idx]);
+    square_matrix_mul(aut_tr, isom->s, nbr_man->conj_auts[aut_idx]->s);
+    square_matrix_mul(nbr_man->conj_auts[aut_idx]->s, aut_tr, isom->s_inv);
+    nbr_man->conj_auts[aut_idx]->denom = (isom->denom) * (isom->inv_denom);
+    nbr_man->conj_auts[aut_idx]->inv_denom = square_matrix_inv(nbr_man->conj_auts[aut_idx]->s_inv, nbr_man->conj_auts[aut_idx]->s, nbr_man->conj_auts[aut_idx]->denom);
+  }
   
+  aut_grp_clear(grp);
   return;
 }
 
@@ -512,7 +531,16 @@ bool nbr_process_has_ended(const neighbor_manager_t nbr_man)
 
 void nbr_process_clear(neighbor_manager_t nbr_man)
 {
-  // we didn't allocate any memory
+  slong i;
+  
+  for (i = 0; i < nbr_man->num_auts; i++)
+    square_matrix_clear(nbr_man->auts[i]);
+
+  for (i = 0; i < nbr_man->num_auts; i++)
+    isometry_clear(nbr_man->conj_auts[i]);
+
+  free(nbr_man->auts);
+  free(nbr_man->conj_auts);
   return;
 }
 
@@ -524,18 +552,16 @@ bool nbr_process_build_nb_and_isom(square_matrix_t Q, isometry_t s, const neighb
   Z64 q, y;
   int row, col;
   Z64 a1, a2, a3, a4;
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
   square_matrix_t full_Q;
   isometry_t s_inv;
   
-#ifdef DEBUG_LEVEL_FULL
   printf("Computing p-neighbor for Q: \n");
   square_matrix_print(nbr_man->Q);
 
   printf("Corresponding to isotropic vector ");
   vector_print(nbr_man->iso_vec);
 #endif // DEBUG_LEVEL_FULL
-#endif // DEBUG
   
   isometry_init(s);
   square_matrix_set(Q, nbr_man->Q);
@@ -560,20 +586,19 @@ bool nbr_process_build_nb_and_isom(square_matrix_t Q, isometry_t s, const neighb
 
       isometry_replace_vec(s, 0, x);
       
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
       square_matrix_set(full_Q, Q);
       square_matrix_resymmetrize(full_Q);
       assert(isometry_is_isom(s, nbr_man->Q, full_Q));
       isometry_inv(s_inv, s);
       assert(isometry_is_isom(s_inv, full_Q, nbr_man->Q));
-#ifdef DEBUG_LEVEL_FULL
       printf("put x as first vector, now Q = \n");
       square_matrix_print(Q);
       
       printf("full matrix is: \n");
       square_matrix_print(full_Q);
 #endif // DEBUG_LEVEL_FULL
-#endif // DEBUG
+
   }
   else {
     if (x[1] == 1) {
@@ -587,13 +612,13 @@ bool nbr_process_build_nb_and_isom(square_matrix_t Q, isometry_t s, const neighb
       Q[0][0] = xQx;
 
       isometry_replace_vec(s, 1, x);
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
       square_matrix_set(full_Q, Q);
       square_matrix_resymmetrize(full_Q);
       assert(isometry_is_isom(s, nbr_man->Q, full_Q));
       isometry_inv(s_inv, s);
       assert(isometry_is_isom(s_inv, full_Q, nbr_man->Q));
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
     }
     else {
       if (x[2] == 1) {
@@ -610,13 +635,13 @@ bool nbr_process_build_nb_and_isom(square_matrix_t Q, isometry_t s, const neighb
 	
 	isometry_replace_vec(s, 2, x);
       
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
 	square_matrix_set(full_Q, Q);
 	square_matrix_resymmetrize(full_Q);
 	assert(isometry_is_isom(s, nbr_man->Q, full_Q));
 	isometry_inv(s_inv, s);
 	assert(isometry_is_isom(s_inv, full_Q, nbr_man->Q));
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
       }
       else {
 	if (x[3] == 1) {
@@ -633,13 +658,13 @@ bool nbr_process_build_nb_and_isom(square_matrix_t Q, isometry_t s, const neighb
 
 	  isometry_replace_vec(s, 3, x);
       
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
 	square_matrix_set(full_Q, Q);
 	square_matrix_resymmetrize(full_Q);
 	assert(isometry_is_isom(s, nbr_man->Q, full_Q));
 	isometry_inv(s_inv, s);
 	assert(isometry_is_isom(s_inv, full_Q, nbr_man->Q));
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
 	}
 	else {
 	  assert(x[4]==1);
@@ -656,13 +681,13 @@ bool nbr_process_build_nb_and_isom(square_matrix_t Q, isometry_t s, const neighb
 
 	  isometry_replace_vec(s, 4, x);
       
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
 	square_matrix_set(full_Q, Q);
 	square_matrix_resymmetrize(full_Q);
 	assert(isometry_is_isom(s, nbr_man->Q, full_Q));
 	isometry_inv(s_inv, s);
 	assert(isometry_is_isom(s_inv, full_Q, nbr_man->Q));
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
 	}
       }
     }
@@ -681,14 +706,12 @@ bool nbr_process_build_nb_and_isom(square_matrix_t Q, isometry_t s, const neighb
       }
       square_matrix_swap_elts(Q, 3, 3, 4, 4);
       isometry_swap_vecs(s, 3, 4);
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
       square_matrix_set(full_Q, Q);
       square_matrix_resymmetrize(full_Q);
       assert(isometry_is_isom(s, nbr_man->Q, full_Q));
       isometry_inv(s_inv, s);
       assert(isometry_is_isom(s_inv, full_Q, nbr_man->Q));
-#endif // DEBUG
-#ifdef DEBUG_LEVEL_FULL
       square_matrix_print(Q);
 #endif // DEBUG_LEVEL_FULL
     }
@@ -703,14 +726,12 @@ bool nbr_process_build_nb_and_isom(square_matrix_t Q, isometry_t s, const neighb
 	square_matrix_swap_elts(Q, 2, 2, 4, 4);
 	square_matrix_swap_elts(Q, 2, 3, 3, 4);
 	isometry_swap_vecs(s, 2, 4);
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
 	square_matrix_set(full_Q, Q);
 	square_matrix_resymmetrize(full_Q);
 	assert(isometry_is_isom(s, nbr_man->Q, full_Q));
 	isometry_inv(s_inv, s);
 	assert(isometry_is_isom(s_inv, full_Q, nbr_man->Q));
-#endif // DEBUG
-#ifdef DEBUG_LEVEL_FULL
 	square_matrix_print(Q);
 #endif // DEBUG_LEVEL_FULL
       }
@@ -725,14 +746,12 @@ bool nbr_process_build_nb_and_isom(square_matrix_t Q, isometry_t s, const neighb
 	  square_matrix_swap_elts(Q, 1, 2, 2, 4);
 	  square_matrix_swap_elts(Q, 1, 3, 3, 4);
 	  isometry_swap_vecs(s, 1, 4);
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
 	  square_matrix_set(full_Q, Q);
 	  square_matrix_resymmetrize(full_Q);
 	  assert(isometry_is_isom(s, nbr_man->Q, full_Q));
 	  isometry_inv(s_inv, s);
 	  assert(isometry_is_isom(s_inv, full_Q, nbr_man->Q));
-#endif // DEBUG
-#ifdef DEBUG_LEVEL_FULL
 	  square_matrix_print(Q);
 #endif // DEBUG_LEVEL_FULL
 	}
@@ -769,16 +788,13 @@ bool nbr_process_build_nb_and_isom(square_matrix_t Q, isometry_t s, const neighb
 
   isometry_add_vec(s, 0, nbr_man->p*a1, 4);
 
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
   square_matrix_set(full_Q, Q);
   square_matrix_resymmetrize(full_Q);
   full_Q[0][0] *= nbr_man->p;
   assert(isometry_is_isom(s, nbr_man->Q, full_Q));
   isometry_inv(s_inv, s);
   assert(isometry_is_isom(s_inv, full_Q, nbr_man->Q));
-#endif // DEBUG
-  
-#ifdef DEBUG_LEVEL_FULL
   square_matrix_print(Q);
 #endif // DEBUG_LEVEL_FULL
   
@@ -799,16 +815,13 @@ bool nbr_process_build_nb_and_isom(square_matrix_t Q, isometry_t s, const neighb
 
   isometry_add_vec(s, 1, a2, 4);
 
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
   square_matrix_set(full_Q, Q);
   square_matrix_resymmetrize(full_Q);
   full_Q[0][0] *= nbr_man->p;
   assert(isometry_is_isom(s, nbr_man->Q, full_Q));
   isometry_inv(s_inv, s);
   assert(isometry_is_isom(s_inv, full_Q, nbr_man->Q));
-#endif // DEBUG
-  
-#ifdef DEBUG_LEVEL_FULL
   square_matrix_print(Q);
 #endif // DEBUG_LEVEL_FULL
   
@@ -829,16 +842,13 @@ bool nbr_process_build_nb_and_isom(square_matrix_t Q, isometry_t s, const neighb
 
   isometry_add_vec(s, 2, a3, 4);
 
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
   square_matrix_set(full_Q, Q);
   square_matrix_resymmetrize(full_Q);
   full_Q[0][0] *= nbr_man->p;
   assert(isometry_is_isom(s, nbr_man->Q, full_Q));
   isometry_inv(s_inv, s);
   assert(isometry_is_isom(s_inv, full_Q, nbr_man->Q));
-#endif // DEBUG
-  
-#ifdef DEBUG_LEVEL_FULL
   square_matrix_print(Q);
 #endif // DEBUG_LEVEL_FULL
   
@@ -859,16 +869,13 @@ bool nbr_process_build_nb_and_isom(square_matrix_t Q, isometry_t s, const neighb
 
   isometry_add_vec(s, 3, a4, 4);
 
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
   square_matrix_set(full_Q, Q);
   square_matrix_resymmetrize(full_Q);
   full_Q[0][0] *= nbr_man->p;
   assert(isometry_is_isom(s, nbr_man->Q, full_Q));
   isometry_inv(s_inv, s);
   assert(isometry_is_isom(s_inv, full_Q, nbr_man->Q));
-#endif // DEBUG
-  
-#ifdef DEBUG_LEVEL_FULL
   square_matrix_print(Q);
 #endif // DEBUG_LEVEL_FULL
   
@@ -900,15 +907,12 @@ bool nbr_process_build_nb_and_isom(square_matrix_t Q, isometry_t s, const neighb
 
   isometry_vec_scalar_mul(s,4,nbr_man->p);
 
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
   square_matrix_set(full_Q, Q);
   square_matrix_resymmetrize(full_Q);
   assert(isometry_is_isom(s, nbr_man->Q, full_Q));
   isometry_inv(s_inv, s);
   assert(isometry_is_isom(s_inv, full_Q, nbr_man->Q));
-#endif // DEBUG
-  
-#ifdef DEBUG_LEVEL_FULL
   square_matrix_print(Q);
 #endif // DEBUG_LEVEL_FULL
   
@@ -920,9 +924,9 @@ bool nbr_process_build_nb_and_isom(square_matrix_t Q, isometry_t s, const neighb
   square_matrix_print(Q);
 #endif // DEBUG_LEVEL_FULL
 
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
   assert(square_matrix_is_positive_definite(Q));
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
   
   return true;
 };

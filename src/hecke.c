@@ -17,71 +17,6 @@
 #define likely(x)   __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
 
-slong number_of_isotropic_subspaces(slong q, slong r, slong a, slong f, slong k, bool rad_cnt)
-{
-  fmpz_t q_z, prod1, prod;
-  slong i, num;
-
-  fmpz_init_set_si(q_z,q);
-  fmpz_init(prod1);
-  fmpz_init(prod);
-
-  fmpz_pow_ui(prod, q_z, k*f);
-  
-  for (i = 1; i <= k; i++) {
-    fmpz_pow_ui(prod1, q_z, r-i+1);
-    fmpz_sub_si(prod1, prod1, 1);
-    fmpz_mul(prod, prod, prod1);
-    fmpz_pow_ui(prod1, q_z, r+a-i);
-    fmpz_add_si(prod1, prod1, 1);
-    fmpz_mul(prod, prod, prod1);
-  }
-
-  for (i = 1; i <= k; i++) {
-    fmpz_pow_ui(prod1, q_z, i);
-    fmpz_sub_si(prod1, prod1, 1);
-    fmpz_divexact(prod, prod, prod1);
-  }
-
-  num = fmpz_get_si(prod);
-
-  if (rad_cnt) {
-    // in this case we also consider the isotropic subspaces in the radical
-    // these are all the k-dimensionl spaces inside the radical
-    fmpz_one(prod);
-    for (i = 1; i <= k; i++) {
-      fmpz_pow_ui(prod1, q_z, f-i+1);
-      fmpz_sub_si(prod1, prod1, 1);
-      fmpz_mul(prod, prod, prod1);
-    }
-    for (i = 1; i <= k; i++) {
-      fmpz_pow_ui(prod1, q_z, i);
-      fmpz_sub_si(prod1, prod1, 1);
-      fmpz_divexact(prod, prod, prod1);
-    }
-    num += fmpz_get_si(prod);
-  }
-  
-  fmpz_clear(q_z);
-  fmpz_clear(prod1);
-  fmpz_clear(prod);
-  
-  return num;
-}
-
-slong number_of_neighbors(const nbr_data_t nbr_man, bool rad_cnt)
-{
-  slong p, num;
-
-  p = fmpz_get_si(fq_nmod_ctx_prime(nbr_man->GF));
-  num = number_of_isotropic_subspaces(p, nbr_man->witt_index, nbr_man->aniso_dim,
-				      nbr_man->rad_dim, nbr_man->k, rad_cnt);
-  if (nbr_man->k == 2)
-    num *= p;
-
-  return num;
-}
-
 int process_isotropic_vector_nbr_data(nbr_data_t nbr_man, int* T, const genus_t genus,
 				      double* theta_time, double* isom_time, double* total_time, int* num_isom)
 {
@@ -102,14 +37,8 @@ int process_isotropic_vector_nbr_data(nbr_data_t nbr_man, int* T, const genus_t 
   i = hash_table_indexof(genus->genus_reps, nbr, 0, theta_time, isom_time, num_isom);
   (*total_time) += clock() - cputime;
 
-#ifdef DEBUG
-  if ((i < 0) || (i > genus->genus_reps->num_stored)) {
-    printf("Error! Couldn't find element in genus!\n");
-    exit(-1);
-  }
-#endif // DEBUG
+  assert( (i >= 0) && (i <= genus->dims[0]));
 
-  // TODO - add here the spinor norm
   T[i]++;
 
   fmpz_mat_clear(nbr_fmpz);
@@ -140,38 +69,47 @@ int process_isotropic_vector_nbr_data_all_conductors(nbr_data_t nbr_man, W64* sp
   nbr_data_build_neighbor(nbr_fmpz, nbr_isom, nbr_man);
   square_matrix_set_fmpz_mat(nbr, nbr_fmpz);
   isometry_init_set_fmpz_mat(s_nbr, nbr_isom, fmpz_get_si(fq_nmod_ctx_prime(nbr_man->GF)));
+  assert(gen_idx < genus->genus_reps->num_stored);
+#ifdef DEBUG_LEVEL_FULL
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx], nbr));
+#endif // DEBUG_LEVEL_FULL
   
   cputime = clock();
   i = hash_table_index_and_isom(genus->genus_reps, nbr, hash_isom, theta_time, isom_time, num_isom);
   (*total_time) += clock() - cputime;
 
-#ifdef DEBUG
-  if ((i < 0) || (i > genus->genus_reps->num_stored)) {
-    printf("Error! Couldn't find element in genus!\n");
-    exit(-1);
-  }
-#endif // DEBUG
+  assert( (0 <= i) && (i < genus->genus_reps->num_stored) );
 
   // TODO - compute only the upper half, and complete using hermitian property
   // Determine which subspaces this representative contributes.
 
+  assert(gen_idx < genus->genus_reps->num_stored);
+#ifdef DEBUG_LEVEL_FULL
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx], nbr));
   assert(isometry_is_isom(genus->isoms[gen_idx], genus->genus_reps->keys[0],
 			  genus->genus_reps->keys[gen_idx]));
+#endif // DEBUG_LEVEL_FULL
   isometry_muleq_left(s_nbr, genus->isoms[gen_idx]);
+#ifdef DEBUG_LEVEL_FULL
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[0], nbr));
   assert(isometry_is_isom(hash_isom, nbr, genus->genus_reps->keys[i]));
+#endif // DEBUG_LEVEL_FULL
   isometry_muleq_right(s_nbr, hash_isom);
+#ifdef DEBUG_LEVEL_FULL
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[0], genus->genus_reps->keys[i]));
   assert(isometry_is_isom(genus->isoms[i], genus->genus_reps->keys[0],
 			  genus->genus_reps->keys[i]));
+#endif // DEBUG_LEVEL_FULL
   isometry_inv(s_inv, genus->isoms[i]);
+#ifdef DEBUG_LEVEL_FULL
   assert(isometry_is_isom(s_inv, genus->genus_reps->keys[i],
 			  genus->genus_reps->keys[0]));
+#endif // DEBUG_LEVEL_FULL
   isometry_muleq_right(s_nbr, s_inv);
+#ifdef DEBUG_LEVEL_FULL
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[0],
 			  genus->genus_reps->keys[0]));
+#endif // DEBUG_LEVEL_FULL
   
   *spin_vals = ((i << (genus->spinor->num_primes)) | spinor_norm_isom(genus->spinor, s_nbr));
 
@@ -192,64 +130,170 @@ int process_isotropic_vector_all_conductors(neighbor_manager_t nbr_man, W64* spi
 					    double* theta_time, double* isom_time,
 					    double* total_time, int* num_isom, int gen_idx)
 {
-  int i;
+  int i, j;
   clock_t cputime;
   square_matrix_t nbr;
   isometry_t s_nbr, s_inv;
   isometry_t hash_isom;
   bool non_singular;
+  int vec_cmp;
+  slong orb_size, stab_size;
+  isometry_t* orbit_isom;
+  vector_t* orbit;
+  bool found;
+  W64 spinorm;
+  vector_t g_vec;
+#ifdef DEBUG_LEVEL_FULL
+  isometry_t* orbit_isom_orig;
+  square_matrix_t aut_tr;
 
-  assert(genus->genus_reps->num_stored > 0);
+  orbit_isom_orig = (isometry_t*)malloc(nbr_man->num_auts * sizeof(isometry_t));
+  isometry_init(orbit_isom_orig[0]);
+#endif // DEBUG_LEVEL_FULL
+
+  cputime = clock();
+  
+  assert(genus->genus_reps->num_stored > gen_idx);
+
+  orbit = (vector_t*)malloc(nbr_man->num_auts * sizeof(vector_t));
+  orbit_isom = (isometry_t*)malloc(nbr_man->num_auts * sizeof(isometry_t));
+  isometry_init(orbit_isom[0]);
+
+  // right now we grow the orbit. Could also compute on the fly and in the end divide by the stabilizer's size
+  // weird that it isn't already reduced?
+  vector_mod_p(nbr_man->iso_vec, nbr_man->p);
+  // this might be unnecessary, but we want to be on the safe side for now
+  normalize_mod_p(nbr_man->iso_vec, nbr_man->p);
+  vector_set(orbit[0], nbr_man->iso_vec);
+  // Applying the automorphism group to the isotropic vector
+  stab_size = 0;
+  orb_size = 1;
+  for (i = 0; i < nbr_man->num_auts; i++) {
+    square_matrix_mul_vec_left(g_vec, nbr_man->iso_vec, nbr_man->auts[i]);
+    vector_mod_p(g_vec, nbr_man->p);
+    normalize_mod_p(g_vec, nbr_man->p);
+    vec_cmp = vector_cmp(g_vec, nbr_man->iso_vec);
+    if (vec_cmp < 0) {
+      free(orbit);
+      free(orbit_isom);
+      return 0;
+    }
+    if (vec_cmp == 0)
+      stab_size++;
+    if (vec_cmp > 0) {
+      found = false;
+      for (j = 0; j < orb_size; j++)
+	if (vector_cmp(g_vec, orbit[j]) == 0) {
+	  found = true;
+	  break;
+	}
+      if (!found) {
+	vector_set(orbit[orb_size], g_vec);
+#ifdef DEBUG_LEVEL_FULL
+	square_matrix_transpose(aut_tr, nbr_man->auts[i]);
+	isometry_init_set_square_matrix(orbit_isom_orig[orb_size], aut_tr, 1);
+#endif // DEBUG_LEVEL_FULL
+	isometry_init_set(orbit_isom[orb_size], nbr_man->conj_auts[i]);
+	orb_size++;
+      }
+    }
+  }
+  assert(orb_size == nbr_man->num_auts / stab_size);
   
   non_singular = nbr_process_build_nb_and_isom(nbr, s_nbr, nbr_man);
 
-  if (!non_singular)
+  if (!non_singular) {
+    free(orbit);
+    free(orbit_isom);
     return 0;
-  
-  assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx], nbr));
-  
-  cputime = clock();
-  i = hash_table_index_and_isom(genus->genus_reps, nbr, hash_isom, theta_time, isom_time, num_isom);
-  (*total_time) += clock() - cputime;
-
-#ifdef DEBUG
-  if ((i < 0) || (i > genus->genus_reps->num_stored)) {
-    printf("Error! Couldn't find element in genus!\n");
-    exit(-1);
   }
-#endif // DEBUG
+
+#ifdef DEBUG_LEVEL_FULL
+  assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx], nbr));
+#endif // DEBUG_LEVEL_FULL
+  
+
+  i = hash_table_index_and_isom(genus->genus_reps, nbr, hash_isom, theta_time, isom_time, num_isom);
+
+  assert( (i >= 0) && (i <= genus->dims[0]) );
 
   // TODO - compute only the upper half, and complete using hermitian property
   // Determine which subspaces this representative contributes.
 
+  // TODO - reduce the number of actual computations required here
+
+#ifdef DEBUG_LEVEL_FULL
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx], nbr));
+  for (j = 0; j < orb_size; j++)
+    assert(isometry_is_isom(orbit_isom_orig[j], genus->genus_reps->keys[gen_idx], genus->genus_reps->keys[gen_idx]));
   assert(isometry_is_isom(genus->isoms[gen_idx], genus->genus_reps->keys[0],
 			  genus->genus_reps->keys[gen_idx]));
+#endif // DEBUG_LEVEL_FULL
+  
   isometry_muleq_left(s_nbr, genus->isoms[gen_idx]);
+  // now the automorphisms are already conjugated
+#ifdef DEBUG_LEVEL_FULL
+  for (j = 0; j < orb_size; j++)
+     isometry_muleq_left(orbit_isom_orig[j], genus->isoms[gen_idx]);
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[0], nbr));
+  for (j = 0; j < orb_size; j++)
+     assert(isometry_is_isom(orbit_isom_orig[j], genus->genus_reps->keys[0], genus->genus_reps->keys[gen_idx]));
+  isometry_inv(s_inv, genus->isoms[gen_idx]);
+  for (j = 0; j < orb_size; j++)
+     isometry_muleq_right(orbit_isom_orig[j], s_inv);
+  for (j = 0; j < orb_size; j++)
+    assert(isometry_is_isom(orbit_isom_orig[j], genus->genus_reps->keys[0],
+			    genus->genus_reps->keys[0]));
+  
   assert(isometry_is_isom(hash_isom, nbr, genus->genus_reps->keys[i]));
+  for (j = 0; j < orb_size; j++)
+    assert(isometry_is_equal(orbit_isom_orig[j], orbit_isom[j]));
+#endif // DEBUG_LEVEL_FULL
+  
   isometry_muleq_right(s_nbr, hash_isom);
+
+#ifdef DEBUG_LEVEL_FULL
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[0], genus->genus_reps->keys[i]));
   assert(isometry_is_isom(genus->isoms[i], genus->genus_reps->keys[0],
 			  genus->genus_reps->keys[i]));
+#endif // DEBUG_LEVEL_FULL
+  
   isometry_inv(s_inv, genus->isoms[i]);
+
+#ifdef DEBUG_LEVEL_FULL
   assert(isometry_is_isom(s_inv, genus->genus_reps->keys[i],
 			  genus->genus_reps->keys[0]));
+#endif // DEBUG_LEVEL_FULL
+  
   isometry_muleq_right(s_nbr, s_inv);
+
+#ifdef DEBUG_LEVEL_FULL
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[0],
 			  genus->genus_reps->keys[0]));
+#endif // DEBUG_LEVEL_FULL
   
-  *spin_vals = ((i << (genus->spinor->num_primes)) | spinor_norm_isom(genus->spinor, s_nbr));
+  spinorm = spinor_norm_isom(genus->spinor, s_nbr);
+  for (j = 0; j < orb_size; j++) {
+    *(spin_vals+j) = ((i << (genus->spinor->num_primes)) | (spinorm ^ spinor_norm_isom(genus->spinor, orbit_isom[j])) );
+  }
 
   isometry_clear(s_nbr);
   isometry_clear(s_inv);
   isometry_clear(hash_isom);
 
   square_matrix_clear(nbr);
+
+  free(orbit);
+  free(orbit_isom);
+#ifdef DEBUG_LEVEL_FULL
+  free(orbit_isom_orig);
+#endif // DEBUG_LEVEL_FULL
+
+  (*total_time) += clock() - cputime;
   
-  return 1;
+  return orb_size;
 }
-  
+
 int process_isotropic_vector(neighbor_manager_t nbr_man, int* T, const genus_t genus,
 			     double* theta_time, double* isom_time, double* total_time, int* num_isom)
 
@@ -259,7 +303,28 @@ int process_isotropic_vector(neighbor_manager_t nbr_man, int* T, const genus_t g
   clock_t cputime;
   square_matrix_t nbr;
   bool non_singular;
+  vector_t g_vec;
+  int vec_cmp;
+  slong orbit_size, stab_size;
 
+  // weird that it isn't already reduced?
+  vector_mod_p(nbr_man->iso_vec, nbr_man->p);
+  // this might be unnecessary, but we want to be on the safe side for now
+  normalize_mod_p(nbr_man->iso_vec, nbr_man->p);
+  // Applying the automorphism group to the isotropic vector
+  stab_size = 0;
+  for (i = 0; i < nbr_man->num_auts; i++) {
+    square_matrix_mul_vec_left(g_vec, nbr_man->iso_vec, nbr_man->auts[i]);
+    vector_mod_p(g_vec, nbr_man->p);
+    normalize_mod_p(g_vec, nbr_man->p);
+    vec_cmp = vector_cmp(g_vec, nbr_man->iso_vec);
+    if (vec_cmp < 0)
+      return 0;
+    if (vec_cmp == 0)
+      stab_size++;
+  }
+  orbit_size = nbr_man->num_auts / stab_size;
+  
   non_singular = nbr_process_build_nb(nbr, nbr_man);
   if (!non_singular)
     return 0;
@@ -268,14 +333,9 @@ int process_isotropic_vector(neighbor_manager_t nbr_man, int* T, const genus_t g
   i = hash_table_indexof(genus->genus_reps, nbr, 0, theta_time, isom_time, num_isom);
   (*total_time) += clock() - cputime;
 
-#ifdef DEBUG
-  if ((i < 0) || (i > genus->genus_reps->num_stored)) {
-    printf("Error! Couldn't find element in genus!\n");
-    exit(-1);
-  }
-#endif // DEBUG
+  assert((i >= 0) && (i <= genus->dims[0]));
 
-  T[i]++;
+  T[i] += orbit_size;
   
   return 1;
 }
@@ -292,6 +352,7 @@ int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const genus_t gen
   
   lc = 0;
 
+  assert(gen_idx < genus->genus_reps->num_stored);
   square_matrix_set(Q,genus->genus_reps->keys[gen_idx]);
 
 #ifdef DEBUG_LEVEL_FULL
@@ -299,7 +360,7 @@ int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const genus_t gen
   square_matrix_print(Q);
 #endif // DEBUG_LEVEL_FULL
 
-  nbr_process_init(nbr_man, Q, p, i);
+  nbr_process_init(nbr_man, Q, p, i, genus->isoms[gen_idx]);
 
   while (!(nbr_process_has_ended(nbr_man))) {
     lc += process_isotropic_vector(nbr_man, T, genus, theta_time, isom_time, total_time, num_isom);
@@ -324,6 +385,7 @@ slong hecke_col_nbr_data_all_conductors(W64* spin_vals, int p, int k, int gen_id
 
   lc = 0;
   
+  assert(gen_idx < genus->genus_reps->num_stored);
   square_matrix_set(Q,genus->genus_reps->keys[gen_idx]);
 
 #ifdef DEBUG_LEVEL_FULL
@@ -365,7 +427,8 @@ slong hecke_col_all_conductors(W64* spin_vals, int p, int gen_idx, const genus_t
   theta_time = isom_time = total_time = 0;
 
   lc = 0;
-  
+
+  assert(gen_idx < genus->genus_reps->num_stored);
   square_matrix_set(Q,genus->genus_reps->keys[gen_idx]);
 
 #ifdef DEBUG_LEVEL_FULL
@@ -374,7 +437,7 @@ slong hecke_col_all_conductors(W64* spin_vals, int p, int gen_idx, const genus_t
 #endif // DEBUG_LEVEL_FULL
 
   for (i = 0; i < p; i++) {
-    nbr_process_init(nbr_man, Q, p, i);
+    nbr_process_init(nbr_man, Q, p, i, genus->isoms[gen_idx]);
 
     while (!(nbr_process_has_ended(nbr_man))) {
       lc += process_isotropic_vector_all_conductors(nbr_man, &(spin_vals[lc]), genus,
@@ -402,6 +465,7 @@ int process_neighbour_chunk_nbr_data(int* T, int p, int k, int gen_idx, const ge
 
   lc = 0;
 
+  assert(gen_idx < genus->genus_reps->num_stored);
   square_matrix_set(Q,genus->genus_reps->keys[gen_idx]);
 
 #ifdef DEBUG_LEVEL_FULL
@@ -444,12 +508,20 @@ void hecke_col_nbr_data(int* T, int p, int k, int gen_idx, const genus_t genus)
 
 void hecke_col(int* T, int p, int gen_idx, const genus_t genus)
 {
+  slong i;
   int num;
   int num_isom, lc;
   double theta_time, isom_time, total_time;
   num_isom = lc = 0;
   theta_time = isom_time = total_time = 0;
 
+  if (genus->dims[0] == 0)
+    return;
+  
+  for (i = 0; i < genus->dims[0]; i++) {
+    T[i] = 0;
+  }
+  
   for (num = 0; num < p; num++) {
     lc += process_neighbour_chunk(T, p, num, gen_idx, genus, &theta_time, &isom_time, &total_time, &num_isom);
   }
@@ -503,15 +575,24 @@ int** hecke_col_all_conds_sparse(int p, int col_idx, const genus_t genus)
   int* row;
   slong spin_idx;
   W64 r;
+  bool only_trivial;
 
   hecke = (int**)malloc(genus->num_conductors * sizeof(int*));
-  
+
+  only_trivial = genus_is_trivial_cond(genus);
+
   for (c = 0; c < genus->num_conductors; c++) {
     hecke[c] = (int*)malloc(genus->dims[c] * sizeof(int));
     for (i = 0; i < genus->dims[c]; i++)
       hecke[c][i] = 0;
   }
 
+  if (only_trivial) {
+    hecke_col(hecke[0], p, col_idx, genus);
+    return hecke;
+  }
+
+  assert(genus->genus_reps->num_stored > 0);
   nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, 1);
   // in neighbor_manager we also go over the radical
   // Maybe fixed that
@@ -564,6 +645,7 @@ matrix_TYP** hecke_matrices_nbr_data_all_conductors(const genus_t genus, int p, 
   }
 
   // just computing the number of neighbors, to collect all the spin values at once
+  assert(genus->genus_reps->num_stored > 0);
   nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, k);
   // nbr_data only goes over the isotropic vectors that are not in the radical
   num_nbrs = number_of_neighbors(nbr_man, false);
@@ -611,27 +693,39 @@ matrix_TYP** hecke_matrices_all_conductors(const genus_t genus, int p)
   W64* spin_vals;
   W64 r;
   int* hecke_ptr;
+  bool only_trivial;
 
   hecke = (matrix_TYP**)malloc(genus->num_conductors * sizeof(matrix_TYP*));
-  hecke_ptr = (int*)malloc(genus->num_conductors * sizeof(int));
 
-  for (c = 0; c < genus -> num_conductors; c++) {
-    // hecke_ptr[c] = (slong*)malloc(genus->dims[c] * genus->dims[c] * sizeof(slong));
+  only_trivial = genus_is_trivial_cond(genus);
+
+  if (only_trivial)
+    hecke[0] = hecke_matrix(genus, p);
+  else
+    hecke[0] = init_mat(genus->dims[0], genus->dims[0], "");
+
+  for (c = 1; c < genus -> num_conductors; c++)
     hecke[c] = init_mat(genus->dims[c], genus->dims[c], "");
+
+  if (only_trivial)
+    return hecke;
+
+  hecke_ptr = (int*)malloc(genus->num_conductors * sizeof(int));
+  
+  for (c = 0; c < genus -> num_conductors; c++)
     hecke_ptr[c] = 0;
-  }
 
   // just computing the number of neighbors, to collect all the spin values at once
   if (genus->dims[0] == 0)
     num_nbrs = 0;
   else {
+    assert(genus->genus_reps->num_stored > 0);
     nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, 1);
     num_nbrs = number_of_neighbors(nbr_man, false);
     nbr_data_clear(nbr_man);
   }
   
   spin_vals = (W64*)malloc(num_nbrs*sizeof(W64));
-  
   
   for (gen_idx = 0; gen_idx < genus->genus_reps->num_stored; gen_idx++) {
 #ifdef DEBUG
@@ -689,12 +783,7 @@ void get_hecke_ev_nbr_data(nf_elem_t e, const genus_t genus, const eigenvalues_t
   for (num = 0; num < evs->dim; num++)
     a[num] = 0;
 
-  for (pivot = 0; pivot < evs->dim;) {
-    if (!(nf_elem_is_zero(evs->eigenvecs[ev_idx][pivot], evs->nfs[ev_idx]))) {
-      break;
-    }
-    pivot++;
-  }
+  pivot = ev_get_pivot(evs->eigenvecs[ev_idx], evs->nfs[ev_idx], genus, 0);
 #ifdef DEBUG
   clock_t cpuclock;
   double cputime;
@@ -783,12 +872,7 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
   nf_elem_init(e, evs->nfs[ev_idx]);
   nf_elem_init(prod, evs->nfs[ev_idx]);
 
-  for (pivot = 0; pivot < evs->dim;) {
-    if (!(nf_elem_is_zero(evs->eigenvecs[ev_idx][pivot], evs->nfs[ev_idx]))) {
-      break;
-    }
-    pivot++;
-  }
+  pivot = ev_get_pivot(evs->eigenvecs[ev_idx], evs->nfs[ev_idx], genus, ev_cond);
 
   for (gen_idx = 0; gen_idx < genus->dims[0];) {
     if (pivot == genus->lut_positions[ev_cond][gen_idx])
@@ -804,6 +888,7 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
       hecke[c][i] = 0;
   }
 
+  assert(genus->genus_reps->num_stored > 0);
   nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, k);
   num_nbrs = number_of_neighbors(nbr_man, false);
   nbr_data_clear(nbr_man);
@@ -914,12 +999,7 @@ void get_hecke_ev_all_conductors(nf_elem_t e, const genus_t genus,
   nf_elem_init(e, evs->nfs[ev_idx]);
   nf_elem_init(prod, evs->nfs[ev_idx]);
 
-  for (pivot = 0; pivot < evs->dim;) {
-    if (!(nf_elem_is_zero(evs->eigenvecs[ev_idx][pivot], evs->nfs[ev_idx]))) {
-      break;
-    }
-    pivot++;
-  }
+  pivot = ev_get_pivot(evs->eigenvecs[ev_idx], evs->nfs[ev_idx], genus, ev_cond);
 
   for (gen_idx = 0; gen_idx < genus->dims[0];) {
     if (pivot == genus->lut_positions[ev_cond][gen_idx])
@@ -935,6 +1015,7 @@ void get_hecke_ev_all_conductors(nf_elem_t e, const genus_t genus,
       hecke[c][i] = 0;
   }
 
+  assert(genus->genus_reps->num_stored > 0);
   nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, 1);
   num_nbrs = number_of_neighbors(nbr_man, false);
   nbr_data_clear(nbr_man);
@@ -1014,7 +1095,6 @@ void get_hecke_ev_all_conductors(nf_elem_t e, const genus_t genus,
   return;
 }
 
-
 void get_hecke_ev(nf_elem_t e, const genus_t genus, const eigenvalues_t evs, int p, int ev_idx)
 {
   nf_elem_t e_new;
@@ -1030,12 +1110,7 @@ void get_hecke_ev(nf_elem_t e, const genus_t genus, const eigenvalues_t evs, int
   for (num = 0; num < genus->genus_reps->num_stored; num++)
     a[num] = 0;
 
-  for (pivot = 0; pivot < evs->dim;) {
-    if (!(nf_elem_is_zero(evs->eigenvecs[ev_idx][pivot], evs->nfs[ev_idx]))) {
-      break;
-    }
-    pivot++;
-  }
+  pivot = ev_get_pivot(evs->eigenvecs[ev_idx], evs->nfs[ev_idx], genus, 0);
 #ifdef DEBUG
   clock_t cpuclock;
   double cputime;
@@ -1136,9 +1211,17 @@ void hecke_eigenforms(eigenvalues_t evs, const decomposition_t D, const genus_t 
       ev_init = get_eigenvector_on_subspace(evs->eigenvecs[i], evs->nfs[i],
 					    D->hecke[p_idx][c], D->bases[c][i]);
       p_idx++;
-    } while (!ev_init);
-    nf_elem_init(evs->eigenvals[i], evs->nfs[i]);
-    nf_elem_gen(evs->eigenvals[i], evs->nfs[i]);
+    } while ((!ev_init) && (p_idx < D->num_primes));
+    if (ev_init) {
+      nf_elem_init(evs->eigenvals[i], evs->nfs[i]);
+      nf_elem_gen(evs->eigenvals[i], evs->nfs[i]);
+      evs->lift_type[i] = G; // default
+    }
+    else {
+      nf_elem_init(evs->eigenvals[i], evs->nfs[i]);
+      nf_elem_gen(evs->eigenvals[i], evs->nfs[i]);
+      evs->lift_type[i] = O; // it's an old form
+    }
   }
   
   return;
@@ -1155,11 +1238,11 @@ eigenvalues_t* hecke_eigenforms_all_conductors(const genus_t genus)
   all_evs = (eigenvalues_t*)malloc(genus->num_conductors * sizeof(eigenvalues_t));
   for (c = 0; c < genus->num_conductors; c++) {
 #ifdef DEBUG
-    printf("decomposing conductor %ld\n", genus->conductors[c]);
+    fprintf(stderr, "decomposing conductor %ld\n", genus->conductors[c]);
 #endif // DEBUG
     decompose(D, genus, c);
 #ifdef DEBUG
-    printf("computing eigenvectors\n");
+    fprintf(stderr, "computing eigenvectors\n");
 #endif // DEBUG
     hecke_eigenforms(all_evs[c], D, genus, c);
   }

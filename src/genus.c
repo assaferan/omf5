@@ -57,17 +57,6 @@ void disc_init_set(fmpz_t disc, const square_matrix_t q)
   return;
 }
 
-void spinor_init_set(spinor_t spinor, const square_matrix_t q)
-{
-  fmpz_mat_t q_fmpz;
-
-  fmpz_mat_init_set_square_matrix(q_fmpz, q);
-  spinor_init(spinor, q_fmpz);
-  fmpz_mat_clear(q_fmpz);
-  
-  return;
-}
-
 size_t genus_size_estimate(const fmpq_t mass)
 {
   fmpz_t genus_size_fmpz;
@@ -99,7 +88,10 @@ void conductors_init(genus_t genus)
       ++bits;
       mask = 1LL << bits;
     }
-    value = fmpz_get_si(fq_nmod_ctx_prime(genus->spinor->fields[bits])) * genus->conductors[c ^ mask];
+    value = genus->spinor->primes[bits].n;
+    if (value == 4)
+      value = 2;
+    value *= genus->conductors[c ^ mask];
     genus->conductors[c] = value;
   }  
 
@@ -121,18 +113,20 @@ slong ignore_set(bool* ignore, const genus_t genus, slong genus_idx)
     ignore[c] = false;
 
   for (gen_idx = 0; gen_idx < aut_grp->num_gens; gen_idx++) {
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
     isometry_init_set_square_matrix(s, aut_grp->gens[gen_idx], 1);
     assert(isometry_is_isom(s, genus->genus_reps->keys[genus_idx], genus->genus_reps->keys[genus_idx]));
     isometry_clear(s);
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
 
     isometry_init(s);
     isometry_inv(s, genus->isoms[genus_idx]);
     isometry_mul_mateq_left(s, aut_grp->gens[gen_idx], 1);
     isometry_muleq_left(s, genus->isoms[genus_idx]);
-    
+
+#ifdef DEBUG_LEVEL_FULL
     assert(isometry_is_isom(s, genus->genus_reps->keys[0], genus->genus_reps->keys[0]));
+#endif // DEBUG_LEVEL_FULL
 	
     vals = spinor_norm_isom(genus->spinor, s);
     // !! TODO - we can break the loop after we find one, right?
@@ -233,7 +227,7 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t q, int h)
   printf("\n");
 #endif // DEBUG_LEVEL_FULL
 
-  spinor_init_set(genus->spinor, q);
+  spinor_init_square_matrix(genus->spinor, q);
 
   genus_size = genus_size_estimate(mass);
   
@@ -296,7 +290,7 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t q, int h)
       /* sets, by index as Gonzalo did */
       
       while ((i < p) && (!genus_full)) {
-	nbr_process_init(nbr_man, slow_genus->keys[current], p, i);
+	nbr_process_init(nbr_man, slow_genus->keys[current], p, i, genus->isoms[current]);
 	while ((!(nbr_process_has_ended(nbr_man))) && (!genus_full)) {
 	  nbr_process_build_nb_and_isom(nbr, s, nbr_man);
 #else
@@ -338,14 +332,14 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t q, int h)
 #ifdef NBR_DATA
 	    isometry_init_set_fmpz_mat(s, nbr_isom, p); 
 #endif // NBR_DATA
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
 	    assert(isometry_is_isom(s, slow_genus->keys[current], nbr));
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
 	    
 	    greedy(nbr, s, QF_RANK);
-#ifdef DEBUG
+#ifdef DEBUG_LEVEL_FULL
 	    assert(isometry_is_isom(s, slow_genus->keys[current], nbr));
-#endif // DEBUG
+#endif // DEBUG_LEVEL_FULL
 
 	    // rellocating to have enough room
 	    if (slow_genus->num_stored == slow_genus->capacity)
@@ -358,8 +352,10 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t q, int h)
 	    // these isometries so that they are rational isometries between the
 	    // "mother" quadratic form and the genus rep.
 	    isometry_mul(genus->isoms[slow_genus->num_stored-1], genus->isoms[current], s);
-	    
+
+#ifdef DEBUG_LEVEL_FULL
 	    assert(isometry_is_isom(genus->isoms[slow_genus->num_stored-1], q, nbr));
+#endif // DEBUG_LEVEL_FULL
 	    
 	    isometry_clear(s);
 	    
@@ -468,17 +464,23 @@ bool square_matrix_is_Q_isometric(isometry_t isom, const square_matrix_t A, cons
   p = 2;
   i = 0;
   while (!found) {
-    nbr_process_init(nbr_man, A, p, i);
+    nbr_process_init(nbr_man, A, p, i, isom_A);
     while (!nbr_process_has_ended(nbr_man)) {
       nbr_process_build_nb_and_isom(nbr, isom_A, nbr_man);
       found = is_isometric(isom_B, B, nbr);
+#ifdef DEBUG_LEVEL_FULL
       assert(isometry_is_isom(isom_A, A, nbr));
+#endif // DEBUG_LEVEL_FULL
       if (found) {
 	isometry_inv(isom_B_inv, isom_B);
+#ifdef DEBUG_LEVEL_FULL
 	assert(isometry_is_isom(isom_B, B, nbr));
 	assert(isometry_is_isom(isom_B_inv, nbr, B));
+#endif // DEBUG_LEVEL_FULL
 	isometry_mul(isom, isom_A, isom_B_inv);
+#ifdef DEBUG_LEVEL_FULL
 	assert(isometry_is_isom(isom, A, B));
+#endif // DEBUG_LEVEL_FULL
 	break;
       }
       nbr_process_advance(nbr_man);
@@ -519,11 +521,15 @@ void square_matrix_find_isometries(isometry_t* isoms, const square_matrix_t A, c
 
   for (i = 0; i < genus->dims[0]; i++) {
     rep_idx = hash_table_index_and_isom(genus->genus_reps, B[i], isom_B, &theta_time, &isom_time, &num_isom);
+#ifdef DEBUG_LEVEL_FULL
     assert(isometry_is_isom(isom_B, B[i], genus->genus_reps->keys[rep_idx]));
     assert(isometry_is_isom(genus->isoms[rep_idx], A, genus->genus_reps->keys[rep_idx]));
+#endif // DEBUG_LEVEL_FULL
     isometry_inv(isom_B_inv, isom_B);
     isometry_mul(isoms[i], genus->isoms[rep_idx], isom_B_inv);
+#ifdef DEBUG_LEVEL_FULL
     assert(isometry_is_isom(isoms[i], A, B[i]));
+#endif // DEBUG_LEVEL_FULL
   }
   
   isometry_clear(isom_B);
@@ -566,7 +572,7 @@ void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps
 
   hash_table_init(slow_genus, genus_size);
 
-  spinor_init_set(genus->spinor, reps[0]);
+  spinor_init_square_matrix(genus->spinor, reps[0]);
   
   for (i = 0; i < h; i++) {
 #ifdef DEBUG
@@ -611,48 +617,99 @@ void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps
   return;
 }
 
-void genus_init_file(genus_t genus, const char* genus_fname, size_t disc)
+void genus_init_set_square_matrix_vec_and_isoms(genus_t genus, const square_matrix_t* reps,
+						const isometry_t* isoms, size_t h)
+{
+  size_t genus_size;
+  hash_table_t slow_genus;
+  
+  size_t i;
+
+  assert(h > 0);
+  disc_init_set(genus->disc, reps[0]);
+
+  genus_size = (4 * h) / 3; // load factor
+
+  hash_table_init(slow_genus, genus_size);
+
+  spinor_init_square_matrix(genus->spinor, reps[0]);
+  
+  for (i = 0; i < h; i++)
+    hash_table_add(slow_genus, reps[i]);
+
+  hash_table_recalibrate(genus->genus_reps, slow_genus);
+
+  hash_table_clear(slow_genus);
+
+  // constructing isometries between the forms
+  genus->isoms = (isometry_t*)malloc(h * sizeof(isometry_t));
+  for (i = 0; i < h; i++) {
+    isometry_init_set(genus->isoms[i], isoms[i]);
+#ifdef DEBUG_LEVEL_FULL
+    assert(isometry_is_isom(genus->isoms[i], genus->genus_reps->keys[0], genus->genus_reps->keys[i]));
+#endif // DEBUG_LEVEL_FULL
+  }
+  
+  // initializing the conductors
+  
+  conductors_init(genus);
+
+  assert(genus->genus_reps->num_stored > 0);
+
+  dimensions_init(genus);
+      
+  return;
+}
+
+
+void genus_init_file(genus_t genus, const char* genus_fname, size_t disc, bool with_isom)
 {
   square_matrix_t* genus_reps = NULL;
+  isometry_t* isoms = NULL;
   size_t genus_size;
+
+  if (with_isom)
+    genus_size = read_genus_and_isom(&genus_reps, &isoms, genus_fname, disc);
+  else
+    genus_size = read_genus(&genus_reps, genus_fname, disc);
   
-  genus_size = read_genus(&genus_reps, genus_fname, disc);
-  if (genus_size > 0)
+  if ((genus_size > 0) && (with_isom))
+    genus_init_set_square_matrix_vec_and_isoms(genus, genus_reps, isoms, genus_size);
+  else if (genus_size > 0)
     genus_init_set_square_matrix_vec(genus, genus_reps, genus_size);
   else
     genus_init_empty(genus, disc);
   
   free(genus_reps);
+  free(isoms);
   return;
 }
 
 void genus_init_empty(genus_t genus, size_t disc)
 {
-  fmpz_factor_t bad_primes;
-  slong prime_idx;
-    
   fmpz_init_set_ui(genus->disc,disc);
 
   hash_table_init(genus->genus_reps, 0);
 
-  // !! TODO - make a separate function in spinor for this one
-  fmpz_factor_init(bad_primes);
-  fmpz_factor(bad_primes, genus->disc);
-
-  fmpz_mat_init(genus->spinor->Q,0,0);
-  genus->spinor->num_primes = bad_primes->num;
-  genus->spinor->twist = (1LL << (bad_primes->num)) - 1;
-  genus->spinor->rads = (fq_nmod_mat_t*)malloc((bad_primes->num) * sizeof(fq_nmod_mat_t));
-  genus->spinor->fields = (fq_nmod_ctx_t*)malloc((bad_primes->num) * sizeof(fq_nmod_ctx_t));
-
-  for (prime_idx = 0; prime_idx < bad_primes->num; prime_idx++) {
-    fq_nmod_ctx_init(genus->spinor->fields[prime_idx], &(bad_primes->p[prime_idx]), 1, "1");
-    fq_nmod_mat_init(genus->spinor->rads[prime_idx], 0, 0, genus->spinor->fields[prime_idx]);
-  }
+  spinor_init_fmpz(genus->spinor, genus->disc);
 
   conductors_init(genus);
 
   dimensions_init(genus);
   
   return;
+}
+
+bool genus_is_trivial_cond(const genus_t genus)
+{
+  bool only_trivial;
+  slong c;
+  
+  only_trivial = true;
+  for (c = 1; c < genus->num_conductors; c++) {
+    if ((c > 0) && (genus->dims[c] > 0))
+      only_trivial = false;
+  }
+
+  return only_trivial;
 }
