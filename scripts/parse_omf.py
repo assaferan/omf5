@@ -2,12 +2,79 @@ import pickle
 from sage.all import (PolynomialRing, QQ, NumberField, prime_range, prime_divisors, divisors, is_square, ZZ)
 from sage.misc.persist import SagePickler
 
-def parse_omf5(k,j,N,folder,suffix="_nl_200_",hecke_ring=True,B=200,max_deg=20):
+def integer_squarefree_part(n):
+    """ returns the squarefree part of the integer n (uses factor rather than calling pari like sage 9.3+ does) """
+    return sign(n)*prod([p**(e%2) for p, e in ZZ(n).factor()])
+
+def get_nf_basis(ev):
+    R = PolynomialRing(QQ, 'x')
+    K = NumberField(R(ev['field_poly']), 'nu')
+    nu = K.gen(0)
+    dim = K.degree()
+
+    if ev['field_poly'] == [1,0,1]:
+        basis = inv_basis = [1, nu]
+        return basis, inv_basis
+
+    # Checking for the two other cyclotomic polynomials of degree 2
+    if ev['hecke_ring_power_basis'] and ev['field_poly'] in [[1,-1,1],[1,1,1]]:
+        basis = inv_basis = [1, nu]
+        return basis, inv_basis
+    
+    if dim == 2:
+        c, b, a = map(ZZ, ev['field_poly'])
+        D = b**2 - 4*a*c
+        d = integer_squarefree_part(D)
+        s = (D//d).isqrt()
+        if ev['hecke_ring_power_basis']:
+            k, l = ZZ(0), ZZ(1)
+        else:
+            k, l = map(ZZ, ev['hecke_ring_numerators'][1])
+            k = k / ev['hecke_ring_denominators'][1]
+            l = l / ev['hecke_ring_denominators'][1]
+        beta = vector((k - (b*l)/(2*a), ((s*l)/(2*a)).abs()))
+        den = lcm(beta[0].denom(), beta[1].denom())
+        beta *= den
+        sqrt = K(d).sqrt()
+        num = beta[0] + beta[1]*sqrt
+        frac = num / den
+        basis = inv_basis = [1, frac]
+        return basis, inv_basis
+    
+    if ev['hecke_ring_power_basis']:
+        basis = inv_basis = [nu**i for i in range(dim)]
+        return basis, inv_basis
+    
+    coeff_data = zip(ev['hecke_ring_numerators'], ev['hecke_ring_denominators'])
+    basis = [sum([nums[i] * nu**i for i in range(len(nums))])/den for (nums, den) in coeff_data]
+
+    inv_coeff_data = zip(ev['hecke_ring_inverse_numerators'], ev['hecke_ring_inverse_denominators'])
+    inv_basis = [sum([nums[i] * nu**i for i in range(len(nums))])/den for (nums, den) in inv_coeff_data]
+    
+    return basis, inv_basis
+
+def nf_lists_to_elements(coeffs, basis):
+    d = len(basis)
+    return [sum([coeff[i]*basis[i] for i in range(d)]) if type(coeff) != str else coeff for coeff in coeffs]
+
+def nf_elts_to_lists(elts, inv_basis):
+    d = len(inv_basis)
+    def to_list(elt):
+        if type(elt) == int:
+            return [elt] + [0 for i in range(d-1)]
+        elif type(elt) == str:
+            return elt
+        return list(elt)
+    return [ list(sum([to_list(elt)[i]*inv_basis[i] for i in range(d)])) if type(elt) != str else elt for elt in elts]
+
+def parse_omf5(k,j,N,folder,suffix="_nl_200_",hecke_ring=True,B=200,max_deg=13):
     fname = folder + "hecke_ev_%d_%d%s%d.dat" %(k,j,suffix,N)
     Qx = PolynomialRing(QQ, name="x")
     x = Qx.gens()[0]
+
     fl = open(fname)
     al_signs = eval(fl.read())
+    fl.close()
     ret = []
     bad_ps = [p for p in prime_range(B) if N % p == 0]
     ps = prime_range(B)
@@ -36,7 +103,7 @@ def parse_omf5(k,j,N,folder,suffix="_nl_200_",hecke_ring=True,B=200,max_deg=20):
             f['field_poly'] = coeffs
             f['atkin_lehner_eigenvals'] = [[p, -1 if al_sign % p == 0 else 1] for p in prime_divisors(N)]
             f['atkin_lehner_string'] = ''.join(['-' if al_sign % p == 0 else '+' for p in prime_divisors(N)])
-            if (hecke_ring) and (f['aut_rep_type'] != 'O'):
+            if (hecke_ring) and (f['aut_rep_type'] != 'O') and (F.degree() <= max_deg): # for old forms currently we may get non-integral stuff
                 # !!! This can be very slow
                 # hecke_ring = F.order(orbit['lambda_p'])
                 index = 0
@@ -64,14 +131,32 @@ def parse_omf5(k,j,N,folder,suffix="_nl_200_",hecke_ring=True,B=200,max_deg=20):
                     f['hecke_ring'] = H
                     f['hecke_ring_index'] = index
                     f['hecke_ring_generator_nbound'] = nbound
-                    
-            if (F.degree() > max_deg):
+                else:
+                    f['hecke_ring'] = F.ring_of_integers()
+                    f['hecke_ring_index'] = 1
+                    f['hecke_ring_generator_nbound'] = 0
+
+                basis = f['hecke_ring'].basis()
+                _ = f.pop('hecke_ring')
+                f['hecke_ring_power_basis'] = False
+                mat = Matrix([list(b) for b in basis])
+                f['hecke_ring_denominators'] = [row.denominator() for row in mat]
+                f['hecke_ring_numerators'] = [list(row.denominator()*row) for row in mat]  
+                f['hecke_ring_inverse_denominators'] = [row.denominator() for row in mat**(-1)]
+                f['hecke_ring_inverse_numerators'] = [list(row.denominator()*row) for row in mat**(-1)]   
+                inv_coeff_data = zip(f['hecke_ring_inverse_numerators'], f['hecke_ring_inverse_denominators'])
+                inv_basis = [sum([nums[i] * a**i for i in range(len(nums))])/den for (nums, den) in inv_coeff_data]
+                f['lambda_p'] = nf_elts_to_lists(f['lambda_p'], inv_basis)
+                f['lambda_p_square'] = nf_elts_to_lists(f['lambda_p_square'], inv_basis)
+            else:
                 f['trace_lambda_p'] = ['NULL' if f['lambda_p'][i] == 'NULL' else f['lambda_p'][i].trace() for i in range(len(f['lambda_p']))]
                 f['trace_lambda_p_square'] = ['NULL' if f['lambda_p_square'][i] == 'NULL' else f['lambda_p_square'][i].trace() for i in range(len(f['lambda_p_square']))]
                 f['lambda_p'] = []
                 f['lambda_p_square'] = []
                         
             ret.append(f)
+    fl = open(fname, "w")
+    fl.write(str(ret))
     fl.close()
     return ret
 
@@ -436,4 +521,31 @@ def update_ev_data_class(ev_data, B, db, start = 0):
                 f['aut_rep_type'] = aut_tp
                 if aut_tp in ['Y', 'P']:
                     f['related_objects'] = friends
+    return
+
+def unite(k,j,N, folder_orig, folder_new, suffix = "_"):
+    orig_fname = folder_orig + "hecke_ev_%d_%d%s%d.dat" %(k,j,suffix,N)
+    new_fname = folder_new + "hecke_ev_%d_%d%s%d.dat" %(k,j,suffix,N)
+    orig_file = open(orig_fname)
+    new_file = open(new_fname)
+    orig_forms = eval(orig_file.read())
+    new_forms = eval(new_file.read())
+    orig_file.close()
+    new_file.close()
+    assert len(orig_forms) == len(new_forms)
+    for i in range(len(orig_forms)):
+        orig_f = orig_forms[i]
+        new_f = new_forms[i]
+        assert orig_f['field_poly'] == new_f['field_poly']
+        new_f['aut_rep_type'] = orig_f['aut_rep_type']
+        if ('lambda_p' in new_f) and (len(new_f['lambda_p']) > 0):
+            basis, inv_basis = get_nf_basis(new_f)
+            lambdas = nf_lists_to_elements(new_f['lambda_p'], basis)
+            lambdas2 = nf_lists_to_elements(new_f['lambda_p_square'], basis)
+            if 'trace_lambda_p' not in new_f:
+                new_f['trace_lambda_p'] =  ['NULL' if lam == 'NULL' else lam.trace() for lam in lambdas]
+                new_f['trace_lambda_p_square'] =  ['NULL' if lam == 'NULL' else lam.trace() for lam in lambdas2]
+    new_file = open(new_fname, "w")
+    new_file.write(str(new_forms))
+    new_file.close()
     return
