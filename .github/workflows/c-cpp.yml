@@ -57,6 +57,7 @@ jobs:
     - name: Install flint
       run: |
         cd flint2
+        ./bootstrap.sh
         ./configure
         make
         make install
