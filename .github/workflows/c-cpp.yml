@@ -9,7 +9,32 @@ on:
 jobs:
   build:
 
-    runs-on: macos-10.15
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+
+      matrix:
+          # switch to latest
+        os: [ ubuntu-20.04, macos-10.15 ]
+        include:
+          - cc_cmd: clang
+            os: macos-10.15
+          - cc_cmd: gcc
+            os: ubuntu-20.04
+          - pkg_man: brew
+            os: macos-10.15
+          - pkg_man: sudo apt-get
+            os: ubuntu-20.04
+          - add_pkgs: libmpfr-dev
+            os: ubuntu-20.04
+          - make_install: make install
+            os: macos-10.15
+          - make_install: sudo make install
+            os: ubuntu-20.04
+          - cp_cmd: cp
+            os: macos-10.15
+          - cp_cmd: sudo cp
+            os: ubuntu-20.04
 
     steps:
     - name: Checkout
