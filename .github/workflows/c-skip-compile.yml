@@ -28,7 +28,7 @@ jobs:
     - name: Setup conda
       uses: conda-incubator/setup-miniconda@v2
       with: { mamba-version: "*", channels: "conda-forge", channel-priority: true, python-version: "3.9" }
-    - name: Install flint
+    - name: Install flint and antic
       shell: bash -l {0}
       run: |
           mamba install -y libflint=${{ matrix.libflint }} antic=${{ matrix.antic }} c-compiler gmp mpfr
@@ -54,11 +54,12 @@ jobs:
 
     - name: build
       env:
-        FLINT_PATH: $CONDA_PREFIX
+        FLINT_PATH: ${{ CONDA_PREFIX }}
         GMP_PREFIX: $CONDA_PREFIX
-        MPFR_PATH: $CONDA_PREFIX
+        ANTIC_PATH: $CONDA_PREFIX
         CARAT_PATH: /urs/local
       run: |
+        env
         cd omf5
         ./autogen.sh
         ./configure
