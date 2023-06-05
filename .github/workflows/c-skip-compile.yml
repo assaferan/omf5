@@ -54,7 +54,6 @@ jobs:
 
     - name: build
       shell: bash -l {0}
-      env:
       run: |
         cd omf5
         ./autogen.sh
