@@ -60,7 +60,7 @@ jobs:
         cd omf5
         ./autogen.sh
         FLINT_PATH=$CONDA_PREFIX GMP_PATH=$CONDA_PREFIX ANTIC_PATH=$CONDA_PREFIX CARAT_PATH=/urs/local ./configure CFLAGS="-Wno-error=stringop-overflow -Wno-error=stringop-overread -Wno-error=maybe-uninitialized"
-        make VERBOSE=1
+        make V=1
 
     - name: test
       run: ./omf5/src/omf5 -tests
