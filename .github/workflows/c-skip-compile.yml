@@ -52,6 +52,7 @@ jobs:
           make
           sudo make install
           sudo cp libfunctions.a /usr/local/lib
+          sudo cp libfunctions.a $CONDA_PREFIX/lib
           cd ..
 
     - name: build
