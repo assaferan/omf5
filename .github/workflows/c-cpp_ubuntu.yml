@@ -70,7 +70,8 @@ jobs:
     - name: Install antic
       run: |
           cd antic
-          ./configure && make
+          ./configure CFLAGS=-Wno-implicit-function-declaration 
+          make
           ${{ matrix.make_install }}
           make check
           cd ..
