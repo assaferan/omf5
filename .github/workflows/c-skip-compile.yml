@@ -53,7 +53,16 @@ jobs:
           cd ..
 
     - name: build
-      run:  cd omf5 && ./autogen.sh && ./configure --with-flint=$CONDA_PREFIX --with-gmp=$CONDA_PREFIX --with-mpfr=$CONDA_PREFIX && make
+      env:
+        FLINT_PATH: $CONDA_PREFIX
+        GMP_PREFIX: $CONDA_PREFIX
+        MPFR_PATH: $CONDA_PREFIX
+        CARAT_PATH: /urs/local
+      run: |
+        cd omf5
+        ./autogen.sh
+        ./configure
+        make
 
     - name: test
       run: ./omf5/src/omf5 -tests
