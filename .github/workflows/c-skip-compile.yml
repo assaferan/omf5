@@ -15,7 +15,7 @@ jobs:
 
       matrix:
         on: [ ubuntu-latest, macos-latest ]
-        libflint: [ 2.8.4 ]
+        libflint: [ 2.9.0 ]
         antic : [ 0.2.5 ]
     steps:
     - name: Checkout
