@@ -55,15 +55,10 @@ jobs:
     - name: build
       shell: bash -l {0}
       env:
-        FLINT_PATH: ${{ CONDA_PREFIX }}
-        GMP_PREFIX: $CONDA_PREFIX
-        ANTIC_PATH: $CONDA_PREFIX
-        CARAT_PATH: /urs/local
       run: |
-        env
         cd omf5
         ./autogen.sh
-        ./configure
+        FLINT_PATH=$CONDA_PREFIX GMP_PREFIX=$CONDA_PREFIX ANTIC_PATH=$CONDA_PREFIX CARAT_PATH=/urs/local ./configure
         make
 
     - name: test
