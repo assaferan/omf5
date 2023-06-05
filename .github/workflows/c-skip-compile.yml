@@ -44,6 +44,7 @@ jobs:
         path: carat
 
     - name: Install carat
+      shell: bash -l {0}
       run: |
           cd carat
           ./autogen.sh
