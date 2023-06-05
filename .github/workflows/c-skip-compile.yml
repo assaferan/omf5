@@ -53,6 +53,7 @@ jobs:
           cd ..
 
     - name: build
+      shell: bash -l {0}
       env:
         FLINT_PATH: ${{ CONDA_PREFIX }}
         GMP_PREFIX: $CONDA_PREFIX
