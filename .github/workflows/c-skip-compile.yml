@@ -12,6 +12,7 @@ jobs:
     runs-on: ${{ matrix.on }}
 
     strategy:
+      fail-fast: false
 
       matrix:
         on: [ ubuntu-latest, macos-latest ]
