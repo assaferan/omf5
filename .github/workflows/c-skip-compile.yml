@@ -57,7 +57,7 @@ jobs:
       run: |
         cd omf5
         ./autogen.sh
-        FLINT_PATH=$CONDA_PREFIX GMP_PATH=$CONDA_PREFIX ANTIC_PATH=$CONDA_PREFIX CARAT_PATH=/urs/local ./configure CFLAGS="-Wno-stringop-overflow -Wno-error=maybe-uninitialized"
+        FLINT_PATH=$CONDA_PREFIX GMP_PATH=$CONDA_PREFIX ANTIC_PATH=$CONDA_PREFIX CARAT_PATH=/urs/local ./configure CFLAGS="-Wno-error=stringop-overflow -Wno-error=maybe-uninitialized"
         make
 
     - name: test
