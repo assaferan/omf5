@@ -552,7 +552,7 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
   // uninitialized (TODO - figure out why?)
 #pragma GCC diagnostic ignored "-Wuninitialized"
   vector_t y_int;
-  vector v_int;
+  vector_t v_int;
   Z64 tmp, det;
 
 #ifdef DEBUG_LEVEL_FULL
