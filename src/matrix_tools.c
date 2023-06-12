@@ -541,10 +541,18 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
   
   vector_t x_closest;
 
+// Attempting to prevent compiler errors when gcc thinks voronoi is maybe
+// uninitialized (TODO - figure out why?)                                      
+#pragma GCC diagnostic ignored "-Wuninitialized"
   vector_t voronoi;
+
   int i,j;
 
-  vector_t y_int, v_int;
+  // Attempting to prevent compiler errors when gcc thinks y_int is maybe
+  // uninitialized (TODO - figure out why?)
+#pragma GCC diagnostic ignored "-Wuninitialized"
+  vector_t y_int;
+  vector v_int;
   Z64 tmp, det;
 
 #ifdef DEBUG_LEVEL_FULL
@@ -572,6 +580,7 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
     
   for (i = 0; i < dim-1; i++)
     y_int[i] = 0;
+  y_int[dim-1] = 0;
 
   for (i = 0; i < dim-1; i++)
     for (j = 0; j < dim-1; j++)
@@ -585,6 +594,7 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
 #endif // DEBUG_LEVEL_FULL
   
   voronoi_bounds(voronoi, dim-1);
+  voronoi[dim-1] = 0;
   
   det = 0;
   for (i = 0; i < dim - 1; i++) {
