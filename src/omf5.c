@@ -8,6 +8,7 @@
 #define MAX_STR_LEN 256
 
 bool handle_flag_int(const char* flag_name, const char* param_str, int* flag_val);
+bool handle_flag_int_seq(const char* flag_name, const char* param_str, int** flag_val, int* num_vals);
 int print_param_desc(char* argv[]);
 
 int main(int argc, char* argv[])
@@ -18,15 +19,19 @@ int main(int argc, char* argv[])
   char* input_type;
   char* genus_fname;
   int max_args;
-  bool do_tests, is_valid, is_prec, is_format, is_p, is_c, is_genus, is_disc;
+  bool do_tests, is_valid, is_prec, is_format, is_p, is_c, is_genus, is_disc, is_idxs;
   bool has_quad, has_format, has_prec, has_p, has_hecke, has_c;
-  bool has_genus, has_disc, has_large, has_row, has_isom, has_nonlifts;
-  int i;
+  bool has_genus, has_disc, has_large, has_row, has_isom, has_nonlifts, has_idxs;
+  int i, j;
   genus_t genus;
+  int* idxs;
+  int num_idxs;
 
+  idxs = NULL;
   input_type = NULL;
   genus_fname = NULL;
   max_args = 8;
+  num_idxs = 0;
   
   if ((argc > max_args) || (argc == 1)) {
     // print correct usage
@@ -35,7 +40,7 @@ int main(int argc, char* argv[])
 
   do_tests = false;
   has_quad = has_format = has_prec  = has_p = has_hecke = has_c = false;
-  has_row = has_genus = has_disc = has_large = has_isom = has_nonlifts = false;
+  has_row = has_genus = has_disc = has_large = has_isom = has_nonlifts = has_idxs = false;
   
   for (i = 1; i < argc; i++) {
     is_valid = false;
@@ -70,7 +75,7 @@ int main(int argc, char* argv[])
       has_row = true;
       is_valid = true;
     }
-    
+
     // checking whether this is a matrix input
     if (strncmp(argv[i], "-quad=", 6) == 0) {
       is_valid = parse_matrix(Q_coeffs, argv[i]+6);
@@ -114,6 +119,16 @@ int main(int argc, char* argv[])
     if (is_disc)
       has_disc = true;
 
+    is_idxs = handle_flag_int_seq("idxs", argv[i], &idxs, &num_idxs);
+    is_valid = (is_valid) || (is_idxs);
+    if (is_idxs) {
+      has_idxs = true;
+      printf("Read %d indices. These are their values:", num_idxs);
+      for (j = 0; j < num_idxs; j++)
+	printf("%d,", idxs[j]);
+      printf("\b\n");
+    }
+
     if (!is_valid)
       return print_param_desc(argv);
   }
@@ -139,7 +154,7 @@ int main(int argc, char* argv[])
   if (has_genus) {
     test_res <<= 1;
     if (has_prec)
-      test_res |= compute_eigenvalues_up_to(genus, prec, has_nonlifts);
+      test_res |= compute_eigenvalues_up_to(genus, prec, has_nonlifts, num_idxs, idxs);
     else
       if (has_p)
 	if (has_hecke) {
@@ -159,7 +174,7 @@ int main(int argc, char* argv[])
 	  }
 	}
 	else
-	  test_res |= compute_eigenvalues(genus, p, has_nonlifts);
+	  test_res |= compute_eigenvalues(genus, p, has_nonlifts, num_idxs, idxs);
       else {
 	if (has_hecke)
 	  if (has_large)
@@ -167,7 +182,7 @@ int main(int argc, char* argv[])
 	  else
 	    test_res |= compute_first_hecke_matrix_all_conds(genus);
 	else
-	  test_res |= compute_eigenvectors(genus, has_nonlifts);
+	  test_res |= compute_eigenvectors(genus, has_nonlifts, num_idxs, idxs);
       }
   }
   else {
@@ -177,6 +192,9 @@ int main(int argc, char* argv[])
 
   if (has_genus)
     genus_clear(genus);
+
+  if (has_idxs)
+    free(idxs);
   
   return test_res;
 }
@@ -203,6 +221,68 @@ bool handle_flag_int(const char* flag_name, const char* param_str, int* flag_val
   
   if (strncmp(param_str, full_flag_name, flag_len) == 0) {
     *flag_val = atoi(param_str + flag_len);
+    free(full_flag_name);
+    return true;
+  }
+
+  free(full_flag_name);
+  return false;
+}
+
+bool handle_flag_int_seq(const char* flag_name, const char* param_str, int** flag_val, int* num_vals)
+{
+  size_t flag_len;
+  char* full_flag_name;
+  char number_str[8];
+  size_t str_idx, num_idx;
+  char next_ch;
+  size_t INITIAL_NUM_VALS_ALLOC = 8;
+  size_t num_allocated = 0;
+  
+  flag_len = strlen(flag_name) + 2;
+  full_flag_name = (char*)malloc((flag_len+1)*sizeof(char));
+
+  if (full_flag_name == NULL) {
+    printf("Error, flag name is too long!\n");
+    return false;
+  }
+
+  strncpy(full_flag_name, "-", 2);
+  strncat(full_flag_name, flag_name, MAX_STR_LEN);
+  strncat(full_flag_name, "=", 2);
+
+  assert(flag_len == strlen(full_flag_name));
+
+  str_idx = flag_len;
+  if (strncmp(param_str, full_flag_name, flag_len) == 0) {
+    *num_vals = 0;
+    *flag_val = (int *)malloc(INITIAL_NUM_VALS_ALLOC*sizeof(int));
+    num_allocated = INITIAL_NUM_VALS_ALLOC;
+    next_ch = param_str[str_idx];
+    // while the string didn't end
+    while (next_ch != '\0') {
+      // we read off the next number
+      num_idx = 0;
+      while ((next_ch != ',') && (next_ch != '\0')) {
+	number_str[num_idx] = next_ch;
+	str_idx++;
+	num_idx++;
+	next_ch = param_str[str_idx];
+      }
+      number_str[num_idx] = '\0';
+      // skipping the comma
+      if (next_ch == ',') {
+	str_idx++;
+	next_ch = param_str[str_idx];
+      }
+      assert((*num_vals) < num_allocated);
+      (*flag_val)[(*num_vals)] = atoi(number_str);
+      (*num_vals)++;
+      if ((*num_vals) >= num_allocated) {
+	num_allocated *= 2;
+	*flag_val = (int *)realloc(*flag_val, num_allocated*sizeof(int));
+      }
+    }
     free(full_flag_name);
     return true;
   }
