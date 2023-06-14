@@ -681,7 +681,8 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
   slong p;
   slong* pivots;
   slong* paired;
-  slong i, j, l, u_idx, n;
+  slong j = 0;
+  slong i, l, u_idx, n;
   slong h_dim, delta, a, half, gram2, scalar;
   fq_nmod_mat_t basis, basis_t, x, z, u;
   bool* excluded;
