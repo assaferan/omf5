@@ -542,15 +542,20 @@ void closest_lattice_vector(square_matrix_t q, isometry_t iso, int dim)
   vector_t x_closest;
 
 // Attempting to prevent compiler errors when gcc thinks voronoi is maybe
-// uninitialized (TODO - figure out why?)                                      
+// uninitialized (TODO - figure out why?)
+#ifdef __linux__
 #pragma GCC diagnostic ignored "-Wuninitialized"
+#endif // __linux__
   vector_t voronoi;
 
   int i,j;
 
   // Attempting to prevent compiler errors when gcc thinks y_int is maybe
   // uninitialized (TODO - figure out why?)
+#ifdef __linux__
 #pragma GCC diagnostic ignored "-Wuninitialized"
+#endif // __linux__
+
   vector_t y_int;
   vector_t v_int;
   Z64 tmp, det;
