@@ -23,9 +23,9 @@ DBG_CFLAGS += ${ALL_CFLAGS}
 DBG_FULL_CFLAGS = -DDEBUG_LEVEL_FULL
 DBG_FULL_CFLAGS += ${DBG_CFLAGS}
 
-ALL_LDFLAGS = -L${GMP_PATH}/lib -L${ANTIC_PATH}/lib -L${FLINT_PATH}/lib -lfunctions -lgmp -lantic -lflint -lm
+ALL_LD_FLAGS = -L${GMP_PATH}/lib -L${ANTIC_PATH}/lib -L${FLINT_PATH}/lib -lfunctions -lgmp -lantic -lflint -lm
 
-DBG_LD_FLAGS = ${ALL_LDFLAGS}
+DBG_LD_FLAGS = ${ALL_LD_FLAGS}
 # DBG_LD_FLAGS += -fsanitize=leak
 
 SOURCES = arith.c
@@ -87,10 +87,10 @@ omf5_CFLAGS = $(OPT_CFLAGS)
 
 # omf5_nbr_data_dbg_LDFLAGS = ${DBG_LD_FLAGS}
 
-OPT_LDFLAGS = ${ALL_LDFLAGS}
-OPT_LDFLAGS += -O3
+OPT_LD_FLAGS = ${ALL_LD_FLAGS}
+OPT_LD_FLAGS += -O3
 
-omf5_LDFLAGS = ${OPT_LDFLAGS}
-# libomf5_la_LDFLAGS = ${OPT_LDFLAGS}
+omf5_LDFLAGS = ${OPT_LD_FLAGS}
+# libomf5_la_LDFLAGS = ${OPT_LD_FLAGS}
 
-# omf5_nbr_data_LDFLAGS = ${OPT_LDFLAGS}
+# omf5_nbr_data_LDFLAGS = ${OPT_LD_FLAGS}
