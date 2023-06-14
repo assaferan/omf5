@@ -755,7 +755,6 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
 #ifdef __linux__
 #pragma GCC diagnostic ignored "-Wstringop-overread"
 #endif // __linux__
->>>>>>> 5db9c3bc79ae40596fadad43215056f789e8cebd
   fq_nmod_mat_init(x, nbr_man->k, n, nbr_man->GF);
   for (i = 0; i < nbr_man->k; i++)
     for (j = 0; j < n; j++)
