@@ -730,28 +730,15 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
   fq_nmod_mat_init_set(basis, nbr_man->p_basis, nbr_man->GF);
   // Set up the correct basis vectors.
   for (i = 0; i < nbr_man->k; i++) {
+    // Replaced for by while because gcc compiler was behaving weird
     j = pivots[i] + 1;
     while (j < n) {
-      //    for (j = pivots[i] + 1; j < n; j++) {
-      
 #ifdef __linux__
 #pragma GCC diagnostic ignored "-Wstringop-overread"
 #endif // __linux__
-	printf("iso_subspace is \n");
-	fq_nmod_mat_print_pretty(nbr_man->iso_subspace, nbr_man->GF);
-	printf("\n");
-	printf("basis is \n");
-	fq_nmod_mat_print_pretty(basis, nbr_man->GF);
-	printf("\n");
-	printf("pivots = ");
-	num_pivots = nbr_man->pivots->pivot_lens[nbr_man->pivots->pivot_ptr-1];
-	for (l = 0; l < num_pivots; l++)
-	  printf("%ld", pivots[l]);
-	printf("\n");
-	printf("j = %ld\n", j);
-	fq_nmod_mat_add_col(basis, pivots[i], j, fq_nmod_mat_entry(nbr_man->iso_subspace,i,j), nbr_man->GF);
-	j++;
-      }
+      fq_nmod_mat_add_col(basis, pivots[i], j, fq_nmod_mat_entry(nbr_man->iso_subspace,i,j), nbr_man->GF);
+      j++;
+    }
   }
   
 #ifdef DEBUG_LEVEL_FULL
