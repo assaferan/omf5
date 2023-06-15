@@ -743,6 +743,7 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
 	fq_nmod_mat_print_pretty(basis, nbr_man->GF);
 	printf("\n");
 	printf("pivots = ");
+	num_pivots = nbr_man->pivots->pivot_lens[nbr_man->pivots->pivot_ptr-1];
 	for (l = 0; l < num_pivots; l++)
 	  printf("%ld", pivots[l]);
 	printf("\n");
