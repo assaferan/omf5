@@ -681,7 +681,8 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
   slong p;
   slong* pivots;
   slong* paired;
-  slong i, j, l, u_idx, n;
+  slong j = 0;
+  slong i, l, u_idx, n;
   slong h_dim, delta, a, half, gram2, scalar;
   fq_nmod_mat_t basis, basis_t, x, z, u;
   bool* excluded;
@@ -733,7 +734,20 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
 #ifdef __linux__
 #pragma GCC diagnostic ignored "-Wstringop-overread"
 #endif // __linux__
-      fq_nmod_mat_add_col(basis, pivots[i], j, fq_nmod_mat_entry(nbr_man->iso_subspace,i,j), nbr_man->GF);
+      {
+	printf("iso_subspace is \n");
+	fq_nmod_mat_print_pretty(nbr_man->iso_subspace, nbr_man->GF);
+	printf("\n");
+	printf("basis is \n");
+	fq_nmod_mat_print_pretty(basis, nbr_man->GF);
+	printf("\n");
+	printf("pivots = ");
+	for (l = 0; l < num_pivots; l++)
+	  printf("%ld", pivots[l]);
+	printf("\n");
+	printf("j = %ld\n", j);
+	fq_nmod_mat_add_col(basis, pivots[i], j, fq_nmod_mat_entry(nbr_man->iso_subspace,i,j), nbr_man->GF);
+      }
   
 #ifdef DEBUG_LEVEL_FULL
   printf("the correct basis vectors are \n");
