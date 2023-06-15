@@ -694,9 +694,9 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
   nmod_mat_t temp;
 #endif // DEBUG
 
-  // #ifdef DEBUG_LEVEL_FULL
+#ifdef DEBUG_LEVEL_FULL
   slong num_pivots;
-  // #endif // DEBUG_LEVEL_FULL
+#endif // DEBUG_LEVEL_FULL
   
   if (nbr_man->is_done) return;
 
