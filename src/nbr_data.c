@@ -731,6 +731,7 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
   // Set up the correct basis vectors.
   for (i = 0; i < nbr_man->k; i++)
     for (j = pivots[i] + 1; j < n; j++)
+
 #ifdef __linux__
 #pragma GCC diagnostic ignored "-Wstringop-overread"
 #endif // __linux__
@@ -781,6 +782,7 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
 
   // Extract the hyperbolic complement modulo p.
   //  printf("initializing z and paired...\n");
+
 #ifdef __linux__
 #pragma GCC diagnostic ignored "-Wstringop-overread"
 #endif // __linux__
@@ -812,6 +814,7 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
     excluded[pivots[i]] = false;
     excluded[paired[i]] = false;
   }
+
 #ifdef __linux__
 #pragma GCC diagnostic ignored "-Wstringop-overread"
 #endif // __linux__
