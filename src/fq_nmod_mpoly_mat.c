@@ -1,5 +1,19 @@
+/*************************************************************
+ *
+ * Package : omf5 - orthogonal modular forms of rank 5
+ * Filename : fq_nmod_mpoly_mat.c
+ *
+ * Description: Matrices of multivariable polynomials over
+ *              finite fields.
+ *
+ *************************************************************
+ */
+
+// Self dependencies
+
 #include "fq_nmod_mpoly_mat.h"
 
+// initialize a matrix
 void fq_nmod_mpoly_mat_init(fq_nmod_mpoly_mat_t mat, slong rows, slong cols, const fq_nmod_mpoly_ctx_t R)
 {
   slong i;
@@ -34,6 +48,7 @@ void fq_nmod_mpoly_mat_init(fq_nmod_mpoly_mat_t mat, slong rows, slong cols, con
   mat->c = cols;
 }
 
+// clear the memeory allocated for the matrix
 void fq_nmod_mpoly_mat_clear(fq_nmod_mpoly_mat_t mat, const fq_nmod_mpoly_ctx_t R)
 {
   if (mat->entries)
@@ -49,6 +64,7 @@ void fq_nmod_mpoly_mat_clear(fq_nmod_mpoly_mat_t mat, const fq_nmod_mpoly_ctx_t 
     flint_free(mat->rows);
 }
 
+// print the matrix
 void fq_nmod_mpoly_mat_print(const fq_nmod_mpoly_mat_t mat, const char** var_names, const fq_nmod_mpoly_ctx_t R)
 {
     slong i, j;
