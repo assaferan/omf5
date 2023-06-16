@@ -1,15 +1,114 @@
+/*******************************************************
+ *
+ * Package : omf5 - orthogonal modular forms of rank 5
+ * Filename : omf5.c
+ *
+ * Description: main executable
+ *
+ *******************************************************
+ */
+
+// System dependencies
+
 #include <assert.h>
 
+// Required packages dependencies
+
 #include <carat/typedef.h>
+
+// Self dependencies
 
 #include "io.h"
 #include "tests.h"
 
-#define MAX_STR_LEN 256
+#define MAX_STR_LEN 256 // used to prevent buffer overflow from input
 
+// functions to handle parameter inputs
+
+/*************************************************************
+ *
+ * Function: handle_flag_int
+ *
+ * Description: Checks whether the input string specifies a
+ *              parameter which is of type int, and retrieve
+ *              its value.
+ *
+ * Arguments:
+ *     + flag_name (const char*) - name of parameter
+ *     + param_str (const char*) - the input string
+ *     + flag_val (int*)         - retrieved value
+ *
+ * Returns:
+ *     + bool - true if param_str is of the form
+ *              "-{flag_name}={flag_val}", in which case
+ *              *flag_val will contain the value.
+ *
+ ************************************************************
+ */
 bool handle_flag_int(const char* flag_name, const char* param_str, int* flag_val);
+
+/*************************************************************
+ *
+ * Function: handle_flag_int_seq
+ *
+ * Description: Checks whether the input string specifies a
+ *              parameter which is a comma-separated sequence
+ *              of integers, and retrieve their values.
+ *
+ * Arguments:
+ *     + flag_name (const char*) - name of parameter
+ *     + param_str (const char*) - the input string
+ *     + flag_val (int**)        - retrieved values
+ *     + num_vals (int*)         - number of values
+ *
+ * Returns:
+ *     + bool - true if param_str is of the form
+ *              "-{flag_name}={val0},{val1},...,{valn}",
+ *              in which case *flag_val will contain the
+ *              values, and *num_vals the number of values.
+ *
+ ************************************************************
+ */
 bool handle_flag_int_seq(const char* flag_name, const char* param_str, int** flag_val, int* num_vals);
+
+/*************************************************************
+ *
+ * Function: print_param_desc
+ *
+ * Description: Prints usage description of the program.
+ *
+ * Arguments:
+ *     + argv (char* []) - arguments from command line.
+ * 
+ * Returns:
+ *     + int - always returns -1, to specify wrong input.
+ *
+ ************************************************************
+ */
+
 int print_param_desc(char* argv[]);
+
+/*************************************************************
+ *
+ * Function: main
+ *
+ * Description: Runs the programf from command line.
+ *
+ * Arguments:
+ *     + argc (int)      - number of arguments
+ *     + argv (char* []) - arguments from command line.
+ * 
+ * Returns:
+ *     + int - -1 for wrong arguments,
+ *              0 (SUCCESS) for success
+ *              a nonzero number represents a failure code,
+ *              which depends on the input.
+ *              Generally, the location of the bits which
+ *              are lit (set to 1) are the ordinals of the
+ *              failed operations.
+ *
+ ************************************************************
+ */
 
 int main(int argc, char* argv[])
 {
@@ -199,6 +298,7 @@ int main(int argc, char* argv[])
   return test_res;
 }
 
+// implementation of functions
 
 bool handle_flag_int(const char* flag_name, const char* param_str, int* flag_val)
 {
@@ -218,7 +318,8 @@ bool handle_flag_int(const char* flag_name, const char* param_str, int* flag_val
   strncat(full_flag_name, "=", 2);
 
   assert(flag_len == strlen(full_flag_name));
-  
+
+  // checks whether param_str starts with -{flag_name}=
   if (strncmp(param_str, full_flag_name, flag_len) == 0) {
     *flag_val = atoi(param_str + flag_len);
     free(full_flag_name);
@@ -236,6 +337,7 @@ bool handle_flag_int_seq(const char* flag_name, const char* param_str, int** fla
   char number_str[8];
   size_t str_idx, num_idx;
   char next_ch;
+  // number of values to allocate memory for at first
   size_t INITIAL_NUM_VALS_ALLOC = 8;
   size_t num_allocated = 0;
   
@@ -254,6 +356,7 @@ bool handle_flag_int_seq(const char* flag_name, const char* param_str, int** fla
   assert(flag_len == strlen(full_flag_name));
 
   str_idx = flag_len;
+  // checks whether param_str starts with -{flag_name}=
   if (strncmp(param_str, full_flag_name, flag_len) == 0) {
     *num_vals = 0;
     *flag_val = (int *)malloc(INITIAL_NUM_VALS_ALLOC*sizeof(int));
