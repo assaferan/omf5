@@ -21,10 +21,13 @@ We also use the CARAT package for working with lattices
 - [autotools](https://www.gnu.org/software/automake/manual/html_node/Autotools-Introduction.html)
 - [gcc](https://gcc.gnu.org/)
 
-* This code has only been tested so far on:
-- macOS Monterey 12.3.1, compiled with clang 12.0.0 on Intel i9 8-Core Processor.
-- macOS Catalina 10.15.7, compiled with clang 12.0.0 on Intel Core i5 Quad-Core Processor.
-- linux Ubuntu 22.04.2, compiled with gcc 11.3.0 on AMD Ryzen ThreadRipper 2970WX 24-Core Processor.
+This code has only been tested so far on:
+
+macOS Monterey 12.3.1, compiled with clang 12.0.0 on Intel i9 8-Core Processor.
+
+macOS Catalina 10.15.7, compiled with clang 12.0.0 on Intel Core i5 Quad-Core Processor.
+
+linux Ubuntu 22.04.2, compiled with gcc 11.3.0 on AMD Ryzen ThreadRipper 2970WX 24-Core Processor.
 
 The main (and develop) branch require the following libraries:
 
@@ -62,20 +65,38 @@ src/omf5 [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-row] [-p=p] [-genus
 where the  arguments are:
 
 The genus can be specified in one of two ways. Either via Q and f - 
+
 [Q] is the quinary quadratic form (lattice) given as 15 comma-separated integers in a format specified by f,
+
 [f] is either 'GG' or 'A', the former for the format in Rama-Toranria webpage, the latter for the Magma format,
+
 in which case, the genus will be computed using p-neighbors, or via g and d - 
+
 [g] is the name of a file containing the list of genera,
+
 [d] is the discriminant of the lattice, so that g[d] is the relevant genus,
+
 [p] is a prime at which to compute the Hecke matrix/eigenvalue, 
+
 [L] is the preicision up to which to compute the hecke matrices/eigenvalues (a_p for p <= L and a_{p^2} for p^2 <= L),
-[c] is the conductor of the spinor norm character. If not specified, the program will compute all of them. At the moment, only relevant for computing a column of the Hecke matrix.If the flag -hecke is supplied, computes a column of the Hecke matrix, otherwise computes the Hecke eigenvalues of forms that are non-lifts. If p is not supplied, computes the Hecke matrix of the first prime not dividing the discriminant.
-[form_idxs] is a list of indices of forms in the space for which to compute the hecke eigenvalues. If not specified, computes for all of them.
-If either L or p is not supplied, only decomposes the space, and finds Hecke eigenvectors.
+
+[c] is the conductor of the spinor norm character. If not specified, the program will compute all of them. At the moment, only relevant for computing a column of the Hecke matrix.
+
 If the flag -hecke is supplied, computes a column of the Hecke matrix, otherwise computes the Hecke eigenvalues of forms that are non-lifts. If p is not supplied, computes the Hecke matrix of the first prime not dividing the discriminant.
+
+[form_idxs] is a list of indices of forms in the space for which to compute the hecke eigenvalues. If not specified, computes for all of them.
+
+If either L or p is not supplied, only decomposes the space, and finds Hecke eigenvectors.
+
+If the flag -hecke is supplied, computes a column of the Hecke matrix, otherwise computes the Hecke eigenvalues of forms that are non-lifts. If p is not supplied, computes the Hecke matrix of 
+the first prime not dividing the discriminant.
+
 If the flag -row is supplied in addition to -hecke, computes a single row.
+
 If the flag -isom is supplied in additoin to -genus=g, read from the genus file, in addition to the list of genera, a list of fixed isometries (over QQ) between the different lattices in the genus.
+
 If the flag -tests is supplied, additionally runs standard tests.
+
 If the flag -nonlifts is supplied, computes eigenvalues only for the forms which are not lifts.
     
 Example runs:
