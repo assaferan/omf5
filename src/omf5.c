@@ -293,7 +293,7 @@ bool handle_flag_int_seq(const char* flag_name, const char* param_str, int** fla
 
 int print_param_desc(char* argv[])
 {
-  fprintf(stderr, "Usage: %s [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-row] [-p=p] [-genus=g] [-isom] [-disc=d] [-cond=c] \n", argv[0]);
+  fprintf(stderr, "Usage: %s [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-row] [-p=p] [-genus=g] [-isom] [-disc=d] [-cond=c] [-nonlifts] [-idxs=form_idxs] \n", argv[0]);
   fprintf(stderr, "The genus can be specified in one of two ways. Either via Q and f - \n");
   fprintf(stderr, "[Q] is the quinary quadratic form (lattice) given as 15 comma-separated integers in a format specified by f,\n");
   fprintf(stderr, "[f] is either 'GG' or 'A', the former for the format in Rama-Toranria webpage, the latter for the Magma format,\n");
@@ -304,9 +304,11 @@ int print_param_desc(char* argv[])
   fprintf(stderr, "[L] is the preicision up to which to compute the hecke matrices/eigenvalues (a_p for p <= L and a_{p^2} for p^2 <= L),\n");
   fprintf(stderr, "[c] is the conductor of the spinor norm character. If not specified, the program will compute all of them. At the moment, only relevant for computing a column of the Hecke matrix.");
   fprintf(stderr, "If the flag -hecke is supplied, computes a column of the Hecke matrix, otherwise computes the Hecke eigenvalues of forms that are non-lifts. If p is not supplied, computes the Hecke matrix of the first prime not dividing the discriminant.\n");
+  fprintf(stderr, "[form_idxs] is a list of indices of forms in the space for which to compute the hecke eigenvalues. If not specified, computes for all of them.\n");
   fprintf(stderr, "If either L or p is not supplied, only decomposes the space, and finds Hecke eigenvectors.\n");
   fprintf(stderr, "If the flag -row is supplied in addition to -hecke, computes a single row.\n");
   fprintf(stderr, "If the flag -isom is supplied in addition to -genus=g, the genus includes the isometries.\n");
   fprintf(stderr, "If the flag -tests is supplied, additionally runs standard tests.\n");
+  fprintf(stderr, "If the flag -nonlifts is supplied, computes eigenvalues only for the forms which are not lifts.\n");
   return -1;
 }
