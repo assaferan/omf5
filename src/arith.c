@@ -1,10 +1,31 @@
+/**********************************************************
+ *
+ * Package : omf5 - orthogonal modular forms of rank 5
+ * Filename : arith.c
+ *
+ * Description: simple useful arithmetic functions
+ *
+ **********************************************************
+ */
+
+// System dependencies
+
 #include <assert.h>
+
+// Self dependencies
+
 #include "arith.h"
+
+// Lookup tables for quickly computing the Hilbert symbol
+
+// When p is odd, only need v_p(x) mod 2 and whether u_p(x) is a square
 
 int hilbert_lut_odd[16] = { 1, 1, 1, 1,
 			    1, 1,-1,-1,
 			    1,-1, 1,-1,
 			    1,-1,-1, 1 };
+
+// When p==2 we need to consider each of the inputs mod 8
 
 int hilbert_lut_p2[64] = { 1, 1, 1, 1, 1, 1, 1, 1,
 			   1,-1, 1,-1,-1, 1,-1, 1,
@@ -25,6 +46,8 @@ int fmpz_valuation_unit(fmpz_t a, const fmpz_t x, const fmpz_t p)
   fmpz_init(a_div_p);
   fmpz_init(a_mod_p);
 
+  // We repeatedly divide by p, until we obtain the unit
+  
   fmpz_fdiv_qr(a_div_p, a_mod_p, a, p);
   while (fmpz_is_zero(a_mod_p)) {
     ++a_val;
@@ -38,14 +61,17 @@ int fmpz_valuation_unit(fmpz_t a, const fmpz_t x, const fmpz_t p)
   return a_val;
 }
 
+// return the valuation of x at p
 int fmpz_valuation(const fmpz_t x, const fmpz_t p)
 {
   fmpz_t a;
   int a_val;
 
+  // If x = 0, we would need to return infinity...
   assert(!fmpz_is_zero(x));
   fmpz_init(a);
 
+  // simply apply previous function and forget the unit 
   a_val = fmpz_valuation_unit(a,x,p);
   
   fmpz_clear(a);
@@ -53,12 +79,15 @@ int fmpz_valuation(const fmpz_t x, const fmpz_t p)
   return a_val;
 }
 
+// return the valuation of x at p
 int fmpq_valuation(const fmpq_t x, const fmpz_t p)
 {
+  // If x = 0, we would need to return infinity...
   assert(!fmpq_is_zero(x));
   return fmpz_valuation(fmpq_numref(x), p) - fmpz_valuation(fmpq_denref(x), p);
 }
 
+// return the Hilbert symbol (x,y)_p
 int hilbert_symbol(const fmpz_t x, const fmpz_t y, const fmpz_t p)
 {
   fmpz_t a, b;
@@ -87,6 +116,7 @@ int hilbert_symbol(const fmpz_t x, const fmpz_t y, const fmpz_t p)
     return hilbert_lut_p2[index];
   }
 
+  // Using fmpz_jacobi is better, as it handles more endcases.
   /* a_notsqr = mpz_legendre(a.get_mpz_t(), p.get_mpz_t()) == -1; */
   /* b_notsqr = mpz_legendre(b.get_mpz_t(), p.get_mpz_t()) == -1; */
   a_notsqr = (fmpz_jacobi(a, p) == -1);
@@ -107,6 +137,9 @@ int hilbert_symbol(const fmpz_t x, const fmpz_t y, const fmpz_t p)
   fmpz_clear(b);
   return hilbert;
 }
+
+// lcm for ints
+// We simply use fmpz lcm, wrapping the conversions
 
 int lcm(int a, int b)
 {
@@ -152,11 +185,15 @@ Z64 gcdext(Z64 a, Z64 b, Z64 *x, Z64 *y)
   return gcd;
 }
 
+// return a < b for the CARAT type rational
+
 int rational_lt(rational a, rational b)
 {
   // we assume here that a and b are positive as they should be
   return a.z * b.n < b.z * a.n;
 }
+
+// return a + b for the CARAT type rational
 
 rational rational_sum(rational a, rational b)
 {
@@ -175,11 +212,11 @@ rational rational_sum(rational a, rational b)
 
 // We need twisted bernoulli numbers, so here is our implementation of it
 
-// collect all of the along the way.
+// collect all of the numbers along the way.
 // We are using Akiyama and Tanigawa's algorithm
 // It's not the fastest, but it is one of the simplest.
 
-// This should be the same as arith_bernoulli_number_vec, maybe replace
+// This should be the same as FLINT's arith_bernoulli_number_vec, maybe replace
 void _bernoulli_up_to(fmpq_t* b, ulong n)
 {
   fmpq_t* a;
@@ -226,6 +263,8 @@ void _bernoulli_up_to(fmpq_t* b, ulong n)
   
 }
 
+// Compute B_n - simply calls _bernoulli_up_to and pulls the last entry.
+
 void bernoulli_number(fmpq_t b, ulong n)
 {
   fmpq_t* b_vec;
@@ -246,6 +285,8 @@ void bernoulli_number(fmpq_t b, ulong n)
   return;
 }
 
+// Compute n choose k = n!/k!(n-k)!
+
 void binomial_coefficient(fmpz_t b, const fmpz_t n, const fmpz_t k)
 {
   fmpz_t i, n_k;
@@ -255,13 +296,16 @@ void binomial_coefficient(fmpz_t b, const fmpz_t n, const fmpz_t k)
   fmpz_set_si(b,1);
 
   fmpz_sub(n_k, n, k);
+  // use symmetry if n < 2k
   if (fmpz_cmp(n_k, k) < 0)
     return binomial_coefficient(b,n,n_k);
-  
+
   for (; fmpz_cmp(i,k) < 0; ) {
     fmpz_sub(n_k, n, i);
+    // multiply by (n-k-i)
     fmpz_mul(b, b, n_k);
     fmpz_add_si(i,i,1);
+    // divide by (i+1)
     fmpz_fdiv_q(b, b, i);
   }
 
@@ -270,6 +314,7 @@ void binomial_coefficient(fmpz_t b, const fmpz_t n, const fmpz_t k)
   return;
 }
 
+// Compute the bernoulli polynomial, for twisted Bernoulli numbers
 
 void _bernoulli_poly(fmpq_t* b, ulong n)
 {
@@ -303,6 +348,10 @@ void _bernoulli_poly(fmpq_t* b, ulong n)
   fmpz_clear(nn);
   return;
 }
+
+// Compute the Kronecker symbol (a|n)
+// TODO - could be spurious to FLINT's implementation of Jacobi symbol
+// Current implementaion is recursive
 
 slong kronecker_symbol(const fmpz_t a, const fmpz_t n)
 {
@@ -444,6 +493,7 @@ void bernoulli_number_chi(fmpq_t b_chi, ulong n, const fmpz_t d)
   return;
 }
 
+// check if a is a local square
 bool fmpz_is_local_square(const fmpz_t a, const fmpz_t p)
 {
   fmpz_t a0, a0_1;
@@ -485,19 +535,22 @@ bool fmpz_is_local_square(const fmpz_t a, const fmpz_t p)
   return res;
 }
 
+// check if a is a local square
 bool fmpq_is_local_square(const fmpq_t a, const fmpz_t p)
 {
+  // if a = x/y, then a is a square if and only if either both x and y are squares or both are nonsquares
   return (fmpz_is_local_square(fmpq_numref(a), p)
 	  == fmpz_is_local_square(fmpq_denref(a), p));
 }
 
-// assumes q = p
+// Checks if a is a square in F, assumes F = F_p is a prime field
 bool fq_is_square(const fq_t a, const fq_ctx_t F)
 {
   fmpz_t a_lift;
   slong legendre;
   
   fmpz_init(a_lift);
+  // Here we use the assumption, the trace is simply a lift of the element to the integers
   fq_trace(a_lift, a, F);
   legendre = kronecker_symbol(a_lift, fq_ctx_prime(F));
 
@@ -505,17 +558,20 @@ bool fq_is_square(const fq_t a, const fq_ctx_t F)
   return (legendre == -1) ? false : true;
 }
 
+// Checks if r is integral
 bool fmpq_is_integral(const fmpq_t r)
 {
   return fmpz_divisible(fmpq_numref(r), fmpq_denref(r));
 }
 
+// returns the floor of r
 void fmpq_floor(fmpz_t res, const fmpq_t r)
 {
   fmpz_fdiv_q(res, fmpq_numref(r), fmpq_denref(r));
   return;
 }
 
+// Return prime up to bound
 int primes_up_to(int** ps, int bound)
 {
   int num_ps, p, i;
@@ -542,6 +598,7 @@ int primes_up_to(int** ps, int bound)
   return num_ps;
 }
 
+// Return prime up to bound, prime to bad
 int primes_up_to_prime_to(int** ps, int bound, int bad)
 {
   int num_ps, p, i;

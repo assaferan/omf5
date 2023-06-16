@@ -29,7 +29,7 @@
  *
  * Description: given an integer x and a prime p, return v = v_p(x) -
  *              the valuation of x at p, and the corresponding unit
- *              a = p^(-v) x.
+ *              a = p^(-v) x. x should be nonzero.
  *
  * Arguments:
  *     + x (const fmpz_t) - the integer whose valuation is to be computed
@@ -290,13 +290,14 @@ bool fmpq_is_local_square(const fmpq_t a, const fmpz_t p);
  * Function: fq_is_square
  *
  * Description: Checks if a finite field element is a square.
+ *              Assuming the finite field F is a prime field F_p.
  *
  * Arguments:
  *     + a (const fq_t) - the element to be checked
  *     + F (const fq_ctx_t) - the finite field
  *
  * Returns:
- *     + (bool) - true if a is a square in Z_p (exists x^2 = a)
+ *     + (bool) - true if a is a square in F (exists x^2 = a)
  *
  *************************************************************************
  */
