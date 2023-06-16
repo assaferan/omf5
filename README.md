@@ -14,6 +14,7 @@ We also use the CARAT package for working with lattices
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Data](#data)
 - [Contributing](#contribution)
 
 ## Requirements
@@ -177,6 +178,23 @@ computing eigenvalues for k = 1, took 27.231407 sec
 traces of hecke eigenvalues of T_{p^2} are:
 10 11 -44 
 computing eigenvalues for k = 2, took 0.292487 sec
+
+## Data
+
+After building the executable, it can be used to generate data. The scripts folder contains several instances of data that can be produced.
+
+Most of them require updating the "export LD_LIBRARY_PATH" statement and the exisence of folders named **data** and **logs** for keeping the data and log files produced.
+
+The shell script **ev_run.sh** can be used to compute all hecke eigenvalues for discriminant up to 1000 and primes up to 100.
+
+The python script **ev_run_nonlifts.py** can be used to compute all hecke eigenvalues for specific forms inside each space, specified in the file **nonlifts_idx.dat**.
+This was used after discarding the oldforms to compute additional eigenvalues only for the newforms which are non lifts. 
+
+The shell script **test_runs.sh** runs sample tests, whose timings were recorded in the paper. 
+
+The python script **hecke_run.py** computes the full hecke matrices for primes up to 10 and its first row for primes up to 100 for all discriminants up to 1000.
+
+The shell script **parse_omf_runs.sh** parses the output of the runs computing eigenvalues in order to produce data to be transferred to the LMFDB.
 
 ## Contribution
 
