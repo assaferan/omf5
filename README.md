@@ -1,7 +1,7 @@
 omf5 - Orthogonal Modular Forms of Rank 5
 =========================================
 
-A library for computing Hecke matrices for positive definite rational quinary quadratic forms.
+A library for computing Hecke matrices and eigensystems for positive definite rational quinary quadratic forms.
 
 The code in this repository is based on the work of many, among them:
 
@@ -22,7 +22,9 @@ We also use the CARAT package for working with lattices
 - [gcc](https://gcc.gnu.org/)
 
 * This code has only been tested so far on:
-- macOS Monterey 12.3.1, compiled with gcc 4.2.1 on Intel i9 8-Core Processor.
+- macOS Monterey 12.3.1, compiled with clang 12.0.0 on Intel i9 8-Core Processor.
+- macOS Catalina 10.15.7, compiled with clang 12.0.0 on Intel Core i5 Quad-Core Processor.
+- linux Ubuntu 22.04.2, compiled with gcc 11.3.0 on AMD Ryzen ThreadRipper 2970WX 24-Core Processor.
 
 The main (and develop) branch require the following libraries:
 
@@ -30,7 +32,7 @@ The main (and develop) branch require the following libraries:
 - [flint](https://github.com/wbhart/flint2)
 - [antic](https://github.com/wbhart/antic)
 
-Installation of all the requirements on macOS can be done as follows, from a folder containing the above 3 libraries.
+Installation of all the requirements on either linux or macOS can be done as follows, from a folder containing the above 3 libraries.
 
     brew update && brew install autoconf automake libtool
     cd flint2 && ./configure && make && make check && make install && cd ..
@@ -52,10 +54,10 @@ Or all at once:
 
 ## Usage
 
-The executable is bin/omf5.
+The executable is src/omf5.
 It runs with command-line arguments as follows
 
-src/omf5 [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-p=p] [-genus=g] [-disc=d] [-cond=c] 
+src/omf5 [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-row] [-p=p] [-genus=g] [-isom] [-disc=d] [-cond=c] [-nonlifts] [-idxs=form_idxs]
 
 where the  arguments are:
 
@@ -68,8 +70,13 @@ in which case, the genus will be computed using p-neighbors, or via g and d -
 [p] is a prime at which to compute the Hecke matrix/eigenvalue, 
 [L] is the preicision up to which to compute the hecke matrices/eigenvalues (a_p for p <= L and a_{p^2} for p^2 <= L),
 [c] is the conductor of the spinor norm character. If not specified, the program will compute all of them. At the moment, only relevant for computing a column of the Hecke matrix.If the flag -hecke is supplied, computes a column of the Hecke matrix, otherwise computes the Hecke eigenvalues of forms that are non-lifts. If p is not supplied, computes the Hecke matrix of the first prime not dividing the discriminant.
+[form_idxs] is a list of indices of forms in the space for which to compute the hecke eigenvalues. If not specified, computes for all of them.
 If either L or p is not supplied, only decomposes the space, and finds Hecke eigenvectors.
+If the flag -hecke is supplied, computes a column of the Hecke matrix, otherwise computes the Hecke eigenvalues of forms that are non-lifts. If p is not supplied, computes the Hecke matrix of the first prime not dividing the discriminant.
+If the flag -row is supplied in addition to -hecke, computes a single row.
+If the flag -isom is supplied in additoin to -genus=g, read from the genus file, in addition to the list of genera, a list of fixed isometries (over QQ) between the different lattices in the genus.
 If the flag -tests is supplied, additionally runs standard tests.
+If the flag -nonlifts is supplied, computes eigenvalues only for the forms which are not lifts.
     
 Example runs:
 
