@@ -1,12 +1,30 @@
+/***********************************************************
+ *
+ * Package : omf5 - orthogonal modular forms of rank 5
+ * Filename : fq_nmod_mat.c
+ *
+ * Description: functions for handling the type fq_nmod_mat
+ *              from FLINT, matrices over finite fields.
+ *
+ ***********************************************************
+ */
+
+// System dependencies
+
 #include <assert.h>
 
-#include "flint/fq_nmod_mat.h"
+// Required packages dependencies
+
+#include <flint/fq_nmod_mat.h>
+
+// Self dependencies
 
 #include "fq_nmod_mat.h"
 #include "typedefs.h"
 
 // This file implements additional utilities for performing linear algebra with fq_nmod_mat
 
+// check if a row is a zero row
 bool fq_nmod_mat_is_zero_row(const fq_nmod_mat_t mat, slong row, const fq_nmod_ctx_t F)
 {
   slong col;
@@ -56,6 +74,7 @@ bool fq_nmod_mat_is_zero_row(const fq_nmod_mat_t mat, slong row, const fq_nmod_c
 /*   return; */
 /* } */
 
+//  add a multiple of a row to another row
 void fq_nmod_mat_add_row(fq_nmod_mat_t mat, slong dst_row, slong src_row, const fq_nmod_t scalar, const fq_nmod_ctx_t F)
 {
   slong col;
@@ -73,6 +92,7 @@ void fq_nmod_mat_add_row(fq_nmod_mat_t mat, slong dst_row, slong src_row, const 
   return;
 }
 
+// add a multiple of a column to another column
 void fq_nmod_mat_add_col(fq_nmod_mat_t mat, slong dst_col, slong src_col, const fq_nmod_t scalar, const fq_nmod_ctx_t F)
 {
   slong row;
@@ -90,6 +110,7 @@ void fq_nmod_mat_add_col(fq_nmod_mat_t mat, slong dst_col, slong src_col, const 
   return;
 }
 
+// multiply a row by a scalar
 void fq_nmod_mat_mul_row(fq_nmod_mat_t mat, slong row, const fq_nmod_t scalar, const fq_nmod_ctx_t F)
 {
   slong col;
@@ -101,6 +122,7 @@ void fq_nmod_mat_mul_row(fq_nmod_mat_t mat, slong row, const fq_nmod_t scalar, c
   return;
 }
 
+// multiply a column by a scalar
 void fq_nmod_mat_mul_col(fq_nmod_mat_t mat, slong col, const fq_nmod_t scalar, const fq_nmod_ctx_t F)
 {
   slong row;
@@ -112,6 +134,7 @@ void fq_nmod_mat_mul_col(fq_nmod_mat_t mat, slong col, const fq_nmod_t scalar, c
   return;
 }
 
+// reduce amatrix mod p
 void fq_nmod_mat_init_set_fmpz_mat(fq_nmod_mat_t dest, const fmpz_mat_t mat, const fq_nmod_ctx_t F)
 {
   slong row, col;
@@ -125,7 +148,7 @@ void fq_nmod_mat_init_set_fmpz_mat(fq_nmod_mat_t dest, const fmpz_mat_t mat, con
   return;
 }
 
-
+// transpose a matrix
 void fq_nmod_mat_transpose(fq_nmod_mat_t mat_t, const fq_nmod_mat_t mat, const fq_nmod_ctx_t F)
 {
   slong row,col;
@@ -141,6 +164,7 @@ void fq_nmod_mat_transpose(fq_nmod_mat_t mat_t, const fq_nmod_mat_t mat, const f
   return;
 }
 
+// echelonize a matrix, keeping track of the transformation
 void fq_nmod_mat_rref_trans(fq_nmod_mat_t mat, fq_nmod_mat_t trans, const fq_nmod_ctx_t F)
 {
   slong* P;
@@ -229,6 +253,7 @@ void fq_nmod_mat_rref_trans(fq_nmod_mat_t mat, fq_nmod_mat_t trans, const fq_nmo
   return;
 }
 
+// computing the kernel of a matrix
 // !! TODO - reuse the code from above
 void fq_nmod_mat_kernel(fq_nmod_mat_t ker, const fq_nmod_mat_t mat, const fq_nmod_ctx_t F)
 {
