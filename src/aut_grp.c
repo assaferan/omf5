@@ -1,8 +1,28 @@
+/**********************************************************
+ *
+ * Package : omf5 - orthogonal modular forms of rank 5
+ * Filename : aut_grp.c
+ *
+ * Description: functions handling the automorphism group
+ *              of a lattice
+ *
+ **********************************************************
+ */
+
+// Required packages dependencies
+
 #include <carat/datei.h>
+
+// Self dependencies
 
 #include "aut_grp.h"
 #include "matrix_tools.h"
 #include "square_matrix.h"
+
+// implementations
+
+// initialize and set an automorphism group from the equivalent type in CARAT
+// copies the generators, their number and the order of the group
 
 void aut_grp_init_set_bravais_TYP(aut_grp_t grp, const bravais_TYP* brav)
 {
@@ -19,6 +39,8 @@ void aut_grp_init_set_bravais_TYP(aut_grp_t grp, const bravais_TYP* brav)
   return;
 }
 
+// clearing the memory allocated for the group
+
 void aut_grp_clear(aut_grp_t grp)
 {
   slong i;
@@ -30,6 +52,8 @@ void aut_grp_clear(aut_grp_t grp)
 
   return;
 }
+
+// initialize the automorphism group from a gram matrix
 
 void aut_grp_init_square_matrix(aut_grp_t grp, const square_matrix_t mat)
 {
@@ -47,6 +71,9 @@ void aut_grp_init_square_matrix(aut_grp_t grp, const square_matrix_t mat)
   return;
 }
 
+// check whether a square matrix is inside a list
+// !! TODO - move it to the files for square_matrix, and make it public
+
 bool square_matrix_in_list(const square_matrix_t mat, const square_matrix_t* mat_list, slong len)
 {
   slong i;
@@ -57,6 +84,9 @@ bool square_matrix_in_list(const square_matrix_t mat, const square_matrix_t* mat
 
   return false;
 }
+
+// get all elements of an automorphism group,
+// and write them into an array of square matrices.
 
 void aut_grp_get_elements(square_matrix_t* elts, const aut_grp_t grp)
 {
