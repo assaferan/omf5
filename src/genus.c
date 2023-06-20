@@ -1,8 +1,29 @@
+/**********************************************************
+ *
+ * Package : omf5 - orthogonal modular forms of rank 5
+ * Filename : genus.c
+ *
+ * Description: Genus of a lattice.
+ *              Used also to record relevant data about
+ *              the space of orthogonal modular forms
+ *              supported on this genus with different
+ *              conductors.
+ *
+ **********************************************************
+ */
+
+// System dependencies
+
 #include <assert.h>
+
+// Required packages dependencies
+
 #include <carat/matrix.h>
 
 #include <flint/fmpq.h>
 #include <flint/fmpz.h>
+
+// Self dependencies
 
 #include "aut_grp.h"
 #include "genus.h"
@@ -15,6 +36,8 @@
 #include "neighbor.h"
 #include "square_matrix.h"
 #include "typedefs.h"
+
+// a look up table of bit counts for numbers up to 8 bits, for quick popcount
 
 int bitcounts[256] = {
   0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 1, 2, 2, 3, 2, 3, 3, 4, 2,
@@ -30,6 +53,7 @@ int bitcounts[256] = {
   6, 7, 6, 7, 7, 8
 };
 
+/* computes the popcount of a 64-bit word (number of lit bits) */
 int popcnt(W64 x)
 {
   if (x <= 0xff) return bitcounts[x];
@@ -43,6 +67,7 @@ int popcnt(W64 x)
   return count;
 }
 
+/* compute the discriminant of a lattice from its gram matrix  */
 void disc_init_set(fmpz_t disc, const square_matrix_t q)
 {
   fmpz_mat_t q_fmpz;
@@ -57,6 +82,8 @@ void disc_init_set(fmpz_t disc, const square_matrix_t q)
   return;
 }
 
+/* Estimate the number of genus representatives based on its mass.
+   This is only a rough estimate, in order to allocate memory initially */
 size_t genus_size_estimate(const fmpq_t mass)
 {
   fmpz_t genus_size_fmpz;
@@ -71,6 +98,8 @@ size_t genus_size_estimate(const fmpq_t mass)
   return genus_size;
 }
 
+/* Initialize the possible conductors for the spinor norm (all square-free divisors of the discriminant).
+   Allocates memory and initializes values for the relevant parts of the genus structure */
 void conductors_init(genus_t genus)
 {
   slong c, value;
@@ -142,7 +171,9 @@ slong ignore_set(bool* ignore, const genus_t genus, slong genus_idx)
   
   return order;
 }
-  
+
+/* Compute the dimensions of each space of orthogonal modular forms based on this genus.
+   Also initializes the look up tables lut_positions and the number of automorphisms num_auts accordingly. */
 void dimensions_init(genus_t genus)
 {
   slong c, genus_idx, order;
@@ -391,15 +422,15 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t q, int h)
 #endif // NBR_DATA
 	current++;
       }
-     
+      
     }
 
     hash_table_recalibrate(genus->genus_reps, slow_genus);
-
+    
     hash_table_clear(slow_genus);
     
     assert(genus->genus_reps->num_stored > 0);
-
+    
     dimensions_init(genus);
     
     fmpq_clear(mass);
@@ -411,10 +442,11 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t q, int h)
     fmpz_mat_clear(nbr_fmpz);
     fmpz_mat_clear(nbr_isom);
 #endif // NBR_DATA
-      
+  
     return;
 }
 
+/* clear the memory allocated for the genus */
 void genus_clear(genus_t genus)
 {
   slong c;
@@ -444,6 +476,8 @@ void genus_clear(genus_t genus)
   return;
 }
 
+/* Check whether two lattices, given by their gram matrices, are isometric over Q.
+   If so, construct an isometry between them. */
 // !! TODO - right now we are doing it very naively, by constructing neighbors
 // We should replace it by proper Gram-Schmidt
 bool square_matrix_is_Q_isometric(isometry_t isom, const square_matrix_t A, const square_matrix_t B)
@@ -502,7 +536,9 @@ bool square_matrix_is_Q_isometric(isometry_t isom, const square_matrix_t A, cons
   
   return found;
 }
-
+ 
+/* Find isometries from the lattice whose gram matrix is A to each of the h lattices whose gram matrices are the
+   elements of the list B. Return the isometries in isoms, for which memory is assumed to be allocated. */
 // for now, this is faster (do one round and collect all)
 // assumes isoms are initialized and that B and isoms are the length of the class number
 void square_matrix_find_isometries(isometry_t* isoms, const square_matrix_t A, const square_matrix_t* B, int h)
@@ -538,6 +574,7 @@ void square_matrix_find_isometries(isometry_t* isoms, const square_matrix_t A, c
   return;
 }
 
+/* Initialize a genus from a list of gram matrices for the genus representatives */
 void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps, size_t h)
 {
 #ifdef DEBUG
@@ -617,6 +654,8 @@ void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps
   return;
 }
 
+/* Initialize a genus from a list of gram matrices for the genus representatives, and a list of specific isometries
+   from the firt representative to all the others. */
 void genus_init_set_square_matrix_vec_and_isoms(genus_t genus, const square_matrix_t* reps,
 						const isometry_t* isoms, size_t h)
 {
@@ -661,7 +700,7 @@ void genus_init_set_square_matrix_vec_and_isoms(genus_t genus, const square_matr
   return;
 }
 
-
+/* Initialize the genus from a file */
 void genus_init_file(genus_t genus, const char* genus_fname, size_t disc, bool with_isom)
 {
   square_matrix_t* genus_reps = NULL;
@@ -685,6 +724,7 @@ void genus_init_file(genus_t genus, const char* genus_fname, size_t disc, bool w
   return;
 }
 
+/* Initialize an empty genus, only from the discriminant */
 void genus_init_empty(genus_t genus, size_t disc)
 {
   fmpz_init_set_ui(genus->disc,disc);
@@ -700,6 +740,7 @@ void genus_init_empty(genus_t genus, size_t disc)
   return;
 }
 
+/* check whether the genus is trivial */
 bool genus_is_trivial_cond(const genus_t genus)
 {
   bool only_trivial;

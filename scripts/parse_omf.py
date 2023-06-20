@@ -67,14 +67,17 @@ def nf_elts_to_lists(elts, inv_basis):
         return list(elt)
     return [ list(sum([to_list(elt)[i]*inv_basis[i] for i in range(d)])) if type(elt) != str else elt for elt in elts]
 
-def parse_omf5(k,j,N,folder,suffix="_nl_200_",hecke_ring=True,B=200,max_deg=13):
+def parse_omf5(k,j,N,folder,suffix="_nl_200_",hecke_ring=True,B=200,max_deg=13,skip_lines=0):
     fname = folder + "hecke_ev_%d_%d%s%d.dat" %(k,j,suffix,N)
     Qx = PolynomialRing(QQ, name="x")
     x = Qx.gens()[0]
 
     fl = open(fname)
-    al_signs = eval(fl.read())
+    r = fl.readlines()
     fl.close()
+    if (len(r) <= skip_lines):
+        return []
+    al_signs = eval(r[skip_lines])
     ret = []
     bad_ps = [p for p in prime_range(B) if N % p == 0]
     ps = prime_range(B)
