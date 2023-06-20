@@ -1,5 +1,23 @@
+/*****************************************************************
+ *
+ * Package : omf5 - orthogonal modular forms of rank 5
+ * Filename : hash.c
+ *
+ * Description: Hash table for quickly testing
+ *              isometry between lattices.
+ *
+ *****************************************************************
+ */
+
+// System dependencies
+
 #include <assert.h>
+
+// Required packages dependencies
+
 #include <carat/symm.h>
+
+// Self dependencies
 
 #include "aut_grp.h"
 #include "hash.h"
@@ -8,16 +26,20 @@
 #include "nbr_data.h"
 #include "neighbor.h"
 
+// an initial number of terms to use from the theta series
 // TODO : We should be able to determine thes in a smarter way
 
 #define INITIAL_THETA_PREC  25
 
+/* hash_vec is a hash function on a vector of integers */
 // hash_vec is defined in the end, as different choices of hash functions might lead to extremely
 // different performance times
 hash_t hash_vec(const int* vec, unsigned int n);
 
+/* a helper function to add an entry to the table */
 int _add(hash_table_t table, const square_matrix_t key, hash_t val, int do_push_back);
 
+/* hash a form using its theta series */
 // This should be the declaration, but for some reason short_vectors doesn't restrict the pointer to be constant
 // Since we don't want to copy the matrix, we leave it at that.
 hash_t hash_form(const square_matrix_t q, W32 theta_prec)
@@ -43,6 +65,7 @@ hash_t hash_form(const square_matrix_t q, W32 theta_prec)
   return x;
 }
 
+/* initialize a hash table of given size */
 void hash_table_init(hash_table_t table, hash_t hash_size)
 {
   hash_t i, log_hash_size, n;
@@ -52,7 +75,8 @@ void hash_table_init(hash_table_t table, hash_t hash_size)
   while (n >>= 1) {
     log_hash_size++;
   }
-  
+
+  // It is easier to work with powers of 2 for memory allocation
   table->capacity = 1LL << log_hash_size;
   table->mask = (1LL << (log_hash_size + 1)) - 1;
   table->keys = (square_matrix_t*) malloc(table->capacity * sizeof(square_matrix_t));
@@ -74,6 +98,8 @@ void hash_table_init(hash_table_t table, hash_t hash_size)
   return;
 }
 
+/* Compute the time spent for an isometry testing, red_cost returns the amount of type spent on reduction */
+// At the moment, done by sampling neighbors, and testing isometries between them
 double get_isom_cost(const hash_table_t table, double* red_cost)
 {
   double isom_cost;
@@ -164,6 +190,13 @@ double get_isom_cost(const hash_table_t table, double* red_cost)
   return isom_cost;
 }
 
+/* get_total_cost returns the average time spent when looking up an isometry class.
+   This is done by computing the time spent for computing the theta series,
+   using the collision counts and the sizes of automorphism groups (probs) to estimate the average number
+   of isometry tests on every call, and computing the weighted average based on the given timing
+   of a single isometry test. We also input the time of checking an isometry with reduction.
+   Given the timings, we decide whether to reduce when performing isometry testing (returned in red_on_isom),
+   and output the total cost accordingly. */
 double get_total_cost(const hash_table_t table, W32 theta_prec, double isom_cost, double red_isom_cost, fmpq_t* wt_cnts,
 		      W32* counts, hash_t* vals, bool* red_on_isom, const fmpq_t* probs)
 {
@@ -217,6 +250,7 @@ double get_total_cost(const hash_table_t table, W32 theta_prec, double isom_cost
   return total_cost;
 }
 
+/*  recalibrate the hash table to use a different number of terms from the theta series, to optimize performance. */
 // This can be done better, by first computing the theta series and
 // only then going over them. Since this is not a critical path,
 // we postpone doing that.
@@ -294,6 +328,7 @@ void hash_table_recalibrate(hash_table_t new_table, const hash_table_t table)
   return;
 }
 
+/* insert a key to the hash table at a specific index */
 // key is non-const to prevent copying the matrices
 int hash_table_insert(hash_table_t table, const square_matrix_t key, hash_t val,
 		      int index, int do_push_back)
@@ -323,6 +358,7 @@ int hash_table_insert(hash_table_t table, const square_matrix_t key, hash_t val,
   return 1; 
 }
 
+/* a helper function to add an entry to the hash table */
 int _add(hash_table_t table, const square_matrix_t key, hash_t val, int do_push_back)
 {
   int offset, i;
@@ -355,6 +391,7 @@ int _add(hash_table_t table, const square_matrix_t key, hash_t val, int do_push_
   
 }
 
+/* add a lattice to the table */
 int hash_table_add(hash_table_t table, const square_matrix_t key)
 {
   return _add(table, key, hash_form(key, table->theta_prec), 1);
@@ -390,6 +427,8 @@ bool hash_table_get_key(square_matrix_t new_key, const hash_table_t table, const
   return true;
 }
 
+/* Checks whether there exists a lattice with the same hash in the table.
+   If check_isom is set, checks whether there is an isometric one. */
 int hash_table_exists(const hash_table_t table, const square_matrix_t key, int check_isom)
 {
   int offset, i;
@@ -419,6 +458,9 @@ int hash_table_exists(const hash_table_t table, const square_matrix_t key, int c
 
   return 0;
 }
+
+/* Returns the index in the hash table of a lattice with the same hash value,
+   or an isometric lattice if check_isom is set. */
 
 int hash_table_indexof(const hash_table_t table, const square_matrix_t key, int check_isom, double* theta_time, double* isom_time, int* num_isom)
 {
@@ -464,6 +506,8 @@ int hash_table_indexof(const hash_table_t table, const square_matrix_t key, int 
 
   return -1;
 }
+
+/* Returns also an isometry between the lattices */
 
 int hash_table_index_and_isom(const hash_table_t table, const square_matrix_t key, isometry_t isom,
 			      double* theta_time, double* isom_time, int* num_isom)
@@ -526,6 +570,8 @@ int hash_table_index_and_isom(const hash_table_t table, const square_matrix_t ke
   return -1;
 }
 
+/* Expand the size of the table in order to support more entries. */
+
 void hash_table_expand(hash_table_t table)
 {
   int i, stored;
@@ -560,6 +606,8 @@ void hash_table_expand(hash_table_t table)
 
   return;
 }
+
+/* clear the memory allocated for the table */
 
 void hash_table_clear(hash_table_t table)
 {
