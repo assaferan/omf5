@@ -1,8 +1,24 @@
+/*****************************************************************
+ *
+ * Package : omf5 - orthogonal modular forms of rank 5
+ * Filename : hecke.c
+ *
+ * Description: Functions for computing Hecke operators.
+ *
+ *****************************************************************
+ */
+
+// System dependencies
+
 #include <assert.h>
+
+// Required packages dependencies
 
 #include <carat/matrix.h>
 
 #include <flint/fmpz_mat.h>
+
+// Self dependencies
 
 #include "nbr_data.h"
 #include "neighbor.h"
@@ -14,9 +30,13 @@
 
 #include "typedefs.h"
 
+// macros for faster branching when unpacking spinor norm information
+
 #define likely(x)   __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
 
+/* update Hecke column (and timings for profiling) given a single isotropic vector,
+   using nbr_data type as a neighbor manager - only for trivial conductor */
 int process_isotropic_vector_nbr_data(nbr_data_t nbr_man, int* T, const genus_t genus,
 				      double* theta_time, double* isom_time, double* total_time, int* num_isom)
 {
@@ -49,6 +69,9 @@ int process_isotropic_vector_nbr_data(nbr_data_t nbr_man, int* T, const genus_t 
   return 0;
 }
 
+/* update Hecke column (and timings for profiling) given a single isotropic vector,
+   using nbr_data type as a neighbor manager - for all conductors at once.
+   Data is stored bit-sliced in spin_vals */
 int process_isotropic_vector_nbr_data_all_conductors(nbr_data_t nbr_man, W64* spin_vals,
 						     const genus_t genus,
 						     double* theta_time, double* isom_time,
@@ -125,6 +148,9 @@ int process_isotropic_vector_nbr_data_all_conductors(nbr_data_t nbr_man, W64* sp
   return 0;
 }
 
+/* update Hecke column (and timings for profiling) given a single isotropic vector,
+   using neighbor_manager type as a neighbor manager - for all conductors at once.
+   Data is stored bit-sliced in spin_vals */
 int process_isotropic_vector_all_conductors(neighbor_manager_t nbr_man, W64* spin_vals,
 					    const genus_t genus,
 					    double* theta_time, double* isom_time,
@@ -294,6 +320,8 @@ int process_isotropic_vector_all_conductors(neighbor_manager_t nbr_man, W64* spi
   return orb_size;
 }
 
+/* update Hecke column (and timings for profiling) given a single isotropic vector,
+   using neighbor_manager type as a neighbor manager - only for trivial conductor */
 int process_isotropic_vector(neighbor_manager_t nbr_man, int* T, const genus_t genus,
 			     double* theta_time, double* isom_time, double* total_time, int* num_isom)
 
@@ -341,7 +369,8 @@ int process_isotropic_vector(neighbor_manager_t nbr_man, int* T, const genus_t g
 }
 
 
-
+/* update Hecke column (and timings for profiling) given a chunk of isotropic vectorsm specified by i,
+   using neighbor_manager type as a neighbor manager - only for trivial conductor */
 // !! TODO - use i to cut the parameters to chunks, need to convert from a number to a vector in the parameter space
 int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const genus_t genus,
 			    double* theta_time, double* isom_time, double* total_time, int* num_isom)
@@ -372,6 +401,9 @@ int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const genus_t gen
   return lc;
 }
 
+/* compute Hecke column,
+   using nbr_data type as a neighbor manager - for all conductors at once.
+   Data is stored bit-sliced in spin_vals */
 slong hecke_col_nbr_data_all_conductors(W64* spin_vals, int p, int k, int gen_idx, const genus_t genus)
 {
   square_matrix_t Q;
@@ -415,6 +447,9 @@ slong hecke_col_nbr_data_all_conductors(W64* spin_vals, int p, int k, int gen_id
   return lc;
 }
 
+/* compute Hecke column,
+   using neighbor_manager type as a neighbor manager - for all conductors at once.
+   Data is stored bit-sliced in spin_vals */
 slong hecke_col_all_conductors(W64* spin_vals, int p, int gen_idx, const genus_t genus)
 {
   square_matrix_t Q;
@@ -456,6 +491,8 @@ slong hecke_col_all_conductors(W64* spin_vals, int p, int gen_idx, const genus_t
   return lc;
 }
 
+/* update Hecke column by a chunk of neighbors,
+   using nbr_data type as a neighbor manager - only for trivial conductor */
 int process_neighbour_chunk_nbr_data(int* T, int p, int k, int gen_idx, const genus_t genus,
 				     double* theta_time, double* isom_time, double* total_time, int* num_isom)
 {
@@ -486,6 +523,7 @@ int process_neighbour_chunk_nbr_data(int* T, int p, int k, int gen_idx, const ge
   return lc;
 }
 
+/* Compute hecke column for trivial conductor, using nbr_data as a neighbor manager. */
 // assumes T is initialized to zeros
 
 void hecke_col_nbr_data(int* T, int p, int k, int gen_idx, const genus_t genus)
@@ -506,6 +544,7 @@ void hecke_col_nbr_data(int* T, int p, int k, int gen_idx, const genus_t genus)
   return;
 }
 
+/* Compute hecke column for trivial conductor, using neighbor_manager as a neighbor manager. */
 void hecke_col(int* T, int p, int gen_idx, const genus_t genus)
 {
   slong i;
@@ -533,6 +572,8 @@ void hecke_col(int* T, int p, int gen_idx, const genus_t genus)
   return;
 }
 
+// lookup table for the spinor norm - (-1)^popcnt,
+// so returns the product of the spinor norm over the primes dividing the conductor
 int char_vals[256] = {
   1, -1, -1,  1, -1,  1,  1, -1, -1,  1,  1, -1,  1, -1, -1,  1, -1,  1,
   1, -1,  1, -1, -1,  1,  1, -1, -1,  1, -1,  1,  1, -1, -1,  1,  1, -1,
@@ -550,7 +591,8 @@ int char_vals[256] = {
   -1,  1, -1,  1,  1, -1,  1, -1, -1,  1, -1,  1,  1, -1, -1,  1,  1, -1,
   1, -1, -1,  1
 };
- 
+
+// use the lookup table to find the value for a 64-bit word
 int char_val(W64 x)
 {
   if (x <= 0xff) return char_vals[x];
@@ -562,6 +604,8 @@ int char_val(W64 x)
   return value;
 }
 
+/* Compute columns of the Hecke operators T_{p,1} for all conductors.
+   This processes the data that was stored bit-sliced in 64-bit words and outputs it sparsely. */
 int** hecke_col_all_conds_sparse(int p, int col_idx, const genus_t genus)
 {
   slong c, i;
@@ -620,6 +664,7 @@ int** hecke_col_all_conds_sparse(int p, int col_idx, const genus_t genus)
   return hecke;
 }
 
+/* Compute the matrices for the Hecke operators T_{p,k} at all conductors */
 matrix_TYP** hecke_matrices_nbr_data_all_conductors(const genus_t genus, int p, int k)
 {
   matrix_TYP** hecke;
@@ -679,6 +724,7 @@ matrix_TYP** hecke_matrices_nbr_data_all_conductors(const genus_t genus, int p, 
   return hecke;
 }
 
+/* Compute the matrices for the Hecke operators T_{p,1} at all conductors */
 matrix_TYP** hecke_matrices_all_conductors(const genus_t genus, int p)
 {
   matrix_TYP** hecke;
@@ -754,6 +800,7 @@ matrix_TYP** hecke_matrices_all_conductors(const genus_t genus, int p)
   return hecke;
 }
 
+/* Compute the Hecke matrix T_{p,1} at trivial conductor */
 matrix_TYP* hecke_matrix(const genus_t genus, int p)
 {
   matrix_TYP* hecke;
@@ -767,6 +814,7 @@ matrix_TYP* hecke_matrix(const genus_t genus, int p)
   return hecke;
 }
 
+/* get the Hecke eigenvalue of T_{p,k} on an eigenform (evs[ev_idx]) with trivial conductor */
 void get_hecke_ev_nbr_data(nf_elem_t e, const genus_t genus, const eigenvalues_t evs,
 			   int p, int k, int ev_idx)
 {
@@ -840,7 +888,7 @@ void get_hecke_ev_nbr_data(nf_elem_t e, const genus_t genus, const eigenvalues_t
   return;
 }
 
-
+/* get the Hecke eigenvalue of T_{p,k} on an eigenform (evs[ev_idx]) with nontrivial conductor */
 void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
 					  const eigenvalues_t evs,
 					  int p, int k, int ev_idx, slong ev_cond)
@@ -967,7 +1015,7 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
   return;
 }
 
-
+/* get the Hecke eigenvalue of T_{p,1} on an eigenform (evs[ev_idx]) with nontrivial conductor */
 void get_hecke_ev_all_conductors(nf_elem_t e, const genus_t genus,
 				 const eigenvalues_t evs,
 				 int p, int ev_idx, slong ev_cond)
@@ -1095,6 +1143,7 @@ void get_hecke_ev_all_conductors(nf_elem_t e, const genus_t genus,
   return;
 }
 
+/* get the Hecke eigenvalue of T_{p,1} on an eigenform (evs[ev_idx]) with trivial conductor */
 void get_hecke_ev(nf_elem_t e, const genus_t genus, const eigenvalues_t evs, int p, int ev_idx)
 {
   nf_elem_t e_new;
@@ -1166,6 +1215,7 @@ void get_hecke_ev(nf_elem_t e, const genus_t genus, const eigenvalues_t evs, int
   return;
 }
 
+/* get the Hecke matrix T_{p,1} on trivial conductor, as an fmpq_mat */
 void get_hecke_fmpq_mat(fmpq_mat_t hecke_fmpq_mat, const genus_t genus, int p)
 {
   matrix_TYP* hecke_mat;
@@ -1178,7 +1228,8 @@ void get_hecke_fmpq_mat(fmpq_mat_t hecke_fmpq_mat, const genus_t genus, int p)
   free_mat(hecke_mat);
   return;
 }
- 
+
+/* get the Hecke matrix T_{p,1} on all conductors, as an array of fmpq_mat */
 void get_hecke_fmpq_mat_all_conductors(fmpq_mat_t* hecke_fmpq_mat, const genus_t genus, int p, int k)
 {
   matrix_TYP** hecke_matrices;
@@ -1197,6 +1248,7 @@ void get_hecke_fmpq_mat_all_conductors(fmpq_mat_t* hecke_fmpq_mat, const genus_t
   return;
 }
 
+/* Compute the Hecke eigenformson the space with conductor c, given the decomposition to Hecke subspaces */
 void hecke_eigenforms(eigenvalues_t evs, const decomposition_t D, const genus_t genus, slong c)
 {
   slong i, p_idx;
@@ -1227,6 +1279,7 @@ void hecke_eigenforms(eigenvalues_t evs, const decomposition_t D, const genus_t 
   return;
 }
 
+/* Compute the Hecke Eigenforms for all spaces of orthogonal modular forms based on this genus */
 eigenvalues_t* hecke_eigenforms_all_conductors(const genus_t genus)
 {
   eigenvalues_t* all_evs;
