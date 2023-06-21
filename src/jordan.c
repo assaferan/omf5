@@ -1,13 +1,31 @@
+/**********************************************************
+ *
+ * Package : omf5 - orthogonal modular forms of rank 5
+ * Filename : jordan.c
+ *
+ * Description: Computing Jordan decomposition
+ *              of a quadratic form over Z_p.
+ *
+ **********************************************************
+ */
+
+// System dependencies
+
 #include <assert.h>
+
+// Required packages dependencies
 
 #include <flint/fmpq.h>
 #include <flint/fmpq_mat.h>
 #include <flint/fmpz.h>
 #include <flint/fmpz_mat.h>
 
+// Self dependencies
+
 #include "arith.h"
 #include "jordan.h"
 
+/* Initialize an empty jordan decomposition */
 void jordan_data_init(jordan_data_t jordan, ulong n)
 {
   jordan->num_blocks = 0;
@@ -17,6 +35,8 @@ void jordan_data_init(jordan_data_t jordan, ulong n)
 
   return;
 }
+
+/* Clears memory allocated for a jordan_data_t*/
 
 void jordan_data_clear(jordan_data_t jordan)
 {
@@ -57,6 +77,7 @@ void inner_product(fmpq_t res, const fmpz_mat_t G,
   return;
 }
 
+/* Compute the jordan decomposition of q as a form in Z_p */
 void jordan_decomposition(jordan_data_t jordan, const square_matrix_t q, const fmpz_t p)
 {
   int even;

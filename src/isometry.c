@@ -1,7 +1,7 @@
 /**********************************************************
  *
  * Package : omf5 - orthogonal modular forms of rank 5
- * Filename : isometry.h
+ * Filename : isometry.c
  *
  * Description: Data structure for isometries.
  *
