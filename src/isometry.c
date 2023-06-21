@@ -1,11 +1,28 @@
+/**********************************************************
+ *
+ * Package : omf5 - orthogonal modular forms of rank 5
+ * Filename : isometry.h
+ *
+ * Description: Data structure for isometries.
+ *
+ **********************************************************
+ */
+
+// System dependencies
+
 #include <assert.h>
+
+// Required packages dependencies
 
 #include <carat/autgrp.h>
 #include <carat/symm.h>
 
+// Self dependencies
+
 #include "isometry.h"
 #include "matrix_tools.h"
 
+/* Initialize an isometry - sets it to the identity. */
 void isometry_init(isometry_t isom)
 {
   // by default we initialize isometries to one
@@ -17,6 +34,7 @@ void isometry_init(isometry_t isom)
   return;
 }
 
+/* clone an isometry */
 void isometry_init_set(isometry_t dest, const isometry_t src)
 {
   square_matrix_set(dest->s, src->s);
@@ -27,6 +45,7 @@ void isometry_init_set(isometry_t dest, const isometry_t src)
   return;
 }
 
+/* initialize an isometry from a rational matrix (using square_matrix_t) */
 void isometry_init_set_square_matrix(isometry_t isom, const square_matrix_t s, int denom)
 {
   // maybe we want to save time copying - check later
@@ -37,6 +56,7 @@ void isometry_init_set_square_matrix(isometry_t isom, const square_matrix_t s, i
   return;
 }
 
+/* initialize an isometry from a rational matrix (using fmpz_mat_t) */
 void isometry_init_set_fmpz_mat(isometry_t isom, const fmpz_mat_t s, int denom)
 {
 
@@ -47,6 +67,8 @@ void isometry_init_set_fmpz_mat(isometry_t isom, const fmpz_mat_t s, int denom)
   return;
 }
 
+/* multiply (compose) two isometries.
+   we do not reduce the denominator when doing so. */
 void isometry_mul(isometry_t prod, const isometry_t s1, const isometry_t s2)
 {
 
@@ -58,6 +80,7 @@ void isometry_mul(isometry_t prod, const isometry_t s1, const isometry_t s2)
   return;
 }
 
+/* multiply in place, from the right */
 void isometry_muleq_right(isometry_t sL, const isometry_t sR)
 {
   square_matrix_muleq_right(sL->s, sR->s);
@@ -68,6 +91,7 @@ void isometry_muleq_right(isometry_t sL, const isometry_t sR)
   return;
 }
 
+/* multiply in place, from the left */
 void isometry_muleq_left(isometry_t sR, const isometry_t sL)
 {
   square_matrix_muleq_left(sR->s, sL->s);
@@ -78,6 +102,7 @@ void isometry_muleq_left(isometry_t sR, const isometry_t sL)
   return;
 }
 
+/* multiply from the left by a rational matrix */
 void isometry_mul_mat_left(isometry_t prod, const square_matrix_t s1, int s1_denom, const isometry_t s2)
 {
   
@@ -88,6 +113,7 @@ void isometry_mul_mat_left(isometry_t prod, const square_matrix_t s1, int s1_den
   return;
 }
 
+/* multiply from the right by a rational matrix */
 void isometry_mul_mat_right(isometry_t prod, const isometry_t s1, const square_matrix_t s2, int s2_denom)
 {
   
@@ -98,6 +124,7 @@ void isometry_mul_mat_right(isometry_t prod, const isometry_t s1, const square_m
   return;
 }
 
+/* multiply from the left, in place, by a rational matrix */
 void isometry_mul_mateq_left(isometry_t sR, const square_matrix_t sL, int sL_denom)
 {
   square_matrix_muleq_left(sR->s, sL);
@@ -106,6 +133,8 @@ void isometry_mul_mateq_left(isometry_t sR, const square_matrix_t sL, int sL_den
 
   return;
 }
+
+/* multiply from the right, in place, by a rational matrix */
 void isometry_mul_mateq_right(isometry_t sL, const square_matrix_t sR, int sR_denom)
 {
   square_matrix_muleq_right(sL->s, sR);
@@ -115,6 +144,7 @@ void isometry_mul_mateq_right(isometry_t sL, const square_matrix_t sR, int sR_de
   return;
 }
 
+/* invert */
 void isometry_inv(isometry_t inv, const isometry_t isom)
 {
   
@@ -126,12 +156,14 @@ void isometry_inv(isometry_t inv, const isometry_t isom)
   return;
 }
 
+/* clear memory allocated */
 void isometry_clear(isometry_t isom)
 {
   // did not allocate any memory
   return;
 }
 
+/* compute the new gram matrix after applying the isometry (g^t * Q * g) */
 // !! TODO - we can make this operation faster by doing it all at once
 void isometry_transform_gram(square_matrix_t gtQg, const isometry_t g, const square_matrix_t Q)
 {
@@ -170,6 +202,8 @@ void isometry_transform_gram(square_matrix_t gtQg, const isometry_t g, const squ
   return;
 }
 
+/* Checks whether s is an isometry from q1 to q2, i.e. if s^t * q1 * s = q2. */
+// !! TODO - s should be const here
 bool isometry_is_isom(isometry_t s, const square_matrix_t q1, const square_matrix_t q2)
 {
   square_matrix_t gram;
@@ -191,6 +225,8 @@ bool isometry_is_isom(isometry_t s, const square_matrix_t q1, const square_matri
   return square_matrix_is_equal(gram,q2);
 }
 
+/* Checks whether q1 and q2 are isometric, and if so computes an isometry betwenn them.
+   Uses isometry testing from the CARAT package. */
 bool is_isometric(isometry_t s, const square_matrix_t q1, const square_matrix_t q2)
 {
   int i, Qmax;
@@ -228,6 +264,9 @@ bool is_isometric(isometry_t s, const square_matrix_t q1, const square_matrix_t 
   return (isom != NULL);
 }
 
+// Matrix operations
+
+/* swap two basis vectors */
 void isometry_swap_vecs(isometry_t isom, int col1, int col2)
 {
 #ifdef DEBUG
@@ -250,6 +289,7 @@ void isometry_swap_vecs(isometry_t isom, int col1, int col2)
   return;
 }
 
+/* add a mupltiple of one basis vector to another */
 void isometry_add_vec(isometry_t isom, int target_col, Z64 c, int src_col)
 {
 #ifdef DEBUG
@@ -273,6 +313,7 @@ void isometry_add_vec(isometry_t isom, int target_col, Z64 c, int src_col)
   return;
 }
 
+/* replace a basis vector by a given vector */
 void isometry_replace_vec(isometry_t isom, int col, const vector_t x)
 {
 #ifdef DEBUG
@@ -305,6 +346,7 @@ void isometry_replace_vec(isometry_t isom, int col, const vector_t x)
   return;
 }
 
+/* divide a basis vector by a scalar */
 void isometry_vec_scalar_div(isometry_t isom, int col, int scalar)
 {
 #ifdef DEBUG
@@ -332,6 +374,7 @@ void isometry_vec_scalar_div(isometry_t isom, int col, int scalar)
   return;
 }
 
+/* multiply a basis vector by a scalar */
 void isometry_vec_scalar_mul(isometry_t isom, int col, int scalar)
 {
 #ifdef DEBUG
@@ -359,6 +402,7 @@ void isometry_vec_scalar_mul(isometry_t isom, int col, int scalar)
   return;
 }
 
+/* Check if two isometries are equal */
 bool isometry_is_equal(const isometry_t isom1, const isometry_t isom2)
 {
   square_matrix_t scaled_isom1, scaled_isom2;
