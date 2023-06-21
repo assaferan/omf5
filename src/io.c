@@ -1,14 +1,30 @@
+/*****************************************************************
+ *
+ * Package : omf5 - orthogonal modular forms of rank 5
+ * Filename : io.c
+ *
+ * Description: Functions for handling input and output
+ *
+ *****************************************************************
+ */
+
+// System dependencies
+
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+
+// Self dependencies
 
 #include "arith.h"
 #include "io.h"
 #include "isometry.h"
 #include "square_matrix.h"
 
+// size of buffer to use when reading from files
 #define BUF_SIZE 4096 // usually optimal for x86 architecture
 
+// maximal number of genus representatives (class number)
 // can change this one to be dynamically allocated, but it's small enough
 #define MAX_GEN_SIZE 2000 
 
@@ -40,7 +56,7 @@ bool parse_array_int(Z64* arr, const char* arr_str, int num_entries)
   return (idx == num_entries);
 }
 
-// parse a comma-separated array of integers
+// parse a comma-separated array of ratinoal numbers
 bool parse_array_rat(Z64* num, int* denom,
 		     const char* arr_str, int num_entries)
 {
@@ -96,11 +112,13 @@ bool parse_array_rat(Z64* num, int* denom,
   return (idx == num_entries);
 }
 
+// parse a symmetric 5x5 matrix, given as an array of 15 integers
 bool parse_matrix(Z64* Q_coeffs, const char* mat_str)
 {
   return parse_array_int(Q_coeffs, mat_str, 15);
 }
 
+// parse a 5x5 matrix of integers, given as an array of 5 arrays of integers 
 bool parse_int_matrix_full(square_matrix_t Q, const char* mat_str)
 {
   int idx, len;
@@ -128,6 +146,7 @@ bool parse_int_matrix_full(square_matrix_t Q, const char* mat_str)
   return (idx == QF_RANK);
 }
 
+// parse an isometry (a 5x5 matrix of rationals), given as an array of 5 arrays of rationals) 
 bool parse_isom(isometry_t isom, const char* mat_str)
 {
   int idx, len, i, j;
@@ -172,6 +191,7 @@ bool parse_isom(isometry_t isom, const char* mat_str)
   return (idx == QF_RANK);
 }
 
+// parse a pair of a matrix and an isometry from input
 bool parse_mat_and_isom(square_matrix_t Q, isometry_t isom,
 			const char* mat_str)
 {
@@ -193,6 +213,7 @@ bool parse_mat_and_isom(square_matrix_t Q, isometry_t isom,
   return success;
 }
 
+// read the genus from a file with all the genus representatives for all discriminants
 size_t read_genus(square_matrix_t** p_genus, const char* fname, size_t disc)
 {
   FILE* genus_file;
@@ -263,6 +284,8 @@ size_t read_genus(square_matrix_t** p_genus, const char* fname, size_t disc)
   return genus_size;
 }
 
+// read the genus and the isometries between the genus representatives from a file
+// containing the genus representatives and the isometries for all discriminants.
 size_t read_genus_and_isom(square_matrix_t** p_genus,
 			   isometry_t** p_isom,
 			   const char* fname, size_t disc)
