@@ -1,9 +1,24 @@
+/*****************************************************************
+ *
+ * Package : omf5 - orthogonal modular forms of rank 5
+ * Filename : mass.c
+ *
+ * Description: Functions for computing mass formula
+ *
+ *****************************************************************
+ */
+
+// System dependencies
+
 #include <assert.h>
+
+// Internal dependencies
 
 #include "arith.h"
 #include "mass.h"
 #include "qf_inv.h"
 
+/* Compute the local factor of g at p */
 void local_factor(fmpq_t f, const fmpq_mat_t g, const fmpz_t p)
 {
   fmpz_t p_sqr;
@@ -67,6 +82,7 @@ void local_factor(fmpq_t f, const fmpq_mat_t g, const fmpz_t p)
   return;
 }
 
+/* returns the direct sum of the gram matrices in a Jordan decomposition */
 void diagonal_join(fmpq_mat_t joined, const jordan_data_t jordan)
 {
   ulong i, j, k;
@@ -84,6 +100,8 @@ void diagonal_join(fmpq_mat_t joined, const jordan_data_t jordan)
   return;
 }
 
+/* add contribution to the mass of the lattice L whose gram matrix is q at the bad prime p.
+   This uses the Jordan decomposition to obtain local factor of each component, and combine the results. */
 void _combine(fmpq_t mass, const square_matrix_t q, fmpz_t p)
 {
   assert(!fmpz_equal_si(p,2));
