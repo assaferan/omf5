@@ -222,10 +222,10 @@ int main(int argc, char* argv[])
     is_valid = (is_valid) || (is_idxs);
     if (is_idxs) {
       has_idxs = true;
-      printf("Read %d indices. These are their values:", num_idxs);
+      fprintf(stderr, "Read %d indices. These are their values:", num_idxs);
       for (j = 0; j < num_idxs; j++)
-	printf("%d,", idxs[j]);
-      printf("\b\n");
+	fprintf(stderr, "%d,", idxs[j]);
+      fprintf(stderr, "\b\n");
     }
 
     if (!is_valid)
