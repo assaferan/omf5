@@ -1,5 +1,5 @@
 import pickle
-from sage.all import (PolynomialRing, QQ, NumberField, prime_range, prime_divisors, divisors, is_square, ZZ, sqrt)
+from sage.all import (Matrix, PolynomialRing, QQ, NumberField, prime_range, prime_divisors, divisors, is_square, ZZ, sqrt)
 from sage.misc.persist import SagePickler
 
 def integer_squarefree_part(n):
