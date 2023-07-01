@@ -1,5 +1,5 @@
 import pickle
-from sage.all import (PolynomialRing, QQ, NumberField, prime_range, prime_divisors, divisors, is_square, ZZ)
+from sage.all import (PolynomialRing, QQ, NumberField, prime_range, prime_divisors, divisors, is_square, ZZ, sqrt)
 from sage.misc.persist import SagePickler
 
 def integer_squarefree_part(n):
@@ -82,7 +82,7 @@ def parse_omf5(k,j,N,folder,suffix="_nl_200_",hecke_ring=True,B=200,max_deg=13,s
     bad_ps = [p for p in prime_range(B) if N % p == 0]
     ps = prime_range(B)
     good_ps = [p for p in ps if p not in bad_ps]
-    square_ps = prime_range(B.sqrt())
+    square_ps = prime_range(sqrt(B))
     good_square_ps = [p for p in square_ps if p not in bad_ps]
     for al_sign in al_signs:
         forms = al_signs[al_sign]
