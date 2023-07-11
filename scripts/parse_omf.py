@@ -116,8 +116,10 @@ def parse_omf5(k,j,N,folder,suffix="_nl_200_",hecke_ring=True,B=200,max_deg=13,s
                 is_init_H = False
                 while (type(f['lambda_p'][p_idx]) == str):
                     p_idx += 1
-                if (F.degree() < 5):
+                if (F.degree() < 3):
                     max_p_idx = len(f['lambda_p'])
+                elif (F.degree() < 5):
+                    max_p_idx = 12
                 else:
                     max_p_idx = 5
                 while ((index != 1) and (p_idx < len(f['lambda_p'])) and (p_idx < max_p_idx)):
