@@ -116,7 +116,11 @@ def parse_omf5(k,j,N,folder,suffix="_nl_200_",hecke_ring=True,B=200,max_deg=13,s
                 is_init_H = False
                 while (type(f['lambda_p'][p_idx]) == str):
                     p_idx += 1
-                while ((index != 1) and (p_idx < len(f['lambda_p'])) and (p_idx < 5)):
+                if (F.degree() < 5):
+                    max_p_idx = len(f['lambda_p'])
+                else:
+                    max_p_idx = 5
+                while ((index != 1) and (p_idx < len(f['lambda_p'])) and (p_idx < max_p_idx)):
                     print("p_idx = ", p_idx)
                     gens = [x for x in f['lambda_p'][:p_idx+1] if type(x) != str]              
                     mod_gens = [to_V(x) for x in gens]
