@@ -1,12 +1,12 @@
 import pickle
-from sage.all import (Matrix, PolynomialRing, QQ, NumberField, prime_range, prime_divisors, divisors, is_square, ZZ, sqrt)
+from sage.all import (Matrix, PolynomialRing, QQ, NumberField, prime_range, prime_divisors, divisors, is_square, ZZ, sqrt, sign)
 from sage.misc.persist import SagePickler
 
 def integer_squarefree_part(n):
     """ returns the squarefree part of the integer n (uses factor rather than calling pari like sage 9.3+ does) """
     return sign(n)*prod([p**(e%2) for p, e in ZZ(n).factor()])
 
-def get_nf_basis(ev):
+def get_nf_basis(ev, quad_special=False):
     R = PolynomialRing(QQ, 'x')
     K = NumberField(R(ev['field_poly']), 'nu')
     nu = K.gen(0)
@@ -21,7 +21,7 @@ def get_nf_basis(ev):
         basis = inv_basis = [1, nu]
         return basis, inv_basis
     
-    if dim == 2:
+    if (dim == 2) and quad_special:
         c, b, a = map(ZZ, ev['field_poly'])
         D = b**2 - 4*a*c
         d = integer_squarefree_part(D)
@@ -552,3 +552,31 @@ def unite(k,j,N, folder_orig, folder_new, suffix = "_"):
     new_file.write(str(new_forms))
     new_file.close()
     return
+
+def fix_quadratic_bug_and_make_friends(N, db):
+    folder = "../omf5_data/hecke_evs_3_0/data/"
+    space = unplain_omf5_2(3,0,N,folder)
+    k = 3
+    j = 0
+    suffix = "_"
+    fname = folder + "hecke_ev_%d_%d%s%d.dat" %(k,j,suffix,N)
+    space_file = open(fname, "r")
+    space_data = eval(space_file.read())
+    space_file.close()
+    for i,f_data in enumerate(space_data):
+        f = space[i]
+        if (len(f['field_poly']) == 3):
+            basis, inv_basis = get_nf_basis(f)
+            lambdas = nf_lists_to_elements(f['lambda_p'], basis)
+            lambdas2 = nf_lists_to_elements(f['lambda_p_square'], basis)
+            f_data['trace_lambda_p'] = ['NULL' if lambdas[i] == 'NULL' else lambdas[i].trace() for i in range(len(f['lambda_p']))]
+            f_data['trace_lambda_p_square'] = ['NULL' if lambdas2[i] == 'NULL' else lambdas2[i].trace() for i in range(len(f['lambda_p_square']))]
+        if f['aut_rep_type'] in ['Y','P']:
+            aut_tp, friends = aut_rep(f_data, N, 100, db)
+            assert aut_tp == f['aut_rep_type']
+            f_data['related_objects'] = friends
+        else:
+            f_data['related_objects'] = []
+    space_file = open(fname, "w")
+    _ = space_file.write(str(space_data))
+    space_file.close()
