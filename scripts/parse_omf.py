@@ -565,7 +565,7 @@ def fix_quadratic_bug_and_make_friends(N, db):
     space_file.close()
     for i,f_data in enumerate(space_data):
         f = space[i]
-        if (len(f['field_poly']) == 3):
+        if (f['aut_rep_type'] != 'O') and (len(f['field_poly']) == 3):
             basis, inv_basis = get_nf_basis(f)
             lambdas = nf_lists_to_elements(f['lambda_p'], basis)
             lambdas2 = nf_lists_to_elements(f['lambda_p_square'], basis)
