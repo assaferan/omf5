@@ -31,7 +31,11 @@ DBG_CFLAGS += ${ALL_CFLAGS}
 DBG_FULL_CFLAGS = -DDEBUG_LEVEL_FULL
 DBG_FULL_CFLAGS += ${DBG_CFLAGS}
 
-ALL_LD_FLAGS = -L${GMP_PATH}/lib -L${CARAT_PATH}/lib -L${CARAT_PATH} -L${ANTIC_PATH}/lib -L${FLINT_PATH}/lib -lfunctions -lgmp @ANTIC_LIBS@ -lflint -lm
+ALL_LD_FLAGS = -L${GMP_PATH}/lib -L${CARAT_PATH}/lib -L${CARAT_PATH} -L${ANTIC_PATH}/lib -L${FLINT_PATH}/lib
+
+# The libraries must come after the objects on the link line (LDADD, not LDFLAGS),
+# otherwise GNU ld drops the static libfunctions.a of CARAT.
+ALL_LIBS = -lfunctions @ANTIC_LIBS@ -lflint -lgmp -lm
 
 DBG_LD_FLAGS = ${ALL_LD_FLAGS}
 # DBG_LD_FLAGS += -fsanitize=leak
@@ -99,6 +103,7 @@ OPT_LD_FLAGS = ${ALL_LD_FLAGS}
 OPT_LD_FLAGS += -O3
 
 omf5_LDFLAGS = ${OPT_LD_FLAGS}
+omf5_LDADD = ${ALL_LIBS}
 # libomf5_la_LDFLAGS = ${OPT_LD_FLAGS}
 
 # omf5_nbr_data_LDFLAGS = ${OPT_LD_FLAGS}

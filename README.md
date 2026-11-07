@@ -199,6 +199,8 @@ This was used after discarding the oldforms to compute additional eigenvalues on
 
 The shell script **test_runs.sh** runs sample tests, whose timings were recorded in the paper. 
 
+The shell script **check_examples.sh** checks the Hecke eigenvalues computed for the examples above against their known values. It is run by the continuous integration, after the standard tests.
+
 The python script **hecke_run.py** computes the full hecke matrices for primes up to 10 and its first row for primes up to 100 for all discriminants up to 1000.
 
 The shell script **parse_omf_runs.sh** parses the output of the runs computing eigenvalues in order to produce data to be transferred to the LMFDB.
