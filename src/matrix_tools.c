@@ -4,8 +4,9 @@
 #include <stdlib.h>
 #include <time.h>
 
-#include <antic/nf.h>
-#include <antic/nf_elem.h>
+#include <flint/nmod_mat.h>
+
+#include "flint_compat.h"
 
 #include <flint/fmpz_mat.h>
 #include <flint/fmpz_poly_factor.h>
@@ -1413,7 +1414,7 @@ void print_content_and_coeff_size(const fmpq_mat_t A, const char* name)
 {
   fmpz_mat_t num;
   fmpz_t mat_gcd, denom;
-  mp_bitcnt_t coeff_size;
+  flint_bitcnt_t coeff_size;
   slong i,j;
 
   fmpz_init(mat_gcd);
@@ -1501,7 +1502,7 @@ void matrix_TYP_init_set_fmpz_mat(matrix_TYP** M, const fmpz_mat_t mat)
   return;
 }
 
-void nmod_mat_init_set_fmpz_mat(nmod_mat_t dest, const fmpz_mat_t mat, mp_limb_t n)
+void nmod_mat_init_set_fmpz_mat(nmod_mat_t dest, const fmpz_mat_t mat, ulong n)
 {
   slong row, col;
   slong q, r;

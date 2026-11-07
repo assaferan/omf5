@@ -3,9 +3,17 @@ bin_PROGRAMS = omf5 # omf5_dbg omf5_dbg_full omf5_nbr_data omf5_nbr_data_dbg omf
 
 ALL_CFLAGS = -I ../include -I${GMP_PATH}/include -I${ANTIC_PATH}/include -I${FLINT_PATH}/include -Wall -Werror
 
-OPT_CFLAGS = -O3 -DNDEBUG -msse3 -mavx
+# The code defines its own bool (typedefs.h), which C23 makes a keyword.
+# Recent autoconf selects -std=gnu23 by default, so pin the standard here.
+ALL_CFLAGS += -std=gnu17
+
+OPT_CFLAGS = -O3 -DNDEBUG
 DBG_CFLAGS = -g -DDEBUG -fsanitize=address
 OPT_CFLAGS += -fomit-frame-pointer
+
+if X86
+	OPT_CFLAGS += -msse3 -mavx
+endif
 
 if LINUX
 	OPT_CFLAGS += -fvar-tracking-assignments-toggle
@@ -23,7 +31,7 @@ DBG_CFLAGS += ${ALL_CFLAGS}
 DBG_FULL_CFLAGS = -DDEBUG_LEVEL_FULL
 DBG_FULL_CFLAGS += ${DBG_CFLAGS}
 
-ALL_LD_FLAGS = -L${GMP_PATH}/lib -L${ANTIC_PATH}/lib -L${FLINT_PATH}/lib -lfunctions -lgmp -lantic -lflint -lm
+ALL_LD_FLAGS = -L${GMP_PATH}/lib -L${CARAT_PATH}/lib -L${CARAT_PATH} -L${ANTIC_PATH}/lib -L${FLINT_PATH}/lib -lfunctions -lgmp @ANTIC_LIBS@ -lflint -lm
 
 DBG_LD_FLAGS = ${ALL_LD_FLAGS}
 # DBG_LD_FLAGS += -fsanitize=leak

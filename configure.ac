@@ -37,6 +37,18 @@ AM_CONDITIONAL([LINUX], [test "$build_linux" = "yes"])
 AM_CONDITIONAL([WINDOWS], [test "$build_windows" = "yes"])
 AM_CONDITIONAL([OSX], [test "$build_mac" = "yes"])
 
+# x86-specific optimization flags (-msse3 -mavx) are not valid elsewhere (e.g. arm64)
+case "${host_cpu}" in
+    x86_64|i?86)
+        build_x86=yes
+        ;;
+    *)
+        build_x86=no
+        ;;
+esac
+
+AM_CONDITIONAL([X86], [test "$build_x86" = "yes"])
+
 dnl
 dnl C is the language
 dnl
@@ -95,4 +107,20 @@ dnl AC_CHECK_HEADERS([flint.h],
 dnl        [found_flint_headers=yes; break;])
 
 AC_SEARCH_LIBS([gmp])
+
+dnl
+dnl flint >= 3.0 includes the number field modules (nf, nf_elem)
+dnl that used to live in antic, so antic is only needed for flint 2.x
+dnl
+save_CPPFLAGS="$CPPFLAGS"
+CPPFLAGS="$CPPFLAGS -I${GMP_PATH}/include -I${FLINT_PATH}/include"
+AC_MSG_CHECKING([whether flint is version 3.0 or later])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <flint/flint.h>]],
+  [[#if __FLINT_RELEASE < 30000
+    #error flint 2.x
+    #endif]])],
+  [AC_MSG_RESULT([yes]); ANTIC_LIBS=""],
+  [AC_MSG_RESULT([no, linking with antic]); ANTIC_LIBS="-lantic"])
+CPPFLAGS="$save_CPPFLAGS"
+AC_SUBST([ANTIC_LIBS])
 AC_OUTPUT()

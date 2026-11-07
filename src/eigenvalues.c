@@ -23,6 +23,9 @@
 
 // Self dependencies
 
+#include <flint/nmod_poly.h>
+#include <flint/nmod_poly_factor.h>
+
 #include "eigenvalues.h"
 #include "fmpq_poly.h"
 #include "hecke.h"

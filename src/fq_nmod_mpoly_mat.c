@@ -25,7 +25,7 @@ void fq_nmod_mpoly_mat_init(fq_nmod_mpoly_mat_t mat, slong rows, slong cols, con
 
   if (rows != 0 && cols != 0)
     {
-      mat->entries = (fq_nmod_mpoly_struct *) flint_calloc(flint_mul_sizes(rows, cols), sizeof(fq_nmod_mpoly_struct));
+      mat->entries = (fq_nmod_mpoly_struct *) flint_calloc(rows * cols, sizeof(fq_nmod_mpoly_struct));
 
       /* Set denominators */
       for (i = 0; i < rows * cols; i++)

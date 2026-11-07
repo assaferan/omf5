@@ -123,7 +123,7 @@ bool decomposition_finite_subspace(decomposition_t decomp, const genus_t genus, 
     fmpq_poly_evaluate_fmpq_mat(fT, &(fac->p[i]), T);
     kernel_on(W, fT, basis_V);
     // W is the stable subspace corresponding to this irreducible factor 
-    assert(W->rows != 0);
+    assert(fmpq_mat_nrows(W) != 0);
     // We lift the basis to vectors of the original space
     // fmpq_mat_mul(W, W, basis_V);
     // optimally, we will already compute the eigenvectors at this point.

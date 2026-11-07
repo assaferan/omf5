@@ -13,8 +13,7 @@
 
 // External packages dependencies
 
-#include <antic/nf.h>
-#include <antic/nf_elem.h>
+#include "flint_compat.h"
 
 #include <carat/matrix.h>
 
@@ -228,7 +227,7 @@ bool get_eigenvector_on_subspace(nf_elem_t* evec, nf_t nf, const fmpq_mat_t T, c
 void fmpq_mat_init_set_matrix_TYP(fmpq_mat_t M, const matrix_TYP* mat);
 void fmpz_mat_init_set_matrix_TYP(fmpz_mat_t M, const matrix_TYP* mat);
 void matrix_TYP_init_set_fmpz_mat(matrix_TYP** mat, const fmpz_mat_t M);
-void nmod_mat_init_set_fmpz_mat(nmod_mat_t dest, const fmpz_mat_t mat, mp_limb_t n);
+void nmod_mat_init_set_fmpz_mat(nmod_mat_t dest, const fmpz_mat_t mat, ulong n);
 void fq_nmod_mat_init_set_fmpz_mat(fq_nmod_mat_t dest, const fmpz_mat_t mat, const fq_nmod_ctx_t F);
 
 void restrict_mat(fmpq_mat_t res_T, const fmpq_mat_t T, const fmpq_mat_t basis_W);
