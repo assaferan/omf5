@@ -758,7 +758,7 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
 #ifdef __linux__
 #pragma GCC diagnostic ignored "-Wstringop-overread"
 #endif // __linux__
-  fq_nmod_mat_transpose(basis_t, basis, nbr_man->GF);
+  omf5_fq_nmod_mat_transpose(basis_t, basis, nbr_man->GF);
   
   // Extract our target isotropic subspace modulo p
 #ifdef __linux__

@@ -52,7 +52,7 @@ void fq_nmod_quad_evaluate(fq_nmod_t value, const fq_nmod_mat_t q, const fq_nmod
   }
   
   fq_nmod_mat_init(vec_t, fq_nmod_mat_ncols(vec,F), fq_nmod_mat_nrows(vec,F), F);
-  fq_nmod_mat_transpose(vec_t, vec, F);
+  omf5_fq_nmod_mat_transpose(vec_t, vec, F);
 
   fq_nmod_mat_init(vec_q, fq_nmod_mat_nrows(vec,F), fq_nmod_mat_ncols(q,F), F);
   fq_nmod_mat_mul(vec_q, vec, q, F);
@@ -84,7 +84,7 @@ void fq_nmod_quad_transform(fq_nmod_mat_t new_gram, const fq_nmod_mat_t gram,
   fq_nmod_mat_init(isom_gram, n, n, F);
   fq_nmod_mat_init(isom_t, n, n, F);
   
-  fq_nmod_mat_transpose(isom_t, isom, F);
+  omf5_fq_nmod_mat_transpose(isom_t, isom, F);
   fq_nmod_mat_mul(isom_gram, isom, gram, F);
   fq_nmod_mat_mul(new_gram, isom_gram, isom_t, F);
 
@@ -712,7 +712,7 @@ void fq_nmod_quad_split_hyperbolic_plane(const fq_nmod_mat_t vec, fq_nmod_mat_t 
 #ifdef DEBUG
   fq_nmod_mat_init(basis_t, fq_nmod_mat_ncols(basis,F), fq_nmod_mat_nrows(basis,F), F);
   fq_nmod_mat_init(tmp, fq_nmod_mat_nrows(basis,F), fq_nmod_mat_ncols(original_gram,F), F);
-  fq_nmod_mat_transpose(basis_t, basis, F);
+  omf5_fq_nmod_mat_transpose(basis_t, basis, F);
   fq_nmod_mat_mul(tmp, basis, original_gram, F);
   fq_nmod_mat_mul(tmp, tmp, basis_t, F);
   assert(fq_nmod_mat_equal(tmp, gram, F));
@@ -993,7 +993,7 @@ void fq_nmod_quad_decompose(fq_nmod_mat_t gram, fq_nmod_mat_t basis, const fq_nm
   // Since we did everything with row vectors, we need to transpose the
   //  basis, so that the subsequent code that utilizes it doesn't break.
   fq_nmod_mat_init(basis_t,n,n,F);
-  fq_nmod_mat_transpose(basis_t, basis, F);
+  omf5_fq_nmod_mat_transpose(basis_t, basis, F);
   fq_nmod_mat_set(basis, basis_t, F);
   fq_nmod_mat_clear(basis_t, F);
   
