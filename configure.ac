@@ -37,6 +37,18 @@ AM_CONDITIONAL([LINUX], [test "$build_linux" = "yes"])
 AM_CONDITIONAL([WINDOWS], [test "$build_windows" = "yes"])
 AM_CONDITIONAL([OSX], [test "$build_mac" = "yes"])
 
+# x86-specific optimization flags (-msse3 -mavx) are not valid elsewhere (e.g. arm64)
+case "${host_cpu}" in
+    x86_64|i?86)
+        build_x86=yes
+        ;;
+    *)
+        build_x86=no
+        ;;
+esac
+
+AM_CONDITIONAL([X86], [test "$build_x86" = "yes"])
+
 dnl
 dnl C is the language
 dnl
@@ -95,4 +107,55 @@ dnl AC_CHECK_HEADERS([flint.h],
 dnl        [found_flint_headers=yes; break;])
 
 AC_SEARCH_LIBS([gmp])
+
+dnl
+dnl Include and library paths of the dependencies, flint first, so that
+dnl the build compiles against the flint headers checked here (see
+dnl src/Makefile.am). The flint library itself is not checked.
+dnl
+DEPS_CPPFLAGS="-I${FLINT_PATH}/include -I${GMP_PATH}/include"
+DEPS_LDFLAGS="-L${FLINT_PATH}/lib -L${GMP_PATH}/lib"
+
+save_CPPFLAGS="$CPPFLAGS"
+CPPFLAGS="$CPPFLAGS $DEPS_CPPFLAGS"
+
+AC_CHECK_HEADER([flint/flint.h], [],
+  [AC_MSG_ERROR([flint/flint.h not found under ${FLINT_PATH}/include, set FLINT_PATH to the flint installation])])
+
+dnl omf5 uses functions added in flint 2.9, such as fmpq_set_fmpz
+AC_MSG_CHECKING([whether flint is version 2.9 or later])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <flint/flint.h>]],
+  [[#if __FLINT_RELEASE < 20900
+    #error flint older than 2.9
+    #endif]])],
+  [AC_MSG_RESULT([yes])],
+  [AC_MSG_RESULT([no])
+   AC_MSG_ERROR([omf5 requires flint 2.9 or later, but the flint under ${FLINT_PATH}/include is older])])
+
+dnl
+dnl flint >= 3.0 includes the number field modules (nf, nf_elem)
+dnl that used to live in antic, so antic is only needed for flint 2.x
+dnl
+AC_MSG_CHECKING([whether flint is version 3.0 or later])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <flint/flint.h>]],
+  [[#if __FLINT_RELEASE < 30000
+    #error flint 2.x
+    #endif]])],
+  [AC_MSG_RESULT([yes]); need_antic=no],
+  [AC_MSG_RESULT([no, linking with antic]); need_antic=yes])
+
+ANTIC_LIBS=""
+if test "$need_antic" = "yes"; then
+   DEPS_CPPFLAGS="$DEPS_CPPFLAGS -I${ANTIC_PATH}/include"
+   DEPS_LDFLAGS="$DEPS_LDFLAGS -L${ANTIC_PATH}/lib"
+   ANTIC_LIBS="-lantic"
+   CPPFLAGS="$save_CPPFLAGS $DEPS_CPPFLAGS"
+   AC_CHECK_HEADER([antic/nf.h], [],
+     [AC_MSG_ERROR([flint 2.x requires antic, but antic/nf.h was not found under ${ANTIC_PATH}/include, set ANTIC_PATH to the antic installation])])
+fi
+
+CPPFLAGS="$save_CPPFLAGS"
+AC_SUBST([DEPS_CPPFLAGS])
+AC_SUBST([DEPS_LDFLAGS])
+AC_SUBST([ANTIC_LIBS])
 AC_OUTPUT()

@@ -1,5 +1,8 @@
 #include <assert.h>
 
+#include <flint/nmod_mat.h>
+#include <flint/nmod_poly.h>
+
 #include "carat/matrix.h"
 
 #include "flint/fq_nmod.h"
@@ -11,6 +14,7 @@
 #include "fq_nmod_quad.h"
 #include "matrix_tools.h"
 
+#include "flint_compat.h"
 #include "nbr_data.h"
 #include "typedefs.h"
 
@@ -703,7 +707,7 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
   n = fmpz_mat_nrows(nbr_man->q);
   assert(n == fmpz_mat_ncols(nbr_man->q));
   
-  p = fmpz_get_si(fq_nmod_ctx_prime(nbr_man->GF));
+  p = (slong)FQ_NMOD_CTX_PRIME_UI(nbr_man->GF);
 
   assert(nbr_man->pivots->pivot_ptr >= 1);
 
@@ -1168,7 +1172,7 @@ void nbr_data_update_skew_space(nbr_data_t nbr_man)
   n = fmpz_mat_nrows(nbr_man->q);
   assert(n == fmpz_mat_ncols(nbr_man->q));
   
-  p = fmpz_get_si(fq_nmod_ctx_prime(nbr_man->GF));
+  p = (slong)FQ_NMOD_CTX_PRIME_UI(nbr_man->GF);
   // Update the skew space.
   for (i = 0; i < nbr_man->k; i++) {
     for (l = 0; l < n; l++)
@@ -1366,7 +1370,7 @@ void nbr_data_build_neighbor(fmpz_mat_t nbr, fmpz_mat_t s, const nbr_data_t nbr_
   slong i, j, n;
   fmpz_mat_t hermite;
 
-  p = fmpz_get_si(fq_nmod_ctx_prime(nbr_man->GF));
+  p = (slong)FQ_NMOD_CTX_PRIME_UI(nbr_man->GF);
   p2 = p*p;
   p3 = p2*p;
 
@@ -1481,7 +1485,7 @@ slong number_of_neighbors(const nbr_data_t nbr_man, bool rad_cnt)
 {
   slong p, num;
 
-  p = fmpz_get_si(fq_nmod_ctx_prime(nbr_man->GF));
+  p = (slong)FQ_NMOD_CTX_PRIME_UI(nbr_man->GF);
   num = number_of_isotropic_subspaces(p, nbr_man->witt_index, nbr_man->aniso_dim,
 				      nbr_man->rad_dim, nbr_man->k, rad_cnt);
   if (nbr_man->k == 2)

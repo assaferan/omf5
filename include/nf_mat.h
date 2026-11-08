@@ -7,8 +7,7 @@
  * 
  */
 
-#include <antic/nf.h>
-#include <antic/nf_elem.h>
+#include "flint_compat.h"
 
 typedef struct {
   const nf_t* nf; // a pointer to the number field (not created)

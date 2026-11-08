@@ -7,6 +7,12 @@
 #include <flint/fq_nmod.h>
 #include <flint/fq_nmod_mat.h>
 
+#include <flint/fmpz.h>
+#include <flint/fmpz_factor.h>
+#include <flint/nmod_vec.h>
+#include <flint/nmod_mat.h>
+#include <flint/nmod_poly.h>
+
 #include "arith.h"
 #include "fq_nmod_mat.h"
 #include "matrix_tools.h"
@@ -243,7 +249,7 @@ void spinor_clear(spinor_t spinor)
 }
 
 // assumes a is a vector of mod p values?
-W64 spinor_compute_vals(const spinor_t spinor, const mp_limb_t* a)
+W64 spinor_compute_vals(const spinor_t spinor, const ulong* a)
 {
   W64 val, mask;
   slong i;
@@ -306,15 +312,15 @@ W64 spinor_norm_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz
   nmod_mat_t mat_p, mat_p_t, rad_mat;
   slong idx, row, col, pivot, prime_idx, n;
   fmpz_t det; // for some reason det is not implemented for fq_nmod_mat. we reduce the det mod p instead
-  mp_limb_t denom_p, det_p;
-  mp_limb_t* evs;
+  ulong denom_p, det_p;
+  ulong* evs;
   W64 norm;
   nmod_t p;
 
   n = fmpz_mat_nrows(mat);
   assert(n == fmpz_mat_ncols(mat));
   
-  evs = (mp_limb_t*)malloc((spinor->num_primes)*sizeof(mp_limb_t));
+  evs = (ulong*)malloc((spinor->num_primes)*sizeof(ulong));
 
   fmpz_init(det);
   fmpz_mat_det(det, mat);

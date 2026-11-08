@@ -1,4 +1,7 @@
 #include <assert.h>
+#include <stdlib.h>
+#include <flint/fq_nmod.h>
+
 #include "pivot_data.h"
 
 void pivot_data_init(pivot_data_t pivots, slong dim, slong aniso, slong k)

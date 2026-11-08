@@ -1,3 +1,7 @@
+#include <stdlib.h>
+#include <flint/fmpz_mat.h>
+#include <flint/fmpq_mat.h>
+
 #include "nf_mat.h"
 
 void nf_mat_init(nf_mat_t mat, const nf_t* nf, slong nrows, slong ncols)

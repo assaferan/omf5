@@ -14,6 +14,9 @@
 
 // Internal dependencies
 
+#include <flint/fmpz.h>
+#include <flint/fmpz_factor.h>
+
 #include "arith.h"
 #include "mass.h"
 #include "qf_inv.h"

@@ -12,6 +12,10 @@
 
 // Self dependencies
 
+#include <stdlib.h>
+#include <flint/fq_nmod.h>
+#include <flint/fq_nmod_mat.h>
+
 #include "fq_nmod_mpoly.h"
 
 // Get the degree 2 homogeneous part of the polynomial

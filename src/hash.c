@@ -19,6 +19,8 @@
 
 // Self dependencies
 
+#include <time.h>
+
 #include "aut_grp.h"
 #include "hash.h"
 #include "isometry.h"

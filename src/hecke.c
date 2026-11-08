@@ -20,6 +20,8 @@
 
 // Self dependencies
 
+#include <time.h>
+
 #include "nbr_data.h"
 #include "neighbor.h"
 
@@ -91,7 +93,7 @@ int process_isotropic_vector_nbr_data_all_conductors(nbr_data_t nbr_man, W64* sp
   
   nbr_data_build_neighbor(nbr_fmpz, nbr_isom, nbr_man);
   square_matrix_set_fmpz_mat(nbr, nbr_fmpz);
-  isometry_init_set_fmpz_mat(s_nbr, nbr_isom, fmpz_get_si(fq_nmod_ctx_prime(nbr_man->GF)));
+  isometry_init_set_fmpz_mat(s_nbr, nbr_isom, (slong)FQ_NMOD_CTX_PRIME_UI(nbr_man->GF));
   assert(gen_idx < genus->genus_reps->num_stored);
 #ifdef DEBUG_LEVEL_FULL
   assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[gen_idx], nbr));
@@ -225,6 +227,7 @@ int process_isotropic_vector_all_conductors(neighbor_manager_t nbr_man, W64* spi
     }
   }
   assert(orb_size == nbr_man->num_auts / stab_size);
+  (void)stab_size; // only used in the assertion
   
   non_singular = nbr_process_build_nb_and_isom(nbr, s_nbr, nbr_man);
 

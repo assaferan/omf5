@@ -15,7 +15,7 @@
 
 #include <carat/matrix.h>
 
-#include <antic/nf_elem.h>
+#include "flint_compat.h"
 
 // Self dependencies
 

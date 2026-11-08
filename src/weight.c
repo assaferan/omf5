@@ -1,5 +1,7 @@
 #include <assert.h>
 
+#include <time.h>
+
 #include "genus.h"
 #include "hash.h"
 #include "isometry.h"
@@ -72,6 +74,7 @@ int process_isotropic_vector_isometries(neighbor_manager_t nbr_man,
     }
   }
   assert(orb_size == nbr_man->num_auts / stab_size);
+  (void)stab_size; // only used in the assertion
   
   non_singular = nbr_process_build_nb_and_isom(nbr, s_nbr, nbr_man);
 

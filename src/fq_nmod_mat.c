@@ -19,6 +19,9 @@
 
 // Self dependencies
 
+#include <stdlib.h>
+#include <flint/fmpz_mat.h>
+
 #include "fq_nmod_mat.h"
 #include "typedefs.h"
 

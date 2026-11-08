@@ -14,8 +14,7 @@
 
 // Required packages dependencies
 
-#include <antic/nf.h>
-#include <antic/nf_elem.h>
+#include "flint_compat.h"
 
 #include <carat/typedef.h>
 

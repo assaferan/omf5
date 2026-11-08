@@ -22,6 +22,8 @@
 
 // Self dependencies
 
+#include <limits.h>
+
 #include "arith.h"
 #include "jordan.h"
 

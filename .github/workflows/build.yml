@@ -1,0 +1,93 @@
+name: Build and test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    # Jobs without a container in the matrix run directly on the runner.
+    container: ${{ matrix.container }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ubuntu, flint 3 (apt)
+            os: ubuntu-24.04
+            flint: apt
+          - name: macos, flint 3 (homebrew)
+            os: macos-latest
+            flint: brew
+          # Debian 12 packages flint 2.9.0 and antic 0.2.5, the oldest
+          # versions omf5 supports.
+          - name: debian 12, flint 2.9 + antic (apt)
+            os: ubuntu-24.04
+            container: debian:bookworm
+            flint: debian
+
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+    # Installed before the checkouts, so that the Debian container has git.
+    - name: Install dependencies (ubuntu)
+      if: matrix.flint == 'apt'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y autoconf automake libtool libgmp-dev libflint-dev
+        echo "DEPS_PREFIX=/usr" >> "$GITHUB_ENV"
+
+    - name: Install dependencies (homebrew)
+      if: matrix.flint == 'brew'
+      run: |
+        brew install autoconf automake libtool gmp flint
+        echo "DEPS_PREFIX=$(brew --prefix)" >> "$GITHUB_ENV"
+
+    - name: Install dependencies (debian)
+      if: matrix.flint == 'debian'
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        apt-get update
+        apt-get install -y git ca-certificates make gcc autoconf automake libtool \
+          libgmp-dev libflint-dev libantic-dev
+        echo "DEPS_PREFIX=/usr" >> "$GITHUB_ENV"
+
+    - name: Checkout omf5
+      uses: actions/checkout@v4
+      with:
+        path: omf5
+
+    - name: Checkout CARAT
+      uses: actions/checkout@v4
+      with:
+        repository: lbfm-rwth/carat
+        ref: 65619d6ae4ec911c8cf7aa3c9fa09866a0d36ab9
+        path: carat
+
+    - name: Build CARAT
+      run: |
+        cd carat
+        ./autogen.sh
+        ./configure --with-gmp="$DEPS_PREFIX"
+        make -j4 libfunctions.a
+
+    - name: Build omf5
+      run: |
+        cd omf5
+        ./autogen.sh
+        FLINT_PATH="$DEPS_PREFIX" GMP_PATH="$DEPS_PREFIX" ANTIC_PATH="$DEPS_PREFIX" \
+          CARAT_PATH="$GITHUB_WORKSPACE/carat" ./configure
+        make -j4 V=1
+
+    - name: Run tests
+      run: ./omf5/src/omf5 -tests
+
+    - name: Check README examples
+      run: cd omf5 && scripts/check_examples.sh

@@ -30,18 +30,22 @@ macOS Catalina 10.15.7, compiled with clang 12.0.0 on Intel Core i5 Quad-Core Pr
 
 linux Ubuntu 22.04.2, compiled with gcc 11.3.0 on AMD Ryzen ThreadRipper 2970WX 24-Core Processor.
 
-The main (and develop) branch require the following libraries:
+The main branch requires the following libraries:
 
 - [CARAT](https://github.com/lbfm-rwth/carat)
-- [flint](https://github.com/wbhart/flint2)
-- [antic](https://github.com/wbhart/antic)
+- [flint](https://github.com/flintlib/flint), version 3.0 or later
+  (flint 2.9 also works, together with [antic](https://github.com/flintlib/antic);
+  since flint 3.0 the number field code of antic is part of flint itself.
+  Versions of flint older than 2.9 are not supported)
 
-Installation of all the requirements on either linux or macOS can be done as follows, from a folder containing the above 3 libraries.
+Installation of all the requirements on either linux or macOS can be done as follows, from a folder containing CARAT.
 
-    brew update && brew install autoconf automake libtool
-    cd flint2 && ./configure && make && make check && make install && cd ..
-    cd antic && ./configure && make && make install && make check && cd ..
+    brew update && brew install autoconf automake libtool flint
     cd carat && ./autogen.sh && ./configure && make && make install && cp libfunctions.a /usr/local/lib && cd ..
+
+CARAT does not install libfunctions.a, hence the copy above. Alternatively, skip the copy and pass the CARAT source directory to omf5 as CARAT_PATH (see below).
+
+On linux, flint can be installed via the package manager (e.g. `sudo apt-get install libflint-dev` on recent Ubuntu/Debian), or built from source.
 
 ## Installation
 
@@ -51,6 +55,10 @@ To build as a C library on a standard Linux/Mac OS system with autotools:
     ./configure --prefix=DIR
     make
     make install
+
+The locations of the dependencies default to /usr/local, and can be set with the variables FLINT_PATH, GMP_PATH, CARAT_PATH (and ANTIC_PATH for flint 2.x). For example, on macOS with Homebrew on Apple silicon:
+
+    FLINT_PATH=/opt/homebrew GMP_PATH=/opt/homebrew CARAT_PATH=/path/to/carat ./configure
 
 Or all at once:
 
@@ -191,6 +199,8 @@ The python script **ev_run_nonlifts.py** can be used to compute all hecke eigenv
 This was used after discarding the oldforms to compute additional eigenvalues only for the newforms which are non lifts. 
 
 The shell script **test_runs.sh** runs sample tests, whose timings were recorded in the paper. 
+
+The shell script **check_examples.sh** checks the Hecke eigenvalues computed for the examples above against their known values. It is run by the continuous integration, after the standard tests.
 
 The python script **hecke_run.py** computes the full hecke matrices for primes up to 10 and its first row for primes up to 100 for all discriminants up to 1000.
 

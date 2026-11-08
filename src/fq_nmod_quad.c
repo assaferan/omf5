@@ -1,9 +1,12 @@
 #include <assert.h>
 
+#include <flint/fmpz.h>
+
 #include "flint/fq_nmod.h"
 #include "flint/fq_nmod_mat.h"
 #include "flint/fq_nmod_poly.h"
 
+#include "flint_compat.h"
 #include "fq_nmod_quad.h"
 #include "fq_nmod_mat.h"
 
@@ -270,7 +273,7 @@ bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q,
       fq_nmod_set(fq_nmod_mat_entry(sub_B, row, col), fq_nmod_mat_entry(q, start+row,start+col),F);
 
   fq_nmod_mat_init_set(q_copy, sub_B, F);
-  if ( (fmpz_cmp_si(fq_nmod_ctx_prime(F),2) != 0 ) && (fq_nmod_mat_rref(q_copy,F) < n - start) ) {
+  if ( (FQ_NMOD_CTX_PRIME_UI(F) != 2) && (FQ_NMOD_MAT_RREF(q_copy,F) < n - start) ) {
     fq_nmod_mat_kernel(rad, sub_B, F);
     assert(fq_nmod_mat_nrows(rad,F) > 0);
     for (i = 0; i < n - start; i++)
@@ -295,7 +298,7 @@ bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q,
     return false;
   }
 
-  if (fmpz_cmp_si(fq_nmod_ctx_prime(F),2) == 0) {
+  if (FQ_NMOD_CTX_PRIME_UI(F) == 2) {
     fq_nmod_mat_clear(sub_B, F);
     fq_nmod_mat_clear(q_copy,F);
     return fq_nmod_quad_isotropic_vector_p2(vec, q, F, start);
@@ -462,7 +465,7 @@ bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q,
     fmpz_init(p);
     fmpz_init(x);
     fmpz_init(y);
-    fmpz_set(p, fq_nmod_ctx_prime(F));
+    fmpz_set_ui(p, FQ_NMOD_CTX_PRIME_UI(F));
     // The quadratic form over three variables.
     fq_nmod_mat_init(v,1,3,F);
 
@@ -595,7 +598,7 @@ void fq_nmod_quad_split_hyperbolic_plane(const fq_nmod_mat_t vec, fq_nmod_mat_t 
   // Make a copy of the Gram matrix.
   fq_nmod_mat_set(gram,q,F);
 
-  fmpz_init_set(p, fq_nmod_ctx_prime(F));
+  fmpz_init_set_ui(p, FQ_NMOD_CTX_PRIME_UI(F));
 
   // Set the diagonal entries to zero when in characteristic 2.
   // This is because we are decomposing the associated bilinear form
@@ -770,7 +773,7 @@ void fq_nmod_quad_hyperbolize(fq_nmod_mat_t gram, fq_nmod_mat_t basis, const fq_
       fq_nmod_mat_clear(vec,F);
       return;
     }
-    if (fmpz_equal_si(fq_nmod_ctx_prime(F),2)) {
+    if (FQ_NMOD_CTX_PRIME_UI(F) == 2) {
       // Make the (0,0)-entry equal to 1.
       assert(fq_nmod_is_square(fq_nmod_mat_entry(gram,start,start),F));
       fq_nmod_sqrt(scalar, fq_nmod_mat_entry(gram,start,start),F);
@@ -922,7 +925,7 @@ void fq_nmod_quad_decompose(fq_nmod_mat_t gram, fq_nmod_mat_t basis, const fq_nm
   printf("Resulting basis is\n");
   fq_nmod_mat_print_pretty(basis, F);
   printf("\n");
-  if (fmpz_cmp_si(fq_nmod_ctx_prime(F), 2) == 0)  { // p = 2
+  if (FQ_NMOD_CTX_PRIME_UI(F) == 2)  { // p = 2
     // Verify that the basis evaluates correctly on the form.
     for (i = 0; i < n; i++) {
       // can use a window here, but let's just clone for now
@@ -1037,7 +1040,7 @@ void fq_nmod_poly_set_fq_nmod_quad(fq_nmod_mpoly_t poly, const fq_nmod_mat_t q, 
 #endif // DEBUG_LEVEL_FULL
     }
 
-  if (!fmpz_equal_si(fq_nmod_ctx_prime(F),2)) {
+  if (FQ_NMOD_CTX_PRIME_UI(F) != 2) {
     fq_nmod_init(two_inv,F);
     fq_nmod_one(two_inv,F);
     fq_nmod_add(two_inv,two_inv,two_inv,F);

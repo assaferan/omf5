@@ -6,6 +6,8 @@
 #include <flint/fmpz_poly.h>
 #include <flint/fmpz_poly_factor.h>
 
+#include <stdlib.h>
+
 #include "fmpq_poly.h"
 #include "typedefs.h"
 

@@ -1,3 +1,5 @@
+#include <flint/fmpz.h>
+
 #include "orthogonalize.h"
 
 // This is somewhat of a duplicate for cholesky,
