@@ -1,7 +1,10 @@
 bin_PROGRAMS = omf5 # omf5_dbg omf5_dbg_full omf5_nbr_data omf5_nbr_data_dbg omf5_nbr_data_dbg_full
 # lib_LTLIBRARIES = libomf5.la
 
-ALL_CFLAGS = -I ../include -I${GMP_PATH}/include -I${ANTIC_PATH}/include -I${FLINT_PATH}/include -Wall -Werror
+# DEPS_CPPFLAGS and DEPS_LDFLAGS are set by configure, flint first,
+# and with antic only for flint 2.x, so that the build uses the same
+# flint that configure checked.
+ALL_CFLAGS = -I ../include @DEPS_CPPFLAGS@ -Wall -Werror
 
 # The code defines its own bool (typedefs.h), which C23 makes a keyword.
 # Recent autoconf selects -std=gnu23 by default, so pin the standard here.
@@ -11,18 +14,14 @@ OPT_CFLAGS = -O3 -DNDEBUG
 DBG_CFLAGS = -g -DDEBUG -fsanitize=address
 OPT_CFLAGS += -fomit-frame-pointer
 
+# Lines inside automake conditionals must not start with a tab,
+# otherwise automake does not treat them as variable assignments.
 if X86
-	OPT_CFLAGS += -msse3 -mavx
+OPT_CFLAGS += -msse3 -mavx
 endif
 
 if LINUX
-	OPT_CFLAGS += -fvar-tracking-assignments-toggle
-	OPT_CFLAGS += -funroll-all-loops
-        DBG_CFLAGS += -pg
-endif
-
-if OSX
-	ALL_CFLAGS += -mmacosx-version-min=10.10
+DBG_CFLAGS += -pg
 endif
 
 OPT_CFLAGS += $(ALL_CFLAGS)
@@ -31,7 +30,7 @@ DBG_CFLAGS += ${ALL_CFLAGS}
 DBG_FULL_CFLAGS = -DDEBUG_LEVEL_FULL
 DBG_FULL_CFLAGS += ${DBG_CFLAGS}
 
-ALL_LD_FLAGS = -L${GMP_PATH}/lib -L${CARAT_PATH}/lib -L${CARAT_PATH} -L${ANTIC_PATH}/lib -L${FLINT_PATH}/lib
+ALL_LD_FLAGS = @DEPS_LDFLAGS@ -L${CARAT_PATH}/lib -L${CARAT_PATH}
 
 # The libraries must come after the objects on the link line (LDADD, not LDFLAGS),
 # otherwise GNU ld drops the static libfunctions.a of CARAT.

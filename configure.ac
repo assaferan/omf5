@@ -109,18 +109,42 @@ dnl        [found_flint_headers=yes; break;])
 AC_SEARCH_LIBS([gmp])
 
 dnl
+dnl Include and library paths of the dependencies, flint first, so that
+dnl the flint checked here is the one used by the build (see src/Makefile.am)
+dnl
+DEPS_CPPFLAGS="-I${FLINT_PATH}/include -I${GMP_PATH}/include"
+DEPS_LDFLAGS="-L${FLINT_PATH}/lib -L${GMP_PATH}/lib"
+
+save_CPPFLAGS="$CPPFLAGS"
+CPPFLAGS="$CPPFLAGS $DEPS_CPPFLAGS"
+
+AC_CHECK_HEADER([flint/flint.h], [],
+  [AC_MSG_ERROR([flint/flint.h not found under ${FLINT_PATH}/include, set FLINT_PATH to the flint installation])])
+
+dnl
 dnl flint >= 3.0 includes the number field modules (nf, nf_elem)
 dnl that used to live in antic, so antic is only needed for flint 2.x
 dnl
-save_CPPFLAGS="$CPPFLAGS"
-CPPFLAGS="$CPPFLAGS -I${GMP_PATH}/include -I${FLINT_PATH}/include"
 AC_MSG_CHECKING([whether flint is version 3.0 or later])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <flint/flint.h>]],
   [[#if __FLINT_RELEASE < 30000
     #error flint 2.x
     #endif]])],
-  [AC_MSG_RESULT([yes]); ANTIC_LIBS=""],
-  [AC_MSG_RESULT([no, linking with antic]); ANTIC_LIBS="-lantic"])
+  [AC_MSG_RESULT([yes]); need_antic=no],
+  [AC_MSG_RESULT([no, linking with antic]); need_antic=yes])
+
+ANTIC_LIBS=""
+if test "$need_antic" = "yes"; then
+   DEPS_CPPFLAGS="$DEPS_CPPFLAGS -I${ANTIC_PATH}/include"
+   DEPS_LDFLAGS="$DEPS_LDFLAGS -L${ANTIC_PATH}/lib"
+   ANTIC_LIBS="-lantic"
+   CPPFLAGS="$save_CPPFLAGS $DEPS_CPPFLAGS"
+   AC_CHECK_HEADER([antic/nf.h], [],
+     [AC_MSG_ERROR([flint 2.x requires antic, but antic/nf.h was not found under ${ANTIC_PATH}/include, set ANTIC_PATH to the antic installation])])
+fi
+
 CPPFLAGS="$save_CPPFLAGS"
+AC_SUBST([DEPS_CPPFLAGS])
+AC_SUBST([DEPS_LDFLAGS])
 AC_SUBST([ANTIC_LIBS])
 AC_OUTPUT()
