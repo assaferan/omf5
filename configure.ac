@@ -110,7 +110,8 @@ AC_SEARCH_LIBS([gmp])
 
 dnl
 dnl Include and library paths of the dependencies, flint first, so that
-dnl the flint checked here is the one used by the build (see src/Makefile.am)
+dnl the build compiles against the flint headers checked here (see
+dnl src/Makefile.am). The flint library itself is not checked.
 dnl
 DEPS_CPPFLAGS="-I${FLINT_PATH}/include -I${GMP_PATH}/include"
 DEPS_LDFLAGS="-L${FLINT_PATH}/lib -L${GMP_PATH}/lib"

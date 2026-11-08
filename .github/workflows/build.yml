@@ -51,6 +51,8 @@ jobs:
 
     - name: Install dependencies (debian)
       if: matrix.flint == 'debian'
+      env:
+        DEBIAN_FRONTEND: noninteractive
       run: |
         apt-get update
         apt-get install -y git ca-certificates make gcc autoconf automake libtool \
