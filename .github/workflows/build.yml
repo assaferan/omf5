@@ -23,8 +23,8 @@ jobs:
           - name: ubuntu, flint 3 (apt)
             os: ubuntu-24.04
             flint: apt
-          # The GCC-specific pragmas in the sources are only seen on Linux,
-          # so build with clang there too.
+          # Apple clang is only tested on macOS, so also build with clang
+          # on Linux.
           - name: ubuntu, clang, flint 3 (apt)
             os: ubuntu-24.04
             flint: apt
