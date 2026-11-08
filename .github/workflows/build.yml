@@ -10,6 +10,8 @@ jobs:
   build:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    # Jobs without a container in the matrix run directly on the runner.
+    container: ${{ matrix.container }}
 
     strategy:
       fail-fast: false
@@ -21,15 +23,40 @@ jobs:
           - name: macos, flint 3 (homebrew)
             os: macos-latest
             flint: brew
-          - name: ubuntu, flint 2.9 + antic (conda-forge)
+          # Debian 12 packages flint 2.9.0 and antic 0.2.5, the oldest
+          # versions omf5 supports.
+          - name: debian 12, flint 2.9 + antic (apt)
             os: ubuntu-24.04
-            flint: conda
+            container: debian:bookworm
+            flint: debian
 
     defaults:
       run:
         shell: bash -el {0}
 
     steps:
+    # Installed before the checkouts, so that the Debian container has git.
+    - name: Install dependencies (ubuntu)
+      if: matrix.flint == 'apt'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y autoconf automake libtool libgmp-dev libflint-dev
+        echo "DEPS_PREFIX=/usr" >> "$GITHUB_ENV"
+
+    - name: Install dependencies (homebrew)
+      if: matrix.flint == 'brew'
+      run: |
+        brew install autoconf automake libtool gmp flint
+        echo "DEPS_PREFIX=$(brew --prefix)" >> "$GITHUB_ENV"
+
+    - name: Install dependencies (debian)
+      if: matrix.flint == 'debian'
+      run: |
+        apt-get update
+        apt-get install -y git ca-certificates make gcc autoconf automake libtool \
+          libgmp-dev libflint-dev libantic-dev
+        echo "DEPS_PREFIX=/usr" >> "$GITHUB_ENV"
+
     - name: Checkout omf5
       uses: actions/checkout@v4
       with:
@@ -41,36 +68,6 @@ jobs:
         repository: lbfm-rwth/carat
         ref: 65619d6ae4ec911c8cf7aa3c9fa09866a0d36ab9
         path: carat
-
-    - name: Install dependencies (apt)
-      if: matrix.flint == 'apt' || matrix.flint == 'conda'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y autoconf automake libtool libgmp-dev
-        if [ "${{ matrix.flint }}" = apt ]; then
-          sudo apt-get install -y libflint-dev
-          echo "DEPS_PREFIX=/usr" >> "$GITHUB_ENV"
-        fi
-
-    - name: Install dependencies (homebrew)
-      if: matrix.flint == 'brew'
-      run: |
-        brew install autoconf automake libtool gmp flint
-        echo "DEPS_PREFIX=$(brew --prefix)" >> "$GITHUB_ENV"
-
-    - name: Install flint 2.9 and antic (conda-forge)
-      if: matrix.flint == 'conda'
-      uses: mamba-org/setup-micromamba@v2
-      with:
-        environment-name: omf5
-        create-args: libflint=2.9.0 antic=0.2.5 gmp
-        init-shell: bash
-
-    - name: Set paths (conda-forge)
-      if: matrix.flint == 'conda'
-      run: |
-        echo "DEPS_PREFIX=$CONDA_PREFIX" >> "$GITHUB_ENV"
-        echo "LD_LIBRARY_PATH=$CONDA_PREFIX/lib" >> "$GITHUB_ENV"
 
     - name: Build CARAT
       run: |

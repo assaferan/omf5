@@ -34,8 +34,9 @@ The main branch requires the following libraries:
 
 - [CARAT](https://github.com/lbfm-rwth/carat)
 - [flint](https://github.com/flintlib/flint), version 3.0 or later
-  (flint 2.x also works, together with [antic](https://github.com/flintlib/antic);
-  since flint 3.0 the number field code of antic is part of flint itself)
+  (flint 2.9 also works, together with [antic](https://github.com/flintlib/antic);
+  since flint 3.0 the number field code of antic is part of flint itself.
+  Versions of flint older than 2.9 are not supported)
 
 Installation of all the requirements on either linux or macOS can be done as follows, from a folder containing CARAT.
 

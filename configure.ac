@@ -121,6 +121,16 @@ CPPFLAGS="$CPPFLAGS $DEPS_CPPFLAGS"
 AC_CHECK_HEADER([flint/flint.h], [],
   [AC_MSG_ERROR([flint/flint.h not found under ${FLINT_PATH}/include, set FLINT_PATH to the flint installation])])
 
+dnl omf5 uses functions added in flint 2.9, such as fmpq_set_fmpz
+AC_MSG_CHECKING([whether flint is version 2.9 or later])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <flint/flint.h>]],
+  [[#if __FLINT_RELEASE < 20900
+    #error flint older than 2.9
+    #endif]])],
+  [AC_MSG_RESULT([yes])],
+  [AC_MSG_RESULT([no])
+   AC_MSG_ERROR([omf5 requires flint 2.9 or later, but the flint under ${FLINT_PATH}/include is older])])
+
 dnl
 dnl flint >= 3.0 includes the number field modules (nf, nf_elem)
 dnl that used to live in antic, so antic is only needed for flint 2.x
