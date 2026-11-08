@@ -728,18 +728,18 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
   printf("\n");
 #endif // DEBUG_LEVEL_FULL
 
-#ifdef __linux__
+#if defined(__GNUC__) && !defined(__clang__) && (__GNUC__ >= 11)
 #pragma GCC diagnostic ignored "-Wstringop-overread"
-#endif // __linux__
+#endif
   fq_nmod_mat_init_set(basis, nbr_man->p_basis, nbr_man->GF);
   // Set up the correct basis vectors.
   for (i = 0; i < nbr_man->k; i++) {
     // Replaced for by while because gcc compiler was behaving weird
     j = pivots[i] + 1;
     while (j < n) {
-#ifdef __linux__
+#if defined(__GNUC__) && !defined(__clang__) && (__GNUC__ >= 11)
 #pragma GCC diagnostic ignored "-Wstringop-overread"
-#endif // __linux__
+#endif
       fq_nmod_mat_add_col(basis, pivots[i], j, fq_nmod_mat_entry(nbr_man->iso_subspace,i,j), nbr_man->GF);
       j++;
     }
@@ -751,19 +751,19 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
   printf("\n");
 #endif // DEBUG_LEVEL_FULL
 
-#ifdef __linux__
+#if defined(__GNUC__) && !defined(__clang__) && (__GNUC__ >= 11)
 #pragma GCC diagnostic ignored "-Wstringop-overread"
-#endif // __linux__
+#endif
   fq_nmod_mat_init(basis_t, fq_nmod_mat_ncols(basis, nbr_man->GF), fq_nmod_mat_nrows(basis, nbr_man->GF), nbr_man->GF);
-#ifdef __linux__
+#if defined(__GNUC__) && !defined(__clang__) && (__GNUC__ >= 11)
 #pragma GCC diagnostic ignored "-Wstringop-overread"
-#endif // __linux__
+#endif
   omf5_fq_nmod_mat_transpose(basis_t, basis, nbr_man->GF);
   
   // Extract our target isotropic subspace modulo p
-#ifdef __linux__
+#if defined(__GNUC__) && !defined(__clang__) && (__GNUC__ >= 11)
 #pragma GCC diagnostic ignored "-Wstringop-overread"
-#endif // __linux__
+#endif
   fq_nmod_mat_init(x, nbr_man->k, n, nbr_man->GF);
   for (i = 0; i < nbr_man->k; i++)
     for (j = 0; j < n; j++)
@@ -778,9 +778,9 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
   // Extract the hyperbolic complement modulo p.
   //  printf("initializing z and paired...\n");
 
-#ifdef __linux__
+#if defined(__GNUC__) && !defined(__clang__) && (__GNUC__ >= 11)
 #pragma GCC diagnostic ignored "-Wstringop-overread"
-#endif // __linux__
+#endif
   fq_nmod_mat_init(z, nbr_man->k, n, nbr_man->GF);
   paired = (slong*)malloc((nbr_man->k)*sizeof(slong));
   h_dim = 2 * nbr_man->witt_index;
@@ -810,9 +810,9 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
     excluded[paired[i]] = false;
   }
 
-#ifdef __linux__
+#if defined(__GNUC__) && !defined(__clang__) && (__GNUC__ >= 11)
 #pragma GCC diagnostic ignored "-Wstringop-overread"
-#endif // __linux__
+#endif
   fq_nmod_mat_init(u, n-2*nbr_man->k, n, nbr_man->GF);
   u_idx = 0;
   for (i = 0; i < n; i++)
@@ -1065,27 +1065,27 @@ void nbr_data_lift_subspace(nbr_data_t nbr_man)
   nmod_mat_clear(X_new);
   nmod_mat_clear(Z_new);  
   nmod_mat_clear(B);
-#ifdef __linux__
+#if defined(__GNUC__) && !defined(__clang__) && (__GNUC__ >= 11)
 #pragma GCC diagnostic ignored "-Wstringop-overread"
-#endif // __linux__
+#endif
   fq_nmod_mat_clear(u, nbr_man->GF);
   free(excluded);
-#ifdef __linux__
+#if defined(__GNUC__) && !defined(__clang__) && (__GNUC__ >= 11)
 #pragma GCC diagnostic ignored "-Wstringop-overread"
-#endif // __linux__
+#endif
   fq_nmod_mat_clear(z, nbr_man->GF);
   free(paired);
-#ifdef __linux__
+#if defined(__GNUC__) && !defined(__clang__) && (__GNUC__ >= 11)
 #pragma GCC diagnostic ignored "-Wstringop-overread"
-#endif // __linux__
+#endif
   fq_nmod_mat_clear(x, nbr_man->GF);
-#ifdef __linux__
+#if defined(__GNUC__) && !defined(__clang__) && (__GNUC__ >= 11)
 #pragma GCC diagnostic ignored "-Wstringop-overread"
-#endif // __linux__
+#endif
   fq_nmod_mat_clear(basis_t, nbr_man->GF);
-#ifdef __linux__
+#if defined(__GNUC__) && !defined(__clang__) && (__GNUC__ >= 11)
 #pragma GCC diagnostic ignored "-Wstringop-overread"
-#endif // __linux__
+#endif
   fq_nmod_mat_clear(basis, nbr_man->GF);
 
   return;
