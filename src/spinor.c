@@ -7,6 +7,7 @@
 #include <flint/fq_nmod.h>
 #include <flint/fq_nmod_mat.h>
 
+#include <flint/fmpz.h>
 #include <flint/fmpz_factor.h>
 #include <flint/nmod_vec.h>
 #include <flint/nmod_mat.h>

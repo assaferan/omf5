@@ -1,3 +1,4 @@
+#include <flint/fmpz.h>
 #include <flint/fmpz_factor.h>
 
 #include "arith.h"
