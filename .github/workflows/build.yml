@@ -12,6 +12,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     # Jobs without a container in the matrix run directly on the runner.
     container: ${{ matrix.container }}
+    # Jobs without a compiler in the matrix use the default one.
+    env:
+      CC: ${{ matrix.cc }}
 
     strategy:
       fail-fast: false
@@ -20,6 +23,12 @@ jobs:
           - name: ubuntu, flint 3 (apt)
             os: ubuntu-24.04
             flint: apt
+          # The GCC-specific pragmas in the sources are only seen on Linux,
+          # so build with clang there too.
+          - name: ubuntu, clang, flint 3 (apt)
+            os: ubuntu-24.04
+            flint: apt
+            cc: clang
           - name: macos, flint 3 (homebrew)
             os: macos-latest
             flint: brew
