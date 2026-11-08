@@ -83,7 +83,7 @@ slong nmod_mat_nullspace_mod4(nmod_mat_t ker, const nmod_mat_t q)
 #endif // DEBUG
 
   fq_nmod_mat_init(trans_t, QF_RANK, QF_RANK, F2);
-  fq_nmod_mat_transpose(trans_t, trans, F2);
+  omf5_fq_nmod_mat_transpose(trans_t, trans, F2);
   fq_nmod_mat_mul(lift_2, lift_2, trans_t, F2);
 
   fq_nmod_mat_init(sol, nullity, QF_RANK, F2);

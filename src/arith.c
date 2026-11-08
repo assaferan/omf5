@@ -544,7 +544,7 @@ bool fmpq_is_local_square(const fmpq_t a, const fmpz_t p)
 }
 
 // Checks if a is a square in F, assumes F = F_p is a prime field
-bool fq_is_square(const fq_t a, const fq_ctx_t F)
+bool omf5_fq_is_square(const fq_t a, const fq_ctx_t F)
 {
   fmpz_t a_lift;
   slong legendre;
@@ -676,7 +676,7 @@ int primes_up_to_prime_to(int** ps, int bound, int bad)
 
 /*   // looking for a non-square */
 /*   fq_zero(z,F); */
-/*   while (fq_is_square(z,F)) */
+/*   while (omf5_fq_is_square(z,F)) */
 /*     fq_sub_one(z,z,F); */
 
 /*   m = s; */

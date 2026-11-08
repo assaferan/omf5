@@ -287,10 +287,11 @@ bool fmpq_is_local_square(const fmpq_t a, const fmpz_t p);
 
 /*************************************************************************
  *
- * Function: fq_is_square
+ * Function: omf5_fq_is_square
  *
  * Description: Checks if a finite field element is a square.
  *              Assuming the finite field F is a prime field F_p.
+ *              Prefixed with omf5_ since flint has its own fq_is_square.
  *
  * Arguments:
  *     + a (const fq_t) - the element to be checked
@@ -302,7 +303,7 @@ bool fmpq_is_local_square(const fmpq_t a, const fmpz_t p);
  *************************************************************************
  */
 
-bool fq_is_square(const fq_t a, const fq_ctx_t F);
+bool omf5_fq_is_square(const fq_t a, const fq_ctx_t F);
 
 // After writing this function we found its equivalent in flint,
 // hence we don't need to use it - finding a square root in a finite field.

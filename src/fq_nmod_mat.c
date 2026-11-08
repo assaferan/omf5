@@ -152,7 +152,7 @@ void fq_nmod_mat_init_set_fmpz_mat(fq_nmod_mat_t dest, const fmpz_mat_t mat, con
 }
 
 // transpose a matrix
-void fq_nmod_mat_transpose(fq_nmod_mat_t mat_t, const fq_nmod_mat_t mat, const fq_nmod_ctx_t F)
+void omf5_fq_nmod_mat_transpose(fq_nmod_mat_t mat_t, const fq_nmod_mat_t mat, const fq_nmod_ctx_t F)
 {
   slong row,col;
 
