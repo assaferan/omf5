@@ -19,33 +19,40 @@ We also use the CARAT package for working with lattices
 
 ## Requirements
 
-- [autotools](https://www.gnu.org/software/automake/manual/html_node/Autotools-Introduction.html)
-- [gcc](https://gcc.gnu.org/)
-
-This code has only been tested so far on:
-
-macOS Monterey 12.3.1, compiled with clang 12.0.0 on Intel i9 8-Core Processor.
-
-macOS Catalina 10.15.7, compiled with clang 12.0.0 on Intel Core i5 Quad-Core Processor.
-
-linux Ubuntu 22.04.2, compiled with gcc 11.3.0 on AMD Ryzen ThreadRipper 2970WX 24-Core Processor.
-
-The main branch requires the following libraries:
-
-- [CARAT](https://github.com/lbfm-rwth/carat)
+- [autotools](https://www.gnu.org/software/automake/manual/html_node/Autotools-Introduction.html) (autoconf, automake and libtool)
+- a C compiler, such as [gcc](https://gcc.gnu.org/) or [clang](https://clang.llvm.org/)
+- [GMP](https://gmplib.org/)
 - [flint](https://github.com/flintlib/flint), version 3.0 or later
   (flint 2.9 also works, together with [antic](https://github.com/flintlib/antic);
   since flint 3.0 the number field code of antic is part of flint itself.
   Versions of flint older than 2.9 are not supported)
+- [CARAT](https://github.com/lbfm-rwth/carat)
 
-Installation of all the requirements on either linux or macOS can be done as follows, from a folder containing CARAT.
+On x86-64 the code is compiled with `-msse3 -mavx`, so it needs a processor with AVX.
 
-    brew update && brew install autoconf automake libtool flint
+The continuous integration builds and tests the code on:
+
+- Ubuntu 24.04 with flint 3.0.1, compiled with both gcc and clang
+- Debian 12 with flint 2.9.0 and antic 0.2.5, compiled with gcc
+- macOS with flint from Homebrew, compiled with Apple clang
+
+It has also been tested on macOS 26 on Apple M4 Pro, with flint 3.6.0 and Apple clang 21.
+
+On macOS, the requirements other than CARAT can be installed with [Homebrew](https://brew.sh/):
+
+    brew update && brew install autoconf automake libtool gmp flint
+
+On Ubuntu 24.04 or later, with:
+
+    sudo apt-get install autoconf automake libtool make gcc libgmp-dev libflint-dev
+
+On Debian 12, whose flint is 2.9, add `libantic-dev`. Older releases package versions of flint older than 2.9, so flint has to be built from source there.
+
+CARAT is built from source, for example from the folder containing it:
+
     cd carat && ./autogen.sh && ./configure && make && make install && cp libfunctions.a /usr/local/lib && cd ..
 
-CARAT does not install libfunctions.a, hence the copy above. Alternatively, skip the copy and pass the CARAT source directory to omf5 as CARAT_PATH (see below).
-
-On linux, flint can be installed via the package manager (e.g. `sudo apt-get install libflint-dev` on recent Ubuntu/Debian), or built from source.
+CARAT does not install libfunctions.a, hence the copy above. Alternatively, skip the copy and pass the CARAT source directory to omf5 as CARAT_PATH (see below). omf5 only needs libfunctions.a, which `make libfunctions.a` builds on its own.
 
 ## Installation
 
@@ -56,13 +63,18 @@ To build as a C library on a standard Linux/Mac OS system with autotools:
     make
     make install
 
-The locations of the dependencies default to /usr/local, and can be set with the variables FLINT_PATH, GMP_PATH, CARAT_PATH (and ANTIC_PATH for flint 2.x). For example, on macOS with Homebrew on Apple silicon:
+The locations of the dependencies default to /usr/local, and can be set with the variables FLINT_PATH, GMP_PATH, CARAT_PATH (and ANTIC_PATH for flint 2.9). For example, on macOS with Homebrew on Apple silicon:
 
     FLINT_PATH=/opt/homebrew GMP_PATH=/opt/homebrew CARAT_PATH=/path/to/carat ./configure
 
 Or all at once:
 
-   ./autogen.sh && ./configure && make && make install
+    ./autogen.sh && ./configure && make && make install
+
+To check the build, run
+
+    src/omf5 -tests
+    scripts/check_examples.sh
 
 ## Usage
 
@@ -77,7 +89,7 @@ The genus can be specified in one of two ways. Either via Q and f -
 
 [Q] is the quinary quadratic form (lattice) given as 15 comma-separated integers in a format specified by f,
 
-[f] is either 'GG' or 'A', the former for the format in Rama-Toranria webpage, the latter for the Magma format,
+[f] is either 'GG' or 'A', the former for the format in Rama-Tornaria webpage, the latter for the Magma format,
 
 in which case, the genus will be computed using p-neighbors, or via g and d - 
 
@@ -87,7 +99,7 @@ in which case, the genus will be computed using p-neighbors, or via g and d -
 
 [p] is a prime at which to compute the Hecke matrix/eigenvalue, 
 
-[L] is the preicision up to which to compute the hecke matrices/eigenvalues (a_p for p <= L and a_{p^2} for p^2 <= L),
+[L] is the precision up to which to compute the hecke matrices/eigenvalues (a_p for p <= L and a_{p^2} for p^2 <= L),
 
 [c] is the conductor of the spinor norm character. If not specified, the program will compute all of them. At the moment, only relevant for computing a column of the Hecke matrix.
 
@@ -100,98 +112,172 @@ the first prime not dividing the discriminant.
 
 If the flag -row is supplied in addition to -hecke, computes a single row.
 
-If the flag -isom is supplied in additoin to -genus=g, read from the genus file, in addition to the list of genera, a list of fixed isometries (over QQ) between the different lattices in the genus.
+If the flag -isom is supplied in addition to -genus=g, read from the genus file, in addition to the list of genera, a list of fixed isometries (over QQ) between the different lattices in the genus.
 
 If the flag -tests is supplied, additionally runs standard tests.
 
 If the flag -nonlifts is supplied, computes eigenvalues only for the forms which are not lifts.
     
+The progress messages, the eigenvectors and the traces of the Hecke eigenvalues are printed to stderr. The Hecke eigenvalues themselves are printed to stdout, as a Python dictionary mapping each conductor to the list of its forms.
+
 Example runs:
 
 1. Decomposition:
-> src/omf5 -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG
-computing genus took 0.088564 sec
-recomputing genus took 0.120246 sec
-The possible conductors are: 
-1 61 
-The corresponding dimensions are: 8 0 
-computing eigenvectors took 0.041764 sec
+
+```
+> src/omf5 -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG > /dev/null
+computing genus took 0.026693 sec
+recomputing genus took 0.033674 sec
+The possible conductors are:
+1 61
+The corresponding dimensions are: 8 0
+constructing eigenvector for poly
+x+7
+constructing eigenvector for poly
+x-15
+constructing eigenvector for poly
+x^6-29*x^5+322*x^4-1714*x^3+4471*x^2-5205*x+2026
+computing eigenvectors took 0.006443 sec
 For conductor 1, eigenvectors are:
 0 -6 6 4 12 0 -12 -3 over Number field with defining polynomial x+7
 1 1 1 1 1 1 1 1 over Number field with defining polynomial x-15
-4*a^5-88*a^4+700*a^3-2448*a^2+3648*a-1880 3*a^4-50*a^3+272*a^2-558*a+397 4*a^4-73*a^3+453*a^2-1091*a+867 -2*a^4+32*a^3-150*a^2+172*a+12 14*a^3-194*a^2+786*a-862 -a^5+20*a^4-147*a^3+475*a^2-620*a+241 4*a^3-40*a^2+96*a-92 -a^4+19*a^3-123*a^2+329*a-288 over Number field with defining polynomial x^6-29*x^5+322*x^4-1714*x^3+4471*x^2-5205*x+2026
+4*a^5 - 88*a^4 + 700*a^3 - 2448*a^2 + 3648*a - 1880 3*a^4 - 50*a^3 + 272*a^2 - 558*a + 397 4*a^4 - 73*a^3 + 453*a^2 - 1091*a + 867 -2*a^4 + 32*a^3 - 150*a^2 + 172*a + 12 14*a^3 - 194*a^2 + 786*a - 862 -a^5 + 20*a^4 - 147*a^3 + 475*a^2 - 620*a + 241 4*a^3 - 40*a^2 + 96*a - 92 -a^4 + 19*a^3 - 123*a^2 + 329*a - 288 over Number field with defining polynomial x^6-29*x^5+322*x^4-1714*x^3+4471*x^2-5205*x+2026
 For conductor 61, eigenvectors are:
+Found nonlift at total_idx = 0, c = 0, form_idx = 0
+Found nonlift at total_idx = 1, c = 0, form_idx = 1
+Found nonlift at total_idx = 2, c = 0, form_idx = 2
 For conductor 1:
 traces of hecke eigenvalues of T_{p^1} are:
 
-computing eigenvalues for k = 1, took 0.000013 sec
+computing eigenvalues for k = 1, took 0.000003 sec
 traces of hecke eigenvalues of T_{p^2} are:
 
 computing eigenvalues for k = 2, took 0.000002 sec
-For conductor 61:
+traces of hecke eigenvalues of T_{p^1} are:
 
-2. Hecke eigenvalues:
-> src/omf5 -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=100
-computing genus took 0.090954 sec
-recomputing genus took 0.120304 sec
-The possible conductors are: 
-1 61 
-The corresponding dimensions are: 8 0 
-computing eigenvectors took 0.041667 sec
-For conductor 1, eigenvectors are:
-0 -6 6 4 12 0 -12 -3 over Number field with defining polynomial x+7
-1 1 1 1 1 1 1 1 over Number field with defining polynomial x-15
-4*a^5-88*a^4+700*a^3-2448*a^2+3648*a-1880 3*a^4-50*a^3+272*a^2-558*a+397 4*a^4-73*a^3+453*a^2-1091*a+867 -2*a^4+32*a^3-150*a^2+172*a+12 14*a^3-194*a^2+786*a-862 -a^5+20*a^4-147*a^3+475*a^2-620*a+241 4*a^3-40*a^2+96*a-92 -a^4+19*a^3-123*a^2+329*a-288 over Number field with defining polynomial x^6-29*x^5+322*x^4-1714*x^3+4471*x^2-5205*x+2026
+computing eigenvalues for k = 1, took 0.000003 sec
+traces of hecke eigenvalues of T_{p^2} are:
+
+computing eigenvalues for k = 2, took 0.000002 sec
+traces of hecke eigenvalues of T_{p^1} are:
+
+computing eigenvalues for k = 1, took 0.000002 sec
+traces of hecke eigenvalues of T_{p^2} are:
+
+computing eigenvalues for k = 2, took 0.000003 sec
+For conductor 61:
+```
+
+Its output on stdout is
+
+```
+{1 : [{ 'aut_rep_type' : 'O', 'field_poly' : '2  7 1', 'lambda_p' : [], 'lambda_p_square' : [], }, { 'aut_rep_type' : 'O', 'field_poly' : '2  -15 1', 'lambda_p' : [], 'lambda_p_square' : [], }, { 'aut_rep_type' : 'O', 'field_poly' : '7  2026 -5205 4471 -1714 322 -29 1', 'lambda_p' : [], 'lambda_p_square' : [], }, ], 61 : [], }
+```
+
+2. Hecke eigenvalues, for primes up to 100. The output to stderr starts as in the previous example, and continues with:
+
+```
+> src/omf5 -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=100 > /dev/null
+...
 For conductor 61, eigenvectors are:
+Found nonlift at total_idx = 0, c = 0, form_idx = 0
+Found nonlift at total_idx = 1, c = 0, form_idx = 1
+Found nonlift at total_idx = 2, c = 0, form_idx = 2
 For conductor 1:
 traces of hecke eigenvalues of T_{p^1} are:
--7 -3 3 -9 -4 -3 37 -75 10 212 -6 -88 -3 547 -147 -108 -45 145 -632 -650 859 -978 931 -571 453 
-computing eigenvalues for k = 1, took 111.827940 sec
+-7 -3 3 -9 -4 -3 37 -75 10 212 -6 -88 -3 547 -147 -108 -45 -632 -650 859 -978 931 -571 453
+computing eigenvalues for k = 1, took 2.498523 sec
 traces of hecke eigenvalues of T_{p^2} are:
-7 -9 -9 -42 
-computing eigenvalues for k = 2, took 0.178717 sec
+7 -9 -9 -42
+computing eigenvalues for k = 2, took 0.045981 sec
+traces of hecke eigenvalues of T_{p^1} are:
+15 40 156 400 1464 2380 5220 7240 12720 25260 30784 52060 70644 81400 106080 151740 208920 305320 363024 394420 499360 578760 712980 922180
+computing eigenvalues for k = 1, took 2.310008 sec
+traces of hecke eigenvalues of T_{p^2} are:
+30 120 780 2800
+computing eigenvalues for k = 2, took 0.046518 sec
+traces of hecke eigenvalues of T_{p^1} are:
+29 59 164 309 612 1038 1786 2287 3235 4757 5717 8337 9491 11542 13464 16843 19388 27780 29755 34353 38362 40541 47818 61861
+computing eigenvalues for k = 1, took 2.335693 sec
+traces of hecke eigenvalues of T_{p^2} are:
+-3 -4 48 72
+computing eigenvalues for k = 2, took 0.047114 sec
 For conductor 61:
+```
 
-> src/omf5 -quad=1,1,0,1,0,1,0,0,0,1,1,0,1,1,34 -format=GG -prec=31  
-computing genus took 0.470110 sec
-recomputing genus took 0.640326 sec
-The possible conductors are: 
-1 167 
-The corresponding dimensions are: 19 1 
-computing eigenvectors took 0.146885 sec
+The primes dividing the discriminant are skipped, so that above p runs over the primes up to 100 other than 61, and p^2 over the squares of 2, 3, 5 and 7.
+
+3. Hecke eigenvalues, for discriminant 167, where there are forms of conductor 167 as well:
+
+```
+> src/omf5 -quad=1,1,0,1,0,1,0,0,0,1,1,0,1,1,34 -format=GG -prec=31 > /dev/null
+computing genus took 0.158128 sec
+recomputing genus took 0.200698 sec
+The possible conductors are:
+1 167
+The corresponding dimensions are: 19 1
+constructing eigenvector for poly
+x+2
+constructing eigenvector for poly
+x-15
+constructing eigenvector for poly
+x^2+3*x-1
+constructing eigenvector for poly
+x^15-83*x^14+3136*x^13-71421*x^12+1094296*x^11-11921809*x^10+95169836*x^9-565289347*x^8+2511011707*x^7-8311069876*x^6+20243201600*x^5-35448149896*x^4+42917301824*x^3-33621134688*x^2+15050560000*x-2845000192
+constructing eigenvector for poly
+x+8
+computing eigenvectors took 0.028038 sec
 For conductor 1, eigenvectors are:
-0 0 2 -6 -6 0 0 4 -1 -4 -4 4 24 0 -6 0 0 4 0 over Number field with defining polynomial x+2
+0 0 -2 6 -4 1 0 4 0 6 4 -4 -24 0 6 0 -4 0 0 over Number field with defining polynomial x+2
 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 over Number field with defining polynomial x-15
-0 0 -3*a+6 9*a-18 9*a+9 -18 0 12*a-6 -3*a-3 6*a+6 -12*a+6 3*a+3 -36*a-36 54 -18*a-18 0 0 12*a+12 0 over Number field with defining polynomial x^2+3*x-1
+0 0 3*a-6 -9*a+18 -12*a+6 3*a+3 18 -6*a-6 0 -9*a-9 12*a-6 -3*a-3 36*a+36 -54 18*a+18 0 -12*a-12 0 0 over Number field with defining polynomial x^2+3*x-1
 a vector of length 19 over a number field of degree 15
 For conductor 167, eigenvectors are:
 1 over Number field with defining polynomial x+8
+Found nonlift at total_idx = 0, c = 0, form_idx = 0
+Found nonlift at total_idx = 1, c = 0, form_idx = 1
+Found nonlift at total_idx = 2, c = 0, form_idx = 2
+Found nonlift at total_idx = 3, c = 0, form_idx = 3
+Found nonlift at total_idx = 4, c = 1, form_idx = 0
 For conductor 1:
 traces of hecke eigenvalues of T_{p^1} are:
--2 0 -2 2 -14 -34 -15 16 155 40 -152 
-computing eigenvalues for k = 1, took 9.674285 sec
+-2 0 -2 2 -14 -34 -15 16 155 40 -152
+computing eigenvalues for k = 1, took 0.135079 sec
 traces of hecke eigenvalues of T_{p^2} are:
-2 -17 16 
-computing eigenvalues for k = 2, took 0.119902 sec
+2 -17 16
+computing eigenvalues for k = 2, took 0.015046 sec
 traces of hecke eigenvalues of T_{p^1} are:
--3 -9 2 3 92 -41 95 -80 189 -220 -2 
-computing eigenvalues for k = 1, took 9.684862 sec
+15 40 156 400 1464 2380 5220 7240 12720 25260 30784
+computing eigenvalues for k = 1, took 0.557155 sec
 traces of hecke eigenvalues of T_{p^2} are:
--3 12 -28 
-computing eigenvalues for k = 2, took 0.119482 sec
+30 120 780
+computing eigenvalues for k = 2, took 0.076117 sec
+traces of hecke eigenvalues of T_{p^1} are:
+-3 -9 2 3 92 -41 95 -80 189 -220 -2
+computing eigenvalues for k = 1, took 0.136283 sec
+traces of hecke eigenvalues of T_{p^2} are:
+-3 12 -28
+computing eigenvalues for k = 2, took 0.015261 sec
+traces of hecke eigenvalues of T_{p^1} are:
+83 167 424 755 1941 2588 4436 5485 8130 12589 14431
+computing eigenvalues for k = 1, took 0.560784 sec
+traces of hecke eigenvalues of T_{p^2} are:
+24 68 204
+computing eigenvalues for k = 2, took 0.077537 sec
 For conductor 167:
 traces of hecke eigenvalues of T_{p^1} are:
--8 -10 -4 -14 -22 -4 -47 -12 41 50 -504 
-computing eigenvalues for k = 1, took 27.231407 sec
+-8 -10 -4 -14 -22 -4 -47 -12 41 50 -504
+computing eigenvalues for k = 1, took 2.972527 sec
 traces of hecke eigenvalues of T_{p^2} are:
-10 11 -44 
-computing eigenvalues for k = 2, took 0.292487 sec
+10 11 -44
+computing eigenvalues for k = 2, took 0.035555 sec
+```
 
 ## Data
 
 After building the executable, it can be used to generate data. The scripts folder contains several instances of data that can be produced.
 
-Most of them require updating the "export LD_LIBRARY_PATH" statement and the exisence of folders named **data** and **logs** for keeping the data and log files produced.
+Most of them require updating the "export LD_LIBRARY_PATH" statement and the existence of folders named **data** and **logs** for keeping the data and log files produced.
 
 The shell script **ev_run.sh** can be used to compute all hecke eigenvalues for discriminant up to 1000 and primes up to 100.
 

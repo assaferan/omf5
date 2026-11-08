@@ -77,21 +77,18 @@ void print_eigenvectors(const eigenvalues_t evs)
       continue;
     */
     deg = fmpq_poly_degree(evs->nfs[i]->pol);
-    if (deg < 10)
+    if (deg < 10) {
       for (j = 0; j < evs->dim; j++) {
 	nf_str = nf_elem_get_str_pretty(evs->eigenvecs[i][j], "a", evs->nfs[i]);
 	fprintf(stderr, "%s ", nf_str);
 	free(nf_str);
       }
-    else
-      fprintf(stderr, "a vector of length %ld ", evs->dim);
-    fprintf(stderr, "over Number field with defining polynomial ");
-    if (deg < 10) {
+      fprintf(stderr, "over Number field with defining polynomial ");
       fmpq_poly_fprint_pretty(stderr, evs->nfs[i]->pol, "x");
     }
-    else {
-      fprintf(stderr, "a number field of degree %ld", deg);
-    }
+    else
+      fprintf(stderr, "a vector of length %ld over a number field of degree %ld",
+	      evs->dim, deg);
     fprintf(stderr, "\n");
   }
 
