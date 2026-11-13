@@ -76,6 +76,9 @@ cat > "$tmp/61nl.exp" <<'EOF'
 EOF
 check_example disc61-nonlifts "$tmp/61nl.exp" "G" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=10 -nonlifts
 
+# With -idxs only the forms at the given indices are computed, as type G.
+check_example disc61-idxs "$tmp/61nl.exp" "G G" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=10 -idxs=0,2
+
 # Discriminant 167, forms of conductor 1 and of conductor 167.
 cat > "$tmp/167.exp" <<'EOF'
 1: -2 0 -2 2 -14 -34 -15 16 155 40 -152

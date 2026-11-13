@@ -281,6 +281,11 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex, bool nonlifts, int 
   if (num_lift_ps < 2)
     num_lift_ps = 2;
 
+  // When indices are given, only the forms at these indices are computed.
+  // They are the ones which are given the type G below.
+  if (num_idxs > 0)
+    nonlifts = true;
+
   has_spinor = false;
   total_idx = 0;
   next_idx = 0;
@@ -312,7 +317,7 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex, bool nonlifts, int 
 	if (evs[c]->lift_type[form_idx] == G)
 	  fprintf(stderr, "Found nonlift");
 	else if (evs[c]->lift_type[form_idx] == O)
-	  // either an old form, or one which is not at the given indices
+	  // an old form
 	  fprintf(stderr, "Found form of type O");
 	else
 	  fprintf(stderr, "Found lift of type %c", lift_types[evs[c]->lift_type[form_idx]]);
