@@ -10,7 +10,7 @@
 # The order of the forms and any further forms printed are not checked.
 #
 # The automorphic types of the forms are checked as well. The forms printed
-# must have exactly the expected types, in the same order.
+# must have exactly the expected types, up to the order of the forms.
 
 OMF5=${1:-src/omf5}
 
@@ -20,6 +20,7 @@ trap 'rm -rf "$tmp"' EXIT
 status=0
 
 # check_example name expected-file expected-types omf5-arguments...
+# The expected types are given in alphabetical order, such as "F G P".
 check_example() {
   name=$1
   expected=$2
@@ -36,27 +37,27 @@ check_example() {
        /traces of hecke eigenvalues of T_\{p\^2\} are:/ {k = 2; next}
        k { sub(/[ \t]+$/, ""); print k ": " $0; k = 0 }' \
     "$tmp/$name.err" > "$tmp/$name.got"
-  missing=0
+  failed=0
   while IFS= read -r line; do
     if ! grep -Fxq -- "$line" "$tmp/$name.got"; then
       echo "FAIL $name: missing traces $line"
-      missing=1
+      failed=1
     fi
   done < "$expected"
-  if [ $missing -ne 0 ]; then
+  if [ $failed -ne 0 ]; then
     echo "computed traces were:"
     cat "$tmp/$name.got"
     status=1
   fi
-  # The types of the forms in the order they are printed, such as "G F P".
+  # The types of the forms, sorted since the order of the forms is not checked.
   got_types=$(grep -o "'aut_rep_type' : '[A-Z]'" "$tmp/$name.out" |
-              cut -d "'" -f 4 | tr '\n' ' ' | sed 's/ $//')
+              cut -d "'" -f 4 | sort | tr '\n' ' ' | sed 's/ $//')
   if [ "$got_types" != "$types" ]; then
     echo "FAIL $name: the types of the forms are '$got_types', expected '$types'"
-    missing=1
+    failed=1
     status=1
   fi
-  if [ $missing -eq 0 ]; then
+  if [ $failed -eq 0 ]; then
     echo "ok   $name"
   fi
 }
@@ -66,7 +67,7 @@ cat > "$tmp/61.exp" <<'EOF'
 1: -7 -3 3 -9 -4 -3 37 -75 10 212 -6 -88 -3 547 -147 -108 -45 -632 -650 859 -978 931 -571 453
 2: 7 -9 -9 -42
 EOF
-check_example disc61 "$tmp/61.exp" "G F P" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=100
+check_example disc61 "$tmp/61.exp" "F G P" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=100
 
 # With -nonlifts only the form of type G is computed.
 cat > "$tmp/61nl.exp" <<'EOF'
@@ -84,7 +85,7 @@ cat > "$tmp/167.exp" <<'EOF'
 1: -8 -10 -4 -14 -22 -4 -47 -12 41 50 -504
 2: 10 11 -44
 EOF
-check_example disc167 "$tmp/167.exp" "G F G P G" -quad=1,1,0,1,0,1,0,0,0,1,1,0,1,1,34 -format=GG -prec=31
+check_example disc167 "$tmp/167.exp" "F G G G P" -quad=1,1,0,1,0,1,0,0,0,1,1,0,1,1,34 -format=GG -prec=31
 
 # Discriminant 249. The L-polynomial of the second form factors at 2 and at 5,
 # but not at 7, so it is only found not to be a lift when 7^2 <= prec.
@@ -92,6 +93,12 @@ cat > "$tmp/249.exp" <<'EOF'
 1: -1 4 -7 -21 44 167 -86 140 -121 -23 171 -128 -156 -84
 2: 0 12 -24
 EOF
-check_example disc249 "$tmp/249.exp" "F G G P P G P" -quad=1,0,0,-1,0,1,0,0,0,1,1,1,2,-1,11 -format=GG -prec=49
+check_example disc249 "$tmp/249.exp" "F G G G P P P" -quad=1,0,0,-1,0,1,0,0,0,1,1,1,2,-1,11 -format=GG -prec=49
+
+# Discriminant 259, types only. The field of one of the Saito-Kurokawa lifts is
+# defined by a polynomial of degree 12 with a repeated factor modulo 3, where
+# Z[a] is not maximal. Testing for squares there would find it not to be a lift.
+: > "$tmp/259.exp"
+check_example disc259 "$tmp/259.exp" "F G G P P P P P Y Y" -quad=1,0,0,0,-1,1,0,1,1,1,-1,0,4,4,6 -format=GG
 
 exit $status

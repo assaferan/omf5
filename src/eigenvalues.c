@@ -206,7 +206,8 @@ bool nf_elem_is_square_fast(const nf_elem_t x, const nf_t K)
 
   slong i, n;
   slong coeff_int, p_int;
-  fmpz_t den, coeff, p, prod, bound;
+  fmpz_t den, coeff, p, prod, bound, disc;
+  bool p_sq_divides_disc;
   nf_elem_t x_int;
   fmpz_poly_t f_int;
   nmod_poly_t f_int_mod_p, g_int_mod_p, r_int_mod_p;
@@ -243,6 +244,12 @@ bool nf_elem_is_square_fast(const nf_elem_t x, const nf_t K)
   fmpz_init(prod);
   fmpz_one(prod);
 
+  // The discriminant of the defining polynomial. The index of Z[a] in the
+  // ring of integers of K can only be divisible by p when p^2 divides it.
+  fmpz_init(disc);
+  fmpq_poly_get_numerator(f_int, K->pol);
+  fmpz_poly_discriminant(disc, f_int);
+
   // This is only probabilistic -
   // should really go only up to bound, reconstruct using CRT and check
   while (fmpz_cmp(prod, bound) < 0) {
@@ -250,9 +257,9 @@ bool nf_elem_is_square_fast(const nf_elem_t x, const nf_t K)
     fmpz_nextprime(p, p, true);
     fmpz_mul(prod, prod, p);
     p_int = fmpz_get_si(p);
+    p_sq_divides_disc = fmpz_divisible_si(disc, p_int * p_int);
     // We now want to check whether it is square in each of the extensions
     // of our number field over p
-    fmpq_poly_get_numerator(f_int, K->pol);
     nmod_poly_init2(f_int_mod_p, p_int, n+1);
     // Construct the defining polynomial with coefficients in F_p
     for (i = 0; i <= n; i++) {
@@ -284,11 +291,11 @@ bool nf_elem_is_square_fast(const nf_elem_t x, const nf_t K)
     // Factor f_int_mod_p to construct the different extensions of F_p
     nmod_poly_factor(fac, f_int_mod_p);
     for (i = 0; i < fac->num; i++) {
-      // At a repeated factor Z[a] might not be maximal. Then the residue
-      // field of K can be larger than F, and x can be a square in K
-      // without being a square in F, so we cannot test there.
-      // (e.g. -1 in Q[a] / (a^2+9), at p = 3)
-      if (fac->exp[i] > 1)
+      // At a repeated factor, when p^2 divides the discriminant, Z[a] might
+      // not be maximal at p. Then the residue field of K can be larger
+      // than F, and x can be a square in K without being a square in F,
+      // so we cannot test there. (e.g. -4 in Q[a] / (a^2+9), at p = 3)
+      if ((fac->exp[i] > 1) && p_sq_divides_disc)
 	continue;
       // Find the image of x in this finite field
       nmod_poly_init(r_int_mod_p, p_int);
@@ -307,6 +314,7 @@ bool nf_elem_is_square_fast(const nf_elem_t x, const nf_t K)
 	nf_elem_clear(x_int, K);
 	nmod_poly_factor_clear(fac);
 	fmpz_poly_clear(f_int);
+	fmpz_clear(disc);
 	fmpz_clear(prod);
 	fmpz_clear(bound);
 	fmpz_clear(p);
@@ -322,6 +330,7 @@ bool nf_elem_is_square_fast(const nf_elem_t x, const nf_t K)
     nmod_poly_clear(g_int_mod_p);
     nmod_poly_clear(f_int_mod_p);
   }
+  fmpz_clear(disc);
   fmpz_clear(prod);
   fmpz_clear(bound);
 
