@@ -73,8 +73,9 @@ Or all at once:
 
 To check the build, run
 
-    src/omf5 -tests
-    scripts/check_examples.sh
+    make check
+
+This runs the standard tests (`src/omf5 -tests`) and checks the examples below (`scripts/check_examples.sh`).
 
 ## Usage
 
@@ -286,7 +287,7 @@ This was used after discarding the oldforms to compute additional eigenvalues on
 
 The shell script **test_runs.sh** runs sample tests, whose timings were recorded in the paper. 
 
-The shell script **check_examples.sh** checks the Hecke eigenvalues computed for the examples above against their known values. It is run by the continuous integration, after the standard tests.
+The shell script **check_examples.sh** checks the Hecke eigenvalues computed for the examples above against their known values. It is run by `make check`, after the standard tests.
 
 The python script **hecke_run.py** computes the full hecke matrices for primes up to 10 and its first row for primes up to 100 for all discriminants up to 1000.
 

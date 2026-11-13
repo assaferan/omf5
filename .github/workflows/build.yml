@@ -95,8 +95,10 @@ jobs:
           CARAT_PATH="$GITHUB_WORKSPACE/carat" ./configure
         make -j4 V=1
 
+    # Runs omf5 -tests and checks the README examples.
     - name: Run tests
-      run: ./omf5/src/omf5 -tests
+      run: cd omf5 && make check
 
-    - name: Check README examples
-      run: cd omf5 && scripts/check_examples.sh
+    - name: Show test logs
+      if: failure()
+      run: cd omf5 && cat test-suite.log scripts/*.log
