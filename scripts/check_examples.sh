@@ -8,6 +8,9 @@
 # Each expected line is "k: traces", where k = 1 for T_p and k = 2 for T_{p^2}.
 # Every expected line must appear among the traces printed for that example.
 # The order of the forms and any further forms printed are not checked.
+#
+# The automorphic types of the forms are checked as well. The forms printed
+# must have exactly the expected types, in the same order.
 
 OMF5=${1:-src/omf5}
 
@@ -16,12 +19,13 @@ trap 'rm -rf "$tmp"' EXIT
 
 status=0
 
-# check_example name expected-file omf5-arguments...
+# check_example name expected-file expected-types omf5-arguments...
 check_example() {
   name=$1
   expected=$2
-  shift 2
-  if ! "$OMF5" "$@" > /dev/null 2> "$tmp/$name.err"; then
+  types=$3
+  shift 3
+  if ! "$OMF5" "$@" > "$tmp/$name.out" 2> "$tmp/$name.err"; then
     echo "FAIL $name: omf5 exited with an error"
     cat "$tmp/$name.err"
     status=1
@@ -43,7 +47,16 @@ check_example() {
     echo "computed traces were:"
     cat "$tmp/$name.got"
     status=1
-  else
+  fi
+  # The types of the forms in the order they are printed, such as "G F P".
+  got_types=$(grep -o "'aut_rep_type' : '[A-Z]'" "$tmp/$name.out" |
+              cut -d "'" -f 4 | tr '\n' ' ' | sed 's/ $//')
+  if [ "$got_types" != "$types" ]; then
+    echo "FAIL $name: the types of the forms are '$got_types', expected '$types'"
+    missing=1
+    status=1
+  fi
+  if [ $missing -eq 0 ]; then
     echo "ok   $name"
   fi
 }
@@ -53,7 +66,14 @@ cat > "$tmp/61.exp" <<'EOF'
 1: -7 -3 3 -9 -4 -3 37 -75 10 212 -6 -88 -3 547 -147 -108 -45 -632 -650 859 -978 931 -571 453
 2: 7 -9 -9 -42
 EOF
-check_example disc61 "$tmp/61.exp" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=100
+check_example disc61 "$tmp/61.exp" "G F P" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=100
+
+# With -nonlifts only the form of type G is computed.
+cat > "$tmp/61nl.exp" <<'EOF'
+1: -7 -3 3 -9
+2: 7 -9
+EOF
+check_example disc61-nonlifts "$tmp/61nl.exp" "G" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=10 -nonlifts
 
 # Discriminant 167, forms of conductor 1 and of conductor 167.
 cat > "$tmp/167.exp" <<'EOF'
@@ -64,6 +84,6 @@ cat > "$tmp/167.exp" <<'EOF'
 1: -8 -10 -4 -14 -22 -4 -47 -12 41 50 -504
 2: 10 11 -44
 EOF
-check_example disc167 "$tmp/167.exp" -quad=1,1,0,1,0,1,0,0,0,1,1,0,1,1,34 -format=GG -prec=31
+check_example disc167 "$tmp/167.exp" "G F G P G" -quad=1,1,0,1,0,1,0,0,0,1,1,0,1,1,34 -format=GG -prec=31
 
 exit $status

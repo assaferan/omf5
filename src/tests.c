@@ -275,29 +275,37 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex, bool nonlifts, int 
   next_idx = 0;
   for (c = 0; c < num_conductors; c++) {
     if (num_idxs == 0)
+      // No indices were given, so detect the lifts.
       eigenvalues_set_lifts(evs[c], 2, c, genus);
-    // fprintf(stderr, "next_idx = %d, num_idxs = %d\n", next_idx, num_idxs);
-    for (form_idx = 0; form_idx < evs[c]->num; form_idx++, total_idx++) {
-      evs[c]->lift_type[form_idx] = O;
-      // fprintf(stderr, "total_idx = %d, idxs[%d] = %d\n", total_idx, next_idx, idxs[next_idx]);
-      if ((next_idx < num_idxs) && (total_idx == idxs[next_idx])) {
-	// fprintf(stderr, "Setting nonlift at total_idx = %d = idxs[%d] = %d\n", total_idx, next_idx, idxs[next_idx]);
-	evs[c]->lift_type[form_idx] = G;
-	next_idx++;
+    else
+      // The forms at the given indices are taken to be the nonlifts,
+      // and all the others are skipped.
+      for (form_idx = 0; form_idx < evs[c]->num; form_idx++, total_idx++) {
+	evs[c]->lift_type[form_idx] = O;
+	if ((next_idx < num_idxs) && (total_idx == idxs[next_idx])) {
+	  evs[c]->lift_type[form_idx] = G;
+	  next_idx++;
+	}
       }
-    }
     if (c != 0)
       for (form_idx = 0; form_idx < evs[c]->num; form_idx++)
 	if ((!nonlifts) || (evs[c]->lift_type[form_idx] == G))
 	  has_spinor = true;
   }
 
-  // We check what indices really get to be checked as nonlifts
+  // We report the forms whose eigenvalues are going to be computed
   total_idx = 0;
   for (c = 0; c < num_conductors; c++)
     for (form_idx = 0; form_idx < evs[c]->num; form_idx++, total_idx++)
       if ((!nonlifts) || (evs[c]->lift_type[form_idx] == G)) {
-	fprintf(stderr, "Found nonlift at total_idx = %d", total_idx);
+	if (evs[c]->lift_type[form_idx] == G)
+	  fprintf(stderr, "Found nonlift");
+	else if (evs[c]->lift_type[form_idx] == O)
+	  // either an old form, or one which is not at the given indices
+	  fprintf(stderr, "Found form of type O");
+	else
+	  fprintf(stderr, "Found lift of type %c", lift_types[evs[c]->lift_type[form_idx]]);
+	fprintf(stderr, " at total_idx = %d", total_idx);
 	fprintf(stderr, ", c = %ld, form_idx = %d\n", c, form_idx);
       }
     
