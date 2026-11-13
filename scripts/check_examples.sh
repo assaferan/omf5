@@ -77,7 +77,18 @@ EOF
 check_example disc61-nonlifts "$tmp/61nl.exp" "G" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=10 -nonlifts
 
 # With -idxs only the forms at the given indices are computed, as type G.
-check_example disc61-idxs "$tmp/61nl.exp" "G G" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=10 -idxs=0,2
+# Here they are the form of type G and the Saito-Kurokawa lift.
+cat > "$tmp/61idxs.exp" <<'EOF'
+1: -7 -3 3 -9
+2: 7 -9
+1: 29 59 164 309
+2: -3 -4
+EOF
+check_example disc61-idxs "$tmp/61idxs.exp" "G G" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=10 -idxs=0,2
+
+# The indices can be given in any order, and can be repeated. An index at
+# which there is no form is ignored.
+check_example disc61-idxs-unsorted "$tmp/61idxs.exp" "G G" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=10 -idxs=2,0,2,123456789
 
 # Discriminant 167, forms of conductor 1 and of conductor 167.
 cat > "$tmp/167.exp" <<'EOF'

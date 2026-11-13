@@ -223,7 +223,7 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex, bool nonlifts, int 
 {
   int form_idx, k, i;
   slong c, c2, num_conductors;
-  int total_idx, next_idx;
+  int total_idx;
   slong num_lift_ps;
 
   clock_t cpuclock_0, cpuclock_1;
@@ -288,26 +288,30 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex, bool nonlifts, int 
 
   has_spinor = false;
   total_idx = 0;
-  next_idx = 0;
   for (c = 0; c < num_conductors; c++) {
     if (num_idxs == 0)
       // No indices were given, so detect the lifts.
       eigenvalues_set_lifts(evs[c], num_lift_ps, c, genus);
     else
       // The forms at the given indices are taken to be the nonlifts,
-      // and all the others are skipped.
+      // and all the others are skipped. The indices can be in any order.
       for (form_idx = 0; form_idx < evs[c]->num; form_idx++, total_idx++) {
 	evs[c]->lift_type[form_idx] = O;
-	if ((next_idx < num_idxs) && (total_idx == idxs[next_idx])) {
-	  evs[c]->lift_type[form_idx] = G;
-	  next_idx++;
-	}
+	for (i = 0; i < num_idxs; i++)
+	  if (idxs[i] == total_idx)
+	    evs[c]->lift_type[form_idx] = G;
       }
     if (c != 0)
       for (form_idx = 0; form_idx < evs[c]->num; form_idx++)
 	if ((!nonlifts) || (evs[c]->lift_type[form_idx] == G))
 	  has_spinor = true;
   }
+
+  // Here total_idx is the number of forms, unless no indices were given.
+  for (i = 0; i < num_idxs; i++)
+    if ((idxs[i] < 0) || (idxs[i] >= total_idx))
+      fprintf(stderr, "Warning: there is no form at index %d, the indices of the %d forms start from 0\n",
+	      idxs[i], total_idx);
 
   // We report the forms whose eigenvalues are going to be computed
   total_idx = 0;
