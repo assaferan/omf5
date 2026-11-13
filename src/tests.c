@@ -221,9 +221,10 @@ STATUS test_genus(genus_t genus, const example_genus_t ex)
 
 STATUS test_evs(const genus_t genus, const example_evs_t ex, bool nonlifts, int num_idxs, const int* idxs)
 {
-  int form_idx, k;
+  int form_idx, k, i;
   slong c, c2, num_conductors;
-  int total_idx, next_idx;
+  int total_idx;
+  slong num_lift_ps;
 
   clock_t cpuclock_0, cpuclock_1;
   double cputime, cpudiff;
@@ -270,34 +271,61 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex, bool nonlifts, int 
       print_eigenvectors(evs[c]);
     }
 
+  // The lifts are detected at the primes p not dividing the discriminant
+  // for which T_{p^2} is computed, and at two primes at least.
+  // These are the first such primes, as eigenvalues_set_lifts expects.
+  num_lift_ps = 0;
+  for (i = 0; i < ex->num_ps[1]; i++)
+    if (fmpz_fdiv_ui(genus->disc, ex->ps[1][i]) != 0)
+      num_lift_ps++;
+  if (num_lift_ps < 2)
+    num_lift_ps = 2;
+
+  // When indices are given, only the forms at these indices are computed.
+  // They are the ones which are given the type G below.
+  if (num_idxs > 0)
+    nonlifts = true;
+
   has_spinor = false;
   total_idx = 0;
-  next_idx = 0;
   for (c = 0; c < num_conductors; c++) {
     if (num_idxs == 0)
-      eigenvalues_set_lifts(evs[c], 2, c, genus);
-    // fprintf(stderr, "next_idx = %d, num_idxs = %d\n", next_idx, num_idxs);
-    for (form_idx = 0; form_idx < evs[c]->num; form_idx++, total_idx++) {
-      evs[c]->lift_type[form_idx] = O;
-      // fprintf(stderr, "total_idx = %d, idxs[%d] = %d\n", total_idx, next_idx, idxs[next_idx]);
-      if ((next_idx < num_idxs) && (total_idx == idxs[next_idx])) {
-	// fprintf(stderr, "Setting nonlift at total_idx = %d = idxs[%d] = %d\n", total_idx, next_idx, idxs[next_idx]);
-	evs[c]->lift_type[form_idx] = G;
-	next_idx++;
+      // No indices were given, so detect the lifts.
+      eigenvalues_set_lifts(evs[c], num_lift_ps, c, genus);
+    else
+      // The forms at the given indices are taken to be the nonlifts,
+      // and all the others are skipped. The indices can be in any order.
+      for (form_idx = 0; form_idx < evs[c]->num; form_idx++, total_idx++) {
+	evs[c]->lift_type[form_idx] = O;
+	for (i = 0; i < num_idxs; i++)
+	  if (idxs[i] == total_idx)
+	    evs[c]->lift_type[form_idx] = G;
       }
-    }
     if (c != 0)
       for (form_idx = 0; form_idx < evs[c]->num; form_idx++)
 	if ((!nonlifts) || (evs[c]->lift_type[form_idx] == G))
 	  has_spinor = true;
   }
 
-  // We check what indices really get to be checked as nonlifts
+  // Here total_idx is the number of forms, unless no indices were given.
+  for (i = 0; i < num_idxs; i++)
+    if ((idxs[i] < 0) || (idxs[i] >= total_idx))
+      fprintf(stderr, "Warning: there is no form at index %d, the indices of the %d forms start from 0\n",
+	      idxs[i], total_idx);
+
+  // We report the forms whose eigenvalues are going to be computed
   total_idx = 0;
   for (c = 0; c < num_conductors; c++)
     for (form_idx = 0; form_idx < evs[c]->num; form_idx++, total_idx++)
       if ((!nonlifts) || (evs[c]->lift_type[form_idx] == G)) {
-	fprintf(stderr, "Found nonlift at total_idx = %d", total_idx);
+	if (evs[c]->lift_type[form_idx] == G)
+	  fprintf(stderr, "Found nonlift");
+	else if (evs[c]->lift_type[form_idx] == O)
+	  // an old form
+	  fprintf(stderr, "Found form of type O");
+	else
+	  fprintf(stderr, "Found lift of type %c", lift_types[evs[c]->lift_type[form_idx]]);
+	fprintf(stderr, " at total_idx = %d", total_idx);
 	fprintf(stderr, ", c = %ld, form_idx = %d\n", c, form_idx);
       }
     
@@ -654,6 +682,50 @@ STATUS test_greedy_overflow()
   ret = test_greedy(Q1, red_Q) << 1;
 
   ret |= test_greedy(Q2, red_Q2);
+
+  return ret;
+}
+
+// Tests whether x is found to be a square in Q[a] / (f), for an integer x,
+// where the polynomial f is given as for fmpq_poly_set_str.
+STATUS test_is_square_of(const char* f_str, slong x_int, bool is_square)
+{
+  STATUS ret;
+  fmpq_poly_t f;
+  nf_t K;
+  nf_elem_t x;
+
+  fmpq_poly_init(f);
+  fmpq_poly_set_str(f, f_str);
+  nf_init(K, f);
+  nf_elem_init(x, K);
+  nf_elem_set_si(x, x_int, K);
+
+  ret = (nf_elem_is_square_fast(x, K) == is_square) ? SUCCESS : FAIL;
+
+  if (ret == FAIL)
+    fprintf(stderr, "FAIL: %ld was found %sto be a square in the field defined by %s\n",
+	    x_int, is_square ? "not " : "", f_str);
+
+  nf_elem_clear(x, K);
+  nf_clear(K);
+  fmpq_poly_clear(f);
+
+  return ret;
+}
+
+STATUS test_is_square()
+{
+  STATUS ret;
+
+  // a^2 - 3 has a repeated factor modulo 3, where Z[a] is maximal.
+  // Modulo 3 is the only place where 2 is seen not to be a square,
+  // among the primes which are tested.
+  ret = test_is_square_of("3  -3 0 1", 2, false) << 1;
+
+  // a^2 + 9 has a repeated factor modulo 3, where Z[a] is not maximal.
+  // Here -4 = (2a/3)^2 is not a square modulo 3.
+  ret |= test_is_square_of("3  9 0 1", -4, true);
 
   return ret;
 }

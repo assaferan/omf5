@@ -11,6 +11,9 @@
 // System dependencies
 
 #include <assert.h>
+#include <errno.h>
+#include <limits.h>
+#include <stdlib.h>
 
 // Required packages dependencies
 
@@ -66,6 +69,8 @@ bool handle_flag_int(const char* flag_name, const char* param_str, int* flag_val
  *              "-{flag_name}={val0},{val1},...,{valn}",
  *              in which case *flag_val will contain the
  *              values, and *num_vals the number of values.
+ *              If one of the values is not an integer,
+ *              reports it and returns false.
  *
  ************************************************************
  */
@@ -238,6 +243,8 @@ int main(int argc, char* argv[])
     test_res <<= 1;
     test_res |= test_greedy_overflow();
     test_res <<= 1;
+    test_res |= test_is_square();
+    test_res <<= 1;
     test_res |= test_61();
     test_res <<= 1;
     test_res |= test_69();
@@ -334,9 +341,9 @@ bool handle_flag_int_seq(const char* flag_name, const char* param_str, int** fla
 {
   size_t flag_len;
   char* full_flag_name;
-  char number_str[8];
-  size_t str_idx, num_idx;
-  char next_ch;
+  const char* str;
+  char* end;
+  long val;
   // number of values to allocate memory for at first
   size_t INITIAL_NUM_VALS_ALLOC = 8;
   size_t num_allocated = 0;
@@ -355,36 +362,39 @@ bool handle_flag_int_seq(const char* flag_name, const char* param_str, int** fla
 
   assert(flag_len == strlen(full_flag_name));
 
-  str_idx = flag_len;
   // checks whether param_str starts with -{flag_name}=
   if (strncmp(param_str, full_flag_name, flag_len) == 0) {
     *num_vals = 0;
     *flag_val = (int *)malloc(INITIAL_NUM_VALS_ALLOC*sizeof(int));
     num_allocated = INITIAL_NUM_VALS_ALLOC;
-    next_ch = param_str[str_idx];
-    // while the string didn't end
-    while (next_ch != '\0') {
-      // we read off the next number
-      num_idx = 0;
-      while ((next_ch != ',') && (next_ch != '\0')) {
-	number_str[num_idx] = next_ch;
-	str_idx++;
-	num_idx++;
-	next_ch = param_str[str_idx];
-      }
-      number_str[num_idx] = '\0';
-      // skipping the comma
-      if (next_ch == ',') {
-	str_idx++;
-	next_ch = param_str[str_idx];
+    str = param_str + flag_len;
+    // we read off the numbers one by one, until the string ends
+    while (true) {
+      errno = 0;
+      val = strtol(str, &end, 10);
+      // Every entry has to be an integer, followed by a comma or by the end
+      // of the string. In particular, the list cannot be empty.
+      if ((end == str) || ((*end != ',') && (*end != '\0')) ||
+	  (errno == ERANGE) || (val > INT_MAX) || (val < INT_MIN)) {
+	fprintf(stderr, "Error: %s%s is not a comma-separated list of integers\n",
+		full_flag_name, param_str + flag_len);
+	free(*flag_val);
+	*flag_val = NULL;
+	*num_vals = 0;
+	free(full_flag_name);
+	return false;
       }
       assert((*num_vals) < num_allocated);
-      (*flag_val)[(*num_vals)] = atoi(number_str);
+      (*flag_val)[(*num_vals)] = (int)val;
       (*num_vals)++;
       if ((*num_vals) >= num_allocated) {
 	num_allocated *= 2;
 	*flag_val = (int *)realloc(*flag_val, num_allocated*sizeof(int));
       }
+      if (*end == '\0')
+	break;
+      // skipping the comma
+      str = end + 1;
     }
     free(full_flag_name);
     return true;
@@ -407,7 +417,7 @@ int print_param_desc(char* argv[])
   fprintf(stderr, "[L] is the preicision up to which to compute the hecke matrices/eigenvalues (a_p for p <= L and a_{p^2} for p^2 <= L),\n");
   fprintf(stderr, "[c] is the conductor of the spinor norm character. If not specified, the program will compute all of them. At the moment, only relevant for computing a column of the Hecke matrix.");
   fprintf(stderr, "If the flag -hecke is supplied, computes a column of the Hecke matrix, otherwise computes the Hecke eigenvalues of forms that are non-lifts. If p is not supplied, computes the Hecke matrix of the first prime not dividing the discriminant.\n");
-  fprintf(stderr, "[form_idxs] is a list of indices of forms in the space for which to compute the hecke eigenvalues. If not specified, computes for all of them.\n");
+  fprintf(stderr, "[form_idxs] is a comma-separated list of indices of forms in the space for which to compute the hecke eigenvalues. If not specified, computes for all of them.\n");
   fprintf(stderr, "If either L or p is not supplied, only decomposes the space, and finds Hecke eigenvectors.\n");
   fprintf(stderr, "If the flag -row is supplied in addition to -hecke, computes a single row.\n");
   fprintf(stderr, "If the flag -isom is supplied in addition to -genus=g, the genus includes the isometries.\n");

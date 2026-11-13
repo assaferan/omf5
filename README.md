@@ -104,7 +104,7 @@ in which case, the genus will be computed using p-neighbors, or via g and d -
 
 [c] is the conductor of the spinor norm character. If not specified, the program will compute all of them. At the moment, only relevant for computing a column of the Hecke matrix.
 
-[form_idxs] is a list of indices of forms in the space for which to compute the hecke eigenvalues. If not specified, computes for all of them.
+[form_idxs] is a comma-separated list of indices of forms in the space for which to compute the hecke eigenvalues. If not specified, computes for all of them.
 
 If either L or p is not supplied, only decomposes the space, and finds Hecke eigenvectors.
 
@@ -118,6 +118,18 @@ If the flag -isom is supplied in addition to -genus=g, read from the genus file,
 If the flag -tests is supplied, additionally runs standard tests.
 
 If the flag -nonlifts is supplied, computes eigenvalues only for the forms which are not lifts.
+
+Each form is printed with its automorphic type, `aut_rep_type`, which is one of:
+
+- `G` - the form is not a lift,
+- `P` - a Saito-Kurokawa lift,
+- `Y` - a Yoshida lift,
+- `F` - the Eisenstein series, which is the constant function,
+- `O` - an old form, for which no eigenvector was found.
+
+A form is taken to be a lift if its L-polynomial factors, in the same way, at each of the primes p not dividing the discriminant with p^2 <= L. If there are fewer than two such primes, or L is not supplied, the first two primes not dividing the discriminant are used. So the types are more reliable when L is larger. For example, for discriminant 249 there is a form which is not a lift, whose L-polynomial factors at 2 and at 5, but not at 7. It is reported as a Yoshida lift, and so is left out when -nonlifts is supplied, unless L is at least 49.
+
+If form_idxs is supplied the lifts are not detected. Instead, the forms at these indices are given the type `G`, and the eigenvalues are computed only for them, whether or not -nonlifts is supplied. The indices are counted over all the conductors, in the order in which the forms are printed, starting from 0. They can be given in any order. An index at which there is no form is ignored, with a warning.
     
 The progress messages, the eigenvectors and the traces of the Hecke eigenvalues are printed to stderr. The Hecke eigenvalues themselves are printed to stdout, as a Python dictionary mapping each conductor to the list of its forms.
 
@@ -145,8 +157,8 @@ For conductor 1, eigenvectors are:
 4*a^5 - 88*a^4 + 700*a^3 - 2448*a^2 + 3648*a - 1880 3*a^4 - 50*a^3 + 272*a^2 - 558*a + 397 4*a^4 - 73*a^3 + 453*a^2 - 1091*a + 867 -2*a^4 + 32*a^3 - 150*a^2 + 172*a + 12 14*a^3 - 194*a^2 + 786*a - 862 -a^5 + 20*a^4 - 147*a^3 + 475*a^2 - 620*a + 241 4*a^3 - 40*a^2 + 96*a - 92 -a^4 + 19*a^3 - 123*a^2 + 329*a - 288 over Number field with defining polynomial x^6-29*x^5+322*x^4-1714*x^3+4471*x^2-5205*x+2026
 For conductor 61, eigenvectors are:
 Found nonlift at total_idx = 0, c = 0, form_idx = 0
-Found nonlift at total_idx = 1, c = 0, form_idx = 1
-Found nonlift at total_idx = 2, c = 0, form_idx = 2
+Found lift of type F at total_idx = 1, c = 0, form_idx = 1
+Found lift of type P at total_idx = 2, c = 0, form_idx = 2
 For conductor 1:
 traces of hecke eigenvalues of T_{p^1} are:
 
@@ -172,8 +184,10 @@ For conductor 61:
 Its output on stdout is
 
 ```
-{1 : [{ 'aut_rep_type' : 'O', 'field_poly' : '2  7 1', 'lambda_p' : [], 'lambda_p_square' : [], }, { 'aut_rep_type' : 'O', 'field_poly' : '2  -15 1', 'lambda_p' : [], 'lambda_p_square' : [], }, { 'aut_rep_type' : 'O', 'field_poly' : '7  2026 -5205 4471 -1714 322 -29 1', 'lambda_p' : [], 'lambda_p_square' : [], }, ], 61 : [], }
+{1 : [{ 'aut_rep_type' : 'G', 'field_poly' : '2  7 1', 'lambda_p' : [], 'lambda_p_square' : [], }, { 'aut_rep_type' : 'F', 'field_poly' : '2  -15 1', 'lambda_p' : [], 'lambda_p_square' : [], }, { 'aut_rep_type' : 'P', 'field_poly' : '7  2026 -5205 4471 -1714 322 -29 1', 'lambda_p' : [], 'lambda_p_square' : [], }, ], 61 : [], }
 ```
+
+so that the first form is not a lift, the second is the Eisenstein series, and the third is a Galois orbit of 6 Saito-Kurokawa lifts.
 
 2. Hecke eigenvalues, for primes up to 100. The output to stderr starts as in the previous example, and continues with:
 
@@ -182,8 +196,8 @@ Its output on stdout is
 ...
 For conductor 61, eigenvectors are:
 Found nonlift at total_idx = 0, c = 0, form_idx = 0
-Found nonlift at total_idx = 1, c = 0, form_idx = 1
-Found nonlift at total_idx = 2, c = 0, form_idx = 2
+Found lift of type F at total_idx = 1, c = 0, form_idx = 1
+Found lift of type P at total_idx = 2, c = 0, form_idx = 2
 For conductor 1:
 traces of hecke eigenvalues of T_{p^1} are:
 -7 -3 3 -9 -4 -3 37 -75 10 212 -6 -88 -3 547 -147 -108 -45 -632 -650 859 -978 931 -571 453
@@ -207,6 +221,8 @@ For conductor 61:
 ```
 
 The primes dividing the discriminant are skipped, so that above p runs over the primes up to 100 other than 61, and p^2 over the squares of 2, 3, 5 and 7.
+
+With -nonlifts added, only the first of the three forms is computed.
 
 3. Hecke eigenvalues, for discriminant 167, where there are forms of conductor 167 as well:
 
@@ -236,9 +252,9 @@ a vector of length 19 over a number field of degree 15
 For conductor 167, eigenvectors are:
 1 over Number field with defining polynomial x+8
 Found nonlift at total_idx = 0, c = 0, form_idx = 0
-Found nonlift at total_idx = 1, c = 0, form_idx = 1
+Found lift of type F at total_idx = 1, c = 0, form_idx = 1
 Found nonlift at total_idx = 2, c = 0, form_idx = 2
-Found nonlift at total_idx = 3, c = 0, form_idx = 3
+Found lift of type P at total_idx = 3, c = 0, form_idx = 3
 Found nonlift at total_idx = 4, c = 1, form_idx = 0
 For conductor 1:
 traces of hecke eigenvalues of T_{p^1} are:
