@@ -5,7 +5,7 @@ bin_PROGRAMS = omf5 # omf5_dbg omf5_dbg_full omf5_nbr_data omf5_nbr_data_dbg omf
 # and with antic only for flint 2.x, so that the build compiles against
 # the flint headers that configure checked. The library is not checked:
 # directories given in the user's LDFLAGS are searched before these.
-ALL_CFLAGS = -I ../include @DEPS_CPPFLAGS@ -Wall -Werror
+ALL_CFLAGS = -I$(top_srcdir)/include @DEPS_CPPFLAGS@ -Wall -Werror
 
 # The code defines its own bool (typedefs.h), which C23 makes a keyword.
 # Recent autoconf selects -std=gnu23 by default, so pin the standard here.

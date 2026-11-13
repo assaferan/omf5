@@ -53,3 +53,4 @@ __pycache__
 test-suite.log
 scripts/*.log
 scripts/*.trs
+omf5-*.tar.gz
