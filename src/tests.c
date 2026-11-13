@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <inttypes.h>
 #include <math.h>
 #include <time.h>
@@ -146,6 +145,9 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
     if (test_evs != NULL) {
       // if (!nf_elem_equal_si(ev, test_evs[i], evs->nfs[form_idx])) {
       if (!fmpq_equal_si(trace, test_evs[i])) {
+	fprintf(stderr, "\nFAIL: trace of T_{%d^%d} for form %d is ", ps[i], k, form_idx);
+	fmpq_fprint(stderr, trace);
+	fprintf(stderr, ", expected %d\n", test_evs[i]);
 	fmpq_clear(trace);
 	return FAIL;
       }
@@ -200,12 +202,19 @@ STATUS test_genus(genus_t genus, const example_genus_t ex)
   
   compute_genus(genus, ex->Q_coeffs, ex->format);
 
-  if (ex->num_conductors != 0)
-    assert(genus->num_conductors == ex->num_conductors);
+  if ((ex->num_conductors != 0) && (genus->num_conductors != ex->num_conductors)) {
+    fprintf(stderr, "FAIL: the genus has %ld conductors, expected %d\n",
+	    genus->num_conductors, ex->num_conductors);
+    return FAIL;
+  }
   
   if (ex->dims != NULL)
     for (c = 0; c < ex->num_conductors; c++)
-      assert(genus->dims[c] == ex->dims[c]);
+      if (genus->dims[c] != ex->dims[c]) {
+	fprintf(stderr, "FAIL: the space of conductor %ld has dimension %ld, expected %d\n",
+		genus->conductors[c], (slong)genus->dims[c], ex->dims[c]);
+	return FAIL;
+      }
   
   return SUCCESS;
 }
@@ -244,9 +253,17 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex, bool nonlifts, int 
   
   fprintf(stderr, "computing eigenvectors took %f sec\n", cputime);
 
-  if (ex->num_forms != NULL)
+  if (ex->num_forms != NULL) {
     for (c = 0; c < num_conductors; c++)
-      assert(evs[c]->num == ex->num_forms[c]);
+      if (evs[c]->num != ex->num_forms[c]) {
+	fprintf(stderr, "FAIL: conductor %ld has %ld eigenforms, expected %d\n",
+		genus->conductors[c], (slong)evs[c]->num, ex->num_forms[c]);
+	for (c2 = 0; c2 < num_conductors; c2++)
+	  eigenvalues_clear(evs[c2]);
+	free(evs);
+	return FAIL;
+      }
+  }
   else
     for (c = 0; c < num_conductors; c++) {
       fprintf(stderr, "For conductor %ld, ", genus->conductors[c]);
@@ -513,22 +530,22 @@ void example_evs_init_69(example_evs_t ex)
 	
       (const int* []) {
 	(int[]){-6, -4, 8, -12, 2, -35, 50, 22, -155, -85, -63, 152, -119, -332, 369, 500, -240, 88, 250, 597, -389, 234, -656, -342, -1342},
-	(int[]){5, 1, -32, -40}
+	(int[]){5, 0, -32, -40}
       },
 	
       (const int* []) {
 	(int []){15,31,156, 400, 1464, 2380, 5220, 7240, 13249, 25260, 30784, 52060, 70644, 81400, 106080, 151740, 208920, 230764, 305320, 363024, 394420, 499360, 578760, 712980, 922180},
-	(int []){30, 1, 780, 2800} 
+	(int []){30, 0, 780, 2800} 
       },
 	
       (const int* []) {
 	(int []){8, 30, 34, 102, 204, 340, 462, 714, 1058, 1524, 2308, 2952, 3080, 3658, 4632, 6214, 7048, 6656, 8238, 10712, 11456, 11442, 13844, 16122, 20636},
-	(int []){-6, 2, -108, 16}
+	(int []){-6, 0, -108, 16}
       },
 	
       (const int* []) {
 	(int []){26, 19, 134, 240, 536, 839, 1322, 1616, 2116, 3501, 3775, 5794, 6763, 7570, 8347, 11218, 13020, 15882, 18712, 20047, 23117, 24442, 28030, 34382, 39086},
-	(int []){18, 4, 180, 320}
+	(int []){18, 0, 180, 320}
       }
     },
       
@@ -536,7 +553,7 @@ void example_evs_init_69(example_evs_t ex)
     (const int** []) {},
     (const int** []) {
       (const int* []) {
-	(int []){10, -20, 68, 84, 192, 304, 708, 612, -1152, 1536, 1816, 2928, 3448, 3364, 4464, 5756, 7040, 6800, 8124, 10000, 11624, 14412, 15424, 16764, 18752},
+	(int []){10, 18, 68, 84, 192, 304, 708, 612, 1150, 1536, 1816, 2928, 3448, 3364, 4464, 5756, 7040, 6800, 8124, 10000, 11624, 14412, 15424, 16764, 18752},
 	(int []){0, 0, 96, -128}
       }
     }
@@ -559,11 +576,14 @@ STATUS test_61()
   ret = test_genus(genus, ex_61_genus);
   example_genus_clear(ex_61_genus);
 
-  if (ret == FAIL)
+  if (ret == FAIL) {
+    genus_clear(genus);
     return ret;
+  }
   
   example_evs_init_61(ex_61_evs);
-  ret = test_evs(genus, ex_61_evs, true, 0, NULL);
+  // Check all the forms, lifts included.
+  ret = test_evs(genus, ex_61_evs, false, 0, NULL);
   example_evs_clear(ex_61_evs, genus->num_conductors);
 
   genus_clear(genus);
@@ -582,11 +602,14 @@ STATUS test_69()
   ret = test_genus(genus, ex_69_genus);
   example_genus_clear(ex_69_genus);
 
-  if (ret == FAIL)
+  if (ret == FAIL) {
+    genus_clear(genus);
     return ret;
+  }
   
   example_evs_init_69(ex_69_evs);
-  ret = test_evs(genus, ex_69_evs, true, 0, NULL);
+  // Check all the forms, lifts included.
+  ret = test_evs(genus, ex_69_evs, false, 0, NULL);
   example_evs_clear(ex_69_evs, genus->num_conductors);
 
   genus_clear(genus);
