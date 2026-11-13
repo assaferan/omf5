@@ -11,6 +11,8 @@
 // System dependencies
 
 #include <assert.h>
+#include <limits.h>
+#include <stdlib.h>
 
 // Required packages dependencies
 
@@ -336,9 +338,9 @@ bool handle_flag_int_seq(const char* flag_name, const char* param_str, int** fla
 {
   size_t flag_len;
   char* full_flag_name;
-  char number_str[8];
-  size_t str_idx, num_idx;
+  size_t str_idx;
   char next_ch;
+  long val;
   // number of values to allocate memory for at first
   size_t INITIAL_NUM_VALS_ALLOC = 8;
   size_t num_allocated = 0;
@@ -366,22 +368,23 @@ bool handle_flag_int_seq(const char* flag_name, const char* param_str, int** fla
     next_ch = param_str[str_idx];
     // while the string didn't end
     while (next_ch != '\0') {
-      // we read off the next number
-      num_idx = 0;
+      // we read off the next number, which can have any number of digits
+      val = strtol(param_str + str_idx, NULL, 10);
+      if (val > INT_MAX)
+	val = INT_MAX;
+      if (val < INT_MIN)
+	val = INT_MIN;
       while ((next_ch != ',') && (next_ch != '\0')) {
-	number_str[num_idx] = next_ch;
 	str_idx++;
-	num_idx++;
 	next_ch = param_str[str_idx];
       }
-      number_str[num_idx] = '\0';
       // skipping the comma
       if (next_ch == ',') {
 	str_idx++;
 	next_ch = param_str[str_idx];
       }
       assert((*num_vals) < num_allocated);
-      (*flag_val)[(*num_vals)] = atoi(number_str);
+      (*flag_val)[(*num_vals)] = (int)val;
       (*num_vals)++;
       if ((*num_vals) >= num_allocated) {
 	num_allocated *= 2;
