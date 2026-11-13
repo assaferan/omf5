@@ -104,7 +104,7 @@ in which case, the genus will be computed using p-neighbors, or via g and d -
 
 [c] is the conductor of the spinor norm character. If not specified, the program will compute all of them. At the moment, only relevant for computing a column of the Hecke matrix.
 
-[form_idxs] is a list of indices of forms in the space for which to compute the hecke eigenvalues. If not specified, computes for all of them.
+[form_idxs] is a comma-separated list of indices of forms in the space for which to compute the hecke eigenvalues. If not specified, computes for all of them.
 
 If either L or p is not supplied, only decomposes the space, and finds Hecke eigenvectors.
 

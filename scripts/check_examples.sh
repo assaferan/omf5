@@ -62,6 +62,24 @@ check_example() {
   fi
 }
 
+# check_error name message omf5-arguments...
+# Checks that omf5 exits with an error for these arguments, and reports it
+# with a line containing the message.
+check_error() {
+  name=$1
+  message=$2
+  shift 2
+  if "$OMF5" "$@" > "$tmp/$name.out" 2> "$tmp/$name.err"; then
+    echo "FAIL $name: omf5 did not exit with an error"
+    status=1
+  elif ! grep -Fq -- "$message" "$tmp/$name.err"; then
+    echo "FAIL $name: the error '$message' was not reported"
+    status=1
+  else
+    echo "ok   $name"
+  fi
+}
+
 # Discriminant 61. Primes dividing the discriminant are skipped.
 cat > "$tmp/61.exp" <<'EOF'
 1: -7 -3 3 -9 -4 -3 37 -75 10 212 -6 -88 -3 547 -147 -108 -45 -632 -650 859 -978 931 -571 453
@@ -89,6 +107,10 @@ check_example disc61-idxs "$tmp/61idxs.exp" "G G" -quad=1,0,0,1,1,1,0,1,0,1,0,0,
 # The indices can be given in any order, and can be repeated. An index at
 # which there is no form is ignored.
 check_example disc61-idxs-unsorted "$tmp/61idxs.exp" "G G" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=10 -idxs=2,0,2,123456789
+
+# An entry which is not an integer is an error. It used to be read as 0.
+check_error disc61-idxs-malformed "is not a comma-separated list of integers" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=10 -idxs=2,abc
+check_error disc61-idxs-empty "is not a comma-separated list of integers" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=10 -idxs=
 
 # Discriminant 167, forms of conductor 1 and of conductor 167.
 cat > "$tmp/167.exp" <<'EOF'
