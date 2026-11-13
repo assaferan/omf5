@@ -238,6 +238,8 @@ int main(int argc, char* argv[])
     test_res <<= 1;
     test_res |= test_greedy_overflow();
     test_res <<= 1;
+    test_res |= test_is_square();
+    test_res <<= 1;
     test_res |= test_61();
     test_res <<= 1;
     test_res |= test_69();

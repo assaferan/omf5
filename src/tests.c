@@ -682,6 +682,50 @@ STATUS test_greedy_overflow()
   return ret;
 }
 
+// Tests whether x is found to be a square in Q[a] / (f), for an integer x,
+// where the polynomial f is given as for fmpq_poly_set_str.
+STATUS test_is_square_of(const char* f_str, slong x_int, bool is_square)
+{
+  STATUS ret;
+  fmpq_poly_t f;
+  nf_t K;
+  nf_elem_t x;
+
+  fmpq_poly_init(f);
+  fmpq_poly_set_str(f, f_str);
+  nf_init(K, f);
+  nf_elem_init(x, K);
+  nf_elem_set_si(x, x_int, K);
+
+  ret = (nf_elem_is_square_fast(x, K) == is_square) ? SUCCESS : FAIL;
+
+  if (ret == FAIL)
+    fprintf(stderr, "FAIL: %ld was found %sto be a square in the field defined by %s\n",
+	    x_int, is_square ? "not " : "", f_str);
+
+  nf_elem_clear(x, K);
+  nf_clear(K);
+  fmpq_poly_clear(f);
+
+  return ret;
+}
+
+STATUS test_is_square()
+{
+  STATUS ret;
+
+  // a^2 - 3 has a repeated factor modulo 3, where Z[a] is maximal.
+  // Modulo 3 is the only place where 2 is seen not to be a square,
+  // among the primes which are tested.
+  ret = test_is_square_of("3  -3 0 1", 2, false) << 1;
+
+  // a^2 + 9 has a repeated factor modulo 3, where Z[a] is not maximal.
+  // Here -4 = (2a/3)^2 is not a square modulo 3.
+  ret |= test_is_square_of("3  9 0 1", -4, true);
+
+  return ret;
+}
+
 STATUS compute_eigenvectors(const genus_t genus, bool nonlifts, int num_idxs, const int* idxs)
 {
   example_evs_t dummy;

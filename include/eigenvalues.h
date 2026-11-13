@@ -199,4 +199,25 @@ slong ev_get_pivot(const nf_elem_t* evec, const nf_t K, const genus_t genus, slo
 
 void eigenvalues_clear(eigenvalues_t evs);
 
+/******************************************************************
+ *
+ * Function: nf_elem_is_square_fast
+ *
+ * Description: Tests whether an element of a number field is a
+ *              square, by reducing it modulo small primes.
+ *              The test is probabilistic - an element which is
+ *              not a square can be found to be one.
+ *
+ * Arguments:
+ *     + x (const nf_elem_t) - the element
+ *     + K (const nf_t) - the number field
+ *
+ * Returns:
+ *     + (bool) - false if x is found not to be a square in K
+ *
+ ******************************************************************
+ */
+
+bool nf_elem_is_square_fast(const nf_elem_t x, const nf_t K);
+
 #endif // __EIGENVALUES_H__
