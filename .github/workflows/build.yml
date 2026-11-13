@@ -99,6 +99,8 @@ jobs:
     - name: Run tests
       run: cd omf5 && make check
 
+    # test-suite.log includes the logs of the failing tests. It does not
+    # exist if an earlier step failed.
     - name: Show test logs
       if: failure()
-      run: cd omf5 && cat test-suite.log scripts/*.log
+      run: cat omf5/test-suite.log 2>/dev/null || true
