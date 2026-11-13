@@ -284,6 +284,12 @@ bool nf_elem_is_square_fast(const nf_elem_t x, const nf_t K)
     // Factor f_int_mod_p to construct the different extensions of F_p
     nmod_poly_factor(fac, f_int_mod_p);
     for (i = 0; i < fac->num; i++) {
+      // At a repeated factor Z[a] might not be maximal. Then the residue
+      // field of K can be larger than F, and x can be a square in K
+      // without being a square in F, so we cannot test there.
+      // (e.g. -1 in Q[a] / (a^2+9), at p = 3)
+      if (fac->exp[i] > 1)
+	continue;
       // Find the image of x in this finite field
       nmod_poly_init(r_int_mod_p, p_int);
       nmod_poly_rem(r_int_mod_p, g_int_mod_p, &(fac->p[i]));
@@ -301,6 +307,8 @@ bool nf_elem_is_square_fast(const nf_elem_t x, const nf_t K)
 	nf_elem_clear(x_int, K);
 	nmod_poly_factor_clear(fac);
 	fmpz_poly_clear(f_int);
+	fmpz_clear(prod);
+	fmpz_clear(bound);
 	fmpz_clear(p);
 	fmpz_clear(coeff);
 	fmpz_clear(den);
@@ -315,6 +323,7 @@ bool nf_elem_is_square_fast(const nf_elem_t x, const nf_t K)
     nmod_poly_clear(f_int_mod_p);
   }
   fmpz_clear(prod);
+  fmpz_clear(bound);
 
   nf_elem_clear(x_int, K);
   nmod_poly_factor_clear(fac);
