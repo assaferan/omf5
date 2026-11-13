@@ -221,9 +221,10 @@ STATUS test_genus(genus_t genus, const example_genus_t ex)
 
 STATUS test_evs(const genus_t genus, const example_evs_t ex, bool nonlifts, int num_idxs, const int* idxs)
 {
-  int form_idx, k;
+  int form_idx, k, i;
   slong c, c2, num_conductors;
   int total_idx, next_idx;
+  slong num_lift_ps;
 
   clock_t cpuclock_0, cpuclock_1;
   double cputime, cpudiff;
@@ -270,13 +271,23 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex, bool nonlifts, int 
       print_eigenvectors(evs[c]);
     }
 
+  // The lifts are detected at the primes p not dividing the discriminant
+  // for which T_{p^2} is computed, and at two primes at least.
+  // These are the first such primes, as eigenvalues_set_lifts expects.
+  num_lift_ps = 0;
+  for (i = 0; i < ex->num_ps[1]; i++)
+    if (fmpz_fdiv_ui(genus->disc, ex->ps[1][i]) != 0)
+      num_lift_ps++;
+  if (num_lift_ps < 2)
+    num_lift_ps = 2;
+
   has_spinor = false;
   total_idx = 0;
   next_idx = 0;
   for (c = 0; c < num_conductors; c++) {
     if (num_idxs == 0)
       // No indices were given, so detect the lifts.
-      eigenvalues_set_lifts(evs[c], 2, c, genus);
+      eigenvalues_set_lifts(evs[c], num_lift_ps, c, genus);
     else
       // The forms at the given indices are taken to be the nonlifts,
       // and all the others are skipped.

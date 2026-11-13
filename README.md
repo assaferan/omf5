@@ -127,7 +127,9 @@ Each form is printed with its automorphic type, `aut_rep_type`, which is one of:
 - `F` - the Eisenstein series, which is the constant function,
 - `O` - an old form, for which no eigenvector was found.
 
-A form is taken to be a lift if its L-polynomial factors, in the same way, at each of the first two primes not dividing the discriminant. If form_idxs is supplied the lifts are not detected. Instead, the forms at these indices are given the type `G` and all the others the type `O`.
+A form is taken to be a lift if its L-polynomial factors, in the same way, at each of the primes p not dividing the discriminant with p^2 <= L. If there are fewer than two such primes, or L is not supplied, the first two primes not dividing the discriminant are used. So the types are more reliable when L is larger. For example, for discriminant 249 there is a form which is not a lift, whose L-polynomial factors at 2 and at 5, but not at 7. It is reported as a Yoshida lift unless L is at least 49.
+
+If form_idxs is supplied the lifts are not detected. Instead, the forms at these indices are given the type `G` and all the others the type `O`.
     
 The progress messages, the eigenvectors and the traces of the Hecke eigenvalues are printed to stderr. The Hecke eigenvalues themselves are printed to stdout, as a Python dictionary mapping each conductor to the list of its forms.
 

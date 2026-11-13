@@ -436,6 +436,10 @@ void eigenvalues_set_lifts(eigenvalues_t evs, slong prec, slong c, const genus_t
       // If this is an oldform, we don't try to further analyze
       if (evs->lift_type[i] == O)
 	continue;
+      // A form which is not a lift at one prime is not a lift,
+      // so there is no need to consider it at further primes.
+      if ((cnt > 0) && (evs->lift_type[i] == G))
+	continue;
       lift_type = ev_is_lpoly_reducible(evs, i, fmpz_get_si(p), c, genus);
       // If this is the first pass, initialize according to result.
       // If we get a different lift type at different primes then it cannot be a lift.

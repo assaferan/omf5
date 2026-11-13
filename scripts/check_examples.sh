@@ -86,4 +86,12 @@ cat > "$tmp/167.exp" <<'EOF'
 EOF
 check_example disc167 "$tmp/167.exp" "G F G P G" -quad=1,1,0,1,0,1,0,0,0,1,1,0,1,1,34 -format=GG -prec=31
 
+# Discriminant 249. The L-polynomial of the second form factors at 2 and at 5,
+# but not at 7, so it is only found not to be a lift when 7^2 <= prec.
+cat > "$tmp/249.exp" <<'EOF'
+1: -1 4 -7 -21 44 167 -86 140 -121 -23 171 -128 -156 -84
+2: 0 12 -24
+EOF
+check_example disc249 "$tmp/249.exp" "F G G P P G P" -quad=1,0,0,-1,0,1,0,0,0,1,1,1,2,-1,11 -format=GG -prec=49
+
 exit $status
