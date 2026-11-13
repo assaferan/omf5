@@ -96,7 +96,9 @@ void jordan_decomposition(jordan_data_t jordan, const square_matrix_t q, const f
 
   n = QF_RANK;
 
-  blocks = (ulong*)malloc(n*sizeof(ulong));
+  // blocks[i] is the index of the first row of the i-th block, and there
+  // is one more entry, for the end of the last block.
+  blocks = (ulong*)malloc((n+1)*sizeof(ulong));
   
   fmpq_mat_init(S, n, n);
   fmpq_mat_init(G, n, n);

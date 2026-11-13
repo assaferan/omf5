@@ -7,6 +7,7 @@
 #include "genus.h"
 #include "hecke.h"
 #include "io.h"
+#include "mass.h"
 #include "matrix_tools.h"
 #include "tests.h"
 #include "weight.h"
@@ -726,6 +727,74 @@ STATUS test_is_square()
   // a^2 + 9 has a repeated factor modulo 3, where Z[a] is not maximal.
   // Here -4 = (2a/3)^2 is not a square modulo 3.
   ret |= test_is_square_of("3  9 0 1", -4, true);
+
+  return ret;
+}
+
+// Checks the mass formula for the lattice whose gram matrix is given by Q_coeffs
+STATUS test_mass_of(const Z64* Q_coeffs, slong mass_num, slong mass_denom)
+{
+  square_matrix_t Q;
+  fmpq_t mass, expected;
+  STATUS ret;
+
+  fmpq_init(mass);
+  fmpq_init(expected);
+  square_matrix_init_set_symm(Q, Q_coeffs, "A");
+
+  get_mass(mass, Q);
+  fmpq_set_si(expected, mass_num, mass_denom);
+
+  ret = (fmpq_equal(mass, expected) ? SUCCESS : FAIL);
+
+  square_matrix_clear(Q);
+  fmpq_clear(expected);
+  fmpq_clear(mass);
+
+  return ret;
+}
+
+// The mass of each of these lattices is the sum of the reciprocals of the
+// orders of the automorphism groups of the lattices in its genus, as computed
+// by Magma. Together they cover lattices that are odd or even, maximal at 2 or
+// not, with one, two, three and five Jordan constituents at 2, and with
+// constituents of type I of even rank.
+STATUS test_mass()
+{
+  STATUS ret;
+
+  // Z^5, A_5 and D_5
+  Z64 Z5[15] = {1,0,1,0,0,1,0,0,0,1,0,0,0,0,1};
+  Z64 A5[15] = {2,-1,2,0,-1,2,0,0,-1,2,0,0,0,-1,2};
+  Z64 D5[15] = {2,-1,2,0,-1,2,0,0,-1,2,0,0,-1,0,2};
+  // lattices of discriminants 12, 48, 768 and 385
+  Z64 Q12[15] = {2,-1,2,0,0,2,0,0,1,2,-1,0,-1,-1,4};
+  Z64 Q48[15] = {2,0,2,0,-1,2,1,0,0,2,1,-1,1,1,12};
+  Z64 Q768[15] = {2,1,2,0,0,2,0,0,-1,2,1,0,-1,0,172};
+  Z64 Q385[15] = {2,1,2,1,1,2,1,0,1,8,-1,-1,-1,-4,30};
+  // diag(1,2,4,8,16), A_2 + 2 A_2 + <4> and diag(1,3,3,9,15)
+  Z64 diag2[15] = {1,0,2,0,0,4,0,0,0,8,0,0,0,0,16};
+  Z64 A2A2[15] = {2,-1,2,0,0,4,0,0,-2,4,0,0,0,0,4};
+  Z64 diag3[15] = {1,0,3,0,0,3,0,0,0,9,0,0,0,0,15};
+  // diag(1,1,4,4,20), diag(1,3,3,3,4) and [[4,3],[3,4]] + diag(5,3,5),
+  // where the constituents of type I are free, and of ranks 2 to 5
+  Z64 free2[15] = {1,0,1,0,0,4,0,0,0,4,0,0,0,0,20};
+  Z64 free4[15] = {1,0,3,0,0,3,0,0,0,3,0,0,0,0,4};
+  Z64 free5[15] = {4,3,4,0,0,5,0,0,0,3,0,0,0,0,5};
+
+  ret = test_mass_of(Z5, 1, 3840);
+  ret |= test_mass_of(A5, 1, 1440);
+  ret |= test_mass_of(D5, 1, 3840);
+  ret |= test_mass_of(Q12, 1, 144);
+  ret |= test_mass_of(Q48, 1, 9);
+  ret |= test_mass_of(Q768, 256, 9);
+  ret |= test_mass_of(Q385, 3, 1);
+  ret |= test_mass_of(diag2, 1, 4);
+  ret |= test_mass_of(A2A2, 5, 576);
+  ret |= test_mass_of(diag3, 65, 576);
+  ret |= test_mass_of(free2, 13, 384);
+  ret |= test_mass_of(free4, 5, 192);
+  ret |= test_mass_of(free5, 65, 16);
 
   return ret;
 }

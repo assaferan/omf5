@@ -137,4 +137,12 @@ check_example disc249 "$tmp/249.exp" "F G G G P P P" -quad=1,0,0,-1,0,1,0,0,0,1,
 : > "$tmp/259.exp"
 check_example disc259 "$tmp/259.exp" "F G G P P P P P Y Y" -quad=1,0,0,0,-1,1,0,1,1,1,-1,0,4,4,6 -format=GG
 
+# Discriminant 48, where the lattice is not maximal at 2. The traces are those
+# of the Eisenstein series, 1 + p + p^2 + p^3 for T_p.
+cat > "$tmp/48.exp" <<'EOF'
+1: 156 400 1464 2380 5220 7240 12720 25260
+2: 780
+EOF
+check_example disc48 "$tmp/48.exp" "F P P P" -quad=1,0,0,1,1,1,-1,0,-1,1,0,1,1,1,6 -format=GG -prec=30
+
 exit $status
