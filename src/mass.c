@@ -19,369 +19,263 @@
 
 #include "arith.h"
 #include "mass.h"
-#include "qf_inv.h"
 
-/* Compute the local factor of g at p */
-void local_factor(fmpq_t f, const fmpq_mat_t g, const fmpz_t p)
+#if QF_RANK % 2 == 0
+#error "The mass formula is only implemented for lattices of odd rank"
+#endif
+
+/* The mass is computed as in
+   [CS] J. H. Conway and N. J. A. Sloane, Low-dimensional lattices. IV.
+        The mass formula, Proc. R. Soc. Lond. A 419 (1988), 259-286.
+   It is the product of the standard mass, which depends only on the rank,
+   and of the p-mass divided by the standard p-mass for the primes p
+   dividing twice the determinant. */
+
+/* The diagonal factor M_p of a Jordan constituent, as a function of
+   its species ([CS], Table 2). */
+static void diagonal_factor(fmpq_t M, slong species, const fmpz_t p)
 {
-  fmpz_t p_sqr;
-  fmpq_t p_i, one, tmp, d;
-  ulong i, m, r;
-  slong sign;
+  fmpq_t p_inv, p_k, tmp;
+  slong n, s, k;
 
-  fmpz_init(p_sqr);
-  fmpq_init(p_i);
-  fmpq_init(one);
-  fmpq_init(tmp);
-  m = fmpq_mat_ncols(g);
-  
-  fmpz_mul(p_sqr, p, p);
-  fmpq_one(f);
-  fmpq_one(one);
-  fmpq_div_fmpz(p_i, one, p_sqr);
-
-  for (i = 2; i+2 <= m; i+= 2) {
-    fmpq_sub(tmp, one, p_i);
-    fmpq_mul(f, f, tmp);
-    fmpq_div_fmpz(p_i, p_i, p_sqr);
-  }
-  if (m % 2 == 1) {
-    if (m != 1) {
-      fmpq_sub(tmp, one, p_i);
-      fmpq_mul(f, f, tmp);
-    }
-    fmpq_clear(tmp);
-    fmpq_clear(one);
-    fmpq_clear(p_i);
-    fmpz_clear(p_sqr);
+  fmpq_one(M);
+  if (species == 0)
     return;
-  }
-  r = m / 2;
-  sign = (r % 2 == 0) ? 1 : -1;
-  fmpq_init(d);
-  fmpq_mat_det(d,g);
-  if (sign == -1)
-    fmpq_neg(d,d);
-  
-  if (((fmpq_valuation(d,p)) % 2) == 0) {
-    fmpq_one(p_i);
-    for (i = 0; i < r; i++)
-      fmpq_div_fmpz(p_i, p_i, p);
 
-    if (fmpq_is_local_square(d,p)) {
-      fmpq_sub(tmp, one, p_i);
-      fmpq_mul(f, f, tmp);
-    }
-    else {
-      fmpq_add(tmp, one, p_i);
-      fmpq_mul(f, f, tmp);
-    }
+  fmpq_init(p_inv);
+  fmpq_init(p_k);
+  fmpq_init(tmp);
+
+  n = (species > 0) ? species : -species;
+  s = (n + 1) / 2;
+
+  fmpq_set_fmpz(p_inv, p);
+  fmpq_inv(p_inv, p_inv);
+
+  // M = 2 * prod_{k = 1}^{s-1} (1 - p^{-2k}), which is then inverted
+  fmpq_set_si(M, 2, 1);
+  for (k = 1; k < s; k++) {
+    fmpq_pow_si(p_k, p_inv, 2*k);
+    fmpq_set_si(tmp, 1, 1);
+    fmpq_sub(tmp, tmp, p_k);
+    fmpq_mul(M, M, tmp);
   }
-  fmpq_clear(d);
+  if (n % 2 == 0) {
+    fmpq_pow_si(p_k, p_inv, s);
+    fmpq_set_si(tmp, 1, 1);
+    if (species > 0)
+      fmpq_sub(tmp, tmp, p_k);
+    else
+      fmpq_add(tmp, tmp, p_k);
+    fmpq_mul(M, M, tmp);
+  }
+  fmpq_inv(M, M);
+
   fmpq_clear(tmp);
-  fmpq_clear(one);
-  fmpq_clear(p_i);
-  fmpz_clear(p_sqr);
-  return;
-}
-
-/* returns the direct sum of the gram matrices in a Jordan decomposition */
-void diagonal_join(fmpq_mat_t joined, const jordan_data_t jordan)
-{
-  ulong i, j, k;
-  ulong joined_j, joined_k;
-
-  joined_j = joined_k = 0;
-  for (i = 0; i < jordan->num_blocks; i++) {
-    for (j = 0; j < fmpq_mat_nrows(jordan->grams[i]); j++)
-      for (k = 0; k < fmpq_mat_ncols(jordan->grams[i]); k++)
-	fmpq_set(fmpq_mat_entry(joined, joined_j + j, joined_k + k), fmpq_mat_entry(jordan->grams[i], j, k));
-    joined_j += fmpq_mat_nrows(jordan->grams[i]);
-    joined_k += fmpq_mat_ncols(jordan->grams[i]);
-  }
+  fmpq_clear(p_k);
+  fmpq_clear(p_inv);
 
   return;
 }
 
-/* add contribution to the mass of the lattice L whose gram matrix is q at the bad prime p.
-   This uses the Jordan decomposition to obtain local factor of each component, and combine the results. */
-void _combine(fmpq_t mass, const square_matrix_t q, fmpz_t p)
+/* The residue modulo 8 of a rational number which is a unit at 2 */
+static int unit_mod_8(const fmpq_t u)
 {
-  assert(!fmpz_equal_si(p,2));
+  // The denominator is odd, so that it is its own inverse modulo 8.
+  return (fmpz_fdiv_ui(fmpq_numref(u), 8) * fmpz_fdiv_ui(fmpq_denref(u), 8)) % 8;
+}
 
+/* The p-mass of the lattice whose gram matrix is q, divided by the standard
+   p-mass ([CS], equations (3) and (6)).
+   A Jordan constituent is given by its scale p^e, its rank, and
+   for odd p - the class of its determinant modulo squares,
+   for p = 2 - its type (I if it is odd, II if it is even), and its octane value,
+              which determines its determinant modulo squares, up to sign. */
+static void local_mass(fmpq_t m, const square_matrix_t q, const fmpz_t p)
+{
   jordan_data_t jordan;
-  fmpq_t e, f, tmp1, tmp2, lf, n_rat, denom, p_e;
-  fmpz_mat_t q_mat;
-  fmpq_mat_t diag;
-  fmpz_t d, e_int;
-  ulong* ms;
-  ulong i, j, m, t, v, n;
+  fmpq_t det, tmp, M;
+  fmpz_t p_e;
+  slong num_scales, i, j, k, e_min, e_max, n, t, o, ct, exp_two, species;
+  slong* rank;
+  bool* is_odd;
+  int* octane;
+  bool is_two, is_free;
 
-  n = QF_RANK;
-  
-  fmpq_init(e);
-  fmpq_init(f);
-  fmpq_init(tmp1);
-  fmpq_init(tmp2);
-  fmpq_init(lf);
-  fmpz_mat_init(q_mat, n, n);
-  fmpq_mat_init(diag, n, n);
-  fmpz_init(d);
-  fmpz_init(e_int);
-  fmpq_init(p_e);
-  fmpq_init(denom);
-  jordan_data_init(jordan, n);
-  
+  fmpq_init(det);
+  fmpq_init(tmp);
+  fmpq_init(M);
+  fmpz_init(p_e);
+  jordan_data_init(jordan, QF_RANK);
+
   jordan_decomposition(jordan, q, p);
 
-  fmpq_one(f);
-  fmpq_zero(e);
+  is_two = fmpz_equal_si(p, 2);
 
-  ms = (ulong*)malloc(jordan->num_blocks*sizeof(ulong));
-  m = 0;
+  // The constituents are indexed by the exponent of their scale. There are two
+  // more on each side, of rank 0, so that all the constituents which are not
+  // listed are of rank 0, and are surrounded by constituents of rank 0.
+  e_min = jordan->exponents[0];
+  e_max = jordan->exponents[jordan->num_blocks-1];
+  num_scales = e_max - e_min + 5;
+
+  rank = (slong*)calloc(num_scales, sizeof(slong));
+  is_odd = (bool*)calloc(num_scales, sizeof(bool));
+  octane = (int*)calloc(num_scales, sizeof(int));
+
+  fmpq_one(m);
+  ct = 0;
   for (i = 0; i < jordan->num_blocks; i++) {
-    ms[i] = fmpq_mat_ncols(jordan->grams[i]);
-    m += ms[i];
+    k = jordan->exponents[i] - e_min + 2;
+    n = fmpq_mat_nrows(jordan->grams[i]);
+    // jordan_decomposition returns a single block for every scale,
+    // in increasing order of the exponents.
+    assert(rank[k] == 0);
+    rank[k] = n;
+
+    for (j = 0; j < i; j++)
+      ct += (jordan->exponents[i] - jordan->exponents[j]) * n * fmpq_mat_nrows(jordan->grams[j]);
+
+    // the determinant of the constituent, divided by its scale
+    fmpz_pow_ui(p_e, p, jordan->exponents[i] * n);
+    fmpq_mat_det(det, jordan->grams[i]);
+    fmpq_div_fmpz(det, det, p_e);
+
+    if (is_two) {
+      // The oddity of the constituent is the sum of the diagonal entries
+      // that are units. It is the trace of a diagonal form if there is one,
+      // since the oddity of an even form of rank 2 is 0.
+      // This relies on the form of the blocks which jordan_decomposition
+      // returns at 2: an orthogonal sum of forms of rank 1 and of even forms
+      // of rank 2, since it splits a vector off whenever the smallest
+      // valuation is attained on the diagonal.
+      for (j = 0; j < n; j++) {
+	fmpq_div_2exp(tmp, fmpq_mat_entry(jordan->grams[i], j, j), jordan->exponents[i]);
+	if (fmpz_is_odd(fmpq_numref(tmp))) {
+	  is_odd[k] = true;
+	  octane[k] += unit_mod_8(tmp);
+	}
+      }
+      o = unit_mod_8(det);
+      if ((o == 3) || (o == 5))
+	octane[k] += 4;
+      octane[k] %= 8;
+    }
+    else {
+      // The species is n, and when n is even it has the sign for which
+      // (-1)^(n/2) * det is a square.
+      species = n;
+      if (n % 2 == 0) {
+	if (n % 4 == 2)
+	  fmpq_neg(det, det);
+	if (!fmpq_is_local_square(det, p))
+	  species = -n;
+      }
+      diagonal_factor(M, species, p);
+      fmpq_mul(m, m, M);
+    }
   }
 
-  for (i = 0; i < jordan->num_blocks; i++) {
-    t = (i == 0) ? 0 : jordan->exponents[i-1];
-    fmpq_set_si(tmp1, (jordan->exponents[i]-t)*(m+1)*m, 2);
-    fmpq_set_si(tmp2, jordan->exponents[i]*(n+1)*ms[i],2);
-    fmpq_add(e, e, tmp1);
-    fmpq_sub(e, e, tmp2);
-    local_factor(lf,jordan->grams[i], p);
-    fmpq_mul(f, f, lf);
-    m -= ms[i];
+  // the cross terms
+  assert(ct % 2 == 0);
+  fmpz_pow_ui(p_e, p, ct / 2);
+  fmpq_mul_fmpz(m, m, p_e);
+
+  if (is_two) {
+    // The species of the constituents ([CS], Table 1), including the ones of
+    // rank 0 next to the first and last. A constituent is bound if one of its
+    // neighbours is of type I, and free otherwise.
+    exp_two = 0;
+    for (k = 1; k + 1 < num_scales; k++) {
+      is_free = !(is_odd[k-1] || is_odd[k+1]);
+      n = rank[k];
+      o = octane[k];
+      t = (is_odd[k] && (n % 2 == 0)) ? (n/2 - 1) : (n/2);
+      if (is_free && ((o == 0) || (o == 1) || (o == 7)))
+	species = 2*t;
+      else if (is_free && ((o == 3) || (o == 4) || (o == 5)))
+	species = -2*t;
+      else
+	species = 2*t + 1;
+      diagonal_factor(M, species, p);
+      fmpq_mul(m, m, M);
+
+      // The type factor is 2^(n(I,I) - n(II)), where n(I,I) is the number of
+      // pairs of adjacent constituents of type I, and n(II) is the sum of the
+      // ranks of the constituents of type II.
+      if (is_odd[k] && is_odd[k+1])
+	exp_two++;
+      if (!is_odd[k])
+	exp_two -= n;
+    }
+    if (exp_two >= 0)
+      fmpq_mul_2exp(m, m, exp_two);
+    else
+      fmpq_div_2exp(m, m, -exp_two);
   }
-  
-  // !! We might run into trouble at 2 here
-  // check if we need disc or half-disc
-  // size_t v = Math<R>::valuation(q.discriminant(), p);
-  for (i = 0; i < n; i++)
-    for (j = 0; j < n; j++)
-      fmpz_set_si(fmpz_mat_entry(q_mat, i, j), q[i][j]);
 
-  fmpz_mat_det(d, q_mat);
-  v = fmpz_valuation(d, p);
+  // The standard p-mass. In odd rank it is the diagonal factor of
+  // a single constituent of odd rank.
+  diagonal_factor(M, QF_RANK, p);
+  fmpq_div(m, m, M);
 
-  if ((n % 2 == 0) && (v % 2 == 1)) {
-    fmpq_set_si(n_rat, n-1, 2);
-    fmpq_add(e, e, n_rat);
-  }
-
-  assert(fmpq_is_integral(e));
-
-  fmpz_divexact(e_int, fmpq_numref(e), fmpq_denref(e));
-  fmpq_one(p_e);
-  fmpq_mul_fmpz(p_e, p_e, p);
-  fmpq_pow_si(p_e, p_e, fmpz_get_si(e_int));
-
-  diagonal_join(diag, jordan);
-  local_factor(lf, diag, p);
-  fmpq_mul(denom, f, p_e); 
-  fmpq_div(lf, lf, denom);
-  fmpq_div_2exp(lf, lf, jordan->num_blocks-1);
-
-  fmpq_mul(mass, mass, lf);
-
-  free(ms);
-  fmpq_clear(denom);
-  fmpq_clear(tmp1);
-  fmpq_clear(tmp2);
-  fmpq_clear(e);
-  fmpq_clear(f);
-  fmpq_clear(lf);
-  fmpz_mat_clear(q_mat);
-  fmpq_mat_clear(diag);
-  fmpz_clear(d);
-  fmpz_clear(e_int);
-  fmpq_clear(p_e);
+  free(octane);
+  free(is_odd);
+  free(rank);
   jordan_data_clear(jordan);
-  
+  fmpz_clear(p_e);
+  fmpq_clear(M);
+  fmpq_clear(tmp);
+  fmpq_clear(det);
+
   return;
 }
 
-// !! TODO - This only works for lattices that are maximal at 2 !!
-// In general, should compute the number of lattices locally isometric to it
-// inside the superlattice
+/* compute the mass of the genus represented by q */
 void get_mass(fmpq_t mass, const square_matrix_t q)
 {
-  int r = QF_RANK / 2;
-  qf_inv_t witt;
-  fmpz_t det, two, two_i, mass_two, six, disc, r_Z;
-  fmpz_mat_t hasse, B, Q;
-  int num_hasse, num_B;
+  fmpz_t det;
+  fmpz_mat_t Q;
   fmpz_factor_t fac;
-  int i, j, cmp, val2, w;
-  bool has_two;
-  fmpq_t bernoulli, mass_r, mass_r_1, mass_2r_1;
+  fmpq_t zeta, m_p;
+  slong i, j, k;
 
   fmpz_init(det);
-  fmpz_init(disc);
-  fmpz_init(two_i);
-  fmpz_init(mass_two);
-  fmpq_init(bernoulli);
-  fmpz_init_set_si(r_Z, -r);
-  fmpz_init_set_si(two,2);
-  fmpz_init_set_si(six,6);
+  fmpq_init(zeta);
+  fmpq_init(m_p);
   fmpz_factor_init(fac);
-
   fmpz_mat_init(Q, QF_RANK, QF_RANK);
+
+  // The standard mass. In odd rank n it is
+  // 2 * prod_{k=1}^{(n-1)/2} |zeta(1-2k)|, where zeta(1-2k) = -B_{2k} / (2k).
+  fmpq_set_si(mass, 2, 1);
+  for (k = 1; k <= QF_RANK / 2; k++) {
+    bernoulli_number(zeta, 2*k);
+    fmpq_abs(zeta, zeta);
+    fmpq_mul(mass, mass, zeta);
+    fmpq_set_si(zeta, 1, 2*k);
+    fmpq_mul(mass, mass, zeta);
+  }
+
   for (i = 0; i < QF_RANK; i++)
     for (j = 0; j < QF_RANK; j++)
       fmpz_set_si(fmpz_mat_entry(Q, i, j), q[i][j]);
 
-  invariants(det, witt, Q);
-
-  fmpz_mat_init(hasse, 1, witt->num_stored);
-  num_hasse = witt_to_hasse(hasse, det, witt);
+  // the primes dividing twice the determinant
+  fmpz_mat_det(det, Q);
+  fmpz_mul_2exp(det, det, 1);
   fmpz_factor(fac, det);
-  fmpz_mat_init(B, 1, num_hasse + fac->num);
 
-  num_B = i = j = 0;
-  has_two = false;
-  // TODO : Is hasse sorted at this point?
-  // merge sort into B
-  while ((i < fac->num) && (j < num_hasse)) {
-    cmp = fmpz_cmp(&(fac->p[i]), fmpz_mat_entry(hasse, 0, j));
-    if (cmp < 0) {
-      if (!fmpz_equal_si(&(fac->p[i]), 2))
-	fmpz_set(fmpz_mat_entry(B, 0, num_B++), &(fac->p[i]));
-      i++;
-    }
-    if (cmp > 0) {
-      if (!fmpz_equal_si(fmpz_mat_entry(hasse, 0, j), 2))
-	fmpz_set(fmpz_mat_entry(B, 0, num_B++), fmpz_mat_entry(hasse, 0, j));
-      else
-	has_two = true;
-      j++;
-    }
-    if (cmp == 0) {
-      if (!fmpz_equal_si(&(fac->p[i]), 2))
-	fmpz_set(fmpz_mat_entry(B, 0, num_B++), &(fac->p[i]));
-      else
-	has_two = true;
-      i++;
-      j++;
-    }
-  }
-  // only one of these loops is entered to finish the rest
-  for(;i < fac->num; i++) {
-    if (!fmpz_equal_si(&(fac->p[i]), 2))
-      fmpz_set(fmpz_mat_entry(B, 0, num_B++), &(fac->p[i]));
-  }
-  for(;j < num_hasse; j++) {
-    if (!fmpz_equal_si(fmpz_mat_entry(hasse, 0, j), 2))
-      fmpz_set(fmpz_mat_entry(B, 0, num_B++), fmpz_mat_entry(hasse, 0, j));
-    else
-      has_two = true;
-  } 
-
-  // originally, leave hasse only with 2, if it had a 2.
-  
-  val2 = fmpz_valuation(det,two);
-
-  // mass from infinity and 2
-  fmpq_set_si(mass, 1, 1 << r);
-
-  for (i = 1; i < QF_RANK / 2 + QF_RANK % 2; i++) {
-    fmpz_set_si(two_i, -2*i);
-    bernoulli_number(bernoulli, 2*i);
-    fmpq_div_fmpz(bernoulli, bernoulli, two_i);
-    fmpq_mul(mass, mass, bernoulli);
+  for (i = 0; i < fac->num; i++) {
+    local_mass(m_p, q, &(fac->p[i]));
+    fmpq_mul(mass, mass, m_p);
   }
 
-  if (QF_RANK % 2 == 1) {	 
-    if (val2 % 2 == 1) {
-      fmpz_set_si(mass_two, (1 << r) + (has_two ? -1 : 1));
-      fmpq_mul_fmpz(mass, mass, mass_two); 
-      fmpq_div_fmpz(mass, mass, two);
-      has_two = false;
-    }
-    else if (has_two) {
-      fmpz_set_si(mass_two, (1 << (QF_RANK-1))-1);
-      fmpq_mul_fmpz(mass, mass, mass_two);
-      fmpq_div_fmpz(mass, mass, six);
-    }
-  }
-  else {
-
-    if (r % 2 == 1)
-      fmpz_neg(disc, det);
-    else
-      fmpz_set(disc, det);
-
-    if (fmpz_is_square(disc)) {
-      bernoulli_number(bernoulli, r);
-      fmpq_div_fmpz(bernoulli, bernoulli, r_Z);;
-      fmpq_mul(mass, mass, bernoulli);
-    } else {
-      bernoulli_number_chi(bernoulli, r, disc);
-      fmpq_div_fmpz(bernoulli, bernoulli, r_Z);
-      fmpq_mul(mass, mass, bernoulli);
-      if (r % 2 == 0) {
-	bernoulli_number(bernoulli, r);
-	fmpq_div_fmpz(bernoulli, bernoulli, r_Z);
-	fmpq_mul(mass, mass, bernoulli);
-      }
-
-      if (val2 % 2 == 1) {
-	fmpq_div_2exp(mass, mass, 1);
-	has_two = false;
-      }
-    }
-    if (has_two) {
-      // checking if disc is a local square at 2
-      w = 1;
-      fmpz_fdiv_q_2exp(disc, disc, val2);
-      fmpz_mod_ui(disc, disc, 8); 
-      
-      if ((val2 % 2 != 1) && (fmpz_is_one(disc)))
-	w = -1;
-
-      fmpq_init(mass_r);
-      fmpq_init(mass_r_1);
-      fmpq_init(mass_2r_1);
-      fmpq_mul_2exp(mass_r_1,mass,r-1);
-      fmpq_mul_2exp(mass_r, mass_r_1, 1);
-      fmpq_mul_2exp(mass_2r_1, mass_r, r-1);
-      fmpq_add(mass, mass, mass_2r_1);
-      if (w == 1) {
-	fmpq_add(mass, mass, mass_r);
-	fmpq_add(mass, mass, mass_r_1);
-      } else {
-	fmpq_sub(mass, mass, mass_r);
-	fmpq_sub(mass, mass, mass_r_1);
-      }
-      fmpq_clear(mass_2r_1);
-      fmpq_clear(mass_r_1);
-      fmpq_clear(mass_r);
-      fmpq_div_fmpz(mass, mass, six);
-    }
-  }
-  
-  // odd places which are not unimodular or have Witt invariant -1.
-  for (i = 0; i < num_B; i++) {
-    _combine(mass, q, fmpz_mat_entry(B, 0, i));
-  }
-
-  fmpq_abs(mass, mass);
-
-  qf_inv_clear(witt);
   fmpz_mat_clear(Q);
-  fmpz_mat_clear(B);
-  fmpz_mat_clear(hasse);
   fmpz_factor_clear(fac);
-  fmpz_clear(six);
-  fmpz_clear(two);
-  fmpz_clear(r_Z);
-  fmpq_clear(bernoulli);
-  fmpz_clear(mass_two);
-  fmpz_clear(two_i);
-  fmpz_clear(disc);
+  fmpq_clear(m_p);
+  fmpq_clear(zeta);
   fmpz_clear(det);
-  
-  return;
 
+  return;
 }
