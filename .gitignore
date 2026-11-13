@@ -50,3 +50,6 @@ logs
 short
 __pycache__
 *.pyc
+test-suite.log
+scripts/*.log
+scripts/*.trs

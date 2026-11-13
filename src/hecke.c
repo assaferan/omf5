@@ -862,8 +862,10 @@ void get_hecke_ev_nbr_data(nf_elem_t e, const genus_t genus, const eigenvalues_t
 
   nf_elem_clear(e_new, evs->nfs[ev_idx]);
 
-  // handling the case p divides the discriminant
-  if (genus->genus_reps->num_stored > 0) {
+  // handling the case p divides the discriminant.
+  // The adjustment is for T_p only. At such p the raw T_{p^2} is reported
+  // unchanged, as in Magma: it is determined by T_p and has no adjustment.
+  if ((k == 1) && (genus->genus_reps->num_stored > 0)) {
     fmpz_mat_init_set_square_matrix(q, genus->genus_reps->keys[0]);
     fmpz_init(disc);
     fmpz_mat_det(disc, q);
@@ -986,13 +988,16 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
   nf_elem_clear(e_new, evs->nfs[ev_idx]);
 
   // handling the case p divides the discriminant
-  if (genus->genus_reps->num_stored > 0) {
+  // The adjustment is for T_p only; the raw T_{p^2} is reported unchanged.
+  if ((k == 1) && (genus->genus_reps->num_stored > 0)) {
     fmpz_mat_init_set_square_matrix(q, genus->genus_reps->keys[0]);
     fmpz_init(disc);
     fmpz_mat_det(disc, q);
     fmpz_divexact_si(disc,disc,2);
     if (fmpz_get_si(disc) % p == 0) {
-      nf_elem_add_si(e, e, (genus->conductors[ev_cond] % p == 0) ? -1 : 1, evs->nfs[ev_idx]);
+      // As in get_hecke_ev_all_conductors: (T_p + 1), negated if p divides the conductor.
+      nf_elem_add_si(e, e, 1, evs->nfs[ev_idx]);
+      nf_elem_scalar_mul_si(e, e, (genus->conductors[ev_cond] % p == 0) ? -1 : 1, evs->nfs[ev_idx]);
     }
     fmpz_mat_clear(q);
     fmpz_clear(disc);
