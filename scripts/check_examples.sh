@@ -124,6 +124,17 @@ check_error disc61-idxs-empty "is not a comma-separated list of integers" -quad=
 check_error quad-too-long "is not a comma-separated list of 15 integers" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8,1,0,0,1,1,1,0,1,0,1,0,0,1,0,8,1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=10
 check_error quad-malformed "is not a comma-separated list of 15 integers" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,x -format=GG -prec=10
 
+# So is a matrix which is not that of a positive definite even lattice. Such a
+# matrix used to be accepted, and the computation would not end.
+check_error quad-indefinite "the lattice is not positive definite" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,-8 -format=GG -prec=10
+check_error quad-semidefinite "the lattice is not positive definite" -quad=2,0,2,0,0,2,0,0,0,2,0,0,0,0,0 -format=A -prec=10
+check_error quad-odd "the lattice is not even" -quad=2,1,2,0,0,2,0,0,0,2,0,0,0,0,3 -format=A -prec=10
+# The entries of the Gram matrix have to fit in 32 bits. A larger entry used to
+# be truncated, and a coefficient whose double does not fit in 64 bits was read
+# as another one, with no error.
+check_error quad-large "the entry 4294967296 of the Gram matrix of a lattice does not fit in 32 bits" -quad=1,0,0,0,0,1,0,0,0,1,0,0,1,0,2147483648 -format=GG -prec=10
+check_error quad-overflow "the coefficient -9223372036854775807 of a lattice is too large" -quad=1,0,0,0,0,1,0,0,0,1,0,0,1,0,-9223372036854775807 -format=GG -prec=10
+
 # A genus file which cannot be opened is an error, with or without isometries.
 check_error genus-missing "could not open the genus file" -genus="$tmp/no-such-file" -disc=61 -prec=10
 check_error genus-isom-missing "could not open the genus file" -genus="$tmp/no-such-file" -isom -disc=61 -prec=10

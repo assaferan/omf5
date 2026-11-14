@@ -270,6 +270,17 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t q, int h)
   fmpz_mat_init(nbr_fmpz, QF_RANK, QF_RANK);
 #endif // NBR_DATA
 
+  // the neighbors of a lattice and its isometries are computed only for a positive definite one
+  if (!square_matrix_is_positive_definite(q)) {
+    fprintf(stderr, "Error: the lattice is not positive definite\n");
+    exit(EXIT_FAILURE);
+  }
+  // and its discriminant is half of the determinant of its Gram matrix
+  if (!square_matrix_is_even(q)) {
+    fprintf(stderr, "Error: the lattice is not even, the diagonal of its Gram matrix has an odd entry\n");
+    exit(EXIT_FAILURE);
+  }
+
   disc_init_set(genus->disc, q);
 
   fmpq_init(mass);
