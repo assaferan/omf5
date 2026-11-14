@@ -327,6 +327,11 @@ genus_error genus-other-genus "at index 1 of the genus is not in the genus of th
 # be 0. With an empty genus of discriminant 0 the program used not to end.
 echo "[[]]" > "$tmp/empty.db"
 check_error genus-empty-zero "the genus of discriminant 0 is empty" -genus="$tmp/empty.db" -disc=0 -prec=10
+# The Hecke matrices of an empty genus are empty. The number of p^2-neighbors
+# used to be found from the first lattice of the genus, which is not there.
+echo "[[],[],[]]" > "$tmp/empty2.db"
+: > "$tmp/empty2.exp"
+check_example genus-empty-hecke-square "$tmp/empty2.exp" "" -genus="$tmp/empty2.db" -disc=2 -hecke -p=2 -square
 
 # The same with isometries, where the first lattice is the other class.
 genus_isom_error genus-isom-incomplete "have mass 1/24, and the mass of the genus of the first lattice is 5/48" "[[$MA,$IA]]"

@@ -717,8 +717,13 @@ matrix_TYP** hecke_matrices_nbr_data_all_conductors(const genus_t genus, int p, 
     hecke_ptr[c] = 0;
   }
 
+  // an empty genus has no lattice to count the neighbors of
+  if (genus->genus_reps->num_stored == 0) {
+    free(hecke_ptr);
+    return hecke;
+  }
+
   // just computing the number of neighbors, to collect all the spin values at once
-  assert(genus->genus_reps->num_stored > 0);
   nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, k);
   // nbr_data only goes over the isotropic vectors that are not in the radical
   num_nbrs = number_of_neighbors(nbr_man, false);
@@ -888,8 +893,8 @@ void get_hecke_ev_nbr_data(nf_elem_t e, const genus_t genus, const eigenvalues_t
   nf_elem_clear(e_new, evs->nfs[ev_idx]);
 
   // handling the case p divides the discriminant exactly once.
-  // The adjustment is for T_p only. The raw T_{p^2} is reported unchanged,
-  // as in Magma, and so is T_p when p^2 divides the discriminant.
+  // The adjustment is for T_p only. The eigenvalue of T_{p^2} is reported
+  // unchanged, and so is that of T_p when p^2 divides the discriminant.
   if ((k == 1) && (genus->genus_reps->num_stored > 0)) {
     fmpz_mat_init_set_square_matrix(q, genus->genus_reps->keys[0]);
     fmpz_init(disc);
@@ -1013,8 +1018,8 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
   nf_elem_clear(e_new, evs->nfs[ev_idx]);
 
   // handling the case p divides the discriminant exactly once.
-  // The adjustment is for T_p only. The raw T_{p^2} is reported unchanged,
-  // as in Magma, and so is T_p when p^2 divides the discriminant.
+  // The adjustment is for T_p only. The eigenvalue of T_{p^2} is reported
+  // unchanged, and so is that of T_p when p^2 divides the discriminant.
   if ((k == 1) && (genus->genus_reps->num_stored > 0)) {
     fmpz_mat_init_set_square_matrix(q, genus->genus_reps->keys[0]);
     fmpz_init(disc);
