@@ -147,6 +147,78 @@ check_error genus-malformed "of discriminant 1 is not a list of 15 integers" -ge
 echo '[[],[[1,0,0,1,1,1,0,1,0,1,0,0,1,0],[1,0,0,1,1,1,0,1,0,1,0,0,1,0,8]]]' > "$tmp/bad-first.db"
 check_error genus-malformed-first "of discriminant 1 is not a list of 15 integers" -genus="$tmp/bad-first.db" -disc=1 -prec=10
 
+# Discriminant 44, where the genus has two classes, read from a genus file.
+# The genus read is the one at the index given by -disc, here after an empty
+# genus and a genus which is not complete. The other genera are not checked.
+cat > "$tmp/44.exp" <<'EOF'
+1: 40 156 400 2380 5220 7240 12720 25260
+2: 120 780
+1: 5 11 70 110 260 360 445 990
+2: -20 -90
+1: 7 23 30 234 352 284 579 886
+2: -12 -18
+EOF
+A=[1,0,-1,-1,1,1,-1,1,0,2,1,-1,2,-2,2]
+B=[1,-1,0,1,1,1,0,-1,0,1,1,0,2,1,3]
+echo "[[],[$B],[$A,$B],[$A]]" > "$tmp/44.db"
+check_example genus44 "$tmp/44.exp" "F P P" -genus="$tmp/44.db" -disc=2 -prec=30
+# The genus is the same when it is computed from its first lattice.
+check_example quad44 "$tmp/44.exp" "F P P" -quad=1,0,-1,-1,1,1,-1,1,0,2,1,-1,2,-2,2 -format=GG -prec=30
+
+# genus_error name message genus
+# Checks that the error is reported for a genus file with this genus.
+genus_error() {
+  echo "[[],$3]" > "$tmp/$1.db"
+  check_error "$1" "$2" -genus="$tmp/$1.db" -disc=1 -prec=10
+}
+
+# The file has to have a genus at the index given by -disc, and nothing but
+# lattices in it. A genus which was not in the file used to be read as an
+# empty one.
+check_error genus-no-disc "has no genus of discriminant 4" -genus="$tmp/44.db" -disc=4 -prec=10
+printf '[[],[%s,[1,-1,0' "$A" > "$tmp/truncated.db"
+check_error genus-truncated "ends inside the genus of discriminant 1" -genus="$tmp/truncated.db" -disc=1 -prec=10
+genus_error genus-stray "the character 'x' is between the lattices of discriminant 1" "[$A x $B]"
+# A lattice longer than the buffer used to be written past its end.
+genus_error genus-long "a lattice of discriminant 1 is longer than" "[[$(awk 'BEGIN { for (i = 0; i < 3000; i++) printf "1,"; print "1" }')]]"
+
+# The same genus, read from a file with a Gram matrix and an isometry from the
+# first lattice for every lattice, as in qf5db.sage.
+MA='[[2, -1, 0, 1, 1], [-1, 2, 0, -1, 0], [0, 0, 2, 1, 0], [1, -1, 1, 4, 1], [1, 0, 0, 1, 6]]'
+MB='[[2, 0, -1, -1, 1], [0, 2, -1, 1, 0], [-1, -1, 4, 1, -1], [-1, 1, 1, 4, -2], [1, 0, -1, -2, 4]]'
+IA='[[1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 1, 0], [0, 0, 0, 0, 1]]'
+IB='[[1, 0, 0, -1, 1], [2/3, 1, -2/3, 1/3, 1/3], [-1/3, 0, 4/3, 1/3, -2/3], [1/3, 0, -1/3, 2/3, -1/3], [-1/3, 0, 1/3, 1/3, 1/3]]'
+echo "[[],[[$MA,$IA],[$MB,$IB]]]" > "$tmp/44isom.db"
+check_example genus44-isom "$tmp/44.exp" "F P P" -genus="$tmp/44isom.db" -isom -disc=1 -prec=30
+# The white space in the file is not needed. It used to be.
+tr -d ' ' < "$tmp/44isom.db" > "$tmp/44isom-compact.db"
+check_example genus44-isom-compact "$tmp/44.exp" "F P P" -genus="$tmp/44isom-compact.db" -isom -disc=1 -prec=30
+# The fractions do not have to be reduced. The denominators of isometries are
+# multiplied when the isometries are composed, so they are reduced when read.
+# They used not to be, and the traces of one of the forms were wrong.
+echo "[[],[[$MA,$(echo "$IA" | sed 's|1|2147483647/2147483647|')],[$MB,$(echo "$IB" | sed 's|2/3|1000000/1500000|')]]]" > "$tmp/44isom-unreduced.db"
+check_example genus44-isom-unreduced "$tmp/44.exp" "F P P" -genus="$tmp/44isom-unreduced.db" -isom -disc=1 -prec=30
+
+# genus_isom_error name message genus
+# The same as genus_error, for a genus file with isometries.
+genus_isom_error() {
+  echo "[[],$3]" > "$tmp/$1.db"
+  check_error "$1" "$2" -genus="$tmp/$1.db" -isom -disc=1 -prec=10
+}
+
+# A lattice which is not a Gram matrix with an isometry is an error, as is a
+# denominator which is not positive. These used to be read past the end of the
+# text, or to be accepted.
+not_isom="is not a symmetric 5x5 matrix of integers with a 5x5 matrix of rational numbers"
+genus_isom_error genus-isom-plain "$not_isom" "[$A,$B]"
+genus_isom_error genus-isom-no-isom "$not_isom" "[[$MA],[$MB]]"
+genus_isom_error genus-isom-not-symmetric "$not_isom" "[[$MA,$IA],[$(echo "$MB" | sed 's/\[2, 0, -1, -1, 1\]/[2, 1, -1, -1, 1]/'),$IB]]"
+genus_isom_error genus-isom-zero-denom "$not_isom" "[[$MA,$IA],[$MB,$(echo "$IB" | sed 's|2/3|2/0|')]]"
+genus_isom_error genus-isom-negative-denom "$not_isom" "[[$MA,$IA],[$MB,$(echo "$IB" | sed 's|-2/3|2/-3|')]]"
+genus_isom_error genus-isom-four-rows "$not_isom" "[[$MA,$IA],[$MB,[[1,0,0,0,0],[0,1,0,0,0],[0,0,1,0,0],[0,0,0,1,0]]]]"
+# A file with isometries read without -isom is an error as well.
+check_error genus-isom-as-plain "of discriminant 1 is not a list of 15 integers" -genus="$tmp/44isom.db" -disc=1 -prec=10
+
 # Discriminant 167, forms of conductor 1 and of conductor 167.
 cat > "$tmp/167.exp" <<'EOF'
 1: -2 0 -2 2 -14 -34 -15 16 155 40 -152
