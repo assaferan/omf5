@@ -219,6 +219,37 @@ genus_isom_error genus-isom-four-rows "$not_isom" "[[$MA,$IA],[$MB,[[1,0,0,0,0],
 # A file with isometries read without -isom is an error as well.
 check_error genus-isom-as-plain "of discriminant 1 is not a list of 15 integers" -genus="$tmp/44isom.db" -disc=1 -prec=10
 
+# The lattices read have to be the classes of a genus. A genus which was not
+# complete used to give a smaller space of forms, or a crash.
+genus_error genus-incomplete "have mass 1/16, and the mass of the genus of the first lattice is 5/48" "[$A]"
+genus_error genus-repeated "at index 2 of the genus is isometric to one of the lattices before it" "[$A,$B,$A]"
+genus_error genus-other-disc "at index 1 of the genus has discriminant 61, and the first lattice has discriminant 44" "[$A,[1,0,0,1,1,1,0,1,0,1,0,0,1,0,8]]"
+genus_error genus-indefinite "at index 1 of the genus is not positive definite" "[$A,[1,0,0,0,0,1,0,0,0,1,0,0,1,0,-1]]"
+# This lattice has the discriminant and the number of automorphisms of the
+# second class, so the mass is that of the genus, but it is in another genus.
+genus_error genus-other-genus "at index 1 of the genus is not in the genus of the first lattice" "[$A,[1,1,0,0,-1,1,0,0,0,1,1,1,2,2,3]]"
+# The spaces of an empty genus are found from its discriminant, which cannot
+# be 0. With an empty genus of discriminant 0 the program used not to end.
+echo "[[]]" > "$tmp/empty.db"
+check_error genus-empty-zero "the genus of discriminant 0 is empty" -genus="$tmp/empty.db" -disc=0 -prec=10
+
+# The same with isometries, where the first lattice is the other class.
+genus_isom_error genus-isom-incomplete "have mass 1/24, and the mass of the genus of the first lattice is 5/48" "[[$MA,$IA]]"
+genus_isom_error genus-isom-repeated "at index 2 of the genus is isometric to one of the lattices before it" "[[$MA,$IA],[$MB,$IB],[$MA,$IA]]"
+# The Gram matrix of the standard lattice, which is not even.
+genus_isom_error genus-isom-odd "at index 0 of the genus is not even" "[[$IA,$IA]]"
+# An isometry which is not one from the first lattice used to be accepted.
+genus_isom_error genus-isom-wrong "the isometry at index 1 of the genus is not an isometry from the first lattice" "[[$MA,$IA],[$MB,$IA]]"
+# This one is 14/13 times the identity. The Gram matrix it gives is that of the
+# first lattice only after it is rounded.
+genus_isom_error genus-isom-rounded "the isometry at index 0 of the genus is not an isometry from the first lattice" "[[$MA,$(echo "$IA" | sed 's|1|14/13|g')],[$MB,$IB]]"
+# The spinor norm of an isometry is found modulo the primes which divide the
+# discriminant, so the denominator has to be prime to it. This is an isometry
+# to the second lattice with the denominator 6. It used to end in an error of
+# FLINT.
+IH='[[1/2, -1/2, -1, -3/2, 1], [1/6, 1/2, -5/3, -1/6, 1/3], [-5/6, -1/2, 1/3, -1/6, -2/3], [1/3, 0, -1/3, 2/3, -1/3], [-1/3, 0, 1/3, 1/3, 1/3]]'
+genus_isom_error genus-isom-denom "the denominator 6 of the isometry at index 1 of the genus is not prime to the discriminant" "[[$MA,$IA],[$MB,$IH]]"
+
 # Discriminant 167, forms of conductor 1 and of conductor 167.
 cat > "$tmp/167.exp" <<'EOF'
 1: -2 0 -2 2 -14 -34 -15 16 155 40 -152

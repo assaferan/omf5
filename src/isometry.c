@@ -206,7 +206,8 @@ void isometry_transform_gram(square_matrix_t gtQg, const isometry_t g, const squ
 // !! TODO - s should be const here
 bool isometry_is_isom(isometry_t s, const square_matrix_t q1, const square_matrix_t q2)
 {
-  square_matrix_t gram;
+  fmpz_mat_t S, St, Q1, Q2;
+  bool is_isom;
 
 #ifdef DEBUG_LEVEL_FULL
   printf("s = \n");
@@ -220,9 +221,32 @@ bool isometry_is_isom(isometry_t s, const square_matrix_t q1, const square_matri
   printf("\n");
 #endif // DEBUG_LEVEL_FULL
 
-  isometry_transform_gram(gram, s, q1);
-  
-  return square_matrix_is_equal(gram,q2);
+  // The matrix of s is S / d for S = s->s and d = s->denom, so s is an isometry when
+  // S^t * q1 * S = d^2 * q2. This is not checked by isometry_transform_gram, since it rounds
+  // when it divides by d, and its entries might overflow. Then what is not an isometry could
+  // be found to be one.
+  if (s->denom == 0)
+    return false;
+
+  fmpz_mat_init_set_square_matrix(S, s->s);
+  fmpz_mat_init_set_square_matrix(Q1, q1);
+  fmpz_mat_init_set_square_matrix(Q2, q2);
+  fmpz_mat_init(St, QF_RANK, QF_RANK);
+
+  fmpz_mat_transpose(St, S);
+  fmpz_mat_mul(Q1, St, Q1);
+  fmpz_mat_mul(Q1, Q1, S);
+  fmpz_mat_scalar_mul_si(Q2, Q2, s->denom);
+  fmpz_mat_scalar_mul_si(Q2, Q2, s->denom);
+
+  is_isom = fmpz_mat_equal(Q1, Q2);
+
+  fmpz_mat_clear(S);
+  fmpz_mat_clear(St);
+  fmpz_mat_clear(Q1);
+  fmpz_mat_clear(Q2);
+
+  return is_isom;
 }
 
 /* Checks whether q1 and q2 are isometric, and if so computes an isometry betwenn them.

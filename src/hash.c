@@ -566,9 +566,8 @@ int hash_table_index_and_isom(const hash_table_t table, const square_matrix_t ke
 
   if ((table->red_on_isom) && (is_key_copied))
     isometry_clear(s);
-  
-  assert(false);
 
+  // the key is not in the table
   return -1;
 }
 
