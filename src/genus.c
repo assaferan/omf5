@@ -15,6 +15,7 @@
 // System dependencies
 
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -762,7 +763,7 @@ void genus_init_set_square_matrix_vec_and_isoms(genus_t genus, const square_matr
     // to an even power.
     fmpz_gcd_ui(denom_gcd, genus->disc, genus->isoms[i]->denom);
     if (!fmpz_is_one(denom_gcd)) {
-      fprintf(stderr, "Error: the denominator %d of the isometry at index %zu of the genus is not prime to the discriminant\n",
+      fprintf(stderr, "Error: the denominator %" PRId64 " of the isometry at index %zu of the genus is not prime to the discriminant\n",
 	      genus->isoms[i]->denom, i);
       exit(EXIT_FAILURE);
     }

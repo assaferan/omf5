@@ -33,9 +33,9 @@
  *     + s (square_matrix_t) - a 5x5 matrix representing the isometry
  *     + s_inv (square_matrix_t) - a 5x5 matrix represting the inverse
  *                                 isometry
- *     + denom (int) - denominator of s (so the isometry is really
+ *     + denom (Z64) - denominator of s (so the isometry is really
  *                     the rational matrix (s / denom))
- *     + inv_denom (int) - denominator of _invs (so the inverse
+ *     + inv_denom (Z64) - denominator of _invs (so the inverse
  *                         isometry is really
  *                         the rational matrix (s_inv / inv_denom))
  *
@@ -48,8 +48,8 @@ typedef struct
 {
   square_matrix_t s;
   square_matrix_t s_inv;
-  int denom;
-  int inv_denom;
+  Z64 denom;
+  Z64 inv_denom;
   
 } isometry_struct;
 
@@ -95,7 +95,7 @@ void isometry_init_set(isometry_t dest, const isometry_t src);
  *
  * Arguments:
  *     + s (square_matrix_t) - an integral 5x5 matrix
- *     + denom (int) - the denominator
+ *     + denom (Z64) - the denominator
  *
  * Returns:
  *     + isom (isometry_t) - the isometry s / denom.
@@ -103,7 +103,7 @@ void isometry_init_set(isometry_t dest, const isometry_t src);
  **********************************************************************
  */
 
-void isometry_init_set_square_matrix(isometry_t isom, const square_matrix_t s, int denom);
+void isometry_init_set_square_matrix(isometry_t isom, const square_matrix_t s, Z64 denom);
 
 /**********************************************************************
  *
@@ -114,7 +114,7 @@ void isometry_init_set_square_matrix(isometry_t isom, const square_matrix_t s, i
  *
  * Arguments:
  *     + s (fmpz_mat_t) - an integral 5x5 matrix
- *     + denom (int) - the denominator
+ *     + denom (Z64) - the denominator
  *
  * Returns:
  *     + isom (isometry_t) - the isometry s / denom.
@@ -122,7 +122,7 @@ void isometry_init_set_square_matrix(isometry_t isom, const square_matrix_t s, i
  **********************************************************************
  */
 
-void isometry_init_set_fmpz_mat(isometry_t, const fmpz_mat_t s, int denom);
+void isometry_init_set_fmpz_mat(isometry_t, const fmpz_mat_t s, Z64 denom);
 
 /**********************************************************************
  *
@@ -189,7 +189,7 @@ void isometry_muleq_left(isometry_t sR, const isometry_t sL);
  *
  * Arguments:
  *     + sL (const square_matrix_t) - the numerator of the left operand
- *     + sL_denom (int) - the denominator of the left operand
+ *     + sL_denom (Z64) - the denominator of the left operand
  *     + sR (const isometry_t) - the right operand
  *
  * Returns:
@@ -198,7 +198,7 @@ void isometry_muleq_left(isometry_t sR, const isometry_t sL);
  ************************************************************************
  */
 
-void isometry_mul_mat_left(isometry_t prod, const square_matrix_t sL, int sL_denom, const isometry_t sR);
+void isometry_mul_mat_left(isometry_t prod, const square_matrix_t sL, Z64 sL_denom, const isometry_t sR);
 
 /************************************************************************
  *
@@ -210,7 +210,7 @@ void isometry_mul_mat_left(isometry_t prod, const square_matrix_t sL, int sL_den
  * Arguments:
  *     + sL (const isometry_t) - the left operand
  *     + sR (const square_matrix_t) - the numerator of the right operand
- *     + sR_denom (int) - the denominator of the right operand
+ *     + sR_denom (Z64) - the denominator of the right operand
  *
  * Returns:
  *     + prod (isometry_t) - the isometry sL * (sR / sR_denom)
@@ -218,7 +218,7 @@ void isometry_mul_mat_left(isometry_t prod, const square_matrix_t sL, int sL_den
  ************************************************************************
  */
 
-void isometry_mul_mat_right(isometry_t prod, const isometry_t sL, const square_matrix_t sR, int sR_denom);
+void isometry_mul_mat_right(isometry_t prod, const isometry_t sL, const square_matrix_t sR, Z64 sR_denom);
 
 /************************************************************************
  *
@@ -230,7 +230,7 @@ void isometry_mul_mat_right(isometry_t prod, const isometry_t sL, const square_m
  * Arguments:
  *     + sR (isometry_t) - the right operand
  *     + sL (const square_matrix_t) - the numerator of the left operand
- *     + sL_denom (int) - the denominator of the left operand
+ *     + sL_denom (Z64) - the denominator of the left operand
  *
  * Returns:
  *     + sR (isometry_t) - the isometry (sL / sL_denom) * sR
@@ -238,7 +238,7 @@ void isometry_mul_mat_right(isometry_t prod, const isometry_t sL, const square_m
  ************************************************************************
  */
 
-void isometry_mul_mateq_left(isometry_t sR, const square_matrix_t sL, int sL_denom);
+void isometry_mul_mateq_left(isometry_t sR, const square_matrix_t sL, Z64 sL_denom);
 
 /************************************************************************
  *
@@ -250,7 +250,7 @@ void isometry_mul_mateq_left(isometry_t sR, const square_matrix_t sL, int sL_den
  * Arguments:
  *     + sL (isometry_t) - the left operand
  *     + sR (const square_matrix_t) - the numerator of the right operand
- *     + sR_denom (int) - the denominator of the right operand
+ *     + sR_denom (Z64) - the denominator of the right operand
  *
  * Returns:
  *     + sL (isometry_t) - the isometry sL * (sR / sR_denom)
@@ -258,7 +258,7 @@ void isometry_mul_mateq_left(isometry_t sR, const square_matrix_t sL, int sL_den
  ************************************************************************
  */
 
-void isometry_mul_mateq_right(isometry_t sL, const square_matrix_t sR, int sR_denom);
+void isometry_mul_mateq_right(isometry_t sL, const square_matrix_t sR, Z64 sR_denom);
 
 /************************************************************************
  *
@@ -460,7 +460,7 @@ void isometry_replace_vec(isometry_t isom, int col, const vector_t x);
  *     + isom (isometry_t) - an isometry
  *     + col (int) - the index of basis vector (column)
  *                   to be updated
- *     + scalar (int) - the scalar to divide by
+ *     + scalar (Z64) - the scalar to divide by
  *
  * Returns:
  *     + isom (isometry_t) - the resulting isometry
@@ -469,7 +469,7 @@ void isometry_replace_vec(isometry_t isom, int col, const vector_t x);
  *************************************************************************
  */
 
-void isometry_vec_scalar_div(isometry_t isom, int col, int scalar);
+void isometry_vec_scalar_div(isometry_t isom, int col, Z64 scalar);
 
 /*************************************************************************
  *
@@ -481,7 +481,7 @@ void isometry_vec_scalar_div(isometry_t isom, int col, int scalar);
  *     + isom (isometry_t) - an isometry
  *     + col (int) - the index of basis vector (column)
  *                   to be updated
- *     + scalar (int) - the scalar to multiply by
+ *     + scalar (Z64) - the scalar to multiply by
  *
  * Returns:
  *     + isom (isometry_t) - the resulting isometry
@@ -490,6 +490,6 @@ void isometry_vec_scalar_div(isometry_t isom, int col, int scalar);
  *************************************************************************
  */
 
-void isometry_vec_scalar_mul(isometry_t isom, int col, int scalar);
+void isometry_vec_scalar_mul(isometry_t isom, int col, Z64 scalar);
 
 #endif // __ISOMETRY_H__

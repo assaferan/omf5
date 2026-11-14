@@ -11,11 +11,15 @@
 // System dependencies
 
 #include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 // Required packages dependencies
 
 #include <carat/autgrp.h>
 #include <carat/symm.h>
+#include <flint/fmpz.h>
+#include <flint/fmpz_mat.h>
 
 // Self dependencies
 
@@ -46,7 +50,7 @@ void isometry_init_set(isometry_t dest, const isometry_t src)
 }
 
 /* initialize an isometry from a rational matrix (using square_matrix_t) */
-void isometry_init_set_square_matrix(isometry_t isom, const square_matrix_t s, int denom)
+void isometry_init_set_square_matrix(isometry_t isom, const square_matrix_t s, Z64 denom)
 {
   // maybe we want to save time copying - check later
   square_matrix_set(isom->s,s);
@@ -57,7 +61,7 @@ void isometry_init_set_square_matrix(isometry_t isom, const square_matrix_t s, i
 }
 
 /* initialize an isometry from a rational matrix (using fmpz_mat_t) */
-void isometry_init_set_fmpz_mat(isometry_t isom, const fmpz_mat_t s, int denom)
+void isometry_init_set_fmpz_mat(isometry_t isom, const fmpz_mat_t s, Z64 denom)
 {
 
   square_matrix_set_fmpz_mat(isom->s, s);
@@ -67,15 +71,85 @@ void isometry_init_set_fmpz_mat(isometry_t isom, const fmpz_mat_t s, int denom)
   return;
 }
 
+/* Sets prod / prod_denom to the product of matL / denomL and matR / denomR.
+   The numerators and the denominators are 64 bit integers. When the products
+   of the numerators and of the denominators fit in them, these are the
+   result, and the fraction is not reduced. Otherwise the product is found
+   with big integers and the fraction is reduced, and it is an error when it
+   does not fit after that. The products used to be found with no check, and
+   the denominators were of type int, so that composing isometries with large
+   denominators gave matrices which were not isometries.
+   prod can be one of matL and matR, and prod_denom can point to one of the
+   denominators. */
+static void rational_matrix_mul(square_matrix_t prod, Z64* prod_denom,
+				const square_matrix_t matL, Z64 denomL,
+				const square_matrix_t matR, Z64 denomR)
+{
+  square_matrix_t res;
+  Z64 res_denom, term;
+  fmpz_mat_t L, R, P;
+  fmpz_t d, g;
+  int i, j, k;
+  bool fits;
+
+  fits = !__builtin_mul_overflow(denomL, denomR, &res_denom);
+  for (i = 0; fits && (i < QF_RANK); i++)
+    for (j = 0; fits && (j < QF_RANK); j++) {
+      res[i][j] = 0;
+      for (k = 0; fits && (k < QF_RANK); k++)
+	fits = !__builtin_mul_overflow(matL[i][k], matR[k][j], &term) &&
+	  !__builtin_add_overflow(res[i][j], term, &(res[i][j]));
+    }
+
+  if (!fits) {
+    fmpz_mat_init_set_square_matrix(L, matL);
+    fmpz_mat_init_set_square_matrix(R, matR);
+    fmpz_mat_init(P, QF_RANK, QF_RANK);
+    fmpz_init(d);
+    fmpz_init(g);
+
+    fmpz_mat_mul(P, L, R);
+    fmpz_set_si(d, denomL);
+    fmpz_mul_si(d, d, denomR);
+
+    // the denominators are not zero, so neither is g
+    fmpz_mat_content(g, P);
+    fmpz_gcd(g, g, d);
+    fmpz_mat_scalar_divexact_fmpz(P, P, g);
+    fmpz_divexact(d, d, g);
+
+    fits = fmpz_fits_si(d);
+    for (i = 0; fits && (i < QF_RANK); i++)
+      for (j = 0; fits && (j < QF_RANK); j++)
+	fits = fmpz_fits_si(fmpz_mat_entry(P, i, j));
+    if (!fits) {
+      fprintf(stderr, "Error: a product of isometries does not fit in 64 bits\n");
+      exit(EXIT_FAILURE);
+    }
+    square_matrix_set_fmpz_mat(res, P);
+    res_denom = fmpz_get_si(d);
+
+    fmpz_mat_clear(L);
+    fmpz_mat_clear(R);
+    fmpz_mat_clear(P);
+    fmpz_clear(d);
+    fmpz_clear(g);
+  }
+
+  square_matrix_set(prod, res);
+  *prod_denom = res_denom;
+
+  return;
+}
+
 /* multiply (compose) two isometries.
-   we do not reduce the denominator when doing so. */
+   we do not reduce the denominator when doing so, unless the product does
+   not fit otherwise.
+   prod can be one of s1 and s2. */
 void isometry_mul(isometry_t prod, const isometry_t s1, const isometry_t s2)
 {
-
-  square_matrix_mul(prod->s, s1->s, s2->s);
-  square_matrix_mul(prod->s_inv, s2->s_inv, s1->s_inv);
-  prod->denom = (s1->denom) * (s2->denom);
-  prod->inv_denom = (s1->inv_denom) * (s2->inv_denom);
+  rational_matrix_mul(prod->s, &(prod->denom), s1->s, s1->denom, s2->s, s2->denom);
+  rational_matrix_mul(prod->s_inv, &(prod->inv_denom), s2->s_inv, s2->inv_denom, s1->s_inv, s1->inv_denom);
 
   return;
 }
@@ -83,10 +157,7 @@ void isometry_mul(isometry_t prod, const isometry_t s1, const isometry_t s2)
 /* multiply in place, from the right */
 void isometry_muleq_right(isometry_t sL, const isometry_t sR)
 {
-  square_matrix_muleq_right(sL->s, sR->s);
-  square_matrix_muleq_left(sL->s_inv, sR->s_inv);
-  sL->denom = (sL->denom) * (sR->denom);
-  sL->inv_denom = (sL->inv_denom) * (sR->inv_denom);
+  isometry_mul(sL, sL, sR);
 
   return;
 }
@@ -94,52 +165,41 @@ void isometry_muleq_right(isometry_t sL, const isometry_t sR)
 /* multiply in place, from the left */
 void isometry_muleq_left(isometry_t sR, const isometry_t sL)
 {
-  square_matrix_muleq_left(sR->s, sL->s);
-  square_matrix_muleq_right(sR->s_inv, sL->s_inv);
-  sR->denom = (sL->denom) * (sR->denom);
-  sR->inv_denom = (sL->inv_denom) * (sR->inv_denom);
+  isometry_mul(sR, sL, sR);
 
   return;
 }
 
 /* multiply from the left by a rational matrix */
-void isometry_mul_mat_left(isometry_t prod, const square_matrix_t s1, int s1_denom, const isometry_t s2)
+void isometry_mul_mat_left(isometry_t prod, const square_matrix_t s1, Z64 s1_denom, const isometry_t s2)
 {
-  
-  square_matrix_mul(prod->s, s1, s2->s);
-  prod->denom = s1_denom * (s2->denom);
+  rational_matrix_mul(prod->s, &(prod->denom), s1, s1_denom, s2->s, s2->denom);
   prod->inv_denom = square_matrix_inv(prod->s_inv, prod->s, prod->denom);
 
   return;
 }
 
 /* multiply from the right by a rational matrix */
-void isometry_mul_mat_right(isometry_t prod, const isometry_t s1, const square_matrix_t s2, int s2_denom)
+void isometry_mul_mat_right(isometry_t prod, const isometry_t s1, const square_matrix_t s2, Z64 s2_denom)
 {
-  
-  square_matrix_mul(prod->s, s1->s, s2);
-  prod->denom = s1->denom * (s2_denom);
+  rational_matrix_mul(prod->s, &(prod->denom), s1->s, s1->denom, s2, s2_denom);
   prod->inv_denom = square_matrix_inv(prod->s_inv, prod->s, prod->denom);
-  
+
   return;
 }
 
 /* multiply from the left, in place, by a rational matrix */
-void isometry_mul_mateq_left(isometry_t sR, const square_matrix_t sL, int sL_denom)
+void isometry_mul_mateq_left(isometry_t sR, const square_matrix_t sL, Z64 sL_denom)
 {
-  square_matrix_muleq_left(sR->s, sL);
-  sR->denom = sL_denom * (sR->denom);
-  sR->inv_denom = square_matrix_inv(sR->s_inv, sR->s, sR->denom);
+  isometry_mul_mat_left(sR, sL, sL_denom, sR);
 
   return;
 }
 
 /* multiply from the right, in place, by a rational matrix */
-void isometry_mul_mateq_right(isometry_t sL, const square_matrix_t sR, int sR_denom)
+void isometry_mul_mateq_right(isometry_t sL, const square_matrix_t sR, Z64 sR_denom)
 {
-  square_matrix_muleq_right(sL->s, sR);
-  sL->denom = (sL->denom) * (sR_denom);
-  sL->inv_denom = square_matrix_inv(sL->s_inv, sL->s, sL->denom);
+  isometry_mul_mat_right(sL, sL, sR, sR_denom);
 
   return;
 }
@@ -194,7 +254,7 @@ void isometry_transform_gram(square_matrix_t gtQg, const isometry_t g, const squ
 
   //  assert(square_matrix_is_equal(gtQg, gtQg2));
   
-  // this might overflow, as denom is only an int
+  // the square of the denominator might overflow
   // square_matrix_div_scalar(gtQg, gtQg, (g->denom)*(g->denom));
   square_matrix_div_scalar(gtQg, gtQg, g->denom);
   square_matrix_div_scalar(gtQg, gtQg, g->denom);
@@ -295,7 +355,7 @@ void isometry_swap_vecs(isometry_t isom, int col1, int col2)
 {
 #ifdef DEBUG
   square_matrix_t s_inv;
-  int denom;
+  Z64 denom;
 #endif // DEBUG
   int row;
   
@@ -318,7 +378,7 @@ void isometry_add_vec(isometry_t isom, int target_col, Z64 c, int src_col)
 {
 #ifdef DEBUG
   square_matrix_t s_inv;
-  int denom;
+  Z64 denom;
 #endif // DEBUG
   int row;
 
@@ -342,7 +402,7 @@ void isometry_replace_vec(isometry_t isom, int col, const vector_t x)
 {
 #ifdef DEBUG
   square_matrix_t s_inv;
-  int denom;
+  Z64 denom;
 #endif // DEBUG
   int row;
   
@@ -371,11 +431,11 @@ void isometry_replace_vec(isometry_t isom, int col, const vector_t x)
 }
 
 /* divide a basis vector by a scalar */
-void isometry_vec_scalar_div(isometry_t isom, int col, int scalar)
+void isometry_vec_scalar_div(isometry_t isom, int col, Z64 scalar)
 {
 #ifdef DEBUG
   square_matrix_t s_inv;
-  int denom;
+  Z64 denom;
 #endif // DEBUG
   
   int i,j;
@@ -399,11 +459,11 @@ void isometry_vec_scalar_div(isometry_t isom, int col, int scalar)
 }
 
 /* multiply a basis vector by a scalar */
-void isometry_vec_scalar_mul(isometry_t isom, int col, int scalar)
+void isometry_vec_scalar_mul(isometry_t isom, int col, Z64 scalar)
 {
 #ifdef DEBUG
   square_matrix_t s_inv;
-  int denom;
+  Z64 denom;
 #endif // DEBUG
   
   int i,j;

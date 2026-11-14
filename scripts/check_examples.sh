@@ -260,6 +260,47 @@ genus_isom_error genus-isom-rounded "the isometry at index 0 of the genus is not
 # FLINT.
 IH='[[1/2, -1/2, -1, -3/2, 1], [1/6, 1/2, -5/3, -1/6, 1/3], [-5/6, -1/2, 1/3, -1/6, -2/3], [1/3, 0, -1/3, 2/3, -1/3], [-1/3, 0, 1/3, 1/3, 1/3]]'
 genus_isom_error genus-isom-denom "the denominator 6 of the isometry at index 1 of the genus is not prime to the discriminant" "[[$MA,$IA],[$MB,$IH]]"
+# A matrix which is not an isometry, and whose inverse does not fit in 64 bits.
+# The inverse is found when the file is read, before the isometries are checked.
+genus_isom_error genus-isom-inverse "the inverse of the matrix given as the isometry of the lattice" "[[$MA,$IA],[$MB,[[10007,0,0,0,0],[0,10009,0,0,0],[0,0,10037,0,0],[0,0,0,10039,0],[0,0,0,0,10061]]]]"
+
+# Discriminant 33, with isometries which have large denominators. The
+# denominators of isometries are multiplied when the isometries are composed,
+# and so are the numerators. The products used to be found with no check, and
+# the denominators were of type int.
+cat > "$tmp/33.exp" <<'EOF'
+1: 15 156 400 2380 5220 7240
+2: 30
+1: 5 26 30 150 380 320
+2: 0
+1: 1 16 24 144 304 452
+2: -12
+EOF
+MC='[[2, 1, 1, 1, -1], [1, 2, 1, 1, -1], [1, 1, 2, 1, -1], [1, 1, 1, 4, 0], [-1, -1, -1, 0, 6]]'
+MD='[[2, 0, 0, 0, 0], [0, 2, 0, -1, -1], [0, 0, 2, 1, 0], [0, -1, 1, 4, -1], [0, -1, 0, -1, 4]]'
+# Here the denominators are 12470 and 2, and 12470 * 17 * 12470 does not fit in
+# 32 bits. The traces of the last form at 17 and at 19 used to be wrong.
+IC='[[5362/6235, -918/6235, -351/6235, -693/6235, 639/1247], [-2231/12470, 5062/6235, -897/12470, -1771/12470, 1633/2494], [388/1247, 408/1247, 1403/1247, 308/1247, -1420/1247], [-1843/12470, -969/6235, -741/12470, 11007/12470, 1349/2494], [5723/12470, 3009/6235, 2301/12470, 4543/12470, -1695/2494]]'
+ID='[[0, -1, 0, 1, 1], [1, 0, 1/2, 0, -1/2], [0, 1, 0, 0, 0], [0, 0, -1/2, -1, 1/2], [0, 0, 1/2, 0, 1/2]]'
+echo "[[],[[$MC,$IC],[$MD,$ID]]]" > "$tmp/33isom-hecke.db"
+check_example genus33-isom-denom-hecke "$tmp/33.exp" "F P P" -genus="$tmp/33isom-hecke.db" -isom -disc=1 -prec=20
+# Here the denominator is 46460, and 46460 * 46460 does not fit in 32 bits.
+# There used to be one more form, of conductor 11.
+ID='[[-892/2323, -2315/2323, 722/2323, 2383/2323, 2077/2323], [7378/11615, 38/11615, 9237/11615, 57/2323, -6976/11615], [-4237/11615, 11653/11615, 6859/23230, 57/2323, -2337/23230], [-6913/23230, 31/11615, -12039/46460, -4553/4646, 19417/46460], [4237/11615, -38/11615, 2378/11615, -57/2323, 6976/11615]]'
+echo "[[],[[$MC,$IA],[$MD,$ID]]]" > "$tmp/33isom-large.db"
+check_example genus33-isom-denom-large "$tmp/33.exp" "F P P" -genus="$tmp/33isom-large.db" -isom -disc=1 -prec=20
+# Here the denominator is 1482107534, and one of the products does not fit in
+# 64 bits before the fraction is reduced. The forms do not depend on that
+# product, so this checks only that it is not an error; the values of such
+# products are checked by -tests.
+ID='[[25870260/741053767, -752105977/741053767, 66598350/741053767, 856966057/741053767, 622756887/741053767], [515713267/741053767, 96269250/741053767, -419143733/1482107534, -1009643250/741053767, 1319774233/1482107534], [84411966/741053767, 704991556/741053767, 217303485/741053767, 378209739/741053767, -385990408/741053767], [210801648/741053767, -90058008/741053767, 344288393/1482107534, 203447825/741053767, -1186810681/1482107534], [7433310/741053767, -3175635/741053767, 779325217/1482107534, 33305115/741053767, 673073207/1482107534]]'
+echo "[[],[[$MC,$IA],[$MD,$ID]]]" > "$tmp/33isom-exact.db"
+check_example genus33-isom-denom-exact "$tmp/33.exp" "F P P" -genus="$tmp/33isom-exact.db" -isom -disc=1 -prec=20
+# Here the denominator is 2009666650, and one of the products does not fit in
+# 64 bits after the fraction is reduced either. That is an error.
+ID='[[-95720573/1004833325, -2073364271/2009666650, 150782684/1004833325, 191682299/200966665, 214735771/200966665], [209272747/200966665, 2763657/200966665, 174798553/401933330, 805644/40193333, -42582941/80386666], [-363581686/1004833325, 883859914/1004833325, 572727688/1004833325, -35265412/200966665, 52300092/200966665], [-33525273/1004833325, -22309521/2009666650, -899212757/2009666650, -204218431/200966665, 210611677/401933330], [395281226/1004833325, 131520701/1004833325, -240490691/2009666650, 38340092/200966665, 87246721/401933330]]'
+echo "[[],[[$MC,$IA],[$MD,$ID]]]" > "$tmp/33isom-too-large.db"
+check_error genus33-isom-denom-too-large "a product of isometries does not fit in 64 bits" -genus="$tmp/33isom-too-large.db" -isom -disc=1 -prec=20
 
 # Discriminant 167, forms of conductor 1 and of conductor 167.
 cat > "$tmp/167.exp" <<'EOF'

@@ -390,11 +390,12 @@ void square_matrix_mul_vec_left(vector_t prod, const vector_t vec, const square_
   return;
 }
 
-int square_matrix_inv(square_matrix_t inv, const square_matrix_t mat, int denom)
+bool square_matrix_inv_fits(square_matrix_t inv, Z64* inv_denom, const square_matrix_t mat, Z64 denom)
 {
   // !! TODO - at the moment we just use fmpq_mat, which is slow. Can do better
   fmpq_mat_t s, s_inv;
-  int inv_denom, i, j;
+  int i, j;
+  bool fits;
   fmpz_t inv_denom_Z;
   fmpz_mat_t s_inv_int;
 
@@ -410,17 +411,36 @@ int square_matrix_inv(square_matrix_t inv, const square_matrix_t mat, int denom)
     }
   fmpq_mat_inv(s_inv, s);
   fmpq_mat_get_fmpz_mat_matwise(s_inv_int, inv_denom_Z, s_inv);
-  
-  for (i = 0 ; i < QF_RANK; i++)
-    for (j = 0; j < QF_RANK; j++)
-      inv[i][j] = fmpz_get_si(fmpz_mat_entry(s_inv_int,i,j));
 
-  inv_denom = fmpz_get_si(inv_denom_Z);
+  // The numerators and the denominator used to be truncated when they did not
+  // fit, the denominator to an int.
+  fits = fmpz_fits_si(inv_denom_Z);
+  for (i = 0 ; fits && (i < QF_RANK); i++)
+    for (j = 0; fits && (j < QF_RANK); j++)
+      fits = fmpz_fits_si(fmpz_mat_entry(s_inv_int,i,j));
+  if (fits) {
+    for (i = 0 ; i < QF_RANK; i++)
+      for (j = 0; j < QF_RANK; j++)
+	inv[i][j] = fmpz_get_si(fmpz_mat_entry(s_inv_int,i,j));
+    *inv_denom = fmpz_get_si(inv_denom_Z);
+  }
   
   fmpz_clear(inv_denom_Z);
   fmpz_mat_clear(s_inv_int);
   fmpq_mat_clear(s_inv);
   fmpq_mat_clear(s);
+
+  return fits;
+}
+
+Z64 square_matrix_inv(square_matrix_t inv, const square_matrix_t mat, Z64 denom)
+{
+  Z64 inv_denom;
+
+  if (!square_matrix_inv_fits(inv, &inv_denom, mat, denom)) {
+    fprintf(stderr, "Error: the inverse of an isometry does not fit in 64 bits\n");
+    exit(EXIT_FAILURE);
+  }
 
   return inv_denom;
 }
@@ -451,7 +471,7 @@ int square_matrix_inv(square_matrix_t inv, const square_matrix_t mat, int denom)
 /*   return inv_denom; */
 /* } */
 
-void square_matrix_div_scalar(square_matrix_t quo, const square_matrix_t mat, int denom)
+void square_matrix_div_scalar(square_matrix_t quo, const square_matrix_t mat, Z64 denom)
 {
   int i,j;
   
@@ -464,7 +484,7 @@ void square_matrix_div_scalar(square_matrix_t quo, const square_matrix_t mat, in
   return;
 }
 
-void square_matrix_mul_scalar(square_matrix_t prod, const square_matrix_t mat, int scalar)
+void square_matrix_mul_scalar(square_matrix_t prod, const square_matrix_t mat, Z64 scalar)
 {
   int i,j;
   
