@@ -270,6 +270,17 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t q, int h)
   fmpz_mat_init(nbr_fmpz, QF_RANK, QF_RANK);
 #endif // NBR_DATA
 
+  // the neighbors of a lattice and its isometries are computed only for a positive definite one
+  if (!square_matrix_is_positive_definite(q)) {
+    fprintf(stderr, "Error: the lattice is not positive definite\n");
+    exit(EXIT_FAILURE);
+  }
+  // and its discriminant is half of the determinant of its Gram matrix
+  if (!square_matrix_is_even(q)) {
+    fprintf(stderr, "Error: the lattice is not even, the diagonal of its Gram matrix has an odd entry\n");
+    exit(EXIT_FAILURE);
+  }
+
   disc_init_set(genus->disc, q);
 
   fmpq_init(mass);
@@ -561,9 +572,10 @@ bool square_matrix_is_Q_isometric(isometry_t isom, const square_matrix_t A, cons
 }
  
 /* Find isometries from the lattice whose gram matrix is A to each of the h lattices whose gram matrices are the
-   elements of the list B. Return the isometries in isoms, for which memory is assumed to be allocated. */
+   elements of the list B. Return the isometries in isoms, for which memory is assumed to be allocated.
+   Exits with an error if one of the lattices of B is not in the genus of A. */
 // for now, this is faster (do one round and collect all)
-// assumes isoms are initialized and that B and isoms are the length of the class number
+// assumes isoms are initialized and that B and isoms are of length h
 void square_matrix_find_isometries(isometry_t* isoms, const square_matrix_t A, const square_matrix_t* B, int h)
 {
   genus_t genus;
@@ -574,12 +586,17 @@ void square_matrix_find_isometries(isometry_t* isoms, const square_matrix_t A, c
 
   theta_time = isom_time = 0;
   
-  genus_init_square_matrix(genus, A, h);
-  assert(genus->dims[0] == h);
+  // The genus of A is found from its mass, and not by looking for h lattices, since the lattices
+  // of B might not all be in it. Then there could be less than h lattices in the genus.
+  genus_init_square_matrix(genus, A, -1);
   isometry_init(isom_B);
 
-  for (i = 0; i < genus->dims[0]; i++) {
+  for (i = 0; i < h; i++) {
     rep_idx = hash_table_index_and_isom(genus->genus_reps, B[i], isom_B, &theta_time, &isom_time, &num_isom);
+    if (rep_idx < 0) {
+      fprintf(stderr, "Error: the lattice at index %ld of the genus is not in the genus of the first lattice\n", i);
+      exit(EXIT_FAILURE);
+    }
 #ifdef DEBUG_LEVEL_FULL
     assert(isometry_is_isom(isom_B, B[i], genus->genus_reps->keys[rep_idx]));
     assert(isometry_is_isom(genus->isoms[rep_idx], A, genus->genus_reps->keys[rep_idx]));
@@ -597,59 +614,87 @@ void square_matrix_find_isometries(isometry_t* isoms, const square_matrix_t A, c
   return;
 }
 
-/* Initialize a genus from a list of gram matrices for the genus representatives */
-void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps, size_t h)
+/* Add the h lattices of reps to the table, as the classes of a genus. Exits with an error if they cannot be
+   the classes of a genus: if one of them is not positive definite or not even, if they do not all have the same
+   discriminant, if two of them are isometric, or if their mass is not the mass of the genus of the first one.
+   This does not check that they are all in the genus of the first one. */
+static void hash_table_add_genus_reps(hash_table_t table, const square_matrix_t* reps, size_t h)
 {
-#ifdef DEBUG
-  fmpq_t mass, acc_mass, mass_form;
-#endif // DEBUG
-#ifdef DEBUG_LEVEL_FULL
-  aut_grp_t aut_grp;
-#endif // DEBUG_LEVEL_FULL
-  size_t genus_size;
-  hash_table_t slow_genus;
-  
+  fmpz_t disc, rep_disc;
+  fmpq_t mass, acc_mass;
   size_t i;
 
-  assert(h > 0);
-  disc_init_set(genus->disc, reps[0]);
-
-  // Here we don't really need it, just here for verification
-#ifdef DEBUG
   fmpq_init(mass);
-  get_mass(mass, reps[0]);
-#ifdef DEBUG_LEVEL_FULL
-  printf("mass = ");
-  fmpq_print(mass);
-  printf("\n");
-#endif // DEBUG_LEVEL_FULL
-  fmpq_init(mass_form);
   fmpq_init(acc_mass);
   fmpq_zero(acc_mass);
-#endif // DEBUG
-    
+
+  for (i = 0; i < h; i++) {
+    // the hash of a lattice and its isometries are computed only for a positive definite one
+    if (!square_matrix_is_positive_definite(reps[i])) {
+      fprintf(stderr, "Error: the lattice at index %zu of the genus is not positive definite\n", i);
+      exit(EXIT_FAILURE);
+    }
+    // its discriminant is half of the determinant of its Gram matrix
+    if (!square_matrix_is_even(reps[i])) {
+      fprintf(stderr, "Error: the lattice at index %zu of the genus is not even, the diagonal of its Gram matrix has an odd entry\n", i);
+      exit(EXIT_FAILURE);
+    }
+    if (i == 0)
+      disc_init_set(disc, reps[0]);
+    disc_init_set(rep_disc, reps[i]);
+    if (!fmpz_equal(rep_disc, disc)) {
+      fprintf(stderr, "Error: the lattice at index %zu of the genus has discriminant ", i);
+      fmpz_fprint(stderr, rep_disc);
+      fprintf(stderr, ", and the first lattice has discriminant ");
+      fmpz_fprint(stderr, disc);
+      fprintf(stderr, "\n");
+      exit(EXIT_FAILURE);
+    }
+    fmpz_clear(rep_disc);
+    // a lattice which is isometric to one in the table is not added to it
+    if (!hash_table_add(table, reps[i])) {
+      fprintf(stderr, "Error: the lattice at index %zu of the genus is isometric to one of the lattices before it\n", i);
+      exit(EXIT_FAILURE);
+    }
+    // the table has the inverse of the number of automorphisms of the lattice
+    fmpq_add(acc_mass, acc_mass, table->probs[i]);
+  }
+
+  get_mass(mass, reps[0]);
+  if (!fmpq_equal(acc_mass, mass)) {
+    fprintf(stderr, "Error: the lattices of the genus have mass ");
+    fmpq_fprint(stderr, acc_mass);
+    fprintf(stderr, ", and the mass of the genus of the first lattice is ");
+    fmpq_fprint(stderr, mass);
+    fprintf(stderr, "\n");
+    exit(EXIT_FAILURE);
+  }
+
+  fmpz_clear(disc);
+  fmpq_clear(mass);
+  fmpq_clear(acc_mass);
+
+  return;
+}
+
+/* Initialize a genus from a list of gram matrices for the genus representatives.
+   Exits with an error if these are not the classes of a genus. */
+void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps, size_t h)
+{
+  size_t genus_size;
+  hash_table_t slow_genus;
+
+  assert(h > 0);
+
   genus_size = (4 * h) / 3; // load factor
 
   hash_table_init(slow_genus, genus_size);
 
+  hash_table_add_genus_reps(slow_genus, reps, h);
+
+  disc_init_set(genus->disc, reps[0]);
+
   spinor_init_square_matrix(genus->spinor, reps[0]);
-  
-  for (i = 0; i < h; i++) {
-#ifdef DEBUG
-    assert(fmpq_cmp(acc_mass, mass) <= 0);
-#endif // DEBUG
-    hash_table_add(slow_genus, reps[i]);
-    
-#ifdef DEBUG_LEVEL_FULL
-    aut_grp_init_square_matrix(aut_grp, reps[i]);
-    fmpq_set_si(mass_form, 1, aut_grp->order);
-    aut_grp_clear(aut_grp);
-    fmpq_add(acc_mass, acc_mass, mass_form);
-    printf("acc_mass = ");
-    fmpq_print(acc_mass);
-    printf("\n");
-#endif // DEBUG_LEVEL_FULL
-  }
 
   hash_table_recalibrate(genus->genus_reps, slow_genus);
 
@@ -658,6 +703,7 @@ void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps
   // constructing isometries between the forms
   genus->isoms = (isometry_t*)malloc(h * sizeof(isometry_t));
 
+  // this also checks that the lattices are all in the genus of the first one
   square_matrix_find_isometries(genus->isoms, reps[0], reps, h);
   
   // initializing the conductors
@@ -667,37 +713,34 @@ void genus_init_set_square_matrix_vec(genus_t genus, const square_matrix_t* reps
   assert(genus->genus_reps->num_stored > 0);
 
   dimensions_init(genus);
-
-#ifdef DEBUG  
-  fmpq_clear(mass);
-  fmpq_clear(acc_mass);
-  fmpq_clear(mass_form);
-#endif // DEBUG
       
   return;
 }
 
 /* Initialize a genus from a list of gram matrices for the genus representatives, and a list of specific isometries
-   from the firt representative to all the others. */
+   from the firt representative to all the others. Exits with an error if these cannot be the classes of a genus,
+   or if one of the isometries is not an isometry from the first representative to the one it is given for.
+   This does not check that the representatives are all in the genus of the first one. */
 void genus_init_set_square_matrix_vec_and_isoms(genus_t genus, const square_matrix_t* reps,
 						const isometry_t* isoms, size_t h)
 {
   size_t genus_size;
   hash_table_t slow_genus;
+  fmpz_t denom_gcd;
   
   size_t i;
 
   assert(h > 0);
-  disc_init_set(genus->disc, reps[0]);
 
   genus_size = (4 * h) / 3; // load factor
 
   hash_table_init(slow_genus, genus_size);
 
+  hash_table_add_genus_reps(slow_genus, reps, h);
+
+  disc_init_set(genus->disc, reps[0]);
+
   spinor_init_square_matrix(genus->spinor, reps[0]);
-  
-  for (i = 0; i < h; i++)
-    hash_table_add(slow_genus, reps[i]);
 
   hash_table_recalibrate(genus->genus_reps, slow_genus);
 
@@ -705,12 +748,26 @@ void genus_init_set_square_matrix_vec_and_isoms(genus_t genus, const square_matr
 
   // constructing isometries between the forms
   genus->isoms = (isometry_t*)malloc(h * sizeof(isometry_t));
+  fmpz_init(denom_gcd);
   for (i = 0; i < h; i++) {
     isometry_init_set(genus->isoms[i], isoms[i]);
-#ifdef DEBUG_LEVEL_FULL
-    assert(isometry_is_isom(genus->isoms[i], genus->genus_reps->keys[0], genus->genus_reps->keys[i]));
-#endif // DEBUG_LEVEL_FULL
+    if (!isometry_is_isom(genus->isoms[i], reps[0], reps[i])) {
+      fprintf(stderr, "Error: the isometry at index %zu of the genus is not an isometry from the first lattice to the lattice at that index\n", i);
+      exit(EXIT_FAILURE);
+    }
+    // The spinor norm of an isometry is computed modulo the primes which
+    // divide the discriminant, by dividing by its denominator. When one of
+    // them divides the denominator another method is used, which leads to
+    // wrong forms when the discriminant is even, or when a prime divides it
+    // to an even power.
+    fmpz_gcd_ui(denom_gcd, genus->disc, genus->isoms[i]->denom);
+    if (!fmpz_is_one(denom_gcd)) {
+      fprintf(stderr, "Error: the denominator %d of the isometry at index %zu of the genus is not prime to the discriminant\n",
+	      genus->isoms[i]->denom, i);
+      exit(EXIT_FAILURE);
+    }
   }
+  fmpz_clear(denom_gcd);
   
   // initializing the conductors
   
@@ -739,8 +796,15 @@ void genus_init_file(genus_t genus, const char* genus_fname, size_t disc, bool w
     genus_init_set_square_matrix_vec_and_isoms(genus, genus_reps, isoms, genus_size);
   else if (genus_size > 0)
     genus_init_set_square_matrix_vec(genus, genus_reps, genus_size);
-  else
+  else {
+    // The spaces of an empty genus are found from its discriminant, which
+    // cannot be 0.
+    if (disc == 0) {
+      fprintf(stderr, "Error: in the genus file %s, the genus of discriminant 0 is empty\n", genus_fname);
+      exit(EXIT_FAILURE);
+    }
     genus_init_empty(genus, disc);
+  }
   
   free(genus_reps);
   free(isoms);

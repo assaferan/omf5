@@ -115,6 +115,14 @@ If the flag -row is supplied in addition to -hecke, computes a single row.
 
 If the flag -isom is supplied in addition to -genus=g, read from the genus file, in addition to the list of genera, a list of fixed isometries (over QQ) between the different lattices in the genus.
 
+The genus file is a list of genera, and the genus read is the one at index d, counting from 0. A genus is a list of lattices, and may be an empty list if d is not 0. Each lattice is a list of 15 integers in the format 'GG', as in this file with a genus of two lattices at index 1
+
+[[],[[1,0,-1,-1,1,1,-1,1,0,2,1,-1,2,-2,2],[1,-1,0,1,1,1,0,-1,0,1,1,0,2,1,3]]]
+
+With -isom, each lattice is instead a list of two 5x5 matrices, given by their rows - the Gram matrix of the lattice, and an isometry from the first lattice of the genus to it, whose entries are rational numbers such as -2/3.
+
+The lattices have to be a full set of representatives for the classes of a single genus. The program exits with an error if one of them is not positive definite and even, if they do not all have the same discriminant, if two of them are isometric, if their mass is not the mass of the genus, or if one of them is not in the genus of the first lattice. With -isom the last of these is not checked, and each isometry is checked to be an isometry from the first lattice, with a denominator which is prime to the discriminant.
+
 If the flag -tests is supplied, additionally runs standard tests.
 
 If the flag -nonlifts is supplied, computes eigenvalues only for the forms which are not lifts.

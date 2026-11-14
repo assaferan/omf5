@@ -13,6 +13,8 @@
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
+#include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,10 +28,6 @@
 
 // size of buffer to use when reading from files
 #define BUF_SIZE 4096 // usually optimal for x86 architecture
-
-// maximal number of genus representatives (class number)
-// can change this one to be dynamically allocated, but it's small enough
-#define MAX_GEN_SIZE 2000 
 
 // skip the white space at the beginning of a string
 static const char* skip_spaces(const char* str)
@@ -79,186 +77,177 @@ bool parse_array_int(Z64* arr, const char* arr_str, int num_entries)
   return (*str == '\0') && (idx == num_entries);
 }
 
-// parse a comma-separated array of ratinoal numbers
-bool parse_array_rat(Z64* num, int* denom,
-		     const char* arr_str, int num_entries)
-{
-  int idx, len, offset;
-  char *original;
-  char *cpy;
-  char *token;
-  char *slash_pos, *comma_pos;
-
-  idx = 0;
-  offset = 0;
-  len = strlen(arr_str);
-  if ((len > 0) && (arr_str[0] == '[')) {
-    assert(arr_str[len-1] == ']');
-    len -= 2;
-    offset = 1;
-  }
-  original = (char*)malloc((len+1)*sizeof(char));
-  memcpy(original, arr_str+offset, len+1);
-  original[len] = '\0';
-  cpy = original;
-  token = cpy;
-  while(token != NULL) {
-    slash_pos = strstr(cpy, "/");
-    comma_pos = strstr(cpy, ",");
-    if ((slash_pos != NULL) && (comma_pos != NULL) && (slash_pos < comma_pos)) {
-      token[slash_pos - cpy] = '\0';
-      num[idx] = atoi(token);
-      slash_pos++;
-      slash_pos[comma_pos - slash_pos] = '\0';
-      denom[idx++] = atoi(slash_pos);
-      cpy = comma_pos + 2;
-    }
-    else if (comma_pos!= NULL) { 
-      token[comma_pos-cpy] = '\0';
-      num[idx] = atoi(token);
-      denom[idx++] = 1;
-      cpy = comma_pos + 2;
-    } else if (slash_pos != NULL) {
-      token[slash_pos - cpy] = '\0';
-      num[idx] = atoi(token);
-      slash_pos++;
-      denom[idx++] = atoi(slash_pos);
-      cpy = NULL;
-    } else {
-      num[idx] = atoi(token);
-      denom[idx++] = 1;
-      cpy = NULL;
-    }
-    token = cpy;
-  }
-  free(original);
-  return (idx == num_entries);
-}
-
 // parse a symmetric 5x5 matrix, given as an array of 15 integers
 bool parse_matrix(Z64* Q_coeffs, const char* mat_str)
 {
   return parse_array_int(Q_coeffs, mat_str, 15);
 }
 
-// parse a 5x5 matrix of integers, given as an array of 5 arrays of integers 
-bool parse_int_matrix_full(square_matrix_t Q, const char* mat_str)
-{
-  int idx, len;
-  char *original;
-  char *cpy;
-  char *token;
+// The parsers below read from the string *p_str, and move it past what they
+// have read. When they fail, they may have moved it.
 
-  idx = 0;
-  len = strlen(mat_str)-2;
-  original = (char*)malloc((len+1)*sizeof(char));
-  memcpy(original, mat_str+1, len);
-  original[len] = '\0';
-  cpy = original;
-  token = cpy;
-  while(token != NULL) {
-    cpy = strstr(cpy, "],");
-    if (cpy != NULL) {
-      token[cpy-token+1] = '\0';
-      cpy += 3;
+// read the character c, possibly after white space
+static bool parse_char(const char** p_str, char c)
+{
+  const char* str;
+
+  str = skip_spaces(*p_str);
+  if (*str != c)
+    return false;
+  *p_str = str + 1;
+  return true;
+}
+
+// read an integer which fits in 64 bits
+static bool parse_int(const char** p_str, Z64* val)
+{
+  char* end;
+  long long num;
+
+  errno = 0;
+  num = strtoll(*p_str, &end, 10);
+  if ((end == *p_str) || (errno == ERANGE))
+    return false;
+  *val = num;
+  *p_str = end;
+  return true;
+}
+
+// read a rational number, whose denominator is positive and fits in an int
+static bool parse_rat(const char** p_str, Z64* num, Z64* denom)
+{
+  if (!parse_int(p_str, num))
+    return false;
+  *denom = 1;
+  if (!parse_char(p_str, '/'))
+    return true;
+  return parse_int(p_str, denom) && (*denom > 0) && (*denom <= INT_MAX);
+}
+
+// read a 5x5 matrix, given as an array of 5 arrays of 5 numbers. The numbers
+// are integers if denom is NULL. Otherwise they are rational numbers, with
+// the numerators read to num and the denominators to denom.
+static bool parse_square_matrix(const char** p_str, square_matrix_t num,
+				square_matrix_t denom)
+{
+  int i, j;
+
+  if (!parse_char(p_str, '['))
+    return false;
+  for (i = 0; i < QF_RANK; i++) {
+    if ((i > 0) && (!parse_char(p_str, ',')))
+      return false;
+    if (!parse_char(p_str, '['))
+      return false;
+    for (j = 0; j < QF_RANK; j++) {
+      if ((j > 0) && (!parse_char(p_str, ',')))
+	return false;
+      if (denom == NULL) {
+	if (!parse_int(p_str, &(num[i][j])))
+	  return false;
+      }
+      else if (!parse_rat(p_str, &(num[i][j]), &(denom[i][j])))
+	return false;
     }
-    parse_array_int(Q[idx++], token, QF_RANK);
-    token = cpy;
+    if (!parse_char(p_str, ']'))
+      return false;
   }
-  free(original);
-  return (idx == QF_RANK);
+  return parse_char(p_str, ']');
 }
 
-// parse an isometry (a 5x5 matrix of rationals), given as an array of 5 arrays of rationals) 
-bool parse_isom(isometry_t isom, const char* mat_str)
+// read an isometry, given as a 5x5 matrix of rational numbers
+static bool parse_isom(const char** p_str, isometry_t isom)
 {
-  int idx, len, i, j;
-  char *original;
-  char *cpy;
-  char *token;
-  int denom[QF_RANK];
-  square_matrix_t isom_num;
-  int old_isom_den;
-  int isom_den;
-  bool success;
+  square_matrix_t num, denom;
+  Z64 isom_denom, mult, x, y;
+  int i, j;
 
-  idx = 0;
-  len = strlen(mat_str)-2;
-  original = (char*)malloc((len+1)*sizeof(char));
-  memcpy(original, mat_str+1, len);
-  original[len] = '\0';
-  cpy = original;
-  token = cpy;
-  isom_den = 1;
-  while(token != NULL) {
-    cpy = strstr(cpy, "],");
-    if (cpy != NULL) {
-      token[cpy-token+1] = '\0';
-      cpy += 3;
+  if (!parse_square_matrix(p_str, num, denom))
+    return false;
+
+  // the common denominator has to fit in an int
+  isom_denom = 1;
+  for (i = 0; i < QF_RANK; i++)
+    for (j = 0; j < QF_RANK; j++) {
+      isom_denom *= denom[i][j] / gcdext(isom_denom, denom[i][j], &x, &y);
+      if (isom_denom > INT_MAX)
+	return false;
     }
-    success = parse_array_rat(isom_num[idx], denom, token, QF_RANK);
-    if (!success) return false;
-    old_isom_den = isom_den;
+
+  // and the numerators over it have to fit in 64 bits
+  for (i = 0; i < QF_RANK; i++)
+    for (j = 0; j < QF_RANK; j++) {
+      mult = isom_denom / denom[i][j];
+      if ((num[i][j] > INT64_MAX / mult) || (num[i][j] < INT64_MIN / mult))
+	return false;
+      num[i][j] *= mult;
+    }
+
+  // The denominators of isometries are multiplied when the isometries are
+  // composed, so the common denominator is reduced.
+  mult = isom_denom;
+  for (i = 0; i < QF_RANK; i++)
     for (j = 0; j < QF_RANK; j++)
-      isom_den = lcm(isom_den, denom[j]);
+      mult = gcdext(mult, num[i][j], &x, &y);
+  for (i = 0; i < QF_RANK; i++)
     for (j = 0; j < QF_RANK; j++)
-      isom_num[idx][j] *= (isom_den / denom[j]);
-    for (i = 0; i < idx; i++)
-      for (j = 0; j < QF_RANK; j++)
-	isom_num[i][j] *= (isom_den / old_isom_den);
-    idx++;
-    token = cpy;
-  }
-  isometry_init_set_square_matrix(isom, isom_num, isom_den);
-  free(original);
-  return (idx == QF_RANK);
+      num[i][j] /= mult;
+  isom_denom /= mult;
+
+  isometry_init_set_square_matrix(isom, num, (int)isom_denom);
+  return true;
 }
 
-// parse a pair of a matrix and an isometry from input
-bool parse_mat_and_isom(square_matrix_t Q, isometry_t isom,
-			const char* mat_str)
+// parse a lattice with an isometry to it, given as an array of the Gram matrix
+// of the lattice, which is a symmetric 5x5 matrix of integers, and of the
+// isometry, which is a 5x5 matrix of rational numbers
+static bool parse_mat_and_isom(square_matrix_t Q, isometry_t isom,
+			       const char* mat_str)
 {
-  bool success;
-  int len;
-  char *isom_str;
-  char *intmat_str;
+  const char* str;
+  int i, j;
 
-  len = strlen(mat_str)-2;
-  intmat_str = (char*)malloc((len+1)*sizeof(char));
-  memcpy(intmat_str, mat_str+1, len);
-  intmat_str[len] = '\0';
-  isom_str = strstr(intmat_str, "],[") + 2;
-  intmat_str[isom_str-intmat_str-1] = '\0';
-  success = parse_int_matrix_full(Q, intmat_str);
-  if (!success) return false;
-  success = parse_isom(isom, isom_str);
-  free(intmat_str);
-  return success;
+  str = mat_str;
+  if ((!parse_char(&str, '[')) || (!parse_square_matrix(&str, Q, NULL)))
+    return false;
+  for (i = 0; i < QF_RANK; i++)
+    for (j = 0; j < i; j++)
+      if (Q[i][j] != Q[j][i])
+	return false;
+  if ((!parse_char(&str, ',')) || (!parse_isom(&str, isom)) ||
+      (!parse_char(&str, ']')))
+    return false;
+  // nothing may follow the array
+  return (*skip_spaces(str) == '\0');
 }
 
-// report a lattice in the genus file which is not given by 15 integers
-static void genus_file_error(const char* fname, size_t disc,
-			     const char* matrix_str)
-{
-  fprintf(stderr, "Error: in the genus file %s, the lattice %s of discriminant %zu is not a list of 15 integers\n",
-	  fname, matrix_str, disc);
-  exit(EXIT_FAILURE);
-}
-
-// read the genus from a file with all the genus representatives for all discriminants
-size_t read_genus(square_matrix_t** p_genus, const char* fname, size_t disc)
+// read the genus of the given discriminant from a file with the lattices of
+// the genera of all discriminants, and with an isometry to each of the
+// lattices if p_isom is not NULL. Exits with an error if the genus is not in
+// the file, or is not given as expected.
+static size_t read_genus_file(square_matrix_t** p_genus, isometry_t** p_isom,
+			      const char* fname, size_t disc)
 {
   FILE* genus_file;
   char buffer[BUF_SIZE];
-  // this one can be smaller
-  char matrix_buffer[BUF_SIZE];
-  size_t num_read = BUF_SIZE;
+  // the text of the lattice which is being read
+  char lattice[BUF_SIZE];
+  size_t num_read;
   size_t depth = 0;
   size_t i;
   size_t cur_disc = 0;
-  Z64 coeffs[MAX_GEN_SIZE][15];
+  Z64 coeffs[15];
   size_t genus_size = 0;
-  size_t mat_buf_idx = 0;
+  size_t capacity = 0;
+  size_t len = 0;
+  bool is_done = false;
+  bool is_found = false;
+  bool is_valid;
+  char c;
+
+  *p_genus = NULL;
+  if (p_isom != NULL)
+    *p_isom = NULL;
 
   genus_file = fopen(fname, "r");
   if (genus_file == NULL) {
@@ -266,60 +255,96 @@ size_t read_genus(square_matrix_t** p_genus, const char* fname, size_t disc)
     exit(EXIT_FAILURE);
   }
 
-  while ((num_read == BUF_SIZE) && (cur_disc <= disc) ){
-    num_read = fread(buffer, sizeof(char), BUF_SIZE, genus_file);
-    for (i = 0; (i < num_read) && (cur_disc <= disc); i++) {
-      switch(buffer[i]) {
-      case '[':
+  // The file is an array of genera, each of which is an array of lattices.
+  // The brackets of the file are at depth 1, those of a genus at depth 2 and
+  // those of a lattice at depth 3. The genus read is the one at index disc.
+  while ((!is_done) &&
+	 ((num_read = fread(buffer, sizeof(char), BUF_SIZE, genus_file)) > 0)) {
+    for (i = 0; (i < num_read) && (!is_done); i++) {
+      c = buffer[i];
+      if (c == '[')
 	depth++;
-	break;
-      case ']':
-	depth--;
-	if (depth == 1) {
-	  if (cur_disc == disc) {
-	    if (mat_buf_idx != 0) {
-	      matrix_buffer[mat_buf_idx] = '\0';
-	      if (!parse_matrix(coeffs[genus_size++], matrix_buffer))
-		genus_file_error(fname, disc, matrix_buffer);
-	      mat_buf_idx = 0;
-	    }
+      if (cur_disc == disc) {
+	// the text of a lattice is everything between its brackets, with them
+	if (depth >= 3) {
+	  if (len == BUF_SIZE - 1) {
+	    fprintf(stderr, "Error: in the genus file %s, a lattice of discriminant %zu is longer than %d characters\n",
+		    fname, disc, BUF_SIZE - 1);
+	    exit(EXIT_FAILURE);
 	  }
-	  cur_disc++;
+	  lattice[len++] = c;
 	}
-	break;
-      default:
-	if (cur_disc == disc) {
-	  switch(depth) {
-	  case 2:
-	    if (mat_buf_idx != 0) {
-	      matrix_buffer[mat_buf_idx] = '\0';
-	      if (!parse_matrix(coeffs[genus_size++], matrix_buffer))
-		genus_file_error(fname, disc, matrix_buffer);
-	      mat_buf_idx = 0;
+	// between the lattices of a genus there are only commas and white space
+	else if ((depth == 2) && (c != '[') && (c != ']') && (c != ',') &&
+		 (!isspace((unsigned char)c))) {
+	  fprintf(stderr, "Error: in the genus file %s, the character '%c' is between the lattices of discriminant %zu\n",
+		  fname, c, disc);
+	  exit(EXIT_FAILURE);
+	}
+      }
+      if (c == ']') {
+	// the file has ended, or has no array of genera
+	if (depth <= 1)
+	  is_done = true;
+	else {
+	  depth--;
+	  // the lattice has ended
+	  if ((depth == 2) && (cur_disc == disc)) {
+	    lattice[len] = '\0';
+	    len = 0;
+	    if (genus_size == capacity) {
+	      capacity = (capacity == 0) ? 16 : 2 * capacity;
+	      *p_genus = (square_matrix_t*)realloc(*p_genus, capacity * sizeof(square_matrix_t));
+	      if (p_isom != NULL)
+		*p_isom = (isometry_t*)realloc(*p_isom, capacity * sizeof(isometry_t));
 	    }
-	    break;
-	  case 3:
-	    matrix_buffer[mat_buf_idx++] = buffer[i];
-	    break;
-	  default:
-	    break;
+	    if (p_isom != NULL)
+	      is_valid = parse_mat_and_isom((*p_genus)[genus_size], (*p_isom)[genus_size], lattice);
+	    else
+	      is_valid = parse_matrix(coeffs, lattice);
+	    if (!is_valid) {
+	      fprintf(stderr, "Error: in the genus file %s, the lattice %s of discriminant %zu is not %s\n",
+		      fname, lattice, disc, (p_isom != NULL) ?
+		      "a symmetric 5x5 matrix of integers with a 5x5 matrix of rational numbers" :
+		      "a list of 15 integers");
+	      exit(EXIT_FAILURE);
+	    }
+	    // at the moment genus files are in sage (=GG) format
+	    if (p_isom == NULL)
+	      square_matrix_init_set_symm((*p_genus)[genus_size], coeffs, "GG");
+	    genus_size++;
+	  }
+	  // the genus has ended
+	  if (depth == 1) {
+	    is_found = (cur_disc == disc);
+	    is_done = is_found;
+	    cur_disc++;
 	  }
 	}
-	break;
       }
     }
   }
 
   fclose(genus_file);
 
-  *p_genus = (square_matrix_t*)malloc(genus_size * sizeof(square_matrix_t));
-
-  for (i = 0; i < genus_size; i++) {
-    // at the moment genus files are in sage (=GG) format
-    square_matrix_init_set_symm((*p_genus)[i], coeffs[i], "GG");
+  if ((!is_found) && (cur_disc == disc) && (depth >= 2)) {
+    fprintf(stderr, "Error: the genus file %s ends inside the genus of discriminant %zu\n",
+	    fname, disc);
+    exit(EXIT_FAILURE);
   }
-  
+  if (!is_found) {
+    fprintf(stderr, "Error: the genus file %s has no genus of discriminant %zu\n",
+	    fname, disc);
+    exit(EXIT_FAILURE);
+  }
+
   return genus_size;
+}
+
+// read the genus from a file with all the genus representatives for all discriminants
+size_t read_genus(square_matrix_t** p_genus, const char* fname, size_t disc)
+{
+  return read_genus_file(p_genus, NULL, fname, disc);
 }
 
 // read the genus and the isometries between the genus representatives from a file
@@ -328,93 +353,5 @@ size_t read_genus_and_isom(square_matrix_t** p_genus,
 			   isometry_t** p_isom,
 			   const char* fname, size_t disc)
 {
-  FILE* genus_file;
-  char buffer[BUF_SIZE];
-  // this one can be smaller
-  char matrix_buffer[BUF_SIZE];
-  size_t num_read = BUF_SIZE;
-  size_t depth = 0;
-  size_t i;
-  size_t cur_disc = 0;
-  square_matrix_t mats[MAX_GEN_SIZE];
-  isometry_t isoms[MAX_GEN_SIZE];
-  size_t genus_size = 0;
-  size_t mat_buf_idx = 0;
-
-  genus_file = fopen(fname, "r");
-  if (genus_file == NULL) {
-    fprintf(stderr, "Error: could not open the genus file %s\n", fname);
-    exit(EXIT_FAILURE);
-  }
-
-  while ((num_read == BUF_SIZE) && (cur_disc <= disc) ){
-    num_read = fread(buffer, sizeof(char), BUF_SIZE, genus_file);
-    for (i = 0; (i < num_read) && (cur_disc <= disc); i++) {
-      switch(buffer[i]) {
-      case '[':
-	depth++;
-	if (depth >= 3) {
-	  if (cur_disc == disc) {
-	    matrix_buffer[mat_buf_idx++] = buffer[i];
-	  }
-	}
-	break;
-      case ']':
-	depth--;
-	if (depth >= 2) {
-	  if (cur_disc == disc) {
-	    matrix_buffer[mat_buf_idx++] = buffer[i];
-	  }
-	}
-	if (depth == 1) {
-	  if (cur_disc == disc) {
-	    if (mat_buf_idx != 0) {
-	      matrix_buffer[mat_buf_idx] = '\0';
-	      parse_mat_and_isom(mats[genus_size], isoms[genus_size],
-				 matrix_buffer);
-	      genus_size++;
-	      mat_buf_idx = 0;
-	    }
-	  }
-	  cur_disc++;
-	}
-	break;
-      default:
-	if (cur_disc == disc) {
-	  switch(depth) {
-	  case 2:
-	    if (mat_buf_idx != 0) {
-	      matrix_buffer[mat_buf_idx] = '\0';
-	      parse_mat_and_isom(mats[genus_size], isoms[genus_size],
-				 matrix_buffer);
-	      genus_size++;
-	      mat_buf_idx = 0;
-	    }
-	    break;
-	  case 3:
-	  case 4:
-	  case 5:
-	    matrix_buffer[mat_buf_idx++] = buffer[i];
-	    break;
-	  default:
-	    break;
-	  }
-	}
-	break;
-      }
-    }
-  }
-
-  fclose(genus_file);
-
-  *p_genus = (square_matrix_t*)malloc(genus_size * sizeof(square_matrix_t));
-  *p_isom = (isometry_t*)malloc(genus_size * sizeof(isometry_t));
-
-  for (i = 0; i < genus_size; i++) {
-    square_matrix_init((*p_genus)[i]);
-    square_matrix_set((*p_genus)[i], mats[i]);
-    isometry_init_set((*p_isom)[i], isoms[i]);
-  }
-  
-  return genus_size;
+  return read_genus_file(p_genus, p_isom, fname, disc);
 }
