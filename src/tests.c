@@ -1219,6 +1219,17 @@ STATUS test_hecke_bad_primes()
   // dimension 3, and there is no character at 2.
   Z64 Q_104[15] = {1,0,0,-1,-1,1,0,1,1,1,-1,1,2,1,6};
   slong traces_104_2[2] = {31,0};
+  // Discriminant 125, with the conductors 1,5. The radical modulo 5 is of
+  // dimension 3, and no vector outside it is isotropic modulo 5: there are
+  // no 5-neighbors, and the Hecke operator at 5 is 0. One of the two lattices
+  // of the genus has no isotropic vector modulo 5 whose first coordinate is 1.
+  Z64 Q_125[15] = {1,-1,-1,1,0,1,1,0,0,2,-2,0,2,0,5};
+  slong traces_125_5[2] = {0,0};
+  // Discriminant 324, with the conductors 1,2,3,6. The same holds modulo 3,
+  // and the neighbors at 3 are used to time the isometry tests when the genus
+  // is found.
+  Z64 Q_324[15] = {1,-1,0,0,0,1,0,0,0,3,3,-3,4,-4,4};
+  slong traces_324_3[4] = {0,0,0,0};
   STATUS ret;
 
   // the prime divides the discriminant once
@@ -1241,6 +1252,9 @@ STATUS test_hecke_bad_primes()
   ret |= test_hecke_bad_prime_of(Q_500, 3, 7, 4, traces_500_3);
   // the radical modulo 2 is not a line
   ret |= test_hecke_bad_prime_of(Q_104, 2, 3, 2, traces_104_2);
+  // there are no neighbors at the prime
+  ret |= test_hecke_bad_prime_of(Q_125, 5, 3, 2, traces_125_5);
+  ret |= test_hecke_bad_prime_of(Q_324, 3, 5, 4, traces_324_3);
 
   return ret;
 }

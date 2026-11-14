@@ -117,6 +117,8 @@ The prime p may divide the discriminant. The Hecke matrix is then that of the p-
 
 The radical of the lattice modulo a prime q dividing the discriminant need not be a line. When q is odd, the character at q of an isometry which is integral at q is the determinant by which it acts on the radical, after the isometry is multiplied by -1 if its determinant is -1. The radical of a q-neighbor is identified with that of the lattice, and the character at an isometry to a q-neighbor is the determinant of the map it induces from the radical to itself. It is 1 at an isometry which is the identity on the orthogonal complement of a hyperbolic plane, as it is when the radical is a line. When the radical modulo 2 is not a line there is no character at 2: the conductors are then odd, and a warning says so.
 
+A lattice has no p-neighbors when no vector outside its radical modulo p is isotropic modulo p. The Hecke matrix at p is then 0.
+
 The eigenvalue at a prime p which divides the discriminant exactly once is printed as T_p + 1, and as -(T_p + 1) when p divides the conductor, where T_p is the eigenvalue of the Hecke matrix. When p^2 divides the discriminant it is printed as T_p.
 
 If the flag -isom is supplied in addition to -genus=g, read from the genus file, in addition to the list of genera, a list of fixed isometries (over QQ) between the different lattices in the genus.

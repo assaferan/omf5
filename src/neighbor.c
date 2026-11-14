@@ -428,20 +428,29 @@ bool get_next_isotropic_vector(neighbor_manager_t nbr_man)
 void nbr_process_init(neighbor_manager_t nbr_man, const square_matrix_t Q, Z64 p, int i, const isometry_t isom)
 {
   aut_grp_t grp;
-  bool found;
+  bool found, has_isotropic;
   int aut_idx;
   square_matrix_t aut_tr;
   
   square_matrix_set(nbr_man->Q, Q);
   nbr_man->p = p;
-  get_isotropic_vector(nbr_man->v, Q, p);
+  has_isotropic = get_isotropic_vector(nbr_man->v, Q, p);
   square_matrix_mul_vec_left(nbr_man->b, nbr_man->v, Q);
   vector_mod_p(nbr_man->b,p);
 
   nbr_man->i = i;
   nbr_man->iso_j = 0;
   vector_zero(nbr_man->w);
-  if (i == 0)
+  if (!has_isotropic) {
+    // No isotropic vector modulo p has first coordinate 1, and v is not one.
+    // Then every isotropic vector is in the radical: if u is isotropic and
+    // B(u,w) is not 0, then q(w) u - B(u,w) w is isotropic, and its first
+    // coordinate is not 0 when that of u is 0 and that of w is not.
+    // The lattice has no p-neighbors, and the process has ended.
+    vector_zero(nbr_man->iso_vec);
+    nbr_man->w[0] = 1;
+  }
+  else if (i == 0)
     vector_set(nbr_man->iso_vec, nbr_man->v);
   else {
     nbr_man->w[0] = nbr_man->w[1] = nbr_man->w[2] = 0;
@@ -455,7 +464,7 @@ void nbr_process_init(neighbor_manager_t nbr_man, const square_matrix_t Q, Z64 p
     }
   }
 
-  nbr_man->first_iter = (i == 0);
+  nbr_man->first_iter = (i == 0) && has_isotropic;
 
   // It could be that there are no isotropic vectors in this batch
   //  assert(is_isotropic_vector(nbr_man->iso_vec, nbr_man->Q, nbr_man->p));
