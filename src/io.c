@@ -11,7 +11,10 @@
 // System dependencies
 
 #include <assert.h>
+#include <ctype.h>
+#include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 // Self dependencies
@@ -28,32 +31,52 @@
 // can change this one to be dynamically allocated, but it's small enough
 #define MAX_GEN_SIZE 2000 
 
-// parse a comma-separated array of integers
+// skip the white space at the beginning of a string
+static const char* skip_spaces(const char* str)
+{
+  while (isspace((unsigned char)(*str)))
+    str++;
+  return str;
+}
+
+// parse a comma-separated array of integers, possibly enclosed in brackets.
+// The array has to consist of exactly num_entries integers, and no more than
+// num_entries entries are written to arr.
 bool parse_array_int(Z64* arr, const char* arr_str, int num_entries)
 {
-  int idx, len, offset;
-  char *original;
-  char *cpy;
-  char *token;
+  int idx;
+  const char* str;
+  char* end;
+  long long val;
+  bool has_bracket;
 
   idx = 0;
-  offset = 0;
-  len = strlen(arr_str);
-  if ((len > 0) && (arr_str[0] == '[')) {
-    assert(arr_str[len-1] == ']');
-    len -= 2;
-    offset = 1;
+  str = skip_spaces(arr_str);
+  has_bracket = (*str == '[');
+  if (has_bracket)
+    str++;
+  while (true) {
+    errno = 0;
+    val = strtoll(str, &end, 10);
+    // every entry has to be an integer which fits in 64 bits
+    if ((end == str) || (errno == ERANGE))
+      return false;
+    // there is no room for this entry
+    if (idx == num_entries)
+      return false;
+    arr[idx++] = val;
+    str = skip_spaces(end);
+    if (*str != ',')
+      break;
+    str++;
   }
-  original = (char*)malloc((len+1)*sizeof(char));
-  memcpy(original, arr_str+offset, len+1);
-  cpy = original;
-  token = strsep(&cpy, ",");
-  while(token != NULL) {
-    arr[idx++] = atoi(token);
-    token = strsep(&cpy, ",");
+  if (has_bracket) {
+    if (*str != ']')
+      return false;
+    str = skip_spaces(str+1);
   }
-  free(original);
-  return (idx == num_entries);
+  // nothing may follow the array
+  return (*str == '\0') && (idx == num_entries);
 }
 
 // parse a comma-separated array of ratinoal numbers
@@ -213,6 +236,15 @@ bool parse_mat_and_isom(square_matrix_t Q, isometry_t isom,
   return success;
 }
 
+// report a lattice in the genus file which is not given by 15 integers
+static void genus_file_error(const char* fname, size_t disc,
+			     const char* matrix_str)
+{
+  fprintf(stderr, "Error: in the genus file %s, the lattice %s of discriminant %zu is not a list of 15 integers\n",
+	  fname, matrix_str, disc);
+  exit(EXIT_FAILURE);
+}
+
 // read the genus from a file with all the genus representatives for all discriminants
 size_t read_genus(square_matrix_t** p_genus, const char* fname, size_t disc)
 {
@@ -229,6 +261,10 @@ size_t read_genus(square_matrix_t** p_genus, const char* fname, size_t disc)
   size_t mat_buf_idx = 0;
 
   genus_file = fopen(fname, "r");
+  if (genus_file == NULL) {
+    fprintf(stderr, "Error: could not open the genus file %s\n", fname);
+    exit(EXIT_FAILURE);
+  }
 
   while ((num_read == BUF_SIZE) && (cur_disc <= disc) ){
     num_read = fread(buffer, sizeof(char), BUF_SIZE, genus_file);
@@ -243,7 +279,8 @@ size_t read_genus(square_matrix_t** p_genus, const char* fname, size_t disc)
 	  if (cur_disc == disc) {
 	    if (mat_buf_idx != 0) {
 	      matrix_buffer[mat_buf_idx] = '\0';
-	      parse_matrix(coeffs[genus_size++], matrix_buffer);
+	      if (!parse_matrix(coeffs[genus_size++], matrix_buffer))
+		genus_file_error(fname, disc, matrix_buffer);
 	      mat_buf_idx = 0;
 	    }
 	  }
@@ -256,7 +293,8 @@ size_t read_genus(square_matrix_t** p_genus, const char* fname, size_t disc)
 	  case 2:
 	    if (mat_buf_idx != 0) {
 	      matrix_buffer[mat_buf_idx] = '\0';
-	      parse_matrix(coeffs[genus_size++], matrix_buffer);
+	      if (!parse_matrix(coeffs[genus_size++], matrix_buffer))
+		genus_file_error(fname, disc, matrix_buffer);
 	      mat_buf_idx = 0;
 	    }
 	    break;
@@ -304,6 +342,10 @@ size_t read_genus_and_isom(square_matrix_t** p_genus,
   size_t mat_buf_idx = 0;
 
   genus_file = fopen(fname, "r");
+  if (genus_file == NULL) {
+    fprintf(stderr, "Error: could not open the genus file %s\n", fname);
+    exit(EXIT_FAILURE);
+  }
 
   while ((num_read == BUF_SIZE) && (cur_disc <= disc) ){
     num_read = fread(buffer, sizeof(char), BUF_SIZE, genus_file);

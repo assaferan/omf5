@@ -1259,7 +1259,7 @@ void get_hecke_fmpq_mat_all_conductors(fmpq_mat_t* hecke_fmpq_mat, const genus_t
 /* Compute the Hecke eigenformson the space with conductor c, given the decomposition to Hecke subspaces */
 void hecke_eigenforms(eigenvalues_t evs, const decomposition_t D, const genus_t genus, slong c)
 {
-  slong i, p_idx;
+  slong i, j, p_idx;
   bool ev_init;
 
   eigenvalues_init(evs, D->num[c], genus->dims[c]);
@@ -1268,6 +1268,13 @@ void hecke_eigenforms(eigenvalues_t evs, const decomposition_t D, const genus_t 
     p_idx = 0;
     ev_init = false;
     do {
+      // The field and the eigenvector are initialized by every attempt,
+      // so those of the attempt which failed are cleared before the next one.
+      if (p_idx > 0) {
+	for (j = 0; j < evs->dim; j++)
+	  nf_elem_clear(evs->eigenvecs[i][j], evs->nfs[i]);
+	nf_clear(evs->nfs[i]);
+      }
       ev_init = get_eigenvector_on_subspace(evs->eigenvecs[i], evs->nfs[i],
 					    D->hecke[p_idx][c], D->bases[c][i]);
       p_idx++;

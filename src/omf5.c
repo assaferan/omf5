@@ -184,6 +184,9 @@ int main(int argc, char* argv[])
     if (strncmp(argv[i], "-quad=", 6) == 0) {
       is_valid = parse_matrix(Q_coeffs, argv[i]+6);
       has_quad = is_valid;
+      if (!is_valid)
+	fprintf(stderr, "Error: -quad=%s is not a comma-separated list of 15 integers\n",
+		argv[i]+6);
     }
 
     // checking for format of the matrix input
@@ -242,6 +245,8 @@ int main(int argc, char* argv[])
   if (do_tests) {
     test_res <<= 1;
     test_res |= test_greedy_overflow();
+    test_res <<= 1;
+    test_res |= test_parse_matrix();
     test_res <<= 1;
     test_res |= test_is_square();
     test_res <<= 1;
