@@ -731,6 +731,76 @@ STATUS test_is_square()
   return ret;
 }
 
+// The entry which follows the coefficients, to see that it is not written to.
+#define PARSE_GUARD 123456789
+
+STATUS test_parse_matrix_of(const char* mat_str, bool is_valid)
+{
+  STATUS ret;
+  Z64 Q_coeffs[16];
+  int i;
+  bool parsed;
+
+  Q_coeffs[15] = PARSE_GUARD;
+  parsed = parse_matrix(Q_coeffs, mat_str);
+
+  ret = SUCCESS;
+  if (parsed != is_valid) {
+    fprintf(stderr, "FAIL: the matrix %s was found %sto be valid\n",
+	    mat_str, is_valid ? "not " : "");
+    ret = FAIL;
+  }
+  if (Q_coeffs[15] != PARSE_GUARD) {
+    fprintf(stderr, "FAIL: more than 15 coefficients were read from %s\n",
+	    mat_str);
+    ret = FAIL;
+  }
+  // The coefficients of the valid matrices below are -7,...,7.
+  if (parsed && is_valid)
+    for (i = 0; i < 15; i++)
+      if (Q_coeffs[i] != i - 7) {
+	fprintf(stderr, "FAIL: coefficient %d of %s was read as %" PRId64 "\n",
+		i, mat_str, Q_coeffs[i]);
+	ret = FAIL;
+      }
+
+  return ret;
+}
+
+STATUS test_parse_matrix()
+{
+  STATUS ret;
+  Z64 Q_coeffs[15];
+
+  ret = test_parse_matrix_of("-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7", true);
+  // brackets and spaces are allowed
+  ret |= test_parse_matrix_of("[-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7]", true);
+  ret |= test_parse_matrix_of(" -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7 ", true);
+  ret |= test_parse_matrix_of(" [ -7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7 ] ", true);
+  ret |= test_parse_matrix_of("[-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7", false);
+  ret |= test_parse_matrix_of("-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7]", false);
+  // too many coefficients, which used to be written past the end of the array
+  ret |= test_parse_matrix_of("-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7,8", false);
+  ret |= test_parse_matrix_of("-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7,", false);
+  // too few coefficients
+  ret |= test_parse_matrix_of("-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6", false);
+  ret |= test_parse_matrix_of("", false);
+  ret |= test_parse_matrix_of("-7,,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7", false);
+  // coefficients which are not integers, which used to be read as integers
+  ret |= test_parse_matrix_of("-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,x", false);
+  ret |= test_parse_matrix_of("-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7x", false);
+  ret |= test_parse_matrix_of("-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,99999999999999999999", false);
+
+  // a coefficient which does not fit in 32 bits, which used to be truncated
+  if ((!parse_matrix(Q_coeffs, "1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1099511627776")) ||
+      (Q_coeffs[14] != -INT64_C(1099511627776))) {
+    fprintf(stderr, "FAIL: the coefficient -2^40 was not read as a 64-bit integer\n");
+    ret = FAIL;
+  }
+
+  return ret;
+}
+
 // Checks the mass formula for the lattice whose gram matrix is given by Q_coeffs
 STATUS test_mass_of(const Z64* Q_coeffs, slong mass_num, slong mass_denom)
 {

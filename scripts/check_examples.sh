@@ -64,13 +64,19 @@ check_example() {
 
 # check_error name message omf5-arguments...
 # Checks that omf5 exits with an error for these arguments, and reports it
-# with a line containing the message.
+# with a line containing the message. Being killed by a signal, as after
+# writing past the end of an array, is not exiting with an error.
 check_error() {
   name=$1
   message=$2
   shift 2
-  if "$OMF5" "$@" > "$tmp/$name.out" 2> "$tmp/$name.err"; then
+  "$OMF5" "$@" > "$tmp/$name.out" 2> "$tmp/$name.err"
+  rc=$?
+  if [ $rc -eq 0 ]; then
     echo "FAIL $name: omf5 did not exit with an error"
+    status=1
+  elif [ $rc -gt 128 ] && [ $rc -ne 255 ]; then
+    echo "FAIL $name: omf5 was killed by signal $((rc - 128))"
     status=1
   elif ! grep -Fq -- "$message" "$tmp/$name.err"; then
     echo "FAIL $name: the error '$message' was not reported"
@@ -111,6 +117,12 @@ check_example disc61-idxs-unsorted "$tmp/61idxs.exp" "G G" -quad=1,0,0,1,1,1,0,1
 # An entry which is not an integer is an error. It used to be read as 0.
 check_error disc61-idxs-malformed "is not a comma-separated list of integers" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=10 -idxs=2,abc
 check_error disc61-idxs-empty "is not a comma-separated list of integers" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=10 -idxs=
+
+# A matrix which is not given by 15 integers is an error. More than 15 entries
+# used to be written past the end of the array, and an entry which is not an
+# integer used to be read as 0.
+check_error quad-too-long "is not a comma-separated list of 15 integers" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8,1,0,0,1,1,1,0,1,0,1,0,0,1,0,8,1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=10
+check_error quad-malformed "is not a comma-separated list of 15 integers" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,x -format=GG -prec=10
 
 # Discriminant 167, forms of conductor 1 and of conductor 167.
 cat > "$tmp/167.exp" <<'EOF'
