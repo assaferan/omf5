@@ -1,5 +1,8 @@
 #include <assert.h>
 #include <inttypes.h>
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include <carat/matrix.h>
 #include <carat/symm.h>
@@ -65,8 +68,14 @@ void square_matrix_init_set_symm_GG(square_matrix_t Q, const Z64* coeff_vec)
     for (col = 0; col < row; col++)
       Q[row][col] = Q[col][row];
 
-  for (row = 0; row < QF_RANK; row++)
+  for (row = 0; row < QF_RANK; row++) {
+    // twice the coefficient has to fit in 64 bits
+    if ((Q[row][row] > INT64_MAX / 2) || (Q[row][row] < INT64_MIN / 2)) {
+      fprintf(stderr, "Error: the coefficient %" PRId64 " of a lattice is too large\n", Q[row][row]);
+      exit(EXIT_FAILURE);
+    }
     Q[row][row] *= 2;
+  }
 
 #ifdef DEBUG
   square_matrix_print(Q);
@@ -145,8 +154,14 @@ matrix_TYP* matrix_TYP_init_set_square_matrix(const square_matrix_t mat)
 
   nmat = init_mat(QF_RANK, QF_RANK, "");
   for (i = 0; i < QF_RANK; i++)
-    for (j = 0; j < QF_RANK; j++)
+    for (j = 0; j < QF_RANK; j++) {
+      // the entries of a matrix of CARAT are ints
+      if ((mat[i][j] > INT_MAX) || (mat[i][j] < INT_MIN)) {
+	fprintf(stderr, "Error: the entry %" PRId64 " of the Gram matrix of a lattice does not fit in 32 bits\n", mat[i][j]);
+	exit(EXIT_FAILURE);
+      }
       nmat->array.SZ[i][j] = mat[i][j];
+    }
 
   return nmat;
 }
@@ -243,15 +258,40 @@ bool vector_is_zero(const vector_t vec)
   return true;
 }
 
+// The Gram matrix of a lattice with an integral quadratic form has an even diagonal.
+bool square_matrix_is_even(const square_matrix_t mat)
+{
+  int i;
+
+  for (i = 0; i < QF_RANK; i++)
+    if (mat[i][i] % 2 != 0)
+      return false;
+
+  return true;
+}
+
+// By Sylvester's criterion, a symmetric matrix is positive definite if and only if
+// its leading principal minors are all positive. The matrix is assumed to be symmetric.
 bool square_matrix_is_positive_definite(const square_matrix_t mat)
 {
-  matrix_TYP* Q;
+  fmpz_mat_t Q, minor;
+  fmpz_t det;
   bool is_pos_def;
+  slong n;
 
-  Q = matrix_TYP_init_set_square_matrix(mat);
-  is_pos_def = definite_test(Q);
+  fmpz_init(det);
+  fmpz_mat_init_set_square_matrix(Q, mat);
 
-  free_mat(Q);
+  is_pos_def = true;
+  for (n = 1; (n <= QF_RANK) && (is_pos_def); n++) {
+    fmpz_mat_window_init(minor, Q, 0, 0, n, n);
+    fmpz_mat_det(det, minor);
+    fmpz_mat_window_clear(minor);
+    is_pos_def = (fmpz_sgn(det) > 0);
+  }
+
+  fmpz_mat_clear(Q);
+  fmpz_clear(det);
   
   return is_pos_def;
 }

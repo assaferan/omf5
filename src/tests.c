@@ -1,5 +1,6 @@
 #include <inttypes.h>
 #include <math.h>
+#include <stdlib.h>
 #include <time.h>
 
 #include "arith.h"
@@ -969,6 +970,22 @@ STATUS compute_hecke_col_all_conds(const genus_t genus, slong p, int gen_idx)
   return SUCCESS;
 }
 
+// The index of the conductor c among the conductors of the genus.
+// Exits with an error if c is not one of them.
+static int conductor_index(const genus_t genus, slong c)
+{
+  int c_idx;
+
+  for (c_idx = 0; (c_idx < genus->num_conductors) && (genus->conductors[c_idx] != c);) c_idx++;
+
+  if (c_idx == genus->num_conductors) {
+    fprintf(stderr, "Error: -cond=%ld is not one of the possible conductors\n", c);
+    exit(EXIT_FAILURE);
+  }
+
+  return c_idx;
+}
+
 STATUS compute_hecke_col(const genus_t genus, slong p, slong c)
 {
   int* hecke;
@@ -977,11 +994,14 @@ STATUS compute_hecke_col(const genus_t genus, slong p, slong c)
   clock_t cpuclock_0, cpuclock_1;
   double cputime, cpudiff;  
 
-  for (c_idx = 0; (c_idx < genus->num_conductors) && (genus->conductors[c_idx] != c);) c_idx++;
+  c_idx = conductor_index(genus, c);
 
+  // The column is that of the first lattice which contributes to the space of
+  // this conductor, or of the first lattice if the space has dimension 0.
   gen_idx = 0;
-  while (genus->lut_positions[c_idx][gen_idx] == -1)
-    gen_idx++;
+  if (genus->dims[c_idx] > 0)
+    while (genus->lut_positions[c_idx][gen_idx] == -1)
+      gen_idx++;
   
   // right now we only handle differently the trivial spinor norm case
   if (c_idx != 0)
@@ -1021,17 +1041,13 @@ STATUS compute_hecke_col(const genus_t genus, slong p, slong c)
 STATUS compute_hecke_matrix(const genus_t genus, slong p, slong c)
 {
   matrix_TYP* hecke;
-  int c_idx, gen_idx;
+  int c_idx;
 
   clock_t cpuclock_0, cpuclock_1;
   double cputime, cpudiff;  
 
-  for (c_idx = 0; (c_idx < genus->num_conductors) && (genus->conductors[c_idx] != c);) c_idx++;
+  c_idx = conductor_index(genus, c);
 
-  gen_idx = 0;
-  while (genus->lut_positions[c_idx][gen_idx] == -1)
-    gen_idx++;
-  
   // right now we only handle differently the trivial spinor norm case
   if (c_idx != 0)
     return compute_hecke_matrix_all_conds(genus, p);

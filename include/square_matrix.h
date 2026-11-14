@@ -45,6 +45,7 @@ void vector_zero(vector_t vec);
 
 bool square_matrix_is_one(const square_matrix_t mat);
 bool square_matrix_is_zero(const square_matrix_t mat);
+bool square_matrix_is_even(const square_matrix_t mat);
 bool square_matrix_is_positive_definite(const square_matrix_t mat);
 
 bool vector_is_zero(const vector_t vec);
