@@ -15,6 +15,8 @@
 // System dependencies
 
 #include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 // Required packages dependencies
 
@@ -216,6 +218,27 @@ void dimensions_init(genus_t genus)
   return;
 }
 
+/* Check whether the lattices found so far are the whole genus, */
+/* which is when their masses add up to the mass of the genus. */
+/* If they add up to more than that, then either the mass or one of */
+/* the lattices is wrong, and the enumeration would never stop. */
+static bool mass_is_reached(const fmpq_t acc_mass, const fmpq_t mass)
+{
+  int cmp;
+
+  cmp = fmpq_cmp(acc_mass, mass);
+  if (cmp > 0) {
+    fprintf(stderr, "Error: the lattices found in the genus have mass ");
+    fmpq_fprint(stderr, acc_mass);
+    fprintf(stderr, ", which is more than the mass ");
+    fmpq_fprint(stderr, mass);
+    fprintf(stderr, " of the genus\n");
+    exit(EXIT_FAILURE);
+  }
+
+  return (cmp == 0);
+}
+
 /* compute the genus of a quadratic form */
 void genus_init_square_matrix(genus_t genus, const square_matrix_t q, int h)
 {
@@ -291,7 +314,7 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t q, int h)
   fmpz_set_ui(prime, 1);
 
   if (h == -1)
-    genus_full = !fmpq_cmp(acc_mass, mass);
+    genus_full = mass_is_reached(acc_mass, mass);
   else
     genus_full = (h == slow_genus->num_stored);
   
@@ -395,7 +418,7 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t q, int h)
 	    aut_grp_clear(aut_grp);
 	    fmpq_add(acc_mass, acc_mass, mass_form);
 	    if (h == -1)
-	      genus_full = !fmpq_cmp(acc_mass, mass);
+	      genus_full = mass_is_reached(acc_mass, mass);
 	    else
 	      genus_full = (h == slow_genus->num_stored);
 	    
