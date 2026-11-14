@@ -135,6 +135,17 @@ check_error quad-odd "the lattice is not even" -quad=2,1,2,0,0,2,0,0,0,2,0,0,0,0
 check_error quad-large "the entry 4294967296 of the Gram matrix of a lattice does not fit in 32 bits" -quad=1,0,0,0,0,1,0,0,0,1,0,0,1,0,2147483648 -format=GG -prec=10
 check_error quad-overflow "the coefficient -9223372036854775807 of a lattice is too large" -quad=1,0,0,0,0,1,0,0,0,1,0,0,1,0,-9223372036854775807 -format=GG -prec=10
 
+# A flag whose value cannot be used is an error. A value which is not an
+# integer used to be read as 0, and a conductor which is not one of the
+# conductors of the genus was looked up past the end of an array.
+check_error prec-malformed "the value of -prec=abc is not an integer" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=abc
+check_error prec-trailing "the value of -prec=10x is not an integer" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=10x
+check_error prec-negative "the precision in -prec=-5 is negative" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=-5
+check_error p-not-prime "-p=4 is not a prime" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -hecke -p=4
+check_error cond-not-conductor "-cond=7 is not one of the possible conductors" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -hecke -p=3 -cond=7
+check_error cond-not-conductor-row "-cond=7 is not one of the possible conductors" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -hecke -row -p=3 -cond=7
+check_error disc-negative "the discriminant in -disc=-1 is negative" -genus="$tmp/no-such-file" -disc=-1 -prec=10
+
 # A genus file which cannot be opened is an error, with or without isometries.
 check_error genus-missing "could not open the genus file" -genus="$tmp/no-such-file" -disc=61 -prec=10
 check_error genus-isom-missing "could not open the genus file" -genus="$tmp/no-such-file" -isom -disc=61 -prec=10

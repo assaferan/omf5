@@ -18,6 +18,7 @@
 // Required packages dependencies
 
 #include <carat/typedef.h>
+#include <flint/ulong_extras.h>
 
 // Self dependencies
 
@@ -45,6 +46,8 @@
  *     + bool - true if param_str is of the form
  *              "-{flag_name}={flag_val}", in which case
  *              *flag_val will contain the value.
+ *              If the value is not an integer, reports
+ *              it and returns false.
  *
  ************************************************************
  */
@@ -207,11 +210,19 @@ int main(int argc, char* argv[])
     }
 
     is_prec = handle_flag_int("prec", argv[i], &prec);
+    if ((is_prec) && (prec < 0)) {
+      fprintf(stderr, "Error: the precision in %s is negative\n", argv[i]);
+      is_prec = false;
+    }
     is_valid = (is_valid) || (is_prec);
     if (is_prec)
       has_prec = true;
 
     is_p = handle_flag_int("p", argv[i], &p);
+    if ((is_p) && ((p < 2) || (!n_is_prime(p)))) {
+      fprintf(stderr, "Error: %s is not a prime\n", argv[i]);
+      is_p = false;
+    }
     is_valid = (is_valid) || (is_p);
     if (is_p)
       has_p = true;
@@ -222,6 +233,11 @@ int main(int argc, char* argv[])
       has_c = true;
 
     is_disc = handle_flag_int("disc", argv[i], &disc);
+    // the discriminant is the index of the genus in the genus file
+    if ((is_disc) && (disc < 0)) {
+      fprintf(stderr, "Error: the discriminant in %s is negative\n", argv[i]);
+      is_disc = false;
+    }
     is_valid = (is_valid) || (is_disc);
     if (is_disc)
       has_disc = true;
@@ -318,6 +334,8 @@ bool handle_flag_int(const char* flag_name, const char* param_str, int* flag_val
 {
   size_t flag_len;
   char* full_flag_name;
+  char* end;
+  long val;
   
   flag_len = strlen(flag_name) + 2;
   full_flag_name = (char*)malloc((flag_len+1)*sizeof(char));
@@ -335,8 +353,16 @@ bool handle_flag_int(const char* flag_name, const char* param_str, int* flag_val
 
   // checks whether param_str starts with -{flag_name}=
   if (strncmp(param_str, full_flag_name, flag_len) == 0) {
-    *flag_val = atoi(param_str + flag_len);
     free(full_flag_name);
+    errno = 0;
+    val = strtol(param_str + flag_len, &end, 10);
+    // The value has to be an integer, with nothing after it.
+    if ((end == param_str + flag_len) || (*end != '\0') ||
+	(errno == ERANGE) || (val > INT_MAX) || (val < INT_MIN)) {
+      fprintf(stderr, "Error: the value of %s is not an integer\n", param_str);
+      return false;
+    }
+    *flag_val = (int)val;
     return true;
   }
 
