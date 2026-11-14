@@ -124,6 +124,18 @@ check_error disc61-idxs-empty "is not a comma-separated list of integers" -quad=
 check_error quad-too-long "is not a comma-separated list of 15 integers" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8,1,0,0,1,1,1,0,1,0,1,0,0,1,0,8,1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=10
 check_error quad-malformed "is not a comma-separated list of 15 integers" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,x -format=GG -prec=10
 
+# A genus file which cannot be opened is an error, with or without isometries.
+check_error genus-missing "could not open the genus file" -genus="$tmp/no-such-file" -disc=61 -prec=10
+check_error genus-isom-missing "could not open the genus file" -genus="$tmp/no-such-file" -isom -disc=61 -prec=10
+
+# So is a lattice in the genus file which is not given by 15 integers.
+# Here the genus of discriminant 1 has a lattice with 14 entries.
+echo '[[],[[1,0,0,1,1,1,0,1,0,1,0,0,1,0,8],[1,0,0,1,1,1,0,1,0,1,0,0,1,0]]]' > "$tmp/bad.db"
+check_error genus-malformed "of discriminant 1 is not a list of 15 integers" -genus="$tmp/bad.db" -disc=1 -prec=10
+# The same when it is not the last lattice of its genus.
+echo '[[],[[1,0,0,1,1,1,0,1,0,1,0,0,1,0],[1,0,0,1,1,1,0,1,0,1,0,0,1,0,8]]]' > "$tmp/bad-first.db"
+check_error genus-malformed-first "of discriminant 1 is not a list of 15 integers" -genus="$tmp/bad-first.db" -disc=1 -prec=10
+
 # Discriminant 167, forms of conductor 1 and of conductor 167.
 cat > "$tmp/167.exp" <<'EOF'
 1: -2 0 -2 2 -14 -34 -15 16 155 40 -152

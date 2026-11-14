@@ -236,6 +236,15 @@ bool parse_mat_and_isom(square_matrix_t Q, isometry_t isom,
   return success;
 }
 
+// report a lattice in the genus file which is not given by 15 integers
+static void genus_file_error(const char* fname, size_t disc,
+			     const char* matrix_str)
+{
+  fprintf(stderr, "Error: in the genus file %s, the lattice %s of discriminant %zu is not a list of 15 integers\n",
+	  fname, matrix_str, disc);
+  exit(EXIT_FAILURE);
+}
+
 // read the genus from a file with all the genus representatives for all discriminants
 size_t read_genus(square_matrix_t** p_genus, const char* fname, size_t disc)
 {
@@ -252,6 +261,10 @@ size_t read_genus(square_matrix_t** p_genus, const char* fname, size_t disc)
   size_t mat_buf_idx = 0;
 
   genus_file = fopen(fname, "r");
+  if (genus_file == NULL) {
+    fprintf(stderr, "Error: could not open the genus file %s\n", fname);
+    exit(EXIT_FAILURE);
+  }
 
   while ((num_read == BUF_SIZE) && (cur_disc <= disc) ){
     num_read = fread(buffer, sizeof(char), BUF_SIZE, genus_file);
@@ -266,7 +279,8 @@ size_t read_genus(square_matrix_t** p_genus, const char* fname, size_t disc)
 	  if (cur_disc == disc) {
 	    if (mat_buf_idx != 0) {
 	      matrix_buffer[mat_buf_idx] = '\0';
-	      parse_matrix(coeffs[genus_size++], matrix_buffer);
+	      if (!parse_matrix(coeffs[genus_size++], matrix_buffer))
+		genus_file_error(fname, disc, matrix_buffer);
 	      mat_buf_idx = 0;
 	    }
 	  }
@@ -279,7 +293,8 @@ size_t read_genus(square_matrix_t** p_genus, const char* fname, size_t disc)
 	  case 2:
 	    if (mat_buf_idx != 0) {
 	      matrix_buffer[mat_buf_idx] = '\0';
-	      parse_matrix(coeffs[genus_size++], matrix_buffer);
+	      if (!parse_matrix(coeffs[genus_size++], matrix_buffer))
+		genus_file_error(fname, disc, matrix_buffer);
 	      mat_buf_idx = 0;
 	    }
 	    break;
@@ -327,6 +342,10 @@ size_t read_genus_and_isom(square_matrix_t** p_genus,
   size_t mat_buf_idx = 0;
 
   genus_file = fopen(fname, "r");
+  if (genus_file == NULL) {
+    fprintf(stderr, "Error: could not open the genus file %s\n", fname);
+    exit(EXIT_FAILURE);
+  }
 
   while ((num_read == BUF_SIZE) && (cur_disc <= disc) ){
     num_read = fread(buffer, sizeof(char), BUF_SIZE, genus_file);
