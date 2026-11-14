@@ -136,10 +136,10 @@ void eigenvalues_clear(eigenvalues_t evs)
 {
   int i, j;
 
+  // The field, the eigenvector and the eigenvalue are initialized for every
+  // form, whatever its type is. This includes the old forms, and the forms
+  // which were not selected by their indices.
   for (i = 0; i < evs->num; i++) {
-    // If our form is an oldform, then we have not computed the eigenvalues since they might be meaningless
-    if (evs->lift_type[i] == O)
-      continue;
     for (j = 0; j < evs->dim; j++) {
       nf_elem_clear(evs->eigenvecs[i][j], evs->nfs[i]);
     }
