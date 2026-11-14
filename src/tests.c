@@ -1099,11 +1099,11 @@ STATUS test_radical_mod_4()
   return ret;
 }
 
-// Checks the Hecke operator at the prime p, which divides the discriminant of
-// the lattice given by Q_coeffs in the format GG: on each of the spaces, in the
-// order of the conductors, it commutes with the operator at the prime q, which
-// does not divide the discriminant, it is self-adjoint for the weights given
-// by the numbers of automorphisms, and it has the given trace.
+// Checks the Hecke operator at the prime p for the lattice given by Q_coeffs in
+// the format GG: on each of the spaces, in the order of the conductors, it
+// commutes with the operator at the prime q, which does not divide the
+// discriminant, it is self-adjoint for the weights given by the numbers of
+// automorphisms, and it has the given trace.
 STATUS test_hecke_bad_prime_of(const Z64* Q_coeffs, int p, int q, slong num_conds, const slong* traces)
 {
   genus_t genus;
@@ -1181,6 +1181,9 @@ STATUS test_hecke_bad_prime_of(const Z64* Q_coeffs, int p, int q, slong num_cond
 // or when p^2 divides the discriminant. The traces are those of the operators
 // HeckeOperator(M, p) of the package ModFrmAlg of Magma, for the spaces
 // M := OrthogonalModularForms(L : d := d, Special := true).
+// For the last two lattices the radical modulo a prime is not a line. Magma
+// does not find the spaces of such lattices, and the traces are those found
+// here.
 STATUS test_hecke_bad_primes()
 {
   // discriminant 66, with the conductors 1,2,3,6,11,22,33,66
@@ -1207,6 +1210,15 @@ STATUS test_hecke_bad_primes()
   // discriminant 162, with the conductors 1,2,3,6
   Z64 Q_162[15] = {1,1,0,0,-1,2,1,1,1,2,-1,2,2,1,3};
   slong traces_162_3[4] = {231,0,0,51};
+  // Discriminant 500, with the conductors 1,2,5,10. The radical modulo 5 is
+  // a plane, and the space of conductor 5 is of dimension 3.
+  Z64 Q_500[15] = {1,0,0,-1,0,2,-2,-1,-1,3,-2,3,3,0,4};
+  slong traces_500_5[4] = {390,0,20,0};
+  slong traces_500_3[4] = {105,0,1,0};
+  // Discriminant 104, with the conductors 1,13. The radical modulo 2 is of
+  // dimension 3, and there is no character at 2.
+  Z64 Q_104[15] = {1,0,0,-1,-1,1,0,1,1,1,-1,1,2,1,6};
+  slong traces_104_2[2] = {31,0};
   STATUS ret;
 
   // the prime divides the discriminant once
@@ -1223,6 +1235,12 @@ STATUS test_hecke_bad_primes()
   // to the power 4
   ret |= test_hecke_bad_prime_of(Q_80, 2, 3, 4, traces_80_2);
   ret |= test_hecke_bad_prime_of(Q_162, 3, 5, 4, traces_162_3);
+  // The radical modulo 5 is not a line: the character at 5 is a determinant,
+  // at the isometries to the 5-neighbors and at those which are integral at 5.
+  ret |= test_hecke_bad_prime_of(Q_500, 5, 3, 4, traces_500_5);
+  ret |= test_hecke_bad_prime_of(Q_500, 3, 7, 4, traces_500_3);
+  // the radical modulo 2 is not a line
+  ret |= test_hecke_bad_prime_of(Q_104, 2, 3, 2, traces_104_2);
 
   return ret;
 }

@@ -288,6 +288,9 @@ int main(int argc, char* argv[])
 
   has_genus = (has_quad && has_format) || (has_genus && has_disc);
 
+  if (has_genus && fmpz_is_even(genus->disc) && !spinor_has_prime(genus->spinor, 2))
+    fprintf(stderr, "Warning: the radical of the lattice modulo 2 is not a line. The forms whose conductor is even are not computed.\n");
+
   if (has_genus) {
     test_res <<= 1;
     if (has_prec)
