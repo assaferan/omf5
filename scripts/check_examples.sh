@@ -176,6 +176,15 @@ check_example genus44 "$tmp/44.exp" "F P P" -genus="$tmp/44.db" -disc=2 -prec=30
 # The genus is the same when it is computed from its first lattice.
 check_example quad44 "$tmp/44.exp" "F P P" -quad=1,0,-1,-1,1,1,-1,1,0,2,1,-1,2,-2,2 -format=GG -prec=30
 
+# Discriminant 117 = 3^2 * 13, at the prime 3, whose square divides the
+# discriminant. The form of type G has conductor 39, and its eigenvalue at 3
+# is -8: with the factor 1 + 8x + 27x^2 at 3 its L-function satisfies the
+# functional equation. With the opposite character at 3 it would be 8.
+cat > "$tmp/117.exp" <<'EOF'
+1: -8
+EOF
+check_example disc117-p3 "$tmp/117.exp" "F G O P P P P P Y" -quad=1,0,1,0,-1,1,0,1,0,2,1,-1,2,-1,3 -format=GG -p=3
+
 # genus_error name message genus
 # Checks that the error is reported for a genus file with this genus.
 genus_error() {

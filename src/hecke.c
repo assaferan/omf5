@@ -37,6 +37,30 @@
 #define likely(x)   __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
 
+// Whether the prime p divides the discriminant disc and p^2 does not.
+// At such a prime the eigenvalue of T_p is reported as T_p + 1, negated when p
+// divides the conductor of the form, which is the number lambda for which
+// the factor of the L-function at p is
+// (1 - (lambda + eps p) x + p^3 x^2) (1 + eps p x) for a sign eps.
+// When p^2 divides the discriminant the eigenvalue of T_p is reported as it is:
+// the factor is then 1 - T_p x + p^3 x^2 for the forms whose eigenvalue for the
+// second Hecke operator at p is 0.
+static bool divides_exactly_once(const fmpz_t disc, int p)
+{
+  fmpz_t rem;
+  bool once;
+
+  fmpz_init(rem);
+  once = (fmpz_fdiv_ui(disc, p) == 0);
+  if (once) {
+    fmpz_divexact_si(rem, disc, p);
+    once = (fmpz_fdiv_ui(rem, p) != 0);
+  }
+  fmpz_clear(rem);
+
+  return once;
+}
+
 /* update Hecke column (and timings for profiling) given a single isotropic vector,
    using nbr_data type as a neighbor manager - only for trivial conductor */
 int process_isotropic_vector_nbr_data(nbr_data_t nbr_man, int* T, const genus_t genus,
@@ -862,15 +886,15 @@ void get_hecke_ev_nbr_data(nf_elem_t e, const genus_t genus, const eigenvalues_t
 
   nf_elem_clear(e_new, evs->nfs[ev_idx]);
 
-  // handling the case p divides the discriminant.
-  // The adjustment is for T_p only. At such p the raw T_{p^2} is reported
-  // unchanged, as in Magma: it is determined by T_p and has no adjustment.
+  // handling the case p divides the discriminant exactly once.
+  // The adjustment is for T_p only. The raw T_{p^2} is reported unchanged,
+  // as in Magma, and so is T_p when p^2 divides the discriminant.
   if ((k == 1) && (genus->genus_reps->num_stored > 0)) {
     fmpz_mat_init_set_square_matrix(q, genus->genus_reps->keys[0]);
     fmpz_init(disc);
     fmpz_mat_det(disc, q);
     fmpz_divexact_si(disc,disc,2);
-    if (fmpz_get_si(disc) % p == 0) {
+    if (divides_exactly_once(disc, p)) {
       nf_elem_add_si(e, e, 1, evs->nfs[ev_idx]);
     }
     fmpz_mat_clear(q);
@@ -987,14 +1011,14 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
 
   nf_elem_clear(e_new, evs->nfs[ev_idx]);
 
-  // handling the case p divides the discriminant
+  // handling the case p divides the discriminant exactly once
   // The adjustment is for T_p only; the raw T_{p^2} is reported unchanged.
   if ((k == 1) && (genus->genus_reps->num_stored > 0)) {
     fmpz_mat_init_set_square_matrix(q, genus->genus_reps->keys[0]);
     fmpz_init(disc);
     fmpz_mat_det(disc, q);
     fmpz_divexact_si(disc,disc,2);
-    if (fmpz_get_si(disc) % p == 0) {
+    if (divides_exactly_once(disc, p)) {
       // As in get_hecke_ev_all_conductors: (T_p + 1), negated if p divides the conductor.
       nf_elem_add_si(e, e, 1, evs->nfs[ev_idx]);
       nf_elem_scalar_mul_si(e, e, (genus->conductors[ev_cond] % p == 0) ? -1 : 1, evs->nfs[ev_idx]);
@@ -1123,7 +1147,7 @@ void get_hecke_ev_all_conductors(nf_elem_t e, const genus_t genus,
     fmpz_init(disc);
     fmpz_mat_det(disc, q);
     fmpz_divexact_si(disc,disc,2);
-    if (fmpz_get_si(disc) % p == 0) {
+    if (divides_exactly_once(disc, p)) {
       nf_elem_add_si(e, e, 1, evs->nfs[ev_idx]);
       nf_elem_scalar_mul_si(e, e, (genus->conductors[ev_cond] % p == 0) ? -1 : 1, evs->nfs[ev_idx]); 
     }
@@ -1210,7 +1234,7 @@ void get_hecke_ev(nf_elem_t e, const genus_t genus, const eigenvalues_t evs, int
     fmpz_init(disc);
     fmpz_mat_det(disc, q);
     fmpz_divexact_si(disc,disc,2);
-    if (fmpz_get_si(disc) % p == 0) {
+    if (divides_exactly_once(disc, p)) {
       nf_elem_add_si(e, e, 1, evs->nfs[ev_idx]);
     }
     fmpz_mat_clear(q);

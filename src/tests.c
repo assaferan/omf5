@@ -1102,14 +1102,15 @@ STATUS test_radical_mod_4()
 // Checks the Hecke operator at the prime p, which divides the discriminant of
 // the lattice given by Q_coeffs in the format GG: on each of the spaces, in the
 // order of the conductors, it commutes with the operator at the prime q, which
-// does not divide the discriminant, and it has the given trace.
+// does not divide the discriminant, it is self-adjoint for the weights given
+// by the numbers of automorphisms, and it has the given trace.
 STATUS test_hecke_bad_prime_of(const Z64* Q_coeffs, int p, int q, slong num_conds, const slong* traces)
 {
   genus_t genus;
   matrix_TYP** hecke_p;
   matrix_TYP** hecke_q;
   slong c, i, j, k, dim, trace, pq, qp;
-  bool is_ok, commutes;
+  bool is_ok, commutes, self_adjoint;
 
   compute_genus(genus, Q_coeffs, "GG");
 
@@ -1149,6 +1150,17 @@ STATUS test_hecke_bad_prime_of(const Z64* Q_coeffs, int p, int q, slong num_cond
 	      p, q, genus->conductors[c]);
       is_ok = false;
     }
+    self_adjoint = true;
+    for (i = 0; i < dim; i++)
+      for (j = 0; j < dim; j++)
+	if ((slong)(hecke_p[c]->array.SZ[i][j]) * genus->num_auts[c][j] !=
+	    (slong)(hecke_p[c]->array.SZ[j][i]) * genus->num_auts[c][i])
+	  self_adjoint = false;
+    if (!self_adjoint) {
+      fprintf(stderr, "FAIL: the Hecke operator at %d for the conductor %ld is not self-adjoint\n",
+	      p, genus->conductors[c]);
+      is_ok = false;
+    }
   }
 
   for (c = 0; c < genus->num_conductors; c++) {
@@ -1166,7 +1178,9 @@ STATUS test_hecke_bad_prime_of(const Z64* Q_coeffs, int p, int q, slong num_cond
 // The neighbors at a prime p dividing the discriminant are images of the lattice
 // under isometries which are not integral at p, and the character of a conductor
 // divisible by p was not found correctly at them, for example when p = 2,
-// or when p^2 divides the discriminant.
+// or when p^2 divides the discriminant. The traces are those of the operators
+// HeckeOperator(M, p) of the package ModFrmAlg of Magma, for the spaces
+// M := OrthogonalModularForms(L : d := d, Special := true).
 STATUS test_hecke_bad_primes()
 {
   // discriminant 66, with the conductors 1,2,3,6,11,22,33,66
@@ -1176,17 +1190,23 @@ STATUS test_hecke_bad_primes()
   // discriminant 75, with the conductors 1,3,5,15
   Z64 Q_75[15] = {1,0,-1,-1,0,1,-1,0,0,2,0,1,2,0,2};
   slong traces_75_3[4] = {57,0,0,-20};
-  slong traces_75_5[4] = {320,0,0,-60};
+  slong traces_75_5[4] = {320,0,0,60};
   // discriminant 76, with the conductors 1,2,19,38
   Z64 Q_76[15] = {1,-1,0,-1,0,1,0,1,0,1,0,1,3,2,3};
-  slong traces_76_2[4] = {37,0,0,-7};
+  slong traces_76_2[4] = {37,0,0,7};
   // discriminant 40, with the conductors 1,2,5,10
   Z64 Q_40[15] = {1,-1,0,-1,1,1,0,1,0,1,-1,0,2,1,3};
-  slong traces_40_2[4] = {24,0,0,-6};
+  slong traces_40_2[4] = {24,0,0,6};
   // discriminant 54, with the conductors 1,2,3,6
   Z64 Q_54[15] = {1,0,0,0,-1,1,0,1,-1,1,0,1,2,-2,3};
   slong traces_54_2[4] = {17,0,0,-5};
-  slong traces_54_3[4] = {105,0,0,-12};
+  slong traces_54_3[4] = {105,0,0,12};
+  // discriminant 80, with the conductors 1,2,5,10
+  Z64 Q_80[15] = {1,0,1,-1,0,1,-1,0,1,2,-2,-1,2,-1,3};
+  slong traces_80_2[4] = {40,0,0,16};
+  // discriminant 162, with the conductors 1,2,3,6
+  Z64 Q_162[15] = {1,1,0,0,-1,2,1,1,1,2,-1,2,2,1,3};
+  slong traces_162_3[4] = {231,0,0,51};
   STATUS ret;
 
   // the prime divides the discriminant once
@@ -1194,12 +1214,15 @@ STATUS test_hecke_bad_primes()
   ret |= test_hecke_bad_prime_of(Q_66, 3, 5, 8, traces_66_3);
   ret |= test_hecke_bad_prime_of(Q_75, 3, 2, 4, traces_75_3);
   ret |= test_hecke_bad_prime_of(Q_54, 2, 5, 4, traces_54_2);
-  // to the power 2, where the sign of the traces for the last conductor is a choice
+  // to the power 2
   ret |= test_hecke_bad_prime_of(Q_75, 5, 2, 4, traces_75_5);
   ret |= test_hecke_bad_prime_of(Q_76, 2, 3, 4, traces_76_2);
   // to the power 3
   ret |= test_hecke_bad_prime_of(Q_40, 2, 3, 4, traces_40_2);
   ret |= test_hecke_bad_prime_of(Q_54, 3, 5, 4, traces_54_3);
+  // to the power 4
+  ret |= test_hecke_bad_prime_of(Q_80, 2, 3, 4, traces_80_2);
+  ret |= test_hecke_bad_prime_of(Q_162, 3, 5, 4, traces_162_3);
 
   return ret;
 }

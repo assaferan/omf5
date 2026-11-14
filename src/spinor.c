@@ -396,22 +396,21 @@ static bool spinor_divides(const spinor_t spinor, const fmpz_t denom)
 // the isometry is integral, it is the sign by which the isometry of determinant 1
 // acts on the radical of the lattice modulo q (modulo 4 when q = 2).
 // At a prime q at which the isometry is not integral:
-// - When q divides the discriminant to an odd power, the parity of the valuation
-//   at q of the spinor norm is a character of all the isometries, which agrees
-//   with the sign above on the integral ones, and we use it.
-// - When q divides the discriminant to an even power, the spinor norm of
-//   an integral isometry has even valuation at q, and the sign above is not
-//   the restriction of a character of all the isometries. But when q^2 divides
-//   the discriminant, the lattice L and a q-neighbor N of it have the same
-//   radical line modulo q: if q^k is the power of q dividing the discriminant
-//   and e in L has B(e,L) in q^k Z, then e is in N, it is not in qN, and
-//   B(e,N) is in q^(k-1) Z. An isometry taking L to N then acts on this line
-//   by a sign, and its products with integral isometries act by the product
-//   of the signs. There is such an isometry which fixes e and has a spinor
-//   norm of odd valuation at q, so when k is odd the character is the opposite
-//   of this sign. We take the opposite of this sign when k is even as well:
-//   this is a choice, and the other one changes the sign of the Hecke operator
-//   at q on the spaces whose conductor is divisible by q.
+// - When q divides the discriminant exactly once, it is given by the parity of
+//   the valuation at q of the spinor norm, which is a character of all the
+//   isometries and agrees with the sign above on the integral ones.
+// - When q^2 divides the discriminant, the lattice L and a q-neighbor N of it
+//   have the same radical line modulo q: if q^k is the power of q dividing
+//   the discriminant and e in L has B(e,L) in q^k Z, then e is in N, it is
+//   not in qN, and B(e,N) is in q^(k-1) Z. An isometry taking L to N then acts
+//   on this line by a sign, and its products with integral isometries act by
+//   the product of the signs. The character is this sign, as it is in
+//   RadicalSignCharacter of the package ModFrmAlg of Magma. This is the choice
+//   for which the L-function of an eigenform whose conductor is divisible by q
+//   satisfies its functional equation with the factor 1 - T_q x + q^3 x^2 at q,
+//   in the examples in which it was computed. The parity of the valuation of
+//   the spinor norm is not used here: when k is even it does not give the
+//   character, and when k is odd it gives the opposite sign.
 
 // The sign by which the isometry mat/denom, in lowest terms, acts on the radical
 // line at the prime q of the given index, where q divides denom exactly once and
@@ -526,7 +525,7 @@ static W64 spinor_norm_lowest_terms(const spinor_t spinor, const fmpz_mat_t mat,
     if (fmpz_fdiv_ui(denom, spinor_prime(spinor, prime_idx)) == 0) {
       // The isometry is not integral at this prime.
       evs[prime_idx] = 1;
-      if (spinor->exps[prime_idx] & 1) {
+      if (spinor->exps[prime_idx] == 1) {
 	if (!has_zas) {
 	  zas = spinor_norm_zas_fmpz_mat(spinor, mat, denom);
 	  has_zas = true;
@@ -538,13 +537,15 @@ static W64 spinor_norm_lowest_terms(const spinor_t spinor, const fmpz_mat_t mat,
 	sign = spinor_radical_sign(spinor, prime_idx, mat, denom,
 				   fmpz_sgn(det) * fmpz_sgn(denom));
 	if (sign == 0) {
-	  fprintf(stderr, "Error: the spinor norm of an isometry is not defined at the prime %lu, ",
-		  spinor_prime(spinor, prime_idx));
-	  fprintf(stderr, "which divides its denominator and divides the discriminant to an even power\n");
+	  if (nmod_mat_nrows(spinor->rads[prime_idx]) != 1)
+	    fprintf(stderr, "Error: the radical of the lattice modulo %lu is not a line, and the Hecke operator at %lu is not supported for such a lattice\n",
+		    spinor_prime(spinor, prime_idx), spinor_prime(spinor, prime_idx));
+	  else
+	    fprintf(stderr, "Error: an isometry does not act by a sign on the radical of the lattice at the prime %lu, which divides its denominator and whose square divides the discriminant\n",
+		    spinor_prime(spinor, prime_idx));
 	  exit(EXIT_FAILURE);
 	}
-	// the opposite of the sign
-	if (sign == 1)
+	if (sign == -1)
 	  evs[prime_idx] = p.n-1;
       }
       continue;
