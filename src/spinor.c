@@ -1,9 +1,13 @@
 #include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include <carat/matrix.h>
 
 #include <flint/fmpz.h>
 #include <flint/fmpz_mat.h>
+#include <flint/fmpq.h>
+#include <flint/fmpq_mat.h>
 #include <flint/fq_nmod.h>
 #include <flint/fq_nmod_mat.h>
 
@@ -155,6 +159,8 @@ void spinor_init_fmpz(spinor_t spinor, const fmpz_t disc)
   spinor->rads = (nmod_mat_t*)malloc((bad_primes->num) * sizeof(nmod_mat_t));
   spinor->primes = (nmod_t*)malloc((bad_primes->num) * sizeof(nmod_t));
   spinor->pivots = (slong*)malloc((bad_primes->num) * sizeof(slong));
+  spinor->exps = (slong*)malloc((bad_primes->num) * sizeof(slong));
+  spinor->lifts = (fmpz_mat_t*)malloc((bad_primes->num) * sizeof(fmpz_mat_t));
 
   for (prime_idx = 0; prime_idx < bad_primes->num; prime_idx++) {
     p = fmpz_get_si(&(bad_primes->p[prime_idx]));
@@ -162,7 +168,38 @@ void spinor_init_fmpz(spinor_t spinor, const fmpz_t disc)
       p = 4;
     nmod_init(&(spinor->primes[prime_idx]), p);
     nmod_mat_init(spinor->rads[prime_idx], 0, 0, spinor->primes[prime_idx].n);
+    fmpz_mat_init(spinor->lifts[prime_idx], 0, 0);
+    spinor->exps[prime_idx] = bad_primes->exp[prime_idx];
   }
+
+  fmpz_factor_clear(bad_primes);
+
+  return;
+}
+
+// The adjugate of the nonsingular matrix q.
+static void adjugate(fmpz_mat_t adj, const fmpz_mat_t q)
+{
+  fmpq_mat_t q_q, q_inv;
+  fmpz_t det;
+  int invertible;
+
+  fmpz_init(det);
+  fmpz_mat_det(det, q);
+
+  fmpq_mat_init(q_q, fmpz_mat_nrows(q), fmpz_mat_ncols(q));
+  fmpq_mat_init(q_inv, fmpz_mat_nrows(q), fmpz_mat_ncols(q));
+  fmpq_mat_set_fmpz_mat(q_q, q);
+  invertible = fmpq_mat_inv(q_inv, q_q);
+  assert(invertible);
+  (void)invertible;
+  fmpq_mat_scalar_mul_fmpz(q_inv, q_inv, det);
+  // the entries are integers
+  fmpq_mat_get_fmpz_mat(adj, q_inv);
+
+  fmpq_mat_clear(q_inv);
+  fmpq_mat_clear(q_q);
+  fmpz_clear(det);
 
   return;
 }
@@ -174,6 +211,7 @@ void spinor_init_fmpz_mat(spinor_t spinor, const fmpz_mat_t q)
   nmod_mat_t q_p;
   fmpz_factor_t bad_primes;
   nmod_mat_t ker;
+  fmpz_mat_t adj;
   slong nullity, i, j;
   slong p, pivot;
 
@@ -184,15 +222,39 @@ void spinor_init_fmpz_mat(spinor_t spinor, const fmpz_mat_t q)
   fmpz_factor(bad_primes, det);  
   fmpz_clear(det);
 
+  fmpz_mat_init(adj, fmpz_mat_nrows(q), fmpz_mat_ncols(q));
+  adjugate(adj, q);
+
   fmpz_mat_init_set(spinor->Q,q);
   spinor->num_primes = bad_primes->num;
   spinor->twist = (1LL << (bad_primes->num)) - 1;
   spinor->rads = (nmod_mat_t*)malloc((bad_primes->num) * sizeof(nmod_mat_t));
   spinor->primes = (nmod_t*)malloc((bad_primes->num) * sizeof(nmod_t));
   spinor->pivots = (slong*)malloc((bad_primes->num) * sizeof(slong));
+  spinor->exps = (slong*)malloc((bad_primes->num) * sizeof(slong));
+  spinor->lifts = (fmpz_mat_t*)malloc((bad_primes->num) * sizeof(fmpz_mat_t));
   
   for (prime_idx = 0; prime_idx < bad_primes->num; prime_idx++) {
     p = fmpz_get_si(&(bad_primes->p[prime_idx]));
+    spinor->exps[prime_idx] = bad_primes->exp[prime_idx];
+
+    // The product of q and its adjugate is det(q), so that any column of the adjugate
+    // is orthogonal to the lattice modulo the power of p dividing det(q).
+    // When the radical modulo p is a line the adjugate has rank 1 modulo p,
+    // and we take a column which is not 0 modulo p. Otherwise it is 0 modulo p,
+    // and the vector is left as 0.
+    fmpz_mat_init(spinor->lifts[prime_idx], fmpz_mat_nrows(q), 1);
+    for (j = 0; j < fmpz_mat_ncols(adj); j++) {
+      for (i = 0; i < fmpz_mat_nrows(adj); i++)
+	if (fmpz_fdiv_ui(fmpz_mat_entry(adj, i, j), p) != 0)
+	  break;
+      if (i < fmpz_mat_nrows(adj))
+	break;
+    }
+    if (j < fmpz_mat_ncols(adj))
+      for (i = 0; i < fmpz_mat_nrows(adj); i++)
+	fmpz_set(fmpz_mat_entry(spinor->lifts[prime_idx], i, 0), fmpz_mat_entry(adj, i, j));
+
     if (p == 2)
       p = 4;
     nmod_init(&(spinor->primes[prime_idx]),p);
@@ -219,6 +281,7 @@ void spinor_init_fmpz_mat(spinor_t spinor, const fmpz_mat_t q)
     nmod_mat_clear(ker);
     nmod_mat_clear(q_p);
   }
+  fmpz_mat_clear(adj);
   fmpz_factor_clear(bad_primes);
   return;
 }
@@ -241,11 +304,14 @@ void spinor_clear(spinor_t spinor)
   fmpz_mat_clear(spinor->Q);
   for (prime_idx = 0; prime_idx < spinor->num_primes; prime_idx++) {
     nmod_mat_clear(spinor->rads[prime_idx]);
+    fmpz_mat_clear(spinor->lifts[prime_idx]);
   }
   free(spinor->rads);
+  free(spinor->lifts);
   
   free(spinor->primes);
   free(spinor->pivots);
+  free(spinor->exps);
 
   return;
 }
@@ -307,16 +373,142 @@ W64 spinor_norm_isom(const spinor_t spinor, const isometry_t isom)
   return val;
 }
 
+// The prime of the spinor at the given index. The modulus used for the prime 2 is 4.
+static ulong spinor_prime(const spinor_t spinor, slong prime_idx)
+{
+  return (spinor->primes[prime_idx].n == 4) ? 2 : spinor->primes[prime_idx].n;
+}
+
+// Whether one of the primes of the spinor divides denom.
+static bool spinor_divides(const spinor_t spinor, const fmpz_t denom)
+{
+  slong prime_idx;
+
+  for (prime_idx = 0; prime_idx < spinor->num_primes; prime_idx++)
+    if (fmpz_fdiv_ui(denom, spinor_prime(spinor, prime_idx)) == 0)
+      return true;
+
+  return false;
+}
+
+// The primes of the spinor are those dividing the discriminant, and the spinor
+// has a character with values in {1,-1} at each of them. At a prime q at which
+// the isometry is integral, it is the sign by which the isometry of determinant 1
+// acts on the radical of the lattice modulo q (modulo 4 when q = 2).
+// At a prime q at which the isometry is not integral:
+// - When q divides the discriminant to an odd power, the parity of the valuation
+//   at q of the spinor norm is a character of all the isometries, which agrees
+//   with the sign above on the integral ones, and we use it.
+// - When q divides the discriminant to an even power, the spinor norm of
+//   an integral isometry has even valuation at q, and the sign above is not
+//   the restriction of a character of all the isometries. But when q^2 divides
+//   the discriminant, the lattice L and a q-neighbor N of it have the same
+//   radical line modulo q: if q^k is the power of q dividing the discriminant
+//   and e in L has B(e,L) in q^k Z, then e is in N, it is not in qN, and
+//   B(e,N) is in q^(k-1) Z. An isometry taking L to N then acts on this line
+//   by a sign, and its products with integral isometries act by the product
+//   of the signs. There is such an isometry which fixes e and has a spinor
+//   norm of odd valuation at q, so when k is odd the character is the opposite
+//   of this sign. We take the opposite of this sign when k is even as well:
+//   this is a choice, and the other one changes the sign of the Hecke operator
+//   at q on the spaces whose conductor is divisible by q.
+
+// The sign by which the isometry mat/denom, in lowest terms, acts on the radical
+// line at the prime q of the given index, where q divides denom exactly once and
+// q^2 divides the discriminant; det_sign is the determinant of the isometry.
+// The sign is found with a vector spanning the radical modulo the power of q
+// dividing the discriminant, so that its image can be divided by q.
+// Returns 1 or -1, and 0 if the isometry does not act on the line by a sign,
+// or if q^2 divides denom, or if q^2 does not divide the discriminant,
+// or if the radical modulo q is not a line.
+static int spinor_radical_sign(const spinor_t spinor, slong prime_idx,
+			       const fmpz_mat_t mat, const fmpz_t denom, int det_sign)
+{
+  fmpz_mat_t image;
+  fmpz_t q, unit;
+  nmod_t p;
+  slong i, n, val, pivot;
+  ulong c, unit_p, image_p, lift_p;
+  bool is_sign;
+
+  n = fmpz_mat_nrows(mat);
+  p = spinor->primes[prime_idx];
+
+  fmpz_init(unit);
+  fmpz_init_set_ui(q, spinor_prime(spinor, prime_idx));
+  val = fmpz_remove(unit, denom, q);
+
+  // Another vector spanning the radical changes the image by q^k / denom times
+  // a vector of the lattice, where q^k is the power of q dividing the discriminant.
+  // (For q = 2 it is 2^(k+1), and the image is needed modulo 4.)
+  if ((val != 1) || (spinor->exps[prime_idx] < 2)) {
+    fmpz_clear(q);
+    fmpz_clear(unit);
+    return 0;
+  }
+
+  fmpz_mat_init(image, n, 1);
+  fmpz_mat_mul(image, mat, spinor->lifts[prime_idx]);
+
+  is_sign = true;
+  for (i = 0; (i < n) && is_sign; i++)
+    if (fmpz_divisible(fmpz_mat_entry(image, i, 0), q))
+      fmpz_divexact(fmpz_mat_entry(image, i, 0), fmpz_mat_entry(image, i, 0), q);
+    else
+      is_sign = false;
+
+  // an entry of the vector spanning the radical which is not 0 modulo q,
+  // if the radical is a line
+  for (pivot = 0; pivot < n; pivot++)
+    if (!fmpz_divisible(fmpz_mat_entry(spinor->lifts[prime_idx], pivot, 0), q))
+      break;
+  if (pivot == n)
+    is_sign = false;
+
+  c = 0;
+  if (is_sign) {
+    i = pivot;
+    unit_p = fmpz_get_nmod(unit, p);
+    image_p = fmpz_get_nmod(fmpz_mat_entry(image, i, 0), p);
+    lift_p = fmpz_get_nmod(fmpz_mat_entry(spinor->lifts[prime_idx], i, 0), p);
+    c = nmod_div(image_p, nmod_mul(unit_p, lift_p, p), p);
+    if (det_sign == -1)
+      c = nmod_neg(c, p);
+    is_sign = (c == 1) || (c == p.n-1);
+    // the image is c times the lift
+    for (i = 0; (i < n) && is_sign; i++) {
+      image_p = fmpz_get_nmod(fmpz_mat_entry(image, i, 0), p);
+      if (det_sign == -1)
+	image_p = nmod_neg(image_p, p);
+      lift_p = fmpz_get_nmod(fmpz_mat_entry(spinor->lifts[prime_idx], i, 0), p);
+      if (image_p != nmod_mul(c, nmod_mul(unit_p, lift_p, p), p))
+	is_sign = false;
+    }
+  }
+
+  fmpz_mat_clear(image);
+  fmpz_clear(q);
+  fmpz_clear(unit);
+
+  if (!is_sign)
+    return 0;
+
+  return (c == 1) ? 1 : -1;
+}
+
 // TODO - use the modular arithmetic built in inside nmod_t instead of gcdext
-// Here mat/denom is the isometry, and we're computing the spinor norm at all spinor primes
-W64 spinor_norm_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom)
+// Here mat/denom is the isometry in lowest terms,
+// and we're computing the spinor norm at all spinor primes
+static W64 spinor_norm_lowest_terms(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom)
 {
   nmod_mat_t mat_p, mat_p_t, rad_mat;
   slong idx, row, col, pivot, prime_idx, n;
   fmpz_t det; // for some reason det is not implemented for fq_nmod_mat. we reduce the det mod p instead
   ulong denom_p, det_p;
   ulong* evs;
-  W64 norm;
+  W64 norm, zas;
+  bool has_zas;
+  int sign;
   nmod_t p;
 
   n = fmpz_mat_nrows(mat);
@@ -324,28 +516,47 @@ W64 spinor_norm_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz
   
   evs = (ulong*)malloc((spinor->num_primes)*sizeof(ulong));
 
+  zas = 0;
+  has_zas = false;
+
   fmpz_init(det);
   fmpz_mat_det(det, mat);
   for (prime_idx = 0; prime_idx < spinor->num_primes; prime_idx++) {
     p = spinor->primes[prime_idx];
+    if (fmpz_fdiv_ui(denom, spinor_prime(spinor, prime_idx)) == 0) {
+      // The isometry is not integral at this prime.
+      evs[prime_idx] = 1;
+      if (spinor->exps[prime_idx] & 1) {
+	if (!has_zas) {
+	  zas = spinor_norm_zas_fmpz_mat(spinor, mat, denom);
+	  has_zas = true;
+	}
+	if ((zas >> prime_idx) & 1)
+	  evs[prime_idx] = p.n-1;
+      }
+      else {
+	sign = spinor_radical_sign(spinor, prime_idx, mat, denom,
+				   fmpz_sgn(det) * fmpz_sgn(denom));
+	if (sign == 0) {
+	  fprintf(stderr, "Error: the spinor norm of an isometry is not defined at the prime %lu, ",
+		  spinor_prime(spinor, prime_idx));
+	  fprintf(stderr, "which divides its denominator and divides the discriminant to an even power\n");
+	  exit(EXIT_FAILURE);
+	}
+	// the opposite of the sign
+	if (sign == 1)
+	  evs[prime_idx] = p.n-1;
+      }
+      continue;
+    }
+    // The denominator is invertible, also modulo 4 when the prime is 2.
     denom_p = fmpz_get_nmod(denom, p);
     
     assert(denom_p < p.n);
-    // at the moment, this only works when disc has odd valuation at this prime
-    // !! TODO - add an assertion
-    if (denom_p == 0) {
-      fmpz_clear(det);
-      free(evs);
-      return spinor_norm_zas_fmpz_mat(spinor, mat, denom);
-    }
+
     nmod_mat_init_set_fmpz_mat(mat_p, mat, p.n);
     nmod_mat_init(mat_p_t, n, n, p.n);
       
-#ifdef DEBUG
-    if (p.n == 4)
-      assert (denom_p != 2);
-#endif // DEBUG
-    
     // scaling the reduced matrix - should be replaced bu a one-line function
     for (row = 0; row < nmod_mat_nrows(mat_p); row++)
       for (col = 0; col < nmod_mat_ncols(mat_p); col++)
@@ -401,6 +612,37 @@ W64 spinor_norm_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz
 
   free(evs);
   
+  return norm;
+}
+
+// Here mat/denom is the isometry, and we're computing the spinor norm at all spinor primes
+W64 spinor_norm_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom)
+{
+  fmpz_mat_t mat_red;
+  fmpz_t denom_red, g;
+  W64 norm;
+
+  // The fraction is not always in lowest terms, and whether the isometry is integral
+  // at a prime is read from the denominator. This is only needed when
+  // the denominator is divisible by a prime of the spinor.
+  if (!spinor_divides(spinor, denom))
+    return spinor_norm_lowest_terms(spinor, mat, denom);
+
+  fmpz_init(g);
+  fmpz_mat_content(g, mat);
+  fmpz_gcd(g, g, denom);
+
+  fmpz_mat_init(mat_red, fmpz_mat_nrows(mat), fmpz_mat_ncols(mat));
+  fmpz_init(denom_red);
+  fmpz_mat_scalar_divexact_fmpz(mat_red, mat, g);
+  fmpz_divexact(denom_red, denom, g);
+
+  norm = spinor_norm_lowest_terms(spinor, mat_red, denom_red);
+
+  fmpz_clear(denom_red);
+  fmpz_mat_clear(mat_red);
+  fmpz_clear(g);
+
   return norm;
 }
 
@@ -738,8 +980,8 @@ W64 spinor_norm_zas_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const 
   val = 0;
   fmpz_init(p);
   for (prime_idx = 0; prime_idx < spinor->num_primes; prime_idx++) {
-    fmpz_set_si(p, spinor->primes[prime_idx].n);
-    val ^= (fmpq_valuation(spinorm, p) & 1) << prime_idx;
+    fmpz_set_ui(p, spinor_prime(spinor, prime_idx));
+    val ^= ((W64)(fmpq_valuation(spinorm, p) & 1)) << prime_idx;
   }
   fmpz_clear(p);
   fmpq_clear(spinorm);
@@ -778,11 +1020,10 @@ W64 spinor_norm_cd_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const f
   val = 0;
   fmpz_init(p);
   for (prime_idx = 0; prime_idx < spinor->num_primes; prime_idx++) {
-    fmpz_set_si(p, spinor->primes[prime_idx].n);
-    if (spinor->primes[prime_idx].n == 4)
-      fmpz_set_si(p, 2);
-    val ^= (fmpq_valuation(spinorm, p) & 1) << prime_idx;
+    fmpz_set_ui(p, spinor_prime(spinor, prime_idx));
+    val ^= ((W64)(fmpq_valuation(spinorm, p) & 1)) << prime_idx;
   }
+  fmpz_clear(p);
   fmpq_clear(spinorm);
   fmpq_clear(det);
   fmpq_mat_clear(mat_q);

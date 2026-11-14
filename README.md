@@ -113,6 +113,8 @@ the first prime not dividing the discriminant.
 
 If the flag -row is supplied in addition to -hecke, computes a single row.
 
+The prime p may divide the discriminant. The Hecke matrix is then that of the p-neighbors, and the character of a conductor divisible by p is found at the isometries to the p-neighbors, which are not integral at p, as follows. When p divides the discriminant to an odd power, it is given by the parity of the valuation at p of the spinor norm. When p divides the discriminant to an even power, the spinor norm does not give the character. The isometry then acts by a sign on the radical of the lattice modulo p, and the character is taken to be the opposite of this sign, as it is when the power is odd and at least 3. This is a choice: with the other one, the Hecke matrix at p is the opposite one on the spaces whose conductor is divisible by p.
+
 If the flag -isom is supplied in addition to -genus=g, read from the genus file, in addition to the list of genera, a list of fixed isometries (over QQ) between the different lattices in the genus.
 
 The genus file is a list of genera, and the genus read is the one at index d, counting from 0. A genus is a list of lattices, and may be an empty list if d is not 0. Each lattice is a list of 15 integers in the format 'GG', as in this file with a genus of two lattices at index 1

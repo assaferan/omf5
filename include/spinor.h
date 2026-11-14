@@ -14,6 +14,8 @@ typedef struct {
   nmod_mat_t* rads;
   nmod_t* primes;
   slong* pivots;
+  slong* exps; // the powers to which the primes divide the discriminant
+  fmpz_mat_t* lifts; // vectors spanning the radicals modulo these powers of the primes
   
   slong num_primes;
   W64 twist;

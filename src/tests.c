@@ -1099,6 +1099,111 @@ STATUS test_radical_mod_4()
   return ret;
 }
 
+// Checks the Hecke operator at the prime p, which divides the discriminant of
+// the lattice given by Q_coeffs in the format GG: on each of the spaces, in the
+// order of the conductors, it commutes with the operator at the prime q, which
+// does not divide the discriminant, and it has the given trace.
+STATUS test_hecke_bad_prime_of(const Z64* Q_coeffs, int p, int q, slong num_conds, const slong* traces)
+{
+  genus_t genus;
+  matrix_TYP** hecke_p;
+  matrix_TYP** hecke_q;
+  slong c, i, j, k, dim, trace, pq, qp;
+  bool is_ok, commutes;
+
+  compute_genus(genus, Q_coeffs, "GG");
+
+  if (genus->num_conductors != num_conds) {
+    fprintf(stderr, "FAIL: there are %ld conductors and not %ld\n", genus->num_conductors, num_conds);
+    genus_clear(genus);
+    return FAIL;
+  }
+
+  hecke_p = hecke_matrices_all_conductors(genus, p);
+  hecke_q = hecke_matrices_all_conductors(genus, q);
+
+  is_ok = true;
+  for (c = 0; c < genus->num_conductors; c++) {
+    dim = genus->dims[c];
+    trace = 0;
+    for (i = 0; i < dim; i++)
+      trace += hecke_p[c]->array.SZ[i][i];
+    if (trace != traces[c]) {
+      fprintf(stderr, "FAIL: the trace of the Hecke operator at %d for the conductor %ld is %ld and not %ld\n",
+	      p, genus->conductors[c], trace, traces[c]);
+      is_ok = false;
+    }
+    commutes = true;
+    for (i = 0; i < dim; i++)
+      for (j = 0; j < dim; j++) {
+	pq = qp = 0;
+	for (k = 0; k < dim; k++) {
+	  pq += (slong)(hecke_p[c]->array.SZ[i][k]) * hecke_q[c]->array.SZ[k][j];
+	  qp += (slong)(hecke_q[c]->array.SZ[i][k]) * hecke_p[c]->array.SZ[k][j];
+	}
+	if (pq != qp)
+	  commutes = false;
+      }
+    if (!commutes) {
+      fprintf(stderr, "FAIL: the Hecke operators at %d and %d for the conductor %ld do not commute\n",
+	      p, q, genus->conductors[c]);
+      is_ok = false;
+    }
+  }
+
+  for (c = 0; c < genus->num_conductors; c++) {
+    free_mat(hecke_p[c]);
+    free_mat(hecke_q[c]);
+  }
+  free(hecke_p);
+  free(hecke_q);
+
+  genus_clear(genus);
+
+  return (is_ok ? SUCCESS : FAIL);
+}
+
+// The neighbors at a prime p dividing the discriminant are images of the lattice
+// under isometries which are not integral at p, and the character of a conductor
+// divisible by p was not found correctly at them, for example when p = 2,
+// or when p^2 divides the discriminant.
+STATUS test_hecke_bad_primes()
+{
+  // discriminant 66, with the conductors 1,2,3,6,11,22,33,66
+  Z64 Q_66[15] = {1,1,-1,1,1,1,-1,1,1,1,-1,-1,3,3,4};
+  slong traces_66_2[8] = {20,0,0,0,0,-5,3,0};
+  slong traces_66_3[8] = {61,0,0,-5,0,6,-20,0};
+  // discriminant 75, with the conductors 1,3,5,15
+  Z64 Q_75[15] = {1,0,-1,-1,0,1,-1,0,0,2,0,1,2,0,2};
+  slong traces_75_3[4] = {57,0,0,-20};
+  slong traces_75_5[4] = {320,0,0,-60};
+  // discriminant 76, with the conductors 1,2,19,38
+  Z64 Q_76[15] = {1,-1,0,-1,0,1,0,1,0,1,0,1,3,2,3};
+  slong traces_76_2[4] = {37,0,0,-7};
+  // discriminant 40, with the conductors 1,2,5,10
+  Z64 Q_40[15] = {1,-1,0,-1,1,1,0,1,0,1,-1,0,2,1,3};
+  slong traces_40_2[4] = {24,0,0,-6};
+  // discriminant 54, with the conductors 1,2,3,6
+  Z64 Q_54[15] = {1,0,0,0,-1,1,0,1,-1,1,0,1,2,-2,3};
+  slong traces_54_2[4] = {17,0,0,-5};
+  slong traces_54_3[4] = {105,0,0,-12};
+  STATUS ret;
+
+  // the prime divides the discriminant once
+  ret = test_hecke_bad_prime_of(Q_66, 2, 5, 8, traces_66_2);
+  ret |= test_hecke_bad_prime_of(Q_66, 3, 5, 8, traces_66_3);
+  ret |= test_hecke_bad_prime_of(Q_75, 3, 2, 4, traces_75_3);
+  ret |= test_hecke_bad_prime_of(Q_54, 2, 5, 4, traces_54_2);
+  // to the power 2, where the sign of the traces for the last conductor is a choice
+  ret |= test_hecke_bad_prime_of(Q_75, 5, 2, 4, traces_75_5);
+  ret |= test_hecke_bad_prime_of(Q_76, 2, 3, 4, traces_76_2);
+  // to the power 3
+  ret |= test_hecke_bad_prime_of(Q_40, 2, 3, 4, traces_40_2);
+  ret |= test_hecke_bad_prime_of(Q_54, 3, 5, 4, traces_54_3);
+
+  return ret;
+}
+
 STATUS compute_eigenvectors(const genus_t genus, bool nonlifts, int num_idxs, const int* idxs)
 {
   example_evs_t dummy;
