@@ -1120,18 +1120,41 @@ STATUS test_radical_mod_4()
   return ret;
 }
 
-// Checks the Hecke operator at the prime p for the lattice given by Q_coeffs in
-// the format GG: on each of the spaces, in the order of the conductors, it
-// commutes with the operator at the prime q, which does not divide the
-// discriminant, it is self-adjoint for the weights given by the numbers of
-// automorphisms, and it has the given trace.
-STATUS test_hecke_bad_prime_of(const Z64* Q_coeffs, int p, int q, slong num_conds, const slong* traces)
+// Whether the two matrices of the given dimension commute.
+static bool hecke_matrices_commute(const matrix_TYP* a, const matrix_TYP* b, slong dim)
+{
+  slong i, j, k, ab, ba;
+
+  for (i = 0; i < dim; i++)
+    for (j = 0; j < dim; j++) {
+      ab = ba = 0;
+      for (k = 0; k < dim; k++) {
+	ab += (slong)(a->array.SZ[i][k]) * b->array.SZ[k][j];
+	ba += (slong)(b->array.SZ[i][k]) * a->array.SZ[k][j];
+      }
+      if (ab != ba)
+	return false;
+    }
+
+  return true;
+}
+
+// Checks the Hecke operator T_p when k = 1, and T_{p^2} when k = 2, at the prime
+// p for the lattice given by Q_coeffs in the format GG: on each of the spaces,
+// in the order of the conductors, it commutes with the operator at the prime q,
+// which does not divide the discriminant, it is self-adjoint for the weights
+// given by the numbers of automorphisms, and it has the given trace. The
+// operator T_{p^2} is also checked to commute with T_p.
+static STATUS test_hecke_bad_prime_power_of(const Z64* Q_coeffs, int p, int k, int q,
+					    slong num_conds, const slong* traces)
 {
   genus_t genus;
   matrix_TYP** hecke_p;
   matrix_TYP** hecke_q;
-  slong c, i, j, k, dim, trace, pq, qp;
-  bool is_ok, commutes, self_adjoint;
+  matrix_TYP** hecke_p1;
+  slong c, i, j, dim, trace;
+  bool is_ok, self_adjoint;
+  const char* name = (k == 1) ? "" : " squared";
 
   compute_genus(genus, Q_coeffs, "GG");
 
@@ -1141,8 +1164,9 @@ STATUS test_hecke_bad_prime_of(const Z64* Q_coeffs, int p, int q, slong num_cond
     return FAIL;
   }
 
-  hecke_p = hecke_matrices_all_conductors(genus, p);
   hecke_q = hecke_matrices_all_conductors(genus, q);
+  hecke_p1 = hecke_matrices_all_conductors(genus, p);
+  hecke_p = (k == 1) ? hecke_p1 : hecke_matrices_nbr_data_all_conductors(genus, p, k);
 
   is_ok = true;
   for (c = 0; c < genus->num_conductors; c++) {
@@ -1151,24 +1175,18 @@ STATUS test_hecke_bad_prime_of(const Z64* Q_coeffs, int p, int q, slong num_cond
     for (i = 0; i < dim; i++)
       trace += hecke_p[c]->array.SZ[i][i];
     if (trace != traces[c]) {
-      fprintf(stderr, "FAIL: the trace of the Hecke operator at %d for the conductor %ld is %ld and not %ld\n",
-	      p, genus->conductors[c], trace, traces[c]);
+      fprintf(stderr, "FAIL: the trace of the Hecke operator at %d%s for the conductor %ld is %ld and not %ld\n",
+	      p, name, genus->conductors[c], trace, traces[c]);
       is_ok = false;
     }
-    commutes = true;
-    for (i = 0; i < dim; i++)
-      for (j = 0; j < dim; j++) {
-	pq = qp = 0;
-	for (k = 0; k < dim; k++) {
-	  pq += (slong)(hecke_p[c]->array.SZ[i][k]) * hecke_q[c]->array.SZ[k][j];
-	  qp += (slong)(hecke_q[c]->array.SZ[i][k]) * hecke_p[c]->array.SZ[k][j];
-	}
-	if (pq != qp)
-	  commutes = false;
-      }
-    if (!commutes) {
-      fprintf(stderr, "FAIL: the Hecke operators at %d and %d for the conductor %ld do not commute\n",
-	      p, q, genus->conductors[c]);
+    if (!hecke_matrices_commute(hecke_p[c], hecke_q[c], dim)) {
+      fprintf(stderr, "FAIL: the Hecke operators at %d%s and %d for the conductor %ld do not commute\n",
+	      p, name, q, genus->conductors[c]);
+      is_ok = false;
+    }
+    if ((k != 1) && !hecke_matrices_commute(hecke_p[c], hecke_p1[c], dim)) {
+      fprintf(stderr, "FAIL: the Hecke operators at %d%s and %d for the conductor %ld do not commute\n",
+	      p, name, p, genus->conductors[c]);
       is_ok = false;
     }
     self_adjoint = true;
@@ -1178,22 +1196,36 @@ STATUS test_hecke_bad_prime_of(const Z64* Q_coeffs, int p, int q, slong num_cond
 	    (slong)(hecke_p[c]->array.SZ[j][i]) * genus->num_auts[c][i])
 	  self_adjoint = false;
     if (!self_adjoint) {
-      fprintf(stderr, "FAIL: the Hecke operator at %d for the conductor %ld is not self-adjoint\n",
-	      p, genus->conductors[c]);
+      fprintf(stderr, "FAIL: the Hecke operator at %d%s for the conductor %ld is not self-adjoint\n",
+	      p, name, genus->conductors[c]);
       is_ok = false;
     }
   }
 
   for (c = 0; c < genus->num_conductors; c++) {
-    free_mat(hecke_p[c]);
+    free_mat(hecke_p1[c]);
     free_mat(hecke_q[c]);
+    if (k != 1)
+      free_mat(hecke_p[c]);
   }
-  free(hecke_p);
+  free(hecke_p1);
   free(hecke_q);
+  if (k != 1)
+    free(hecke_p);
 
   genus_clear(genus);
 
   return (is_ok ? SUCCESS : FAIL);
+}
+
+STATUS test_hecke_bad_prime_of(const Z64* Q_coeffs, int p, int q, slong num_conds, const slong* traces)
+{
+  return test_hecke_bad_prime_power_of(Q_coeffs, p, 1, q, num_conds, traces);
+}
+
+static STATUS test_hecke_bad_prime_square_of(const Z64* Q_coeffs, int p, int q, slong num_conds, const slong* traces)
+{
+  return test_hecke_bad_prime_power_of(Q_coeffs, p, 2, q, num_conds, traces);
 }
 
 // The neighbors at a prime p dividing the discriminant are images of the lattice
@@ -1202,9 +1234,9 @@ STATUS test_hecke_bad_prime_of(const Z64* Q_coeffs, int p, int q, slong num_cond
 // or when p^2 divides the discriminant. The traces are those of the operators
 // HeckeOperator(M, p) of the package ModFrmAlg of Magma, for the spaces
 // M := OrthogonalModularForms(L : d := d, Special := true).
-// For the last two lattices the radical modulo a prime is not a line. Magma
-// does not find the spaces of such lattices, and the traces are those found
-// here.
+// From discriminant 500 on, the radical of the lattice modulo a prime is not a
+// line. Magma does not find the spaces of such lattices, and the traces are
+// those found here.
 STATUS test_hecke_bad_primes()
 {
   // discriminant 66, with the conductors 1,2,3,6,11,22,33,66
@@ -1251,6 +1283,11 @@ STATUS test_hecke_bad_primes()
   // is found.
   Z64 Q_324[15] = {1,-1,0,0,0,1,0,0,0,3,3,-3,4,-4,4};
   slong traces_324_3[4] = {0,0,0,0};
+  // Discriminant 2625, with the conductors 1,3,5,15,7,21,35,105. The same
+  // holds modulo 5, and the spaces of the conductors 5,15,21,35,105 are not 0.
+  Z64 Q_2625[15] = {1,1,0,0,0,1,0,0,0,5,0,0,5,5,10};
+  slong traces_2625_5[8] = {0,0,0,0,0,0,0,0};
+  slong traces_2625_3[8] = {113,0,-2,10,0,-50,-8,9};
   STATUS ret;
 
   // the prime divides the discriminant once
@@ -1276,6 +1313,74 @@ STATUS test_hecke_bad_primes()
   // there are no neighbors at the prime
   ret |= test_hecke_bad_prime_of(Q_125, 5, 3, 2, traces_125_5);
   ret |= test_hecke_bad_prime_of(Q_324, 3, 5, 4, traces_324_3);
+  ret |= test_hecke_bad_prime_of(Q_2625, 5, 2, 8, traces_2625_5);
+  ret |= test_hecke_bad_prime_of(Q_2625, 3, 2, 8, traces_2625_3);
+
+  return ret;
+}
+
+// The operator T_{p^2} at a prime p dividing the discriminant is the sum over
+// the neighbors N of the lattice L with pL in N and pN in L which are found
+// from the planes isotropic modulo p that do not meet the radical. The
+// isometries to them were given no character at p when p^2 divides the
+// discriminant, and the number of the planes was not found when there are none.
+// The traces of the first six lattices are those of HeckeOperator(M, p, 2) in
+// the package ModFrmAlg of Magma, for the spaces
+// M := OrthogonalModularForms(L : d := d, Special := true), and the others are
+// those found here.
+STATUS test_hecke_square_bad_primes()
+{
+  // discriminant 33, with the conductors 1,3,11,33
+  Z64 Q_33[15] = {1,1,1,1,-1,1,1,1,-1,1,1,-1,2,0,3};
+  slong traces_33_3[4] = {192,0,0,24};
+  slong traces_33_11[4] = {0,0,0,0};
+  // discriminant 66, with the conductors 1,2,3,6,11,22,33,66
+  Z64 Q_66[15] = {1,1,-1,1,1,1,-1,1,1,1,-1,-1,3,3,4};
+  slong traces_66_2[8] = {0,0,0,0,0,0,0,0};
+  // discriminant 124, with the conductors 1,2,31,62
+  Z64 Q_124[15] = {1,0,1,0,-1,1,1,0,0,2,0,-1,2,-1,3};
+  slong traces_124_2[4] = {48,0,0,24};
+  // discriminant 153, with the conductors 1,3,17,51
+  Z64 Q_153[15] = {1,0,0,-1,-1,1,1,1,0,2,2,-1,3,1,3};
+  slong traces_153_3[4] = {240,0,0,48};
+  // discriminant 136, with the conductors 1,2,17,34
+  Z64 Q_136[15] = {1,0,1,-1,0,1,1,0,-1,2,1,-1,3,-2,3};
+  slong traces_136_2[4] = {52,0,0,16};
+  // discriminant 189, with the conductors 1,3,7,21
+  Z64 Q_189[15] = {1,0,0,1,0,1,0,0,-1,1,0,0,2,0,7};
+  slong traces_189_3[4] = {270,0,0,90};
+  // Discriminant 500, with the conductors 1,2,5,10. The radical modulo 5 is
+  // a plane, and its complement has no plane which is isotropic modulo 5.
+  Z64 Q_500[15] = {1,0,0,-1,0,2,-2,-1,-1,3,-2,3,3,0,4};
+  slong traces_500_5[4] = {0,0,0,0};
+  // Discriminant 192, with the conductors 1,3. The form is 0 modulo 2, and
+  // there are no neighbors at 2. Counting them used to end in a division by 0.
+  Z64 Q_192[15] = {2,2,2,-2,2,2,0,-2,0,2,-2,2,2,0,4};
+  slong traces_192_2[2] = {0,0};
+  // Discriminant 2625, with the conductors 1,3,5,15,7,21,35,105. The radical
+  // modulo 5 is of dimension 3, and no vector outside it is isotropic modulo 5.
+  // The spaces of the conductors 5,15,21,35,105 are not 0.
+  Z64 Q_2625[15] = {1,1,0,0,0,1,0,0,0,5,0,0,5,5,10};
+  slong traces_2625_5[8] = {0,0,0,0,0,0,0,0};
+  STATUS ret;
+
+  // The prime divides the discriminant once. The operator is 0 when the
+  // lattice has no plane which is isotropic modulo the prime.
+  ret = test_hecke_bad_prime_square_of(Q_33, 3, 2, 4, traces_33_3);
+  ret |= test_hecke_bad_prime_square_of(Q_33, 11, 2, 4, traces_33_11);
+  ret |= test_hecke_bad_prime_square_of(Q_66, 2, 5, 8, traces_66_2);
+  // to the power 2
+  ret |= test_hecke_bad_prime_square_of(Q_124, 2, 3, 4, traces_124_2);
+  ret |= test_hecke_bad_prime_square_of(Q_153, 3, 2, 4, traces_153_3);
+  // to the power 3
+  ret |= test_hecke_bad_prime_square_of(Q_136, 2, 3, 4, traces_136_2);
+  ret |= test_hecke_bad_prime_square_of(Q_189, 3, 2, 4, traces_189_3);
+  // the radical modulo the prime is not a line
+  ret |= test_hecke_bad_prime_square_of(Q_500, 5, 3, 4, traces_500_5);
+  ret |= test_hecke_bad_prime_square_of(Q_2625, 5, 2, 8, traces_2625_5);
+  // there are no neighbors at the prime
+  ret |= test_hecke_bad_prime_of(Q_192, 2, 5, 2, traces_192_2);
+  ret |= test_hecke_bad_prime_square_of(Q_192, 2, 5, 2, traces_192_2);
 
   return ret;
 }
@@ -1294,14 +1399,16 @@ STATUS compute_eigenvectors(const genus_t genus, bool nonlifts, int num_idxs, co
   return ret;
 }
 
-STATUS compute_eigenvalues(const genus_t genus, int p, bool nonlifts, int num_idxs, const int* idxs)
+// The eigenvalues of T_p, and also those of T_{p^2} if square is true.
+// The prime p may divide the discriminant.
+STATUS compute_eigenvalues(const genus_t genus, int p, bool square, bool nonlifts, int num_idxs, const int* idxs)
 {
   example_evs_t dummy;
   STATUS ret;
-  int num_ps[2] = {1,0};
+  int num_ps[2] = {1, square ? 1 : 0};
   const int* ps[2] = {
     (int []){p},
-    (int []){}
+    (int []){p}
   };
 
   example_evs_init(dummy, genus->num_conductors, NULL, num_ps, ps, NULL);
@@ -1519,6 +1626,48 @@ STATUS compute_hecke_matrix_all_conds(const genus_t genus, slong p)
  
   return SUCCESS;
   
+}
+
+// The matrices of T_{p^2}, for the conductor 1 if c = 1 is given and for all
+// the conductors otherwise. The prime p may divide the discriminant.
+STATUS compute_hecke_square_matrix(const genus_t genus, slong p, bool has_c, slong c)
+{
+  matrix_TYP** hecke;
+  slong c_idx, num_printed;
+
+  clock_t cpuclock_0, cpuclock_1;
+  double cputime, cpudiff;
+
+  // as for T_p, only the conductor 1 is printed on its own
+  num_printed = genus->num_conductors;
+  if (has_c && (conductor_index(genus, c) == 0))
+    num_printed = 1;
+
+  cpuclock_0 = clock();
+
+  hecke = hecke_matrices_nbr_data_all_conductors(genus, p, 2);
+
+  cpuclock_1 = clock();
+  cpudiff = cpuclock_1 - cpuclock_0;
+  cputime = cpudiff / CLOCKS_PER_SEC;
+
+  printf("{");
+  for (c_idx = 0; c_idx < num_printed; c_idx++) {
+    printf("%ld : ", genus->conductors[c_idx]);
+    print_mat_dense(hecke[c_idx]);
+    if (c_idx != num_printed-1)
+      printf(",");
+  }
+  printf("}");
+
+  fprintf(stderr, "computing hecke matrices took %f sec\n", cputime);
+
+  for (c_idx = 0; c_idx < genus->num_conductors; c_idx++)
+    free_mat(hecke[c_idx]);
+
+  free(hecke);
+
+  return SUCCESS;
 }
 
 STATUS compute_first_hecke_matrix_all_conds(const genus_t genus)

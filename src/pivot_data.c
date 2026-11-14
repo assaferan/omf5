@@ -12,6 +12,15 @@ void pivot_data_init(pivot_data_t pivots, slong dim, slong aniso, slong k)
   assert(k > 0);
   
   pivots->is_params_init = false;
+
+  // There are no pivots when k is larger than the Witt index, and the
+  // lengths below can then be negative.
+  if (2*k > dim - aniso) {
+    pivots->total_len = 0;
+    pivots->pivots = NULL;
+    pivots->pivot_lens = NULL;
+    return;
+  }
   
   // Base case.
   if (k == 1) {

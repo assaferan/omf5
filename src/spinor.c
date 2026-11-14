@@ -248,7 +248,7 @@ void spinor_init_fmpz_mat(spinor_t spinor, const fmpz_mat_t q)
     // is orthogonal to the lattice modulo the power of p dividing det(q).
     // When the radical modulo p is a line the adjugate has rank 1 modulo p,
     // and we take a column which is not 0 modulo p. Otherwise it is 0 modulo p,
-    // and the vector is left as 0. It is only used for the prime 2.
+    // and the vector is left as 0. It is used only when the radical is a line.
     fmpz_mat_init(spinor->lifts[prime_idx], fmpz_mat_nrows(q), 1);
     for (j = 0; j < fmpz_mat_ncols(adj); j++) {
       for (i = 0; i < fmpz_mat_nrows(adj); i++)
@@ -454,10 +454,11 @@ static bool spinor_divides(const spinor_t spinor, const fmpz_t denom)
 //   It is multiplied by the characters of integral isometries when g is
 //   multiplied by them on either side, and it is 1 at an isometry which is the
 //   identity on the orthogonal complement of a hyperbolic plane.
-//   When R(L) is a line, it is also the radical of N as a line in the space:
-//   if q^k is the power of q dividing the discriminant and e in L has B(e,L)
-//   in q^k Z, then e is in N, it is not in qN, and B(e,N) is in q^(k-1) Z.
-//   The character at g is then the sign by which g acts on this line, as it is
+//   When R(L) is a line, let q^k be the power of q dividing the discriminant
+//   and let e in L have B(e,L) in q^k Z, so that e spans the radical of L
+//   modulo q^k. Then e is in N, it is not in qN, and the radical of N modulo
+//   q^k is spanned by a vector which is e modulo q^(k-1) L. So g takes e to
+//   c e modulo q^(k-1) L for a sign c, and the character at g is c, as it is
 //   in RadicalSignCharacter of the package ModFrmAlg of Magma. This is the
 //   choice for which the L-function of an eigenform whose conductor is
 //   divisible by q satisfies its functional equation with the factor
@@ -465,6 +466,13 @@ static bool spinor_divides(const spinor_t spinor, const fmpz_t denom)
 //   The parity of the valuation of the spinor norm is not used here: when k
 //   is even it does not give the character, and when k is odd it gives the
 //   opposite sign.
+// - The Hecke operator T_{q^2} has the neighbors N which contain X/q for a
+//   plane X in L, isotropic modulo q, which does not meet the radical modulo
+//   q; then qL is in N and qN is in L. When R(L) is a line the sign c is
+//   defined for the isometries g to these neighbors in the same way, and it
+//   is the character at g. When R(L) is not a line and q is odd there are no
+//   such neighbors: L modulo its radical has rank at most 3, and no isotropic
+//   plane.
 
 // The coordinates of the rows of vecs in the basis of the radical at the odd
 // prime of the given index. Returns false if a row is not in the radical.
@@ -501,6 +509,7 @@ static bool spinor_radical_coordinates(nmod_mat_t coords, const spinor_t spinor,
 // isometry takes the lattice to a q-neighbor of it; det_sign is the
 // determinant of the isometry. Returns 1 or -1, and 0 if q^2 divides denom
 // or if the isometry is not one to a q-neighbor at a vector outside the radical.
+// It is used when the radical modulo q is not a line.
 static int spinor_neighbor_sign(const spinor_t spinor, slong prime_idx,
 				const fmpz_mat_t mat, const fmpz_t denom, int det_sign)
 {
@@ -631,7 +640,9 @@ static int spinor_neighbor_sign(const spinor_t spinor, slong prime_idx,
 // The sign by which the isometry mat/denom, in lowest terms, acts on the radical
 // line at the prime q of the given index, where q divides denom exactly once and
 // q^2 divides the discriminant; det_sign is the determinant of the isometry.
-// It is used for q = 2, where the sign is needed modulo 4.
+// It is used when the radical modulo q is a line, for the isometries to the
+// neighbors of the Hecke operators T_q and T_{q^2}. For q = 2 the sign is
+// needed modulo 4.
 // The sign is found with a vector spanning the radical modulo the power of q
 // dividing the discriminant, so that its image can be divided by q.
 // Returns 1 or -1, and 0 if the isometry does not act on the line by a sign,
@@ -751,14 +762,17 @@ static W64 spinor_norm_lowest_terms(const spinor_t spinor, const fmpz_mat_t mat,
 	  evs[prime_idx] = p.n-1;
       }
       else {
-	if (p.n == 4)
+	// The radical modulo 2 is a line. For an odd prime the two signs are
+	// the same at an isometry to a q-neighbor when the radical is a line,
+	// and only the first is defined at an isometry to a neighbor of T_{q^2}.
+	if (nmod_mat_nrows(spinor->rads[prime_idx]) == 1)
 	  sign = spinor_radical_sign(spinor, prime_idx, mat, denom,
 				     fmpz_sgn(det) * fmpz_sgn(denom));
 	else
 	  sign = spinor_neighbor_sign(spinor, prime_idx, mat, denom,
 				      fmpz_sgn(det) * fmpz_sgn(denom));
 	if (sign == 0) {
-	  fprintf(stderr, "Error: the character at the prime %lu is not defined at an isometry whose denominator it divides: the isometry does not take the lattice to a neighbor of it at %lu\n",
+	  fprintf(stderr, "Error: the character at the prime %lu is not defined at an isometry whose denominator it divides: the isometry does not take the lattice to a neighbor of it at %lu or at its square\n",
 		  spinor_prime(spinor, prime_idx), spinor_prime(spinor, prime_idx));
 	  exit(EXIT_FAILURE);
 	}

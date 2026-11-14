@@ -42,9 +42,10 @@
 // divides the conductor of the form, which is the number lambda for which
 // the factor of the L-function at p is
 // (1 - (lambda + eps p) x + p^3 x^2) (1 + eps p x) for a sign eps.
-// When p^2 divides the discriminant the eigenvalue of T_p is reported as it is:
-// the factor is then 1 - T_p x + p^3 x^2 for the forms whose eigenvalue for the
-// second Hecke operator at p is 0.
+// When p^2 divides the discriminant the eigenvalues of T_p and of T_{p^2} are
+// reported as they are. When the radical of the lattice modulo p is a line the
+// factor was 1 - T_p x + (p^3 + p T_{p^2} / 2) x^2 in the examples checked
+// against the functional equation.
 static bool divides_exactly_once(const fmpz_t disc, int p)
 {
   fmpz_t rem;
@@ -1011,8 +1012,9 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
 
   nf_elem_clear(e_new, evs->nfs[ev_idx]);
 
-  // handling the case p divides the discriminant exactly once
-  // The adjustment is for T_p only; the raw T_{p^2} is reported unchanged.
+  // handling the case p divides the discriminant exactly once.
+  // The adjustment is for T_p only. The raw T_{p^2} is reported unchanged,
+  // as in Magma, and so is T_p when p^2 divides the discriminant.
   if ((k == 1) && (genus->genus_reps->num_stored > 0)) {
     fmpz_mat_init_set_square_matrix(q, genus->genus_reps->keys[0]);
     fmpz_init(disc);
