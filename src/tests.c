@@ -113,17 +113,20 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
 
   fmpq_init(trace);
 
-  // When no eigenvector was found for the form, the vector we have is one of an
-  // eigenspace of the Hecke operators at the primes not dividing the
-  // discriminant, which they do not separate. The operators at the primes
-  // dividing the discriminant need not be scalar on it, and the number found
-  // from the vector would then depend on the basis of the lattice. So no
-  // eigenvalue is given at these primes.
+  // When no eigenvector was found for the form, the vector we have is an
+  // eigenvector of the last Hecke operator of the decomposition, in a space
+  // which the operators of the decomposition, at primes not dividing the
+  // discriminant, do not split. The operator at a prime dividing the
+  // discriminant need not be scalar on this space, and the number found from
+  // the vector then depends on the basis of the lattice. We do not find the
+  // primes at which it is scalar, so no eigenvalue is given at any prime
+  // dividing the discriminant, also where the number would be the eigenvalue.
   for (i = 0; i < num_evs; i++)
     if (evs->is_old[form_idx] && (fmpz_fdiv_ui(genus->disc, ps[i]) == 0))
-      fprintf(stderr, "Warning: no eigenvalue of T_{%d^%d} is given for the form %d, "
-	      "for which no eigenvector was found: %d divides the discriminant\n",
-	      ps[i], k, form_idx, ps[i]);
+      fprintf(stderr, "Warning: no eigenvalue of T_{%d^%d} is given for the form %d "
+	      "of conductor %ld, for which no eigenvector was found: "
+	      "%d divides the discriminant\n",
+	      ps[i], k, form_idx, (slong)genus->conductors[c], ps[i]);
 
   fprintf(stderr, "traces of hecke eigenvalues of T_{p^%d} are:\n", k);
 
