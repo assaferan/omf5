@@ -16,6 +16,7 @@
 // Required packages dependencies
 
 #include <carat/symm.h>
+#include <flint/ulong_extras.h>
 
 // Self dependencies
 
@@ -114,6 +115,8 @@ double get_isom_cost(const hash_table_t table, double* red_cost)
 #else
   neighbor_manager_t nbr_man;
   bool has_ended;
+  vector_t x;
+  Z64 p;
 #endif // NBR_DATA
   
   isometry_t s;
@@ -134,9 +137,14 @@ double get_isom_cost(const hash_table_t table, double* red_cost)
 #ifdef NBR_DATA
     nbr_data_init(nbr_man, table->keys[offset], 3, 1);
 #else
+    // The neighbors are at 3, or at the first odd prime at which the lattice
+    // has an isotropic vector that nbr_process_init can start from.
+    p = 3;
+    while (!get_isotropic_vector(x, table->keys[offset], p))
+      p = n_nextprime(p, true);
     isometry_init(s);
     do {
-      nbr_process_init(nbr_man, table->keys[offset], 3, idx, s);
+      nbr_process_init(nbr_man, table->keys[offset], p, idx, s);
       idx++;
       has_ended = nbr_process_has_ended(nbr_man);
       if (has_ended)
@@ -173,7 +181,7 @@ double get_isom_cost(const hash_table_t table, double* red_cost)
       isometry_init(s);
       while (nbr_process_has_ended(nbr_man)) {
 	nbr_process_clear(nbr_man);
-	nbr_process_init(nbr_man, table->keys[offset], 3, idx, s);
+	nbr_process_init(nbr_man, table->keys[offset], p, idx, s);
 	idx++;
       }
       isometry_clear(s);

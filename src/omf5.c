@@ -274,6 +274,8 @@ int main(int argc, char* argv[])
     test_res <<= 1;
     test_res |= test_radical_mod_4();
     test_res <<= 1;
+    test_res |= test_hecke_bad_primes();
+    test_res <<= 1;
     test_res |= test_61();
     test_res <<= 1;
     test_res |= test_69();
@@ -285,6 +287,9 @@ int main(int argc, char* argv[])
     genus_init_file(genus, genus_fname, disc, has_isom);
 
   has_genus = (has_quad && has_format) || (has_genus && has_disc);
+
+  if (has_genus && fmpz_is_even(genus->disc) && !spinor_has_prime(genus->spinor, 2))
+    fprintf(stderr, "Warning: the radical of the lattice modulo 2 is not a line. The forms whose conductor is even are not computed.\n");
 
   if (has_genus) {
     test_res <<= 1;
@@ -331,9 +336,9 @@ int main(int argc, char* argv[])
   if (has_idxs)
     free(idxs);
 
-  // The exit status is the low 8 bits of the value returned. The results of
-  // -tests take 9 bits, the first test having two, and 10 with a genus. A
-  // failure of the first test alone is not returned as 0.
+  // The exit status is the low 8 bits of the value returned, and the results
+  // of -tests take more bits than that. A failure which shows only in the
+  // higher bits is not returned as 0.
   if ((test_res != 0) && ((test_res & 0xff) == 0))
     return EXIT_FAILURE;
 

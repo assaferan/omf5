@@ -756,11 +756,11 @@ void genus_init_set_square_matrix_vec_and_isoms(genus_t genus, const square_matr
       fprintf(stderr, "Error: the isometry at index %zu of the genus is not an isometry from the first lattice to the lattice at that index\n", i);
       exit(EXIT_FAILURE);
     }
-    // The spinor norm of an isometry is computed modulo the primes which
-    // divide the discriminant, by dividing by its denominator. When one of
-    // them divides the denominator another method is used, which leads to
-    // wrong forms when the discriminant is even, or when a prime divides it
-    // to an even power.
+    // The isometries of the genus are multiplied by those to the neighbors,
+    // and the character at a prime dividing the discriminant is found for
+    // the product. When that prime divides the denominator of the product it
+    // is found for a product which takes the lattice to a neighbor of it at
+    // that prime, and not for any isometry.
     fmpz_gcd_ui(denom_gcd, genus->disc, genus->isoms[i]->denom);
     if (!fmpz_is_one(denom_gcd)) {
       fprintf(stderr, "Error: the denominator %" PRId64 " of the isometry at index %zu of the genus is not prime to the discriminant\n",

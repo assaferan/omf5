@@ -86,6 +86,40 @@ check_error() {
   fi
 }
 
+# check_output name pattern omf5-arguments...
+# Checks that omf5 exits without an error for these arguments, and that what it
+# prints to stdout matches the pattern, which is a basic regular expression.
+check_output() {
+  name=$1
+  pattern=$2
+  shift 2
+  if ! "$OMF5" "$@" > "$tmp/$name.out" 2> "$tmp/$name.err"; then
+    echo "FAIL $name: omf5 exited with an error"
+    cat "$tmp/$name.err"
+    status=1
+  elif ! grep -q -- "$pattern" "$tmp/$name.out"; then
+    echo "FAIL $name: the output does not match '$pattern'"
+    # The output does not end in a newline.
+    cat "$tmp/$name.out"
+    echo
+    status=1
+  else
+    echo "ok   $name"
+  fi
+}
+
+# check_same name first second
+# Checks that the examples first and second, which were run before, printed the
+# same to stdout, and printed something.
+check_same() {
+  if [ -s "$tmp/$2.out" ] && cmp -s "$tmp/$2.out" "$tmp/$3.out"; then
+    echo "ok   $1"
+  else
+    echo "FAIL $1: the outputs of $2 and $3 differ, or are empty"
+    status=1
+  fi
+}
+
 # Discriminant 61. Primes dividing the discriminant are skipped.
 cat > "$tmp/61.exp" <<'EOF'
 1: -7 -3 3 -9 -4 -3 37 -75 10 212 -6 -88 -3 547 -147 -108 -45 -632 -650 859 -978 931 -571 453
@@ -175,6 +209,36 @@ echo "[[],[$B],[$A,$B],[$A]]" > "$tmp/44.db"
 check_example genus44 "$tmp/44.exp" "F P P" -genus="$tmp/44.db" -disc=2 -prec=30
 # The genus is the same when it is computed from its first lattice.
 check_example quad44 "$tmp/44.exp" "F P P" -quad=1,0,-1,-1,1,1,-1,1,0,2,1,-1,2,-2,2 -format=GG -prec=30
+
+# Discriminant 117 = 3^2 * 13, at the prime 3, whose square divides the
+# discriminant. The form of type G has conductor 39, and its eigenvalue at 3
+# is -8: with the factor 1 + 8x + 27x^2 at 3 its L-function satisfies the
+# functional equation. With the opposite character at 3 it would be 8.
+cat > "$tmp/117.exp" <<'EOF'
+1: -8
+EOF
+check_example disc117-p3 "$tmp/117.exp" "F G O P P P P P Y" -quad=1,0,1,0,-1,1,0,1,0,2,1,-1,2,-1,3 -format=GG -p=3
+
+# Discriminant 124 = 2^2 * 31, at the prime 2. No eigenvector was found for the
+# form of type O: the vector used for it is in a space which the Hecke
+# operators of the decomposition do not split, and it need not be an
+# eigenvector of the operator at 2. So no eigenvalue at 2 is printed for this
+# form, as at every prime dividing the discriminant. The number which used to
+# be printed at 2 depended on the vector, and so on the basis of the lattice
+# and on a random choice of the program: the second matrix is that of the same
+# lattice in another basis, and the numbers printed had the traces 98/5, 57/5
+# and 31/2. The two outputs are now the same, and the second has no value for
+# the form of type O. Two of the other eigenvalues at 2 are checked: -3 for
+# the form of type G of conductor 1, and 12 for the form of type P of
+# conductor 62 whose eigenvalues are rational.
+cat > "$tmp/124p2.exp" <<'EOF'
+1: -3
+1: 12
+EOF
+check_example disc124-p2 "$tmp/124p2.exp" "F G G O P P P" -quad=1,0,1,0,-1,1,1,0,0,2,0,-1,2,-1,3 -format=GG -p=2
+no_value="'aut_rep_type' : 'O', 'field_poly' : '[^']*', 'lambda_p' : \[\], "
+check_output disc124-p2-old-basis "$no_value" -quad=4,-2,0,-6,0,1,1,2,0,2,1,-1,3,-1,3 -format=GG -p=2
+check_same disc124-p2-old-same disc124-p2 disc124-p2-old-basis
 
 # genus_error name message genus
 # Checks that the error is reported for a genus file with this genus.
