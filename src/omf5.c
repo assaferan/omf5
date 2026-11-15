@@ -113,7 +113,9 @@ int print_param_desc(char* argv[]);
  *              which depends on the input.
  *              Generally, the location of the bits which
  *              are lit (set to 1) are the ordinals of the
- *              failed operations.
+ *              failed operations. Only the low 8 bits are
+ *              the exit status, and 1 is returned for a
+ *              failure which does not show in them.
  *
  ************************************************************
  */
@@ -270,6 +272,8 @@ int main(int argc, char* argv[])
     test_res <<= 1;
     test_res |= test_isometry_mul();
     test_res <<= 1;
+    test_res |= test_radical_mod_4();
+    test_res <<= 1;
     test_res |= test_61();
     test_res <<= 1;
     test_res |= test_69();
@@ -326,7 +330,13 @@ int main(int argc, char* argv[])
 
   if (has_idxs)
     free(idxs);
-  
+
+  // The exit status is the low 8 bits of the value returned. The results of
+  // -tests take 9 bits, the first test having two, and 10 with a genus. A
+  // failure of the first test alone is not returned as 0.
+  if ((test_res != 0) && ((test_res & 0xff) == 0))
+    return EXIT_FAILURE;
+
   return test_res;
 }
 

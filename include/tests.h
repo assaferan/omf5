@@ -36,6 +36,7 @@ STATUS test_is_square();
 STATUS test_isometry_mul();
 STATUS test_mass();
 STATUS test_parse_matrix();
+STATUS test_radical_mod_4();
 
 STATUS compute_eigenvectors(const genus_t genus, bool nonlifts, int num_idxs, const int* idxs);
 

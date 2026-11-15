@@ -21,7 +21,7 @@
 
 slong nmod_mat_nullspace_mod4(nmod_mat_t ker, const nmod_mat_t q)
 {
-  slong nullity, i, j, pivot, old_pivot;
+  slong nullity, i, j, pivot;
   fq_nmod_mat_t q_2, ker_2, lift_2, trans, trans_t, sol;
   nmod_mat_t lift, lift_q;
   fq_nmod_ctx_t F2;
@@ -88,20 +88,22 @@ slong nmod_mat_nullspace_mod4(nmod_mat_t ker, const nmod_mat_t q)
 
   fq_nmod_mat_init(sol, nullity, QF_RANK, F2);
   
+  // The system in reduced echelon form is solved with the variables of the
+  // columns which have no pivot set to 0. Here pivot is the number of pivots
+  // in the columns before i, so the entry in the row pivot and the column i
+  // is not 0 exactly when it is the pivot of that row.
   pivot = 0;
   for (i = 0; i < QF_RANK; i++) {
-    old_pivot = pivot;
-    for (; (pivot < QF_RANK) && fq_nmod_is_zero(fq_nmod_mat_entry(q_2, pivot, i) , F2);) pivot++;
-    if (((i == 0) || (old_pivot != pivot)) && (pivot < QF_RANK) ) {
+    if ((pivot < QF_RANK) && !fq_nmod_is_zero(fq_nmod_mat_entry(q_2, pivot, i), F2)) {
       for (j = 0; j < nullity; j++) {
 	fq_nmod_set(fq_nmod_mat_entry(sol, j, i), fq_nmod_mat_entry(lift_2, j, pivot), F2);
       }
+      pivot++;
     }
     else {
       for (j = 0; j < nullity; j++) {
 	fq_nmod_zero(fq_nmod_mat_entry(sol, j, i), F2);
       }
-      pivot = old_pivot;
     }
   }
   
