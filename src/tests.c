@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include <flint/nmod_mat.h>
+
 #include "arith.h"
 #include "eigenvalues.h"
 #include "genus.h"
@@ -10,6 +12,7 @@
 #include "io.h"
 #include "mass.h"
 #include "matrix_tools.h"
+#include "spinor.h"
 #include "tests.h"
 #include "weight.h"
 
@@ -992,6 +995,106 @@ STATUS test_isometry_mul()
   // does fit, and the numerators do not.
   ret |= test_isometry_mul_of(INT64_C(2147483648));
   ret |= test_isometry_mul_of(INT64_C(4294967311));
+
+  return ret;
+}
+
+// Checks the vector found to span the radical modulo 4 of the lattice whose
+// Gram matrix is given by Q_coeffs, for each of the 120 orders of the vectors
+// of the basis. The radical modulo 2 of these lattices is a line.
+STATUS test_radical_mod_4_of(const Z64* Q_coeffs)
+{
+  square_matrix_t Q;
+  fmpz_mat_t q, perm_q;
+  spinor_t spinor;
+  nmod_mat_t perm_q_4, rad_q;
+  int perm[QF_RANK];
+  int code, digits, i, j;
+  slong prime_idx;
+  bool is_perm, is_odd;
+  STATUS ret;
+
+  ret = SUCCESS;
+
+  square_matrix_init_set_symm(Q, Q_coeffs, "A");
+  fmpz_mat_init_set_square_matrix(q, Q);
+  fmpz_mat_init(perm_q, QF_RANK, QF_RANK);
+  nmod_mat_init(rad_q, 1, QF_RANK, 4);
+
+  // The orders are the numbers with QF_RANK different digits in base QF_RANK.
+  for (code = 0; code < 3125; code++) {
+    digits = code;
+    for (i = 0; i < QF_RANK; i++) {
+      perm[i] = digits % QF_RANK;
+      digits /= QF_RANK;
+    }
+    is_perm = true;
+    for (i = 0; i < QF_RANK; i++)
+      for (j = 0; j < i; j++)
+	if (perm[i] == perm[j])
+	  is_perm = false;
+    if (!is_perm)
+      continue;
+
+    for (i = 0; i < QF_RANK; i++)
+      for (j = 0; j < QF_RANK; j++)
+	fmpz_set(fmpz_mat_entry(perm_q, i, j), fmpz_mat_entry(q, perm[i], perm[j]));
+
+    spinor_init_fmpz_mat(spinor, perm_q);
+
+    for (prime_idx = 0; prime_idx < spinor->num_primes; prime_idx++)
+      if (spinor->primes[prime_idx].n == 4)
+	break;
+
+    if ((prime_idx == spinor->num_primes) || (nmod_mat_nrows(spinor->rads[prime_idx]) != 1))
+      ret = FAIL;
+    else {
+      // The vector is not 0 modulo 2, and its products with the vectors of
+      // the basis are 0 modulo 4.
+      is_odd = false;
+      for (i = 0; i < QF_RANK; i++)
+	if (nmod_mat_entry(spinor->rads[prime_idx], 0, i) % 2 != 0)
+	  is_odd = true;
+      nmod_mat_init_set_fmpz_mat(perm_q_4, perm_q, 4);
+      nmod_mat_mul(rad_q, spinor->rads[prime_idx], perm_q_4);
+      if ((!is_odd) || (!nmod_mat_is_zero(rad_q)))
+	ret = FAIL;
+      nmod_mat_clear(perm_q_4);
+    }
+
+    spinor_clear(spinor);
+  }
+
+  nmod_mat_clear(rad_q);
+  fmpz_mat_clear(perm_q);
+  fmpz_mat_clear(q);
+  square_matrix_clear(Q);
+
+  return ret;
+}
+
+// The vector found for the radical modulo 4 could be wrong when the first
+// column of the Gram matrix is 0 modulo 2, as it is for the last two lattices
+// here, and was wrong for both. The second lattice of discriminant 124 is the
+// first one in another basis.
+STATUS test_radical_mod_4()
+{
+  STATUS ret;
+
+  // D_5, of discriminant 2, and a lattice of discriminant 12
+  Z64 D5[15] = {2,-1,2,0,-1,2,0,0,-1,2,0,0,-1,0,2};
+  Z64 Q12[15] = {2,-1,2,0,0,2,0,0,1,2,-1,0,-1,-1,4};
+  // lattices of discriminants 124, 124 and 116; the first vector of the basis
+  // of the last two spans the radical modulo 2
+  Z64 Q124[15] = {2,0,2,1,1,4,0,0,0,4,-1,0,-1,-1,6};
+  Z64 Q124_even[15] = {8,-2,2,0,1,4,-6,2,1,6,0,0,-1,-1,6};
+  Z64 Q116_even[15] = {8,2,2,4,1,6,0,0,1,2,-2,0,-1,1,4};
+
+  ret = test_radical_mod_4_of(D5);
+  ret |= test_radical_mod_4_of(Q12);
+  ret |= test_radical_mod_4_of(Q124);
+  ret |= test_radical_mod_4_of(Q124_even);
+  ret |= test_radical_mod_4_of(Q116_even);
 
   return ret;
 }

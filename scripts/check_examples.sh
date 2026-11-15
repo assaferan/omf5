@@ -335,4 +335,16 @@ cat > "$tmp/48.exp" <<'EOF'
 EOF
 check_example disc48 "$tmp/48.exp" "F P P P" -quad=1,0,0,1,1,1,-1,0,-1,1,0,1,1,1,6 -format=GG -prec=30
 
+# Discriminant 124, in a basis whose first vector spans the radical modulo 2,
+# so that the first column of the Gram matrix is even. The vector spanning the
+# radical modulo 4 was wrong for this basis, and the character at 2 with it:
+# the space of conductor 62 had the dimension 6 and not 7. These are the traces
+# of the three forms of conductor 62.
+cat > "$tmp/124even.exp" <<'EOF'
+1: 4 27 21 86 202 314 477
+1: -8 -4 -12 -36 8 -64 188
+1: 44 106 212 430 600 1138 1404
+EOF
+check_example disc124-even-column "$tmp/124even.exp" "F G G O P P P" -quad=4,-2,0,-6,0,1,1,2,0,2,1,-1,3,-1,3 -format=GG -prec=20
+
 exit $status
