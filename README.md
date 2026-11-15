@@ -141,7 +141,7 @@ Each form is printed with its automorphic type, `aut_rep_type`, which is one of:
 - `P` - a Saito-Kurokawa lift,
 - `Y` - a Yoshida lift,
 - `F` - the Eisenstein series, which is the constant function,
-- `O` - an old form, for which no eigenvector was found.
+- `O` - an old form, for which no eigenvector was found. The vector used for it is an eigenvector of the Hecke operators at the primes not dividing the discriminant, in an eigenspace which they do not separate. It need not be an eigenvector at a prime dividing the discriminant, so with -p=p for such a prime no eigenvalue is printed for this form, also when form_idxs gives it the type `G`, and a warning says so.
 
 A form is taken to be a lift if its L-polynomial factors, in the same way, at each of the primes p not dividing the discriminant with p^2 <= L. If there are fewer than two such primes, or L is not supplied, the first two primes not dividing the discriminant are used. So the types are more reliable when L is larger. For example, for discriminant 249 there is a form which is not a lift, whose L-polynomial factors at 2 and at 5, but not at 7. It is reported as a Yoshida lift, and so is left out when -nonlifts is supplied, unless L is at least 49.
 

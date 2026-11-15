@@ -113,6 +113,18 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
 
   fmpq_init(trace);
 
+  // When no eigenvector was found for the form, the vector we have is one of an
+  // eigenspace of the Hecke operators at the primes not dividing the
+  // discriminant, which they do not separate. The operators at the primes
+  // dividing the discriminant need not be scalar on it, and the number found
+  // from the vector would then depend on the basis of the lattice. So no
+  // eigenvalue is given at these primes.
+  for (i = 0; i < num_evs; i++)
+    if (evs->is_old[form_idx] && (fmpz_fdiv_ui(genus->disc, ps[i]) == 0))
+      fprintf(stderr, "Warning: no eigenvalue of T_{%d^%d} is given for the form %d, "
+	      "for which no eigenvector was found: %d divides the discriminant\n",
+	      ps[i], k, form_idx, ps[i]);
+
   fprintf(stderr, "traces of hecke eigenvalues of T_{p^%d} are:\n", k);
 
   if (ev_print) {
@@ -123,6 +135,10 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
   }
   
   for (i = 0; i < num_evs; i++) {
+    // See the warning above.
+    if (evs->is_old[form_idx] && (fmpz_fdiv_ui(genus->disc, ps[i]) == 0))
+      continue;
+
     if (c == 0)
       if (k == 1)
 	get_hecke_ev(ev, genus, evs, ps[i], form_idx);

@@ -44,7 +44,10 @@ void eigenvalues_init(eigenvalues_t evs, slong num, slong dim)
   for (i = 0; i < num; i++)
     evs->eigenvecs[i] = (nf_elem_t*)malloc(dim * sizeof(nf_elem_t));
   evs->lift_type = (aut_type*)malloc(num * sizeof(aut_type));
-			       
+  evs->is_old = (bool*)malloc(num * sizeof(bool));
+  for (i = 0; i < num; i++)
+    evs->is_old[i] = false;
+
   return;
 }
 
@@ -152,6 +155,7 @@ void eigenvalues_clear(eigenvalues_t evs)
   free(evs->eigenvals);
   free(evs->nfs);
   free(evs->lift_type);
+  free(evs->is_old);
   
   return;
 }
