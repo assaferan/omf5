@@ -70,13 +70,14 @@ typedef enum {
  *     + dim (slong) - dimension of the space
  *     + lift_type (aut_type*) - automorphic type of the form
  *     + is_old (bool*) - whether no eigenvector was found for
- *                        the form. The vector is then one of
- *                        an eigenspace which the operators of
- *                        the decomposition do not separate,
- *                        and it need not be an eigenvector
- *                        of the other Hecke operators. The
- *                        form has the type O, unless it was
- *                        given another one.
+ *                        the form. The vector is then an
+ *                        eigenvector of the last operator of
+ *                        the decomposition, in a space which
+ *                        the operators of the decomposition
+ *                        do not split, and it need not be an
+ *                        eigenvector of the other Hecke
+ *                        operators. The form has the type O,
+ *                        unless it was given another one.
  *
  * Used to hold the data of eigenforms and their eigenvalues,
  ****************************************************************

@@ -116,11 +116,13 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
   // When no eigenvector was found for the form, the vector we have is an
   // eigenvector of the last Hecke operator of the decomposition, in a space
   // which the operators of the decomposition, at primes not dividing the
-  // discriminant, do not split. The operator at a prime dividing the
-  // discriminant need not be scalar on this space, and the number found from
-  // the vector then depends on the basis of the lattice. We do not find the
-  // primes at which it is scalar, so no eigenvalue is given at any prime
-  // dividing the discriminant, also where the number would be the eigenvalue.
+  // discriminant, do not split. It need not be an eigenvector of the operator
+  // at a prime dividing the discriminant, and the number found from it then
+  // depends on the vector: on the basis of the lattice, and on the random
+  // choice of mat_irred_charpoly_eigenvector when the field is not Q. We do
+  // not find the primes at which it is an eigenvector, so no eigenvalue is
+  // given at any prime dividing the discriminant, also where the number would
+  // be the eigenvalue.
   for (i = 0; i < num_evs; i++)
     if (evs->is_old[form_idx] && (fmpz_fdiv_ui(genus->disc, ps[i]) == 0))
       fprintf(stderr, "Warning: no eigenvalue of T_{%d^%d} is given for the form %d "

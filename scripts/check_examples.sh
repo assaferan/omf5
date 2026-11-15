@@ -110,12 +110,12 @@ check_output() {
 
 # check_same name first second
 # Checks that the examples first and second, which were run before, printed the
-# same to stdout.
+# same to stdout, and printed something.
 check_same() {
-  if cmp -s "$tmp/$2.out" "$tmp/$3.out"; then
+  if [ -s "$tmp/$2.out" ] && cmp -s "$tmp/$2.out" "$tmp/$3.out"; then
     echo "ok   $1"
   else
-    echo "FAIL $1: the outputs of $2 and $3 differ"
+    echo "FAIL $1: the outputs of $2 and $3 differ, or are empty"
     status=1
   fi
 }
@@ -221,23 +221,24 @@ check_example disc117-p3 "$tmp/117.exp" "F G O P P P P P Y" -quad=1,0,1,0,-1,1,0
 
 # Discriminant 124 = 2^2 * 31, at the prime 2. No eigenvector was found for the
 # form of type O: the vector used for it is in a space which the Hecke
-# operators of the decomposition do not split, and the operator at 2 is not a
-# scalar on this space. So no eigenvalue at 2 is printed for this form, as at
-# every prime dividing the discriminant. The number which used to be printed
-# at 2 depended on the basis of the lattice: the second matrix is that of the
-# same lattice in another basis, and the two numbers had the traces 98/5 and
-# 57/5. The two outputs are now the same. The other forms have their
-# eigenvalues: -3 for the form of type G of conductor 1, and 12 for the lift
-# of type P of conductor 62.
+# operators of the decomposition do not split, and it need not be an
+# eigenvector of the operator at 2. So no eigenvalue at 2 is printed for this
+# form, as at every prime dividing the discriminant. The number which used to
+# be printed at 2 depended on the vector, and so on the basis of the lattice
+# and on a random choice of the program: the second matrix is that of the same
+# lattice in another basis, and the numbers printed had the traces 98/5, 57/5
+# and 31/2. The two outputs are now the same, and the second has no value for
+# the form of type O. Two of the other eigenvalues at 2 are checked: -3 for
+# the form of type G of conductor 1, and 12 for the form of type P of
+# conductor 62 whose eigenvalues are rational.
 cat > "$tmp/124p2.exp" <<'EOF'
 1: -3
 1: 12
 EOF
 check_example disc124-p2 "$tmp/124p2.exp" "F G G O P P P" -quad=1,0,1,0,-1,1,1,0,0,2,0,-1,2,-1,3 -format=GG -p=2
 no_value="'aut_rep_type' : 'O', 'field_poly' : '[^']*', 'lambda_p' : \[\], "
-check_output disc124-p2-old "$no_value" -quad=1,0,1,0,-1,1,1,0,0,2,0,-1,2,-1,3 -format=GG -p=2
 check_output disc124-p2-old-basis "$no_value" -quad=4,-2,0,-6,0,1,1,2,0,2,1,-1,3,-1,3 -format=GG -p=2
-check_same disc124-p2-old-same disc124-p2-old disc124-p2-old-basis
+check_same disc124-p2-old-same disc124-p2 disc124-p2-old-basis
 
 # genus_error name message genus
 # Checks that the error is reported for a genus file with this genus.
