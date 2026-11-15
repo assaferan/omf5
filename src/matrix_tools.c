@@ -2,7 +2,6 @@
 #include <inttypes.h>
 #include <limits.h>
 #include <stdlib.h>
-#include <time.h>
 
 #include <flint/nmod_mat.h>
 
@@ -1027,7 +1026,7 @@ void check_eigenvector(const nf_elem_t* evec, const fmpq_mat_t M, const nf_t nf)
 // evec and nf should already be allocated and initialized
 void mat_irred_charpoly_eigenvector(nf_elem_t* evec, const fmpq_mat_t mat, const fmpq_poly_t f, const nf_t nf)
 {
-  slong i, j, n, m;
+  slong i, j, n, m, num_tried;
   fmpz_t denom, g;
   fmpq_t coeff, denom_scale, scale;
   nf_elem_t a, b, tmp;
@@ -1103,9 +1102,16 @@ void mat_irred_charpoly_eigenvector(nf_elem_t* evec, const fmpq_mat_t mat, const
   for (i = 0; i < m; i++)
     fmpz_zero(v[i]);
 
-  srand(time(NULL));
+  // The eigenvector is the image of v under the polynomial f(x) / (x - a) of
+  // mat, where a is the generator of the field. The vectors v are tried in a
+  // fixed order, e_0, e_0 + e_1, and so on, so that the eigenvector is the
+  // same in every run. When f(mat) = 0 the image of every v which is not 0
+  // is not 0, since its conjugates add up to f'(mat) v, and e_0 is the one
+  // which is used.
+  num_tried = 0;
   do {
-    i = rand()/((RAND_MAX + 1u)/n);
+    i = num_tried % m;
+    num_tried++;
     fmpz_add_ui(v[i],v[i],1);
     for (j = 0; j < m; j++)
       nf_elem_scalar_mul_fmpz(evec[j], c[0], v[j], nf);
@@ -1114,8 +1120,6 @@ void mat_irred_charpoly_eigenvector(nf_elem_t* evec, const fmpq_mat_t mat, const
     fmpq_set(scale, denom_scale);
     for (i = 1; i < n; i++) {
       fmpz_vec_mul_mat(vv, vv, scaled_mat);
-      for (j = 0; j < n; j++)
-	nf_elem_set_fmpz(u[j], vv[j], nf);
       if (!(fmpq_is_one(denom_scale))) {
 	fmpz_zero(g);
 	for (j = 0; j < m; j++)
