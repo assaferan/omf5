@@ -240,6 +240,26 @@ no_value="'aut_rep_type' : 'O', 'field_poly' : '[^']*', 'lambda_p' : \[\], "
 check_output disc124-p2-old-basis "$no_value" -quad=4,-2,0,-6,0,1,1,2,0,2,1,-1,3,-1,3 -format=GG -p=2
 check_same disc124-p2-old-same disc124-p2 disc124-p2-old-basis
 
+# Discriminant 124 = 2^2 * 31, at the prime 2 with -square. The form of type G
+# of conductor 1 has eigenvalues -3 for T_2 and -4 for T_{2^2}: with the factor
+# 1 + 3x + (8 + 2 * (-4) / 2) x^2 = 1 + 3x + 4x^2 at 2 its L-function satisfies
+# the functional equation. The form of type P of conductor 62 whose
+# eigenvalues are rational has 12 and 24.
+cat > "$tmp/124.exp" <<'EOF'
+1: -3
+2: -4
+1: 12
+2: 24
+EOF
+check_example disc124-p2-square "$tmp/124.exp" "F G G O P P P" -quad=1,0,1,0,-1,1,1,0,0,2,0,-1,2,-1,3 -format=GG -p=2 -square
+# For the form of type O neither eigenvalue is printed in the second basis
+# above, and the two outputs are the same.
+no_values="'aut_rep_type' : 'O', 'field_poly' : '[^']*', 'lambda_p' : \[\], 'lambda_p_square' : \[\], "
+check_output disc124-p2-square-old-basis "$no_values" -quad=4,-2,0,-6,0,1,1,2,0,2,1,-1,3,-1,3 -format=GG -p=2 -square
+check_same disc124-p2-square-old-same disc124-p2-square disc124-p2-square-old-basis
+# The flag is for a single prime.
+check_error square-with-prec "-square is for the prime of -p=p" -quad=1,0,1,0,-1,1,1,0,0,2,0,-1,2,-1,3 -format=GG -prec=10 -square
+
 # genus_error name message genus
 # Checks that the error is reported for a genus file with this genus.
 genus_error() {
@@ -307,6 +327,11 @@ genus_error genus-other-genus "at index 1 of the genus is not in the genus of th
 # be 0. With an empty genus of discriminant 0 the program used not to end.
 echo "[[]]" > "$tmp/empty.db"
 check_error genus-empty-zero "the genus of discriminant 0 is empty" -genus="$tmp/empty.db" -disc=0 -prec=10
+# The Hecke matrices of an empty genus are empty. The number of p^2-neighbors
+# used to be found from the first lattice of the genus, which is not there.
+echo "[[],[],[]]" > "$tmp/empty2.db"
+: > "$tmp/empty2.exp"
+check_example genus-empty-hecke-square "$tmp/empty2.exp" "" -genus="$tmp/empty2.db" -disc=2 -hecke -p=2 -square
 
 # The same with isometries, where the first lattice is the other class.
 genus_isom_error genus-isom-incomplete "have mass 1/24, and the mass of the genus of the first lattice is 5/48" "[[$MA,$IA]]"

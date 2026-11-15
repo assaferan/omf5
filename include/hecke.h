@@ -308,6 +308,31 @@ matrix_TYP** hecke_matrices_all_conductors(const genus_t genus, int p);
 
 /***************************************************************************
  *
+ * Function: hecke_matrices_nbr_data_all_conductors
+ *
+ * Description: Compute the Hecke operator T_{p,k} for every conductor.
+ *              In this version, the neighbor manager used is of type
+ *              nbr_data.
+ *
+ * Arguments:
+ *     + genus (const genus_t) - the associated genus
+ *     + p (int) - the prime, which may divide the discriminant
+ *     + k (int) - the dimension of the isotropic subspaces (1 or 2)
+ *
+ * Returns:
+ *     + (matrix_TYP**) - An array of matrices, indexed by conductors.
+ *                        at index c, it is
+ *                        the matrix representing the
+ *                        Hecke operator T_{p,k}
+ *                        on the space with conductor cond[c]
+ *
+ **************************************************************************
+ */
+
+matrix_TYP** hecke_matrices_nbr_data_all_conductors(const genus_t genus, int p, int k);
+
+/***************************************************************************
+ *
  * Function: get_hecke_ev_nbr_data
  *
  * Description: Compute the Hecke eigenvalue of an eigenform

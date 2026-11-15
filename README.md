@@ -82,7 +82,7 @@ This runs the standard tests (`src/omf5 -tests`) and checks the examples below (
 The executable is src/omf5.
 It runs with command-line arguments as follows
 
-src/omf5 [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-row] [-p=p] [-genus=g] [-isom] [-disc=d] [-cond=c] [-nonlifts] [-idxs=form_idxs]
+src/omf5 [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-row] [-p=p] [-square] [-genus=g] [-isom] [-disc=d] [-cond=c] [-nonlifts] [-idxs=form_idxs]
 
 where the  arguments are:
 
@@ -113,6 +113,8 @@ the first prime not dividing the discriminant.
 
 If the flag -row is supplied in addition to -hecke, computes a single row.
 
+If the flag -square is supplied in addition to -p=p, computes also the eigenvalues of T_{p^2}, the Hecke operator of the p^2-neighbors, and with -hecke its Hecke matrix instead of that of T_p. It is not used with -prec or with -row.
+
 The prime p may divide the discriminant. The Hecke matrix is then that of the p-neighbors, and the character of a conductor divisible by p is found at the isometries to the p-neighbors, which are not integral at p, as follows. When p divides the discriminant exactly once, it is given by the parity of the valuation at p of the spinor norm. When p^2 divides the discriminant and the radical of the lattice modulo p is a line, the lattice and its p-neighbors have the same radical modulo p, the isometry acts on it by a sign, and the character is this sign. The Hecke matrices are then those of HeckeOperator in the package ModFrmAlg of Magma.
 
 The radical of the lattice modulo a prime q dividing the discriminant need not be a line. When q is odd, the character at q of an isometry which is integral at q is the determinant by which it acts on the radical, after the isometry is multiplied by -1 if its determinant is -1. The radical of a q-neighbor is identified with that of the lattice, and the character at an isometry to a q-neighbor is the determinant of the map it induces from the radical to itself. It is 1 at an isometry which is the identity on the orthogonal complement of a hyperbolic plane, as it is when the radical is a line. When the radical modulo 2 is not a line there is no character at 2: the conductors are then odd, and a warning says so.
@@ -120,6 +122,8 @@ The radical of the lattice modulo a prime q dividing the discriminant need not b
 A lattice has no p-neighbors when no vector outside its radical modulo p is isotropic modulo p. The Hecke matrix at p is then 0.
 
 The eigenvalue at a prime p which divides the discriminant exactly once is printed as T_p + 1, and as -(T_p + 1) when p divides the conductor, where T_p is the eigenvalue of the Hecke matrix. When p^2 divides the discriminant it is printed as T_p.
+
+The eigenvalue of T_{p^2} at a prime p dividing the discriminant is printed as it is. The lattice has no p^2-neighbors when the quotient of the lattice modulo p by its radical has no totally isotropic plane, and T_{p^2} is then 0. This is so at an odd prime p when the radical is not a line, and it can be so when p divides the discriminant exactly once. When p^2 divides the discriminant and the radical modulo p is a line, the factor at p of the L-function of a form of type G was 1 - T_p x + (p^3 + p T_{p^2} / 2) x^2 in every example checked against the functional equation. In the notation of Roberts and Schmidt for the paramodular group, T_p is lambda and T_{p^2} / 2 is mu. A guess for the factor of a form which is new at p when the radical is a hyperbolic plane, and what supports it, is in doc/euler-factors-bad-primes.md.
 
 If the flag -isom is supplied in addition to -genus=g, read from the genus file, in addition to the list of genera, a list of fixed isometries (over QQ) between the different lattices in the genus.
 

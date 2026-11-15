@@ -1439,8 +1439,13 @@ slong number_of_isotropic_subspaces(slong q, slong r, slong a, slong f, slong k,
   fmpz_init(prod);
 
   fmpz_pow_ui(prod, q_z, k*f);
+
+  // There are no such subspaces when k is larger than the Witt index r,
+  // and the exponent r+a-i below can then be negative.
+  if (k > r)
+    fmpz_zero(prod);
   
-  for (i = 1; i <= k; i++) {
+  for (i = 1; (i <= k) && (k <= r); i++) {
     fmpz_pow_ui(prod1, q_z, r-i+1);
     fmpz_sub_si(prod1, prod1, 1);
     fmpz_mul(prod, prod, prod1);
@@ -1449,7 +1454,7 @@ slong number_of_isotropic_subspaces(slong q, slong r, slong a, slong f, slong k,
     fmpz_mul(prod, prod, prod1);
   }
 
-  for (i = 1; i <= k; i++) {
+  for (i = 1; (i <= k) && (k <= r); i++) {
     fmpz_pow_ui(prod1, q_z, i);
     fmpz_sub_si(prod1, prod1, 1);
     fmpz_divexact(prod, prod, prod1);

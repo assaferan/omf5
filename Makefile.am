@@ -12,6 +12,9 @@ EXTRA_DIST += include
 # automake only distributes the license on its own if it is named COPYING.
 EXTRA_DIST += LICENSE.txt
 
+# The notes on the mathematics.
+EXTRA_DIST += doc/euler-factors-bad-primes.md
+
 # EXTRA_DIST copies the whole include directory, so remove anything that is
 # not a header, such as .DS_Store or editor backups.
 dist-hook:

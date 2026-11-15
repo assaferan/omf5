@@ -33,6 +33,7 @@ STATUS test_61();
 STATUS test_69();
 STATUS test_greedy_overflow();
 STATUS test_hecke_bad_primes();
+STATUS test_hecke_square_bad_primes();
 STATUS test_is_square();
 STATUS test_isometry_mul();
 STATUS test_mass();
@@ -41,7 +42,7 @@ STATUS test_radical_mod_4();
 
 STATUS compute_eigenvectors(const genus_t genus, bool nonlifts, int num_idxs, const int* idxs);
 
-STATUS compute_eigenvalues(const genus_t genus, int p, bool nonlifts, int num_idxs, const int* idxs);
+STATUS compute_eigenvalues(const genus_t genus, int p, bool square, bool nonlifts, int num_idxs, const int* idxs);
 
 STATUS compute_eigenvalues_up_to(const genus_t genus, int prec, bool nonlifts, int num_idxs, const int* idxs);
 
@@ -52,6 +53,8 @@ STATUS compute_hecke_col_all_conds(const genus_t genus, slong p, int gen_idx);
 STATUS compute_hecke_matrix(const genus_t genus, slong p, slong c);
 
 STATUS compute_hecke_matrix_all_conds(const genus_t genus, slong p);
+
+STATUS compute_hecke_square_matrix(const genus_t genus, slong p, bool has_c, slong c);
 
 STATUS compute_first_hecke_matrix_all_conds(const genus_t genus);
 
