@@ -37,6 +37,7 @@ STATUS test_hecke_square_bad_primes();
 STATUS test_is_square();
 STATUS test_isometry_mul();
 STATUS test_mass();
+STATUS test_old_space_scalars();
 STATUS test_parse_matrix();
 STATUS test_radical_mod_4();
 

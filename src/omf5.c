@@ -290,6 +290,8 @@ int main(int argc, char* argv[])
     test_res <<= 1;
     test_res |= test_hecke_square_bad_primes();
     test_res <<= 1;
+    test_res |= test_old_space_scalars();
+    test_res <<= 1;
     test_res |= test_61();
     test_res <<= 1;
     test_res |= test_69();

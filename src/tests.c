@@ -99,13 +99,46 @@ void print_eigenvectors(const eigenvalues_t evs)
   return;
 }
 
+// The matrices of T_{p^k} on all the conductors, acting on row vectors.
+static fmpq_mat_t* hecke_fmpq_mats_all_conductors(const genus_t genus, int p, int k)
+{
+  matrix_TYP** hecke;
+  fmpq_mat_t* hecke_fmpq;
+  slong c;
+
+  // These are found by the functions which find the eigenvalues at the
+  // conductors other than 1. An eigenvalue which is printed is found again,
+  // from one column, and at the conductor 1 by other functions (hecke_col,
+  // hecke_col_nbr_data): what is checked on these matrices is not that column.
+  if (k == 1)
+    hecke = hecke_matrices_all_conductors(genus, p);
+  else
+    hecke = hecke_matrices_nbr_data_all_conductors(genus, p, k);
+
+  hecke_fmpq = (fmpq_mat_t*)malloc(genus->num_conductors * sizeof(fmpq_mat_t));
+  for (c = 0; c < genus->num_conductors; c++) {
+    fmpq_mat_init_set_matrix_TYP(hecke_fmpq[c], hecke[c]);
+    // we transpose to match with our conventions
+    fmpq_mat_transpose(hecke_fmpq[c], hecke_fmpq[c]);
+    free_mat(hecke[c]);
+  }
+  free(hecke);
+
+  return hecke_fmpq;
+}
+
+// bad_hecke has an entry for every prime in ps. It is NULL until the matrices
+// of T_{p^k} on all the conductors are needed, and they are kept in it then,
+// for the next forms. The caller clears them.
 STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
 			int num_evs, int form_idx, const int* ps,
-			const int* test_evs, int k, int c, bool ev_print)
+			const int* test_evs, int k, int c, bool ev_print,
+			fmpq_mat_t** bad_hecke)
 {
   int i;
   nf_elem_t ev;
   fmpq_t trace;
+  bool* skip;
 #ifdef DEBUG_LEVEL_FULL
   int j;
   matrix_TYP* hecke;
@@ -118,17 +151,27 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
   // which the operators of the decomposition, at primes not dividing the
   // discriminant, do not split. It need not be an eigenvector of the operator
   // at a prime dividing the discriminant, and the number found from it then
-  // depends on the vector: on the basis of the lattice, and on the random
-  // choice of mat_irred_charpoly_eigenvector when the field is not Q. We do
-  // not find the primes at which it is an eigenvector, so no eigenvalue is
-  // given at any prime dividing the discriminant, also where the number would
-  // be the eigenvalue.
-  for (i = 0; i < num_evs; i++)
-    if (evs->is_old[form_idx] && (fmpz_fdiv_ui(genus->disc, ps[i]) == 0))
-      fprintf(stderr, "Warning: no eigenvalue of T_{%d^%d} is given for the form %d "
-	      "of conductor %ld, for which no eigenvector was found: "
-	      "%d divides the discriminant\n",
-	      ps[i], k, form_idx, (slong)genus->conductors[c], ps[i]);
+  // depends on the vector, which depends on the basis of the lattice. It does
+  // not when the operator acts on the space of the form as an element of the
+  // field of the form: every vector which could have been kept is then an
+  // eigenvector, with that eigenvalue. So the eigenvalue is given at such a
+  // prime, and at no other prime dividing the discriminant. This takes the
+  // matrix of the operator, and not one column of it.
+  skip = (bool*)malloc((num_evs + 1) * sizeof(bool));
+  for (i = 0; i < num_evs; i++) {
+    skip[i] = false;
+    if (evs->is_old[form_idx] && (fmpz_fdiv_ui(genus->disc, ps[i]) == 0)) {
+      if (bad_hecke[i] == NULL)
+	bad_hecke[i] = hecke_fmpq_mats_all_conductors(genus, ps[i], k);
+      skip[i] = !ev_is_scalar_on_old_space(evs, form_idx, bad_hecke[i][c]);
+      if (skip[i])
+	fprintf(stderr, "Warning: no eigenvalue of T_{%d^%d} is given for the form %d "
+		"of conductor %ld, for which no eigenvector was found: "
+		"%d divides the discriminant, and T_{%d^%d} is not a scalar "
+		"on the space of the form\n",
+		ps[i], k, form_idx, (slong)genus->conductors[c], ps[i], ps[i], k);
+    }
+  }
 
   fprintf(stderr, "traces of hecke eigenvalues of T_{p^%d} are:\n", k);
 
@@ -141,7 +184,7 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
   
   for (i = 0; i < num_evs; i++) {
     // See the warning above.
-    if (evs->is_old[form_idx] && (fmpz_fdiv_ui(genus->disc, ps[i]) == 0))
+    if (skip[i])
       continue;
 
     if (c == 0)
@@ -175,6 +218,7 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
 	fmpq_fprint(stderr, trace);
 	fprintf(stderr, ", expected %d\n", test_evs[i]);
 	fmpq_clear(trace);
+	free(skip);
 	return FAIL;
       }
     }
@@ -216,7 +260,27 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
   fprintf(stderr, "\n");
 
   fmpq_clear(trace);
+  free(skip);
   return SUCCESS;
+}
+
+// Clear the matrices which test_eigenvalues kept, for the primes ps[k] of ex
+static void bad_hecke_clear(fmpq_mat_t** bad_hecke[2], const genus_t genus, const example_evs_t ex)
+{
+  int k, i;
+  slong c;
+
+  for (k = 0; k < 2; k++) {
+    for (i = 0; i < ex->num_ps[k]; i++)
+      if (bad_hecke[k][i] != NULL) {
+	for (c = 0; c < genus->num_conductors; c++)
+	  fmpq_mat_clear(bad_hecke[k][i][c]);
+	free(bad_hecke[k][i]);
+      }
+    free(bad_hecke[k]);
+  }
+
+  return;
 }
 
 /* Run with test_evs = NULL to just print all the eigenvalues.
@@ -258,6 +322,8 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex, bool nonlifts, int 
   eigenvalues_t* evs;
   bool has_spinor = false;
   const int* test_evs = NULL;
+  // The matrices at the primes dividing the discriminant, see test_eigenvalues
+  fmpq_mat_t** bad_hecke[2];
 
   char lift_types[5] = {'G', 'Y', 'P', 'F', 'O'};
 
@@ -354,6 +420,9 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex, bool nonlifts, int 
 	fprintf(stderr, " at total_idx = %d", total_idx);
 	fprintf(stderr, ", c = %ld, form_idx = %d\n", c, form_idx);
       }
+
+  for (k = 0; k < 2; k++)
+    bad_hecke[k] = (fmpq_mat_t**)calloc(ex->num_ps[k] + 1, sizeof(fmpq_mat_t*));
     
   printf("{");
   for (c = 0; c < num_conductors; c++) {
@@ -370,7 +439,9 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex, bool nonlifts, int 
 	    test_evs = ex->test_evs[c][form_idx][k];
 	  cpuclock_0 = clock();
 	  if (test_eigenvalues(genus, evs[c], ex->num_ps[k], form_idx,
-			       ex->ps[k], test_evs, k+1, c, true) == FAIL) {
+			       ex->ps[k], test_evs, k+1, c, true,
+			       bad_hecke[k]) == FAIL) {
+	    bad_hecke_clear(bad_hecke, genus, ex);
 	    for (c2 = 0; c2 < num_conductors; c2++)
 	      eigenvalues_clear(evs[c2]);
 	    free(evs);
@@ -388,6 +459,7 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex, bool nonlifts, int 
   }
   printf("}");
 
+  bad_hecke_clear(bad_hecke, genus, ex);
   for (c = 0; c < num_conductors; c++)
     eigenvalues_clear(evs[c]);
   free(evs);
@@ -1381,6 +1453,99 @@ STATUS test_hecke_square_bad_primes()
   // there are no neighbors at the prime
   ret |= test_hecke_bad_prime_of(Q_192, 2, 5, 2, traces_192_2);
   ret |= test_hecke_bad_prime_square_of(Q_192, 2, 5, 2, traces_192_2);
+
+  return ret;
+}
+
+// Checks ev_is_scalar_on_old_space for the lattice given by Q_coeffs in the
+// format GG, which has one form of conductor 1 for which no eigenvector is
+// found: the operator T_{p^k} acts on the space of this form as an element of
+// its field for the primes p = ps[i] and the powers k = ks[i] with
+// is_scalar[i], and for no other. The identity is such an element, and a
+// matrix which has one entry which is not 0 is not, since it is not 0 on the
+// space and is not invertible on it.
+static STATUS test_old_space_scalars_of(const Z64* Q_coeffs, int num, const int* ps,
+					const int* ks, const bool* is_scalar)
+{
+  genus_t genus;
+  eigenvalues_t* evs;
+  fmpq_mat_t* hecke;
+  fmpq_mat_t T;
+  slong c, i, j, form_idx, num_old;
+  bool is_ok;
+
+  compute_genus(genus, Q_coeffs, "GG");
+  evs = hecke_eigenforms_all_conductors(genus);
+
+  num_old = 0;
+  form_idx = -1;
+  for (i = 0; i < evs[0]->num; i++)
+    if (evs[0]->is_old[i]) {
+      num_old++;
+      form_idx = i;
+    }
+
+  is_ok = (num_old == 1);
+  if (!is_ok)
+    fprintf(stderr, "FAIL: there are %ld forms of conductor 1 for which no eigenvector was found, and not 1\n",
+	    num_old);
+
+  for (i = 0; is_ok && (i < num); i++) {
+    hecke = hecke_fmpq_mats_all_conductors(genus, ps[i], ks[i]);
+    if (ev_is_scalar_on_old_space(evs[0], form_idx, hecke[0]) != is_scalar[i]) {
+      fprintf(stderr, "FAIL: the Hecke operator T_{%d^%d} %s a scalar on the space of the form\n",
+	      ps[i], ks[i], is_scalar[i] ? "is not" : "is");
+      is_ok = false;
+    }
+    for (c = 0; c < genus->num_conductors; c++)
+      fmpq_mat_clear(hecke[c]);
+    free(hecke);
+  }
+
+  if (is_ok) {
+    fmpq_mat_init(T, evs[0]->dim, evs[0]->dim);
+    fmpq_mat_one(T);
+    if (!ev_is_scalar_on_old_space(evs[0], form_idx, T)) {
+      fprintf(stderr, "FAIL: the identity is not a scalar on the space of the form\n");
+      is_ok = false;
+    }
+    // the entry is in the row of an entry of the vector which is not 0
+    j = 0;
+    while (nf_elem_is_zero(evs[0]->eigenvecs[form_idx][j], evs[0]->nfs[form_idx]))
+      j++;
+    fmpq_mat_zero(T);
+    fmpq_set_si(fmpq_mat_entry(T, j, 0), 1, 1);
+    if (ev_is_scalar_on_old_space(evs[0], form_idx, T)) {
+      fprintf(stderr, "FAIL: a matrix with one entry is a scalar on the space of the form\n");
+      is_ok = false;
+    }
+    fmpq_mat_clear(T);
+  }
+
+  for (c = 0; c < genus->num_conductors; c++)
+    eigenvalues_clear(evs[c]);
+  free(evs);
+  genus_clear(genus);
+
+  return (is_ok ? SUCCESS : FAIL);
+}
+
+// The lattice of discriminant 124 = 2^2 * 31 has a form of conductor 1 for
+// which no eigenvector is found, and whose field is quadratic. The operators
+// T_3, at a prime of the decomposition, and T_31 are scalars on its space, and
+// T_2 and T_{2^2} are not. The second matrix is that of the same lattice in
+// another basis.
+STATUS test_old_space_scalars()
+{
+  Z64 Q_124[15] = {1,0,1,0,-1,1,1,0,0,2,0,-1,2,-1,3};
+  Z64 Q_124_other[15] = {4,-2,0,-6,0,1,1,2,0,2,1,-1,3,-1,3};
+  int ps[4] = {3, 31, 2, 2};
+  int ks[4] = {1, 1, 1, 2};
+  bool is_scalar[4] = {true, true, false, false};
+  STATUS ret;
+
+  ret = test_old_space_scalars_of(Q_124, 4, ps, ks, is_scalar);
+  ret |= test_old_space_scalars_of(Q_124_other, 4, ps, ks, is_scalar);
 
   return ret;
 }

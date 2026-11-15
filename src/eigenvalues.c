@@ -19,6 +19,7 @@
 #include <flint/fmpz_mat.h>
 #include <flint/fmpz_poly.h>
 #include <flint/fmpz_poly_factor.h>
+#include <flint/fmpq_mat.h>
 #include <flint/fmpq_poly.h>
 
 // Self dependencies
@@ -29,6 +30,7 @@
 #include "eigenvalues.h"
 #include "fmpq_poly.h"
 #include "hecke.h"
+#include "matrix_tools.h"
 #include "nf_mat.h"
 
 // initialize the eigenvalues struct - allocate according memory
@@ -47,6 +49,9 @@ void eigenvalues_init(eigenvalues_t evs, slong num, slong dim)
   evs->is_old = (bool*)malloc(num * sizeof(bool));
   for (i = 0; i < num; i++)
     evs->is_old[i] = false;
+  // These are initialized only for the forms with is_old.
+  evs->old_basis = (fmpq_mat_t*)malloc(num * sizeof(fmpq_mat_t));
+  evs->old_hecke = (fmpq_mat_t*)malloc(num * sizeof(fmpq_mat_t));
 
   return;
 }
@@ -149,6 +154,10 @@ void eigenvalues_clear(eigenvalues_t evs)
     free(evs->eigenvecs[i]);
     nf_elem_clear(evs->eigenvals[i], evs->nfs[i]);
     nf_clear(evs->nfs[i]);
+    if (evs->is_old[i]) {
+      fmpq_mat_clear(evs->old_basis[i]);
+      fmpq_mat_clear(evs->old_hecke[i]);
+    }
   }
 
   free(evs->eigenvecs);
@@ -156,8 +165,96 @@ void eigenvalues_clear(eigenvalues_t evs)
   free(evs->nfs);
   free(evs->lift_type);
   free(evs->is_old);
+  free(evs->old_basis);
+  free(evs->old_hecke);
   
   return;
+}
+
+// Test whether T acts on the space of an old form as an element of its field
+bool ev_is_scalar_on_old_space(const eigenvalues_t evs, slong ev_idx, const fmpq_mat_t T)
+{
+  slong i, j, pivot, dim_W;
+  fmpq_mat_t T_W, WT, both, q_A, tmp;
+  nf_elem_t* evec_T;
+  nf_elem_t lambda;
+  fmpq_poly_t q;
+  fmpq_t coeff;
+  bool is_scalar;
+
+  assert(evs->is_old[ev_idx]);
+  assert((fmpq_mat_nrows(T) == evs->dim) && (fmpq_mat_ncols(T) == evs->dim));
+
+  dim_W = fmpq_mat_nrows(evs->old_basis[ev_idx]);
+
+  // The space W of the form is preserved by T when the rows of W T add
+  // nothing to the rank of the basis of W. This is checked first, since
+  // restrict_mat is for a space which is preserved.
+  fmpq_mat_init(WT, dim_W, evs->dim);
+  fmpq_mat_mul(WT, evs->old_basis[ev_idx], T);
+  fmpq_mat_init(both, 2 * dim_W, evs->dim);
+  for (i = 0; i < dim_W; i++)
+    for (j = 0; j < evs->dim; j++) {
+      fmpq_set(fmpq_mat_entry(both, i, j), fmpq_mat_entry(evs->old_basis[ev_idx], i, j));
+      fmpq_set(fmpq_mat_entry(both, dim_W + i, j), fmpq_mat_entry(WT, i, j));
+    }
+  fmpq_mat_init(tmp, 2 * dim_W, evs->dim);
+  is_scalar = (fmpq_mat_rref(tmp, both) == dim_W);
+  fmpq_mat_clear(tmp);
+  fmpq_mat_clear(both);
+  fmpq_mat_clear(WT);
+
+  pivot = -1;
+  for (i = 0; (i < evs->dim) && (pivot == -1); i++)
+    if (!nf_elem_is_zero(evs->eigenvecs[ev_idx][i], evs->nfs[ev_idx]))
+      pivot = i;
+
+  if ((!is_scalar) || (pivot == -1))
+    return false;
+
+  fmpq_mat_init(T_W, dim_W, dim_W);
+  restrict_mat(T_W, T, evs->old_basis[ev_idx]);
+
+  // If T is an element of the field on W, the vector of the form is an
+  // eigenvector of T, and the element is the eigenvalue. So we take the
+  // number lambda which the vector gives at one of its entries,
+  evec_T = (nf_elem_t*)malloc(evs->dim * sizeof(nf_elem_t));
+  for (i = 0; i < evs->dim; i++)
+    nf_elem_init(evec_T[i], evs->nfs[ev_idx]);
+  nf_elem_vec_mul_fmpq_mat(evec_T, (const nf_elem_t*)evs->eigenvecs[ev_idx], T, evs->nfs[ev_idx]);
+  nf_elem_init(lambda, evs->nfs[ev_idx]);
+  nf_elem_div(lambda, evec_T[pivot], evs->eigenvecs[ev_idx][pivot], evs->nfs[ev_idx]);
+  for (i = 0; i < evs->dim; i++)
+    nf_elem_clear(evec_T[i], evs->nfs[ev_idx]);
+  free(evec_T);
+
+  // write it as a polynomial q in the generator of the field,
+  fmpq_poly_init(q);
+  nf_elem_get_fmpq_poly(q, lambda, evs->nfs[ev_idx]);
+  nf_elem_clear(lambda, evs->nfs[ev_idx]);
+
+  // and compare T on W with q(A), where A is the matrix on W of the
+  // generator. This is the Horner scheme: fmpq_poly_evaluate_fmpq_mat is of
+  // no use here, since it rescales its result.
+  fmpq_mat_init(q_A, dim_W, dim_W);
+  fmpq_mat_init(tmp, dim_W, dim_W);
+  fmpq_init(coeff);
+  for (i = fmpq_poly_degree(q); i >= 0; i--) {
+    fmpq_mat_mul(tmp, q_A, evs->old_hecke[ev_idx]);
+    fmpq_mat_swap(q_A, tmp);
+    fmpq_poly_get_coeff_fmpq(coeff, q, i);
+    for (j = 0; j < dim_W; j++)
+      fmpq_add(fmpq_mat_entry(q_A, j, j), fmpq_mat_entry(q_A, j, j), coeff);
+  }
+  is_scalar = fmpq_mat_equal(T_W, q_A);
+
+  fmpq_clear(coeff);
+  fmpq_mat_clear(tmp);
+  fmpq_mat_clear(q_A);
+  fmpq_poly_clear(q);
+  fmpq_mat_clear(T_W);
+
+  return is_scalar;
 }
 
 // Check if an element of a number field is a square
