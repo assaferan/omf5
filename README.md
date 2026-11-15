@@ -121,7 +121,7 @@ The genus file is a list of genera, and the genus read is the one at index d, co
 
 With -isom, each lattice is instead a list of two 5x5 matrices, given by their rows - the Gram matrix of the lattice, and an isometry from the first lattice of the genus to it, whose entries are rational numbers such as -2/3.
 
-The lattices have to be a full set of representatives for the classes of a single genus. The program exits with an error if one of them is not positive definite and even, if they do not all have the same discriminant, if two of them are isometric, if their mass is not the mass of the genus, or if one of them is not in the genus of the first lattice. With -isom the last of these is not checked, and each isometry is checked to be an isometry from the first lattice, with a denominator which is prime to the discriminant.
+The lattices have to be a full set of representatives for the classes of a single genus. The program exits with an error if one of them is not positive definite and even, if they do not all have the same discriminant, if two of them are isometric, if their mass is not the mass of the genus, or if one of them is not in the genus of the first lattice. With -isom the last of these is not checked, and each isometry is checked to be an isometry from the first lattice, with a denominator which is prime to the discriminant. The isometries are multiplied by one another in the computation, as fractions of 64 bit integers, and the program exits with an error if a product in lowest terms, or the inverse of an isometry, does not fit in them.
 
 If the flag -tests is supplied, additionally runs standard tests.
 

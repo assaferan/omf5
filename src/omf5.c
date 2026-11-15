@@ -268,6 +268,8 @@ int main(int argc, char* argv[])
     test_res <<= 1;
     test_res |= test_mass();
     test_res <<= 1;
+    test_res |= test_isometry_mul();
+    test_res <<= 1;
     test_res |= test_61();
     test_res <<= 1;
     test_res |= test_69();

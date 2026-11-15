@@ -33,6 +33,7 @@ STATUS test_61();
 STATUS test_69();
 STATUS test_greedy_overflow();
 STATUS test_is_square();
+STATUS test_isometry_mul();
 STATUS test_mass();
 STATUS test_parse_matrix();
 

@@ -870,6 +870,132 @@ STATUS test_mass()
   return ret;
 }
 
+// Whether s1 / denom1 and s2 / denom2 are the same matrix. The products are
+// found with big integers: a product which has wrapped around is not the same
+// as one which has not, though the two can agree modulo 2^64.
+static bool rational_matrix_is_equal(const square_matrix_t s1, Z64 denom1,
+				     const square_matrix_t s2, Z64 denom2)
+{
+  fmpz_t lhs, rhs;
+  bool is_equal;
+  int i, j;
+
+  fmpz_init(lhs);
+  fmpz_init(rhs);
+  is_equal = true;
+  for (i = 0; is_equal && (i < QF_RANK); i++)
+    for (j = 0; is_equal && (j < QF_RANK); j++) {
+      fmpz_set_si(lhs, s1[i][j]);
+      fmpz_mul_si(lhs, lhs, denom2);
+      fmpz_set_si(rhs, s2[i][j]);
+      fmpz_mul_si(rhs, rhs, denom1);
+      is_equal = fmpz_equal(lhs, rhs);
+    }
+  fmpz_clear(lhs);
+  fmpz_clear(rhs);
+
+  return is_equal;
+}
+
+static bool isometry_is_same(const isometry_t isom1, const isometry_t isom2)
+{
+  return rational_matrix_is_equal(isom1->s, isom1->denom, isom2->s, isom2->denom) &&
+    rational_matrix_is_equal(isom1->s_inv, isom1->inv_denom, isom2->s_inv, isom2->inv_denom);
+}
+
+// Sets isom to num / denom, written as the fraction (c * num) / (c * denom),
+// and its inverse as a fraction with c times its numerators and denominator.
+static void isometry_init_set_scaled(isometry_t isom, const square_matrix_t num, Z64 denom, Z64 c)
+{
+  isometry_init_set_square_matrix(isom, num, denom);
+  square_matrix_mul_scalar(isom->s, isom->s, c);
+  isom->denom *= c;
+  square_matrix_mul_scalar(isom->s_inv, isom->s_inv, c);
+  isom->inv_denom *= c;
+
+  return;
+}
+
+// Checks the products of two isometries which are written as fractions with
+// the common factor c, against their products when c = 1.
+STATUS test_isometry_mul_of(Z64 c)
+{
+  // three times an isometry of denominator 3, and a matrix of determinant 1
+  square_matrix_t M = {{3,0,0,-3,3},{2,3,-2,1,1},{-1,0,4,1,-2},{1,0,-1,2,-1},{-1,0,1,1,1}};
+  square_matrix_t N = {{1,2,3,0,0},{0,1,2,0,0},{0,0,1,5,0},{0,0,0,1,7},{0,0,0,0,1}};
+  isometry_t a, b, a1, b1, ab, bb, prod;
+  bool is_same;
+
+  isometry_init_set_scaled(a, M, 3, c);
+  isometry_init_set_scaled(b, N, 1, c);
+  isometry_init_set_scaled(a1, M, 3, 1);
+  isometry_init_set_scaled(b1, N, 1, 1);
+  isometry_init(ab);
+  isometry_init(bb);
+  isometry_mul(ab, a1, b1);
+  isometry_mul(bb, b1, b1);
+
+  isometry_init(prod);
+  isometry_mul(prod, a, b);
+  is_same = isometry_is_same(prod, ab);
+  isometry_mul(prod, b, b);
+  is_same = is_same && isometry_is_same(prod, bb);
+  isometry_clear(prod);
+
+  // in place
+  isometry_init_set(prod, a);
+  isometry_muleq_right(prod, b);
+  is_same = is_same && isometry_is_same(prod, ab);
+  isometry_clear(prod);
+
+  isometry_init_set(prod, b);
+  isometry_muleq_left(prod, a);
+  is_same = is_same && isometry_is_same(prod, ab);
+  isometry_clear(prod);
+
+  // by a matrix
+  isometry_init_set(prod, b);
+  isometry_mul_mateq_left(prod, a->s, a->denom);
+  is_same = is_same && isometry_is_same(prod, ab);
+  isometry_clear(prod);
+
+  isometry_init_set(prod, a);
+  isometry_mul_mateq_right(prod, b->s, b->denom);
+  is_same = is_same && isometry_is_same(prod, ab);
+  isometry_clear(prod);
+
+  if (!is_same)
+    fprintf(stderr, "FAIL: a product of isometries written with the common factor %" PRId64 " is wrong\n", c);
+
+  isometry_clear(a);
+  isometry_clear(b);
+  isometry_clear(a1);
+  isometry_clear(b1);
+  isometry_clear(ab);
+  isometry_clear(bb);
+
+  return (is_same ? SUCCESS : FAIL);
+}
+
+// The numerators and the denominators of isometries are multiplied when the
+// isometries are composed. The denominators used to be of type int, and
+// neither product was checked.
+STATUS test_isometry_mul()
+{
+  STATUS ret;
+
+  ret = test_isometry_mul_of(1);
+  // the denominators of the products do not fit in an int
+  ret |= test_isometry_mul_of(65537);
+  // The products do not fit in 64 bits before the fractions are reduced. With
+  // 2^31 the product of the denominators of the second matrix with itself
+  // does fit, and the numerators do not.
+  ret |= test_isometry_mul_of(INT64_C(2147483648));
+  ret |= test_isometry_mul_of(INT64_C(4294967311));
+
+  return ret;
+}
+
 STATUS compute_eigenvectors(const genus_t genus, bool nonlifts, int num_idxs, const int* idxs)
 {
   example_evs_t dummy;

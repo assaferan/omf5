@@ -468,11 +468,10 @@ void nbr_process_init(neighbor_manager_t nbr_man, const square_matrix_t Q, Z64 p
   nbr_man->num_auts = grp->order;
   // conjugating the automorphisms
   for (aut_idx = 0; aut_idx < grp->order; aut_idx++) {
-    square_matrix_transpose(nbr_man->conj_auts[aut_idx]->s, nbr_man->auts[aut_idx]);
-    square_matrix_mul(aut_tr, isom->s, nbr_man->conj_auts[aut_idx]->s);
-    square_matrix_mul(nbr_man->conj_auts[aut_idx]->s, aut_tr, isom->s_inv);
-    nbr_man->conj_auts[aut_idx]->denom = (isom->denom) * (isom->inv_denom);
-    nbr_man->conj_auts[aut_idx]->inv_denom = square_matrix_inv(nbr_man->conj_auts[aut_idx]->s_inv, nbr_man->conj_auts[aut_idx]->s, nbr_man->conj_auts[aut_idx]->denom);
+    square_matrix_transpose(aut_tr, nbr_man->auts[aut_idx]);
+    isometry_inv(nbr_man->conj_auts[aut_idx], isom);
+    isometry_mul_mateq_left(nbr_man->conj_auts[aut_idx], aut_tr, 1);
+    isometry_muleq_left(nbr_man->conj_auts[aut_idx], isom);
   }
   
   aut_grp_clear(grp);

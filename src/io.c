@@ -156,10 +156,12 @@ static bool parse_square_matrix(const char** p_str, square_matrix_t num,
 }
 
 // read an isometry, given as a 5x5 matrix of rational numbers
-static bool parse_isom(const char** p_str, isometry_t isom)
+// When the matrix is read and its inverse does not fit in 64 bits, returns
+// false and sets inv_fits to false.
+static bool parse_isom(const char** p_str, isometry_t isom, bool* inv_fits)
 {
-  square_matrix_t num, denom;
-  Z64 isom_denom, mult, x, y;
+  square_matrix_t num, denom, inv;
+  Z64 isom_denom, inv_denom, mult, x, y;
   int i, j;
 
   if (!parse_square_matrix(p_str, num, denom))
@@ -194,7 +196,13 @@ static bool parse_isom(const char** p_str, isometry_t isom)
       num[i][j] /= mult;
   isom_denom /= mult;
 
-  isometry_init_set_square_matrix(isom, num, (int)isom_denom);
+  // The inverse is found again below, where not fitting is an error with no
+  // mention of the lattice.
+  *inv_fits = square_matrix_inv_fits(inv, &inv_denom, num, isom_denom);
+  if (!(*inv_fits))
+    return false;
+
+  isometry_init_set_square_matrix(isom, num, isom_denom);
   return true;
 }
 
@@ -202,7 +210,7 @@ static bool parse_isom(const char** p_str, isometry_t isom)
 // of the lattice, which is a symmetric 5x5 matrix of integers, and of the
 // isometry, which is a 5x5 matrix of rational numbers
 static bool parse_mat_and_isom(square_matrix_t Q, isometry_t isom,
-			       const char* mat_str)
+			       const char* mat_str, bool* inv_fits)
 {
   const char* str;
   int i, j;
@@ -214,7 +222,7 @@ static bool parse_mat_and_isom(square_matrix_t Q, isometry_t isom,
     for (j = 0; j < i; j++)
       if (Q[i][j] != Q[j][i])
 	return false;
-  if ((!parse_char(&str, ',')) || (!parse_isom(&str, isom)) ||
+  if ((!parse_char(&str, ',')) || (!parse_isom(&str, isom, inv_fits)) ||
       (!parse_char(&str, ']')))
     return false;
   // nothing may follow the array
@@ -243,6 +251,7 @@ static size_t read_genus_file(square_matrix_t** p_genus, isometry_t** p_isom,
   bool is_done = false;
   bool is_found = false;
   bool is_valid;
+  bool inv_fits = true;
   char c;
 
   *p_genus = NULL;
@@ -299,9 +308,14 @@ static size_t read_genus_file(square_matrix_t** p_genus, isometry_t** p_isom,
 		*p_isom = (isometry_t*)realloc(*p_isom, capacity * sizeof(isometry_t));
 	    }
 	    if (p_isom != NULL)
-	      is_valid = parse_mat_and_isom((*p_genus)[genus_size], (*p_isom)[genus_size], lattice);
+	      is_valid = parse_mat_and_isom((*p_genus)[genus_size], (*p_isom)[genus_size], lattice, &inv_fits);
 	    else
 	      is_valid = parse_matrix(coeffs, lattice);
+	    if (!inv_fits) {
+	      fprintf(stderr, "Error: in the genus file %s, the inverse of the matrix given as the isometry of the lattice %s of discriminant %zu does not fit in 64 bits\n",
+		      fname, lattice, disc);
+	      exit(EXIT_FAILURE);
+	    }
 	    if (!is_valid) {
 	      fprintf(stderr, "Error: in the genus file %s, the lattice %s of discriminant %zu is not %s\n",
 		      fname, lattice, disc, (p_isom != NULL) ?
