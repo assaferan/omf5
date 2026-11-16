@@ -254,12 +254,36 @@ void eigenvalues_clear(eigenvalues_t evs);
 
 /******************************************************************
  *
+ * Function: nf_elem_is_square
+ *
+ * Description: Tests whether an element of a number field is a
+ *              square, by factoring a polynomial of twice the
+ *              degree of the field over the rationals.
+ *
+ * Arguments:
+ *     + x (const nf_elem_t) - the element
+ *     + K (const nf_t) - the number field
+ *
+ * Returns:
+ *     + (bool) - true if and only if x is a square in K
+ *
+ ******************************************************************
+ */
+
+bool nf_elem_is_square(const nf_elem_t x, const nf_t K);
+
+/******************************************************************
+ *
  * Function: nf_elem_is_square_fast
  *
  * Description: Tests whether an element of a number field is a
  *              square, by reducing it modulo small primes.
- *              The test is probabilistic - an element which is
- *              not a square can be found to be one.
+ *              An element which is found not to be a square is
+ *              not one, when the polynomial which defines the
+ *              field is monic with integer coefficients, as for
+ *              the fields of the forms. An element which is not
+ *              a square can be found to be one:
+ *              nf_elem_is_square decides.
  *
  * Arguments:
  *     + x (const nf_elem_t) - the element

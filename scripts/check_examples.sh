@@ -450,6 +450,33 @@ check_example disc249 "$tmp/249.exp" "F G G G P P P" -quad=1,0,0,-1,0,1,0,0,0,1,
 : > "$tmp/259.exp"
 check_example disc259 "$tmp/259.exp" "F G G P P P P P Y Y" -quad=1,0,0,0,-1,1,0,1,1,1,-1,0,4,4,6 -format=GG
 
+# Discriminant 55, at the prime 2. The L-polynomial of a form factors at a
+# prime when the discriminant of a quadratic equation is a square in the field
+# of the form. For the form of type Y this discriminant is 0 at the prime 2.
+cat > "$tmp/55.exp" <<'EOF'
+1: 2
+1: 7
+1: 15
+1: -8
+1: 5
+EOF
+check_example disc55-p2 "$tmp/55.exp" "F P P P Y" -quad=1,1,0,0,1,1,0,0,1,1,0,-1,2,1,3 -format=GG -p=2
+
+# Discriminant 161, at the prime 2. The field of the form of type Y is
+# Q[a] / (a^2 + 4a - 1), and this discriminant is 5 = (a + 2)^2 at the prime
+# 2: it is a square in the field of the form, and not in the field which it
+# generates.
+cat > "$tmp/161.exp" <<'EOF'
+1: 15
+1: 4
+1: 5
+1: -4
+1: 48
+1: -1
+1: 26
+EOF
+check_example disc161-p2 "$tmp/161.exp" "F G G P P P P Y" -quad=1,0,0,-1,0,1,0,0,0,1,0,1,2,0,6 -format=GG -p=2
+
 # Discriminant 48, where the lattice is not maximal at 2. The traces are those
 # of the Eisenstein series, 1 + p + p^2 + p^3 for T_p.
 cat > "$tmp/48.exp" <<'EOF'
