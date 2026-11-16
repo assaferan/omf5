@@ -868,6 +868,34 @@ STATUS test_is_square()
   ret |= test_is_square_of("4  -2 0 0 1", "3  0 0 1", true, true);
   ret |= test_is_square_of("4  -2 0 0 1", "2  0 1", false, true);
 
+  // Elements with a denominator. In Q[a] / (a^2 - 2), 9/4 + a = (1/2 + a)^2,
+  // and (1 + a)/2 has the norm -1/4.
+  ret |= test_is_square_of("3  -2 0 1", "2  9/4 1", true, true);
+  ret |= test_is_square_of("3  -2 0 1", "2  1/2 1/2", false, false);
+
+  // a^2 - 5 has a repeated factor modulo 2, where Z[a] is not maximal:
+  // (3 + a)/2 is the square of (1 + a)/2, which is not in Z[a],
+  // and which has the norm -1.
+  ret |= test_is_square_of("3  -5 0 1", "2  3/2 1/2", true, true);
+  ret |= test_is_square_of("3  -5 0 1", "2  1/2 1/2", false, false);
+  ret |= test_is_square_of("3  -5 0 1", "1  2", false, false);
+
+  // A polynomial which is not monic. In Q[a] / (2a^2 - 1), 2 = (2a)^2,
+  // and a has the norm -1/2.
+  ret |= test_is_square_of("3  -1 0 2", "1  2", true, true);
+  ret |= test_is_square_of("3  -1 0 2", "2  0 1", false, true);
+
+  // In Q[a] / (a^5 - a - 1), 1 + a^2 is not a square.
+  ret |= test_is_square_of("6  -1 -1 0 0 0 1", "5  1 0 2 0 1", true, true);
+  ret |= test_is_square_of("6  -1 -1 0 0 0 1", "3  1 0 1", false, true);
+
+  // In Q[a] / (a^6 - 2), a^2 is a square, and it is not one in the field
+  // of degree 3 which it generates. 2 = (a^3)^2, and a^3 is not a square.
+  ret |= test_is_square_of("7  -2 0 0 0 0 0 1", "3  0 0 1", true, true);
+  ret |= test_is_square_of("7  -2 0 0 0 0 0 1", "1  2", true, true);
+  ret |= test_is_square_of("7  -2 0 0 0 0 0 1", "4  0 0 0 1", false, true);
+  ret |= test_is_square_of("7  -2 0 0 0 0 0 1", "1  3", false, false);
+
   return ret;
 }
 

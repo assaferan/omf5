@@ -450,9 +450,9 @@ check_example disc249 "$tmp/249.exp" "F G G G P P P" -quad=1,0,0,-1,0,1,0,0,0,1,
 : > "$tmp/259.exp"
 check_example disc259 "$tmp/259.exp" "F G G P P P P P Y Y" -quad=1,0,0,0,-1,1,0,1,1,1,-1,0,4,4,6 -format=GG
 
-# Discriminant 55, at the prime 2. A form is a lift when the discriminant of a
-# quadratic equation is a square in the field of the form. For the form of
-# type Y this discriminant is 0 at the prime 2.
+# Discriminant 55, at the prime 2. The L-polynomial of a form factors at a
+# prime when the discriminant of a quadratic equation is a square in the field
+# of the form. For the form of type Y this discriminant is 0 at the prime 2.
 cat > "$tmp/55.exp" <<'EOF'
 1: 2
 1: 7
