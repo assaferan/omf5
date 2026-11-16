@@ -122,8 +122,13 @@ check_same() {
 
 # check_reduced name yes-or-no
 # Checks whether the example name, which was run before, said on the standard
-# error that the basis was reduced.
+# error that the basis was reduced. Fails when there is no such example.
 check_reduced() {
+  if [ ! -f "$tmp/$1.err" ]; then
+    echo "FAIL $1-reduced-$2: the example $1 was not run"
+    status=1
+    return
+  fi
   if grep -q "reduced. With -noreduce" "$tmp/$1.err"; then
     said=yes
   else

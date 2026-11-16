@@ -892,7 +892,7 @@ STATUS test_reduce()
 {
   STATUS ret;
 
-  // the lattice of discriminant 228 of the data, where the diagonal is 2, 2, 2, 4, 10
+  // the lattice of discriminant 228 of the data, where the diagonal is 2, 2, 4, 4, 10
   Z64 Q[15] = {1,0,1,0,0,1,0,0,-1,2,1,-1,2,1,5};
   // the same lattice in a basis of long vectors
   Z64 Q_long[15] = {384,-1109,-174,-13,-770,801,251,19,1111,20,3,175,2,13,387};
