@@ -19,6 +19,7 @@
 #include <carat/typedef.h>
 
 #include <flint/fmpz.h>
+#include <flint/fmpq_mat.h>
 
 // Self dependencies
 
@@ -78,6 +79,16 @@ typedef enum {
  *                        eigenvector of the other Hecke
  *                        operators. The form has the type O,
  *                        unless it was given another one.
+ *     + old_basis (fmpq_mat_t*) - for a form with is_old, the
+ *                        rows are a basis of the space which
+ *                        was not split. Not initialized for
+ *                        the other forms.
+ *     + old_hecke (fmpq_mat_t*) - for a form with is_old, the
+ *                        last operator of the decomposition
+ *                        on that space, in that basis. The
+ *                        generator of the field of the form
+ *                        acts on the space as this matrix.
+ *                        Not initialized for the other forms.
  *
  * Used to hold the data of eigenforms and their eigenvalues,
  ****************************************************************
@@ -92,6 +103,8 @@ typedef struct {
   // bool* is_lift;
   aut_type* lift_type;
   bool* is_old;
+  fmpq_mat_t* old_basis;
+  fmpq_mat_t* old_hecke;
 } eigenvalues;
 
 typedef eigenvalues eigenvalues_t[1];
@@ -194,6 +207,36 @@ void eigenvalues_set_lifts(eigenvalues_t evs, slong prec, slong c, const genus_t
  */
 
 slong ev_get_pivot(const nf_elem_t* evec, const nf_t K, const genus_t genus, slong cond);
+
+/******************************************************************
+ *
+ * Function: ev_is_scalar_on_old_space
+ *
+ * Description: For a form for which no eigenvector was found
+ *              (see is_old), tests whether an operator acts on
+ *              the space of the form as an element of the field
+ *              of the form. The space is a vector space over the
+ *              field, and the vector which is kept for the form
+ *              is one of many: it depends on the basis of the
+ *              lattice. When the operator is such a scalar, every
+ *              one of these vectors is an eigenvector of it, with
+ *              the same eigenvalue. When it is not, the number
+ *              found from the vector depends on the vector.
+ *
+ * Arguments:
+ *     + evs (const eigenvalues_t) - the eigenvalues data
+ *     + ev_idx (slong) - the index of the form, with is_old
+ *     + T (const fmpq_mat_t) - the operator on the whole space,
+ *                              acting on row vectors
+ *
+ * Returns:
+ *     + (bool) - true if T preserves the space of the form and
+ *                acts on it as an element of the field
+ *
+ ******************************************************************
+ */
+
+bool ev_is_scalar_on_old_space(const eigenvalues_t evs, slong ev_idx, const fmpq_mat_t T);
 
 /******************************************************************
  *

@@ -222,15 +222,16 @@ check_example disc117-p3 "$tmp/117.exp" "F G O P P P P P Y" -quad=1,0,1,0,-1,1,0
 # Discriminant 124 = 2^2 * 31, at the prime 2. No eigenvector was found for the
 # form of type O: the vector used for it is in a space which the Hecke
 # operators of the decomposition do not split, and it need not be an
-# eigenvector of the operator at 2. So no eigenvalue at 2 is printed for this
-# form, as at every prime dividing the discriminant. The number which used to
-# be printed at 2 depended on the vector, and so on the basis of the lattice
-# and on a random choice of the program: the second matrix is that of the same
-# lattice in another basis, and the numbers printed had the traces 98/5, 57/5
-# and 31/2. The two outputs are now the same, and the second has no value for
-# the form of type O. Two of the other eigenvalues at 2 are checked: -3 for
-# the form of type G of conductor 1, and 12 for the form of type P of
-# conductor 62 whose eigenvalues are rational.
+# eigenvector of the operator at 2. The operator at 2 does not act on this
+# space as an element of the field of the form, so no eigenvalue at 2 is
+# printed for this form. The number which used to be printed at 2 depended on
+# the vector, and so on the basis of the lattice and on a random choice of the
+# program: the second matrix is that of the same lattice in another basis, and
+# the numbers printed had the traces 98/5, 57/5 and 31/2. The two outputs are
+# now the same, and the second has no value for the form of type O. Two of the
+# other eigenvalues at 2 are checked: -3 for the form of type G of conductor
+# 1, and 12 for the form of type P of conductor 62 whose eigenvalues are
+# rational.
 cat > "$tmp/124p2.exp" <<'EOF'
 1: -3
 1: 12
@@ -239,6 +240,39 @@ check_example disc124-p2 "$tmp/124p2.exp" "F G G O P P P" -quad=1,0,1,0,-1,1,1,0
 no_value="'aut_rep_type' : 'O', 'field_poly' : '[^']*', 'lambda_p' : \[\], "
 check_output disc124-p2-old-basis "$no_value" -quad=4,-2,0,-6,0,1,1,2,0,2,1,-1,3,-1,3 -format=GG -p=2
 check_same disc124-p2-old-same disc124-p2 disc124-p2-old-basis
+
+# Discriminant 124 at the prime 31, which divides the discriminant once. The
+# operator at 31 acts on the space of the form of type O as the number 1022,
+# so the eigenvalue 1022 + 1 is printed for this form, in the two bases. Its
+# field is quadratic, so the trace is 2046. The form of type G of conductor 1
+# has the eigenvalue 239 there.
+cat > "$tmp/124p31.exp" <<'EOF'
+1: 239
+1: 2046
+EOF
+check_example disc124-p31 "$tmp/124p31.exp" "F G G O P P P" -quad=1,0,1,0,-1,1,1,0,0,2,0,-1,2,-1,3 -format=GG -p=31
+old_value="'aut_rep_type' : 'O', 'field_poly' : '[^']*', 'lambda_p' : \['1023',\], "
+check_output disc124-p31-old "$old_value" -quad=1,0,1,0,-1,1,1,0,0,2,0,-1,2,-1,3 -format=GG -p=31
+check_output disc124-p31-old-basis "$old_value" -quad=4,-2,0,-6,0,1,1,2,0,2,1,-1,3,-1,3 -format=GG -p=31
+check_same disc124-p31-old-same disc124-p31-old disc124-p31-old-basis
+
+# With -square the operator T_{31^2} acts on this space as 0, and the two
+# eigenvalues are printed for the form of type O, in the two bases.
+old_values="'aut_rep_type' : 'O', 'field_poly' : '[^']*', 'lambda_p' : \['1023',\], 'lambda_p_square' : \['0',\], "
+check_output disc124-p31-square-old "$old_values" -quad=1,0,1,0,-1,1,1,0,0,2,0,-1,2,-1,3 -format=GG -p=31 -square
+check_output disc124-p31-square-old-basis "$old_values" -quad=4,-2,0,-6,0,1,1,2,0,2,1,-1,3,-1,3 -format=GG -p=31 -square
+check_same disc124-p31-square-old-same disc124-p31-square-old disc124-p31-square-old-basis
+
+# Discriminant 112 = 2^4 * 7, at the prime 7. The only form of type O has the
+# conductor 14, which is divisible by 7. The operator at 7 acts on its space
+# as the number -50, and the eigenvalue which is printed is -(-50 + 1) = 49,
+# with the sign of the character at 7. The conductor 14 is the last which is
+# printed. The second matrix is that of the same lattice in another basis,
+# and the two outputs are the same.
+old_value="14 : \[.*'aut_rep_type' : 'O', 'field_poly' : '[^']*', 'lambda_p' : \['49',\], "
+check_output disc112-p7-old "$old_value" -quad=1,-1,-1,1,0,2,2,0,-1,2,0,0,2,1,2 -format=GG -p=7
+check_output disc112-p7-old-basis "$old_value" -quad=4,-13,-11,3,1,14,28,-9,0,26,-22,-2,5,1,2 -format=GG -p=7
+check_same disc112-p7-old-same disc112-p7-old disc112-p7-old-basis
 
 # Discriminant 124 = 2^2 * 31, at the prime 2 with -square. The form of type G
 # of conductor 1 has eigenvalues -3 for T_2 and -4 for T_{2^2}: with the factor

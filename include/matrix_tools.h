@@ -232,6 +232,10 @@ void fq_nmod_mat_init_set_fmpz_mat(fq_nmod_mat_t dest, const fmpz_mat_t mat, con
 
 void restrict_mat(fmpq_mat_t res_T, const fmpq_mat_t T, const fmpq_mat_t basis_W);
 
+// res = v * mat, for a row vector v over the number field nf.
+// The entries of res are initialized, and res is not v.
+void nf_elem_vec_mul_fmpq_mat(nf_elem_t* res, const nf_elem_t* v, const fmpq_mat_t mat, const nf_t nf);
+
 void kernel_on(fmpq_mat_t ker, const fmpq_mat_t A, const fmpq_mat_t B);
 
 void fmpq_mat_kernel(fmpq_mat_t ker, const fmpq_mat_t mat);

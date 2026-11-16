@@ -1320,6 +1320,13 @@ void hecke_eigenforms(eigenvalues_t evs, const decomposition_t D, const genus_t 
       nf_elem_gen(evs->eigenvals[i], evs->nfs[i]);
       evs->lift_type[i] = O; // it's an old form
       evs->is_old[i] = true;
+      // The space which was not split is kept, with the operator of the
+      // last attempt on it: the vector is an eigenvector of this operator,
+      // and the eigenvalue is the generator of the field.
+      fmpq_mat_init_set(evs->old_basis[i], D->bases[c][i]);
+      fmpq_mat_init(evs->old_hecke[i], fmpq_mat_nrows(D->bases[c][i]),
+		    fmpq_mat_nrows(D->bases[c][i]));
+      restrict_mat(evs->old_hecke[i], D->hecke[p_idx-1][c], D->bases[c][i]);
     }
   }
   
