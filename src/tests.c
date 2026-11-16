@@ -784,29 +784,43 @@ STATUS test_greedy_overflow()
   return ret;
 }
 
-// Tests whether x is found to be a square in Q[a] / (f), for an integer x,
-// where the polynomial f is given as for fmpq_poly_set_str.
-STATUS test_is_square_of(const char* f_str, slong x_int, bool is_square)
+// Tests the two functions which find whether x is a square in Q[a] / (f).
+// The polynomial f, and x as a polynomial in a, are given as for
+// fmpq_poly_set_str. nf_elem_is_square has to find what is_square says.
+// nf_elem_is_square_fast has to find what is_square_fast says: it can
+// find x to be a square when it is not, and never the other way.
+STATUS test_is_square_of(const char* f_str, const char* x_str, bool is_square, bool is_square_fast)
 {
   STATUS ret;
-  fmpq_poly_t f;
+  fmpq_poly_t f, x_poly;
   nf_t K;
   nf_elem_t x;
 
   fmpq_poly_init(f);
+  fmpq_poly_init(x_poly);
   fmpq_poly_set_str(f, f_str);
+  fmpq_poly_set_str(x_poly, x_str);
   nf_init(K, f);
   nf_elem_init(x, K);
-  nf_elem_set_si(x, x_int, K);
+  nf_elem_set_fmpq_poly(x, x_poly, K);
 
-  ret = (nf_elem_is_square_fast(x, K) == is_square) ? SUCCESS : FAIL;
+  ret = SUCCESS;
 
-  if (ret == FAIL)
-    fprintf(stderr, "FAIL: %ld was found %sto be a square in the field defined by %s\n",
-	    x_int, is_square ? "not " : "", f_str);
+  if (nf_elem_is_square(x, K) != is_square) {
+    ret = FAIL;
+    fprintf(stderr, "FAIL: %s was found %sto be a square in the field defined by %s\n",
+	    x_str, is_square ? "not " : "", f_str);
+  }
+
+  if (nf_elem_is_square_fast(x, K) != is_square_fast) {
+    ret = FAIL;
+    fprintf(stderr, "FAIL: %s was found %sto be a square modulo small primes in the field defined by %s\n",
+	    x_str, is_square_fast ? "not " : "", f_str);
+  }
 
   nf_elem_clear(x, K);
   nf_clear(K);
+  fmpq_poly_clear(x_poly);
   fmpq_poly_clear(f);
 
   return ret;
@@ -819,11 +833,40 @@ STATUS test_is_square()
   // a^2 - 3 has a repeated factor modulo 3, where Z[a] is maximal.
   // Modulo 3 is the only place where 2 is seen not to be a square,
   // among the primes which are tested.
-  ret = test_is_square_of("3  -3 0 1", 2, false) << 1;
+  ret = test_is_square_of("3  -3 0 1", "1  2", false, false);
 
   // a^2 + 9 has a repeated factor modulo 3, where Z[a] is not maximal.
   // Here -4 = (2a/3)^2 is not a square modulo 3.
-  ret |= test_is_square_of("3  9 0 1", -4, true);
+  ret |= test_is_square_of("3  9 0 1", "1  -4", true, true);
+
+  // 0 is a square.
+  ret |= test_is_square_of("2  0 1", "1  0", true, true);
+  ret |= test_is_square_of("3  -2 0 1", "1  0", true, true);
+
+  // In the field of the rational numbers.
+  ret |= test_is_square_of("2  0 1", "1  9/4", true, true);
+  ret |= test_is_square_of("2  0 1", "1  2", false, false);
+  // No prime is tested for -1.
+  ret |= test_is_square_of("2  0 1", "1  -1", false, true);
+
+  // In Q[a] / (a^2 - 2), 2 is a square, and it is not one in the field
+  // which it generates. 3 + 2a = (1 + a)^2, and 1 + a has the norm -1.
+  ret |= test_is_square_of("3  -2 0 1", "1  2", true, true);
+  ret |= test_is_square_of("3  -2 0 1", "2  3 2", true, true);
+  ret |= test_is_square_of("3  -2 0 1", "2  1 1", false, true);
+  ret |= test_is_square_of("3  -2 0 1", "1  3", false, false);
+
+  // In Q[a] / (a^4 + 1), -1 = (a^2)^2 and 2 = (a + a^(-1))^2.
+  // 3 is not a square, and it is one modulo 3, 5 and 7, the odd primes
+  // which are tested: a^4 + 1 has two factors of degree 2 modulo each.
+  // It is not a square modulo 17.
+  ret |= test_is_square_of("5  1 0 0 0 1", "1  -1", true, true);
+  ret |= test_is_square_of("5  1 0 0 0 1", "1  2", true, true);
+  ret |= test_is_square_of("5  1 0 0 0 1", "1  3", false, true);
+
+  // In Q[a] / (a^3 - 2), a is not a square, and no prime is tested for it.
+  ret |= test_is_square_of("4  -2 0 0 1", "3  0 0 1", true, true);
+  ret |= test_is_square_of("4  -2 0 0 1", "2  0 1", false, true);
 
   return ret;
 }

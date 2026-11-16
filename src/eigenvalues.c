@@ -258,49 +258,91 @@ bool ev_is_scalar_on_old_space(const eigenvalues_t evs, slong ev_idx, const fmpq
 }
 
 // Check if an element of a number field is a square
-// !! TODO - this should be public and in a different file
-// returns true if x is a square in K
+// !! TODO - this should be in a different file
+// returns true if and only if x is a square in K
 bool nf_elem_is_square(const nf_elem_t x, const nf_t K)
 {
   // we do it in a weird way because of the lack of functionality of nf_elem
   // Based on S. Landau, Factoring Polynomials over Algebraic Number Fields, SIAM Journal on Computing, 1985.
   // where we simply try to factor t^2 - x
-  
-  fmpq_mat_t x_reg;
-  fmpq_poly_t min_poly, x2;
-  fmpq_poly_factor_t fac;
+  //
+  // Let B = K[y] / (y^2 - x). When x is not 0, B is a field if x is not
+  // a square in K, and the product of two copies of K if it is.
+  // An element of B whose characteristic polynomial over Q is squarefree
+  // generates B over Q, and then B is a field if and only if this
+  // polynomial is irreducible.
+  // We take the elements s*a + y, where a is the generator of K, for
+  // s = 0, 1, 2, ...: all but finitely many of them are such elements.
+  // The characteristic polynomial of s*a + y is the norm of (t - s*a)^2 - x.
+  // For s = 0 it is f(t^2), where f is the characteristic polynomial of x,
+  // and it is squarefree when x generates K.
+
+  slong i, j, n, s;
+  fmpq_mat_t a_reg, x_reg, theta;
+  fmpq_poly_t char_poly;
+  fmpz_poly_t char_poly_int;
+  fmpz_poly_factor_t fac;
+  nf_elem_t a;
   bool is_sqr = false;
+  bool is_squarefree = false;
 
-  // This sets the polynomial t^2
-  fmpq_poly_init(x2);
-  fmpq_poly_init(min_poly);
-  fmpq_mat_init(x_reg, fmpq_poly_degree(K->pol), fmpq_poly_degree(K->pol));
-  fmpq_poly_set_str(x2, "3  0 0 1");
+  if (nf_elem_is_zero(x, K))
+    return true;
 
-  // x_reg is the matrix representing multiplication by x
-  // If we let f(t) be its minimal polynomial,
-  // then we factor f(t^2)
-  // Note that f(t^2) = prod_i (t^2 - x_i) = N(t^2 - x)
+  n = fmpq_poly_degree(K->pol);
+
+  nf_elem_init(a, K);
+  fmpq_mat_init(a_reg, n, n);
+  fmpq_mat_init(x_reg, n, n);
+  fmpq_mat_init(theta, 2*n, 2*n);
+  fmpq_poly_init(char_poly);
+  fmpz_poly_init(char_poly_int);
+
+  // a_reg and x_reg are the matrices representing multiplication by a and by x
+  nf_elem_gen(a, K);
+  nf_elem_rep_mat(a_reg, a, K);
   nf_elem_rep_mat(x_reg, x, K);
-  fmpq_mat_minpoly(min_poly, x_reg);
-  fmpq_poly_compose(min_poly, min_poly, x2);
-  fmpq_poly_factor(fac, min_poly);
-  
-  is_sqr =  (fac->num > 1); // Theorem 1.4 from Landau's paper
-  
-  fmpq_poly_factor_clear(fac);
-  fmpq_poly_clear(x2);
-  fmpq_poly_clear(min_poly);
+
+  for (s = 0; !is_squarefree; s++) {
+    // theta is the matrix representing multiplication by s*a + y on B,
+    // in the basis 1, a, ..., a^(n-1), y, a*y, ..., a^(n-1)*y
+    fmpq_mat_zero(theta);
+    for (i = 0; i < n; i++) {
+      for (j = 0; j < n; j++) {
+	fmpq_mul_si(fmpq_mat_entry(theta, i, j), fmpq_mat_entry(a_reg, i, j), s);
+	fmpq_set(fmpq_mat_entry(theta, n+i, n+j), fmpq_mat_entry(theta, i, j));
+	fmpq_set(fmpq_mat_entry(theta, n+i, j), fmpq_mat_entry(x_reg, i, j));
+      }
+      fmpq_one(fmpq_mat_entry(theta, i, n+i));
+    }
+    fmpq_mat_charpoly(char_poly, theta);
+    is_squarefree = fmpq_poly_is_squarefree(char_poly);
+  }
+
+  // The content of the polynomial is not among the factors
+  fmpq_poly_get_numerator(char_poly_int, char_poly);
+  fmpz_poly_factor_init(fac);
+  fmpz_poly_factor(fac, char_poly_int);
+
+  is_sqr = (fac->num > 1);
+
+  fmpz_poly_factor_clear(fac);
+  fmpz_poly_clear(char_poly_int);
+  fmpq_poly_clear(char_poly);
+  fmpq_mat_clear(theta);
   fmpq_mat_clear(x_reg);
+  fmpq_mat_clear(a_reg);
+  nf_elem_clear(a, K);
 
   return is_sqr;
 }
 
 // Check if an element of a number field is a square
-// !! TODO - this should be public and in a different file
-// returns true if x is a square in K
+// !! TODO - this should be in a different file
+// returns false only if x is not a square in K
 // The above function might be occassionaly slow.
-// This is a faster approach, based on CRT
+// This is a faster approach, which reduces x modulo small primes.
+// An element which is not a square can be a square modulo all of them.
 bool nf_elem_is_square_fast(const nf_elem_t x, const nf_t K)
 {
   // we do it in a weird way because of the lack of functionality of nf_elem
@@ -459,7 +501,7 @@ aut_type ev_is_lpoly_reducible(const eigenvalues_t evs, slong ev_idx, slong p, s
   nf_elem_t a[2];
   nf_elem_t disc; // discriminant of the quadratic controlling lifts
   nf_elem_t root;
-  bool is_lift;
+  bool is_lift, is_square_fast;
   aut_type lift_type;
 
   // Since we are in rank 5, there are only two Hecke operators T_{p,1} and T_{p,2} at every prime.
@@ -496,11 +538,14 @@ aut_type ev_is_lpoly_reducible(const eigenvalues_t evs, slong ev_idx, slong p, s
   printf("\n");
 #endif // DEBUG
 
-  // !! TODO - this is not good enough, we might miss forms!
-  // e.g. 889. otoh, nf_elem_is_square is too slow.
-  // Should do CRT reconstruction
-  is_lift = nf_elem_is_square_fast(disc, evs->nfs[ev_idx]);
-  assert(is_lift == nf_elem_is_square(disc, evs->nfs[ev_idx]));
+  // nf_elem_is_square_fast finds most of the elements which are not squares
+  // not to be squares, and it is never wrong when it does.
+  // It can find an element to be a square when it is not, so
+  // an element which passes it is checked by nf_elem_is_square,
+  // which factors a polynomial of twice the degree of the field.
+  is_square_fast = nf_elem_is_square_fast(disc, evs->nfs[ev_idx]);
+  is_lift = is_square_fast && nf_elem_is_square(disc, evs->nfs[ev_idx]);
+  assert(is_square_fast || !nf_elem_is_square(disc, evs->nfs[ev_idx]));
 
   // If is a lift setting it to a Yoshida lift temporarily, otherwise type G.
   lift_type = is_lift ? Y : G;
