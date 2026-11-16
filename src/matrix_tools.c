@@ -930,6 +930,67 @@ void greedy(square_matrix_t gram, isometry_t s, int dim)
 
 }
 
+/* Replace the gram matrix q by a greedy reduction of it, when the largest diagonal entry of the
+   reduction is smaller. Returns whether q was replaced. */
+bool square_matrix_reduce(square_matrix_t q)
+{
+  square_matrix_t red;
+  isometry_t s;
+  fmpz_mat_t q_mat, red_mat;
+  fmpz_t q_det, red_det;
+  Z64 q_max, red_max;
+  int i, j;
+  bool is_smaller;
+
+  // greedy multiplies two entries
+  for (i = 0; i < QF_RANK; i++)
+    for (j = 0; j < QF_RANK; j++)
+      if ((q[i][j] > INT32_MAX) || (q[i][j] < -INT32_MAX))
+	return false;
+
+  // and it is for a positive definite matrix
+  if (!square_matrix_is_positive_definite(q))
+    return false;
+
+  square_matrix_init(red);
+  square_matrix_set(red, q);
+  isometry_init(s);
+  greedy(red, s, QF_RANK);
+
+  q_max = red_max = 0;
+  for (i = 0; i < QF_RANK; i++) {
+    if (q[i][i] > q_max)
+      q_max = q[i][i];
+    if (red[i][i] > red_max)
+      red_max = red[i][i];
+  }
+  is_smaller = (red_max < q_max);
+
+  // An entry could still have overflown in greedy. The reduction is the gram matrix of a basis of the
+  // same lattice when s is integral, takes q to it, and the two determinants are equal.
+  if (is_smaller) {
+    fmpz_mat_init_set_square_matrix(q_mat, q);
+    fmpz_mat_init_set_square_matrix(red_mat, red);
+    fmpz_init(q_det);
+    fmpz_init(red_det);
+    fmpz_mat_det(q_det, q_mat);
+    fmpz_mat_det(red_det, red_mat);
+    is_smaller = (s->denom == 1) && isometry_is_isom(s, q, red) && fmpz_equal(q_det, red_det);
+    fmpz_clear(q_det);
+    fmpz_clear(red_det);
+    fmpz_mat_clear(q_mat);
+    fmpz_mat_clear(red_mat);
+  }
+
+  if (is_smaller)
+    square_matrix_set(q, red);
+
+  isometry_clear(s);
+  square_matrix_clear(red);
+
+  return is_smaller;
+}
+
 // assumes res is already initialized and is in the correct length
 void fmpz_vec_mul_mat(fmpz_t* res, const fmpz_t* v, const fmpz_mat_t mat)
 {

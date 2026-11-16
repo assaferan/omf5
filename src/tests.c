@@ -43,6 +43,9 @@ void compute_genus(genus_t genus, const Z64* Q_coeffs, const char* format)
   cpuclock_0 = clock();
 
   square_matrix_init_set_symm(Q, Q_coeffs, format);
+  // The lattice which is given is the first class of the genus, and every lattice which is found
+  // is tested for an isometry with it. The forms do not depend on its basis.
+  square_matrix_reduce(Q);
   genus_init_square_matrix(old_genus, Q, -1);
 
   cpuclock_1 = clock();
@@ -780,6 +783,69 @@ STATUS test_greedy_overflow()
   ret = test_greedy(Q1, red_Q) << 1;
 
   ret |= test_greedy(Q2, red_Q2);
+
+  return ret;
+}
+
+// Tests square_matrix_reduce on the lattice with the coefficients Q_coeffs, in the format GG.
+// If ref_coeffs is NULL the matrix has to be left as it is. Otherwise it has to be replaced, by
+// the gram matrix of a lattice which is isometric to the one with the coefficients ref_coeffs,
+// and which has no diagonal entry above max_diag.
+static STATUS test_reduce_of(const Z64* Q_coeffs, const Z64* ref_coeffs, Z64 max_diag)
+{
+  square_matrix_t Q, red, ref;
+  isometry_t s;
+  STATUS ret;
+  int i;
+
+  square_matrix_init_set_symm(Q, Q_coeffs, "GG");
+  square_matrix_init(red);
+  square_matrix_set(red, Q);
+
+  if (ref_coeffs == NULL)
+    ret = (!square_matrix_reduce(red) && square_matrix_is_equal(red, Q)) ? SUCCESS : FAIL;
+  else {
+    ret = square_matrix_reduce(red) ? SUCCESS : FAIL;
+    for (i = 0; i < QF_RANK; i++)
+      if (red[i][i] > max_diag)
+	ret = FAIL;
+    // the isometry test is not called for the matrix which was given, whose vectors are long
+    if (ret == SUCCESS) {
+      square_matrix_init_set_symm(ref, ref_coeffs, "GG");
+      if (is_isometric(s, ref, red))
+	isometry_clear(s);
+      else
+	ret = FAIL;
+      square_matrix_clear(ref);
+    }
+  }
+
+  square_matrix_clear(Q);
+  square_matrix_clear(red);
+
+  return ret;
+}
+
+STATUS test_reduce()
+{
+  STATUS ret;
+
+  // the lattice of discriminant 228 of the data, where the diagonal is 2, 2, 2, 4, 10
+  Z64 Q[15] = {1,0,1,0,0,1,0,0,-1,2,1,-1,2,1,5};
+  // the same lattice in a basis of long vectors
+  Z64 Q_long[15] = {384,-1109,-174,-13,-770,801,251,19,1111,20,3,175,2,13,387};
+  // and with 30000 times the first vector added to the last one: the largest entry is below 2^31
+  Z64 Q_31[15] = {1,0,1,0,60000,1,0,0,-1,2,1,29999,2,1,900000005};
+  // with 2^30 times the first vector added to the last one, an entry is 2^31
+  Z64 Q_32[15] = {1,0,1,0,2147483648,1,0,0,-1,2,1,1073741823,2,1,1152921504606846981};
+  // not positive definite
+  Z64 Q_indef[15] = {1,0,0,0,0,1,0,0,0,1,0,0,1,0,-1};
+
+  ret = test_reduce_of(Q, NULL, 0);
+  ret |= test_reduce_of(Q_long, Q, 10);
+  ret |= test_reduce_of(Q_31, Q, 10);
+  ret |= test_reduce_of(Q_32, NULL, 0);
+  ret |= test_reduce_of(Q_indef, NULL, 0);
 
   return ret;
 }

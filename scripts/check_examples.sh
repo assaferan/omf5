@@ -127,6 +127,12 @@ cat > "$tmp/61.exp" <<'EOF'
 EOF
 check_example disc61 "$tmp/61.exp" "F G P" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=100
 
+# The same lattice in a basis of long vectors: the largest diagonal entry of
+# the Gram matrix is 998, and not 16. The lattice is reduced before its genus
+# is computed, and the output is the same.
+check_example disc61-long-basis "$tmp/61.exp" "F G P" -quad=499,4,4,2,617,2,7,5,-4,10,14,-9,5,-7,196 -format=GG -prec=100
+check_same disc61-long-same disc61 disc61-long-basis
+
 # With -nonlifts only the form of type G is computed.
 cat > "$tmp/61nl.exp" <<'EOF'
 1: -7 -3 3 -9

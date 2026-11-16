@@ -276,6 +276,8 @@ int main(int argc, char* argv[])
     test_res <<= 1;
     test_res |= test_greedy_overflow();
     test_res <<= 1;
+    test_res |= test_reduce();
+    test_res <<= 1;
     test_res |= test_parse_matrix();
     test_res <<= 1;
     test_res |= test_is_square();

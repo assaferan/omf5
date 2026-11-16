@@ -202,6 +202,32 @@ void greedy(square_matrix_t gram, isometry_t s, int dim);
 
 /****************************************************************************
  *
+ * Function: square_matrix_reduce
+ *
+ * Description: Replaces a gram matrix by a greedy reduction of it, when
+ *              the largest diagonal entry of the reduction is smaller.
+ *              An isometry test lists the vectors of a lattice up to the
+ *              largest diagonal entry of a gram matrix, so a basis of
+ *              long vectors makes it slow.
+ *              The matrix is left as it is when it is not positive
+ *              definite, or when one of its entries does not fit in
+ *              32 bits.
+ *
+ * Arguments:
+ *     + q (square_matrix_t) - a symmetric matrix
+ *
+ * Returns:
+ *     + q (square_matrix_t) - the gram matrix of the same lattice in the
+ *                             reduced basis, if it was replaced
+ *     + (bool) - whether q was replaced
+ *
+ ***************************************************************************
+ */
+
+bool square_matrix_reduce(square_matrix_t q);
+
+/****************************************************************************
+ *
  * Function: get_eigenvector_on_subspace
  *
  * Description: Computes an eigenvector of a rational matrix T on a linear

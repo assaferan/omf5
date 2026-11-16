@@ -98,6 +98,8 @@ in which case, the genus will be computed using p-neighbors, or via g and d -
 
 [d] is the discriminant of the lattice, so that g[d] is the relevant genus,
 
+The lattice Q may be given in any basis. When a reduction of the basis lowers the largest diagonal entry of the Gram matrix, the genus is computed from the reduced basis: the time grows quickly with this entry. The eigenvalues do not depend on the basis. The entries of the Gram matrix have to fit in 32 bits for the basis to be reduced. The lattices of a genus file are used in the bases in which they are given, so these should be bases of short vectors.
+
 [p] is a prime at which to compute the Hecke matrix/eigenvalue, 
 
 [L] is the precision up to which to compute the hecke matrices/eigenvalues (a_p for p <= L and a_{p^2} for p^2 <= L),

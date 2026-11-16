@@ -40,6 +40,7 @@ STATUS test_mass();
 STATUS test_old_space_scalars();
 STATUS test_parse_matrix();
 STATUS test_radical_mod_4();
+STATUS test_reduce();
 
 STATUS compute_eigenvectors(const genus_t genus, bool nonlifts, int num_idxs, const int* idxs);
 
