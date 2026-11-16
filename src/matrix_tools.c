@@ -1027,11 +1027,28 @@ static bool fmpz_mat_greedy(fmpz_mat_t red, fmpz_mat_t t)
    is smaller. Returns whether q was replaced. */
 bool square_matrix_reduce(square_matrix_t q)
 {
-  fmpz_mat_t gram, red, u, t;
+  fmpz_mat_t t;
+  bool is_replaced;
+
+  fmpz_mat_init(t, QF_RANK, QF_RANK);
+  is_replaced = square_matrix_reduce_basis(q, t);
+  fmpz_mat_clear(t);
+
+  return is_replaced;
+}
+
+/* The same, and t is set to the basis of the reduction, whose vectors are its columns: the gram
+   matrix which is returned is t^T * q * t for the q which was given. The identity when q is not
+   replaced. */
+bool square_matrix_reduce_basis(square_matrix_t q, fmpz_mat_t t)
+{
+  fmpz_mat_t gram, red, u;
   fmpz_lll_t lll;
   fmpz_t gram_max, red_max;
   slong i, j;
   bool is_smaller;
+
+  fmpz_mat_one(t);
 
   for (i = 0; i < QF_RANK; i++)
     for (j = 0; j < i; j++)
@@ -1046,7 +1063,6 @@ bool square_matrix_reduce(square_matrix_t q)
   fmpz_mat_init_set_square_matrix(gram, q);
   fmpz_mat_init_set(red, gram);
   fmpz_mat_init(u, QF_RANK, QF_RANK);
-  fmpz_mat_init(t, QF_RANK, QF_RANK);
 
   // The entries of q can be too large for greedy, which works with 64 bits and does not check them.
   // The LLL reduction of FLINT has no bound on the entries: it replaces red by u * red * u^T, and
@@ -1072,8 +1088,9 @@ bool square_matrix_reduce(square_matrix_t q)
   // red is positive definite with a smaller diagonal than q, so its entries fit
   if (is_smaller)
     square_matrix_set_fmpz_mat(q, red);
+  else
+    fmpz_mat_one(t);
 
-  fmpz_mat_clear(t);
   fmpz_mat_clear(u);
   fmpz_mat_clear(red);
   fmpz_mat_clear(gram);

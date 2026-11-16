@@ -308,7 +308,7 @@ int main(int argc, char* argv[])
   if (has_quad && has_format)
     compute_genus(genus, Q_coeffs, input_type, !has_noreduce);
   else if (has_genus && has_disc)
-    genus_init_file(genus, genus_fname, disc, has_isom);
+    genus_init_file(genus, genus_fname, disc, has_isom, !has_noreduce);
 
   has_genus = (has_quad && has_format) || (has_genus && has_disc);
 
@@ -500,6 +500,6 @@ int print_param_desc(char* argv[])
   fprintf(stderr, "If the flag -isom is supplied in addition to -genus=g, the genus includes the isometries.\n");
   fprintf(stderr, "If the flag -tests is supplied, additionally runs standard tests.\n");
   fprintf(stderr, "If the flag -nonlifts is supplied, computes eigenvalues only for the forms which are not lifts.\n");
-  fprintf(stderr, "If the flag -noreduce is supplied, the lattice Q is used in the basis in which it is given. Otherwise the basis is reduced when this lowers the largest diagonal entry of the Gram matrix.\n");
+  fprintf(stderr, "If the flag -noreduce is supplied, the lattice Q, or the lattices of the genus file, are used in the bases in which they are given. Otherwise a basis is reduced when this lowers the largest diagonal entry of the Gram matrix.\n");
   return -1;
 }

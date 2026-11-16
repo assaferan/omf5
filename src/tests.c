@@ -830,13 +830,15 @@ static STATUS test_gram_in_basis(const Z64* Q_coeffs)
   return is_ok ? SUCCESS : FAIL;
 }
 
-// Tests square_matrix_reduce on the lattice with the coefficients Q_coeffs, in the format GG.
-// If ref_coeffs is NULL the matrix has to be left as it is. Otherwise it has to be replaced, by
-// the gram matrix of a lattice which is isometric to the one with the coefficients ref_coeffs,
-// and which has no diagonal entry above max_diag.
+// Tests square_matrix_reduce and square_matrix_reduce_basis on the lattice with the coefficients
+// Q_coeffs, in the format GG. If ref_coeffs is NULL the matrix has to be left as it is, and the
+// basis has to be the identity. Otherwise the matrix has to be replaced, by the gram matrix of a
+// lattice which is isometric to the one with the coefficients ref_coeffs, and which has no
+// diagonal entry above max_diag, and it has to be the gram matrix of the lattice in the basis.
 static STATUS test_reduce_of(const Z64* Q_coeffs, const Z64* ref_coeffs, Z64 max_diag)
 {
-  square_matrix_t Q, red, ref;
+  square_matrix_t Q, red, red_basis, ref;
+  fmpz_mat_t t, gram, red_mat;
   isometry_t s;
   STATUS ret;
   int i;
@@ -844,14 +846,29 @@ static STATUS test_reduce_of(const Z64* Q_coeffs, const Z64* ref_coeffs, Z64 max
   square_matrix_init_set_symm(Q, Q_coeffs, "GG");
   square_matrix_init(red);
   square_matrix_set(red, Q);
+  square_matrix_init(red_basis);
+  square_matrix_set(red_basis, Q);
+  fmpz_mat_init(t, QF_RANK, QF_RANK);
 
-  if (ref_coeffs == NULL)
+  if (ref_coeffs == NULL) {
     ret = (!square_matrix_reduce(red) && square_matrix_is_equal(red, Q)) ? SUCCESS : FAIL;
+    if (square_matrix_reduce_basis(red_basis, t) || !square_matrix_is_equal(red_basis, Q) || !fmpz_mat_is_one(t))
+      ret = FAIL;
+  }
   else {
     ret = square_matrix_reduce(red) ? SUCCESS : FAIL;
     for (i = 0; i < QF_RANK; i++)
       if (red[i][i] > max_diag)
 	ret = FAIL;
+    // the two functions replace the matrix by the same one, which is the gram matrix in the basis
+    if (!square_matrix_reduce_basis(red_basis, t) || !square_matrix_is_equal(red_basis, red))
+      ret = FAIL;
+    fmpz_mat_init_set_square_matrix(gram, Q);
+    fmpz_mat_init_set_square_matrix(red_mat, red_basis);
+    if (fmpz_mat_is_one(t) || !fmpz_mat_is_gram_in_basis(red_mat, t, gram))
+      ret = FAIL;
+    fmpz_mat_clear(gram);
+    fmpz_mat_clear(red_mat);
     // the isometry test is not called for the matrix which was given, whose vectors are long
     if (ret == SUCCESS) {
       square_matrix_init_set_symm(ref, ref_coeffs, "GG");
@@ -863,8 +880,10 @@ static STATUS test_reduce_of(const Z64* Q_coeffs, const Z64* ref_coeffs, Z64 max
     }
   }
 
+  fmpz_mat_clear(t);
   square_matrix_clear(Q);
   square_matrix_clear(red);
+  square_matrix_clear(red_basis);
 
   return ret;
 }

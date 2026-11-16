@@ -120,9 +120,24 @@ check_same() {
   fi
 }
 
+# check_same_signs name first second
+# Checks that the examples first and second, which were run before, printed the
+# same to stdout up to the signs of the numbers, and printed something.
+check_same_signs() {
+  tr -d '-' < "$tmp/$2.out" > "$tmp/$2.abs"
+  tr -d '-' < "$tmp/$3.out" > "$tmp/$3.abs"
+  if [ -s "$tmp/$2.abs" ] && cmp -s "$tmp/$2.abs" "$tmp/$3.abs"; then
+    echo "ok   $1"
+  else
+    echo "FAIL $1: the outputs of $2 and $3 differ by more than signs, or are empty"
+    status=1
+  fi
+}
+
 # check_reduced name yes-or-no
 # Checks whether the example name, which was run before, said on the standard
-# error that the basis was reduced. Fails when there is no such example.
+# error that the basis was reduced, or the bases of the lattices of a genus file.
+# Fails when there is no such example.
 check_reduced() {
   if [ ! -f "$tmp/$1.err" ]; then
     echo "FAIL $1-reduced-$2: the example $1 was not run"
@@ -366,6 +381,50 @@ check_example genus44-isom-compact "$tmp/44.exp" "F P P" -genus="$tmp/44isom-com
 # They used not to be, and the traces of one of the forms were wrong.
 echo "[[],[[$MA,$(echo "$IA" | sed 's|1|2147483647/2147483647|')],[$MB,$(echo "$IB" | sed 's|2/3|1000000/1500000|')]]]" > "$tmp/44isom-unreduced.db"
 check_example genus44-isom-unreduced "$tmp/44.exp" "F P P" -genus="$tmp/44isom-unreduced.db" -isom -disc=1 -prec=30
+
+# The same genus with its two lattices in bases of long vectors: the largest
+# diagonal entries of the Gram matrices are 168 and 112, and not 6 and 4. The
+# lattices are reduced when the file is read, and the output is the same.
+echo "[[],[[1,3,0,-11,7,4,-2,-10,7,1,-5,3,84,-118,42],[43,2,-37,-9,-92,1,-1,-2,-5,8,4,40,3,17,56]]]" > "$tmp/44long.db"
+check_example genus44-long-bases "$tmp/44.exp" "F P P" -genus="$tmp/44long.db" -disc=1 -prec=30
+check_same genus44-long-same genus44 genus44-long-bases
+check_reduced genus44 no
+check_reduced genus44-long-bases yes
+# With -isom the isometry which is given is from the first lattice to the
+# second one in these bases, and it is taken to the reduced bases.
+MAL='[[2, 3, 0, -11, 7], [3, 8, -2, -10, 7], [0, -2, 2, -5, 3], [-11, -10, -5, 168, -118], [7, 7, 3, -118, 84]]'
+MBL='[[86, 2, -37, -9, -92], [2, 2, -1, -2, -5], [-37, -1, 16, 4, 40], [-9, -2, 4, 6, 17], [-92, -5, 40, 17, 112]]'
+IBL='[[50/3, -2, -7, 14/3, -6], [-7/3, 1, 1, -7/3, -2], [1/3, 1, 0, -2/3, -1], [28/3, 0, -4, 4/3, -5], [35/3, 0, -5, 5/3, -6]]'
+echo "[[],[[$MAL,$IA],[$MBL,$IBL]]]" > "$tmp/44isom-long.db"
+check_example genus44-isom-long-bases "$tmp/44.exp" "F P P" -genus="$tmp/44isom-long.db" -isom -disc=1 -prec=30
+check_same genus44-isom-long-same genus44-isom genus44-isom-long-bases
+check_reduced genus44-isom-long-bases yes
+# With -noreduce the lattices and the isometry are used as they are written.
+check_example genus44-isom-long-noreduce "$tmp/44.exp" "F P P" -genus="$tmp/44isom-long.db" -isom -disc=1 -prec=30 -noreduce
+check_same genus44-isom-long-noreduce-same genus44-isom genus44-isom-long-noreduce
+check_reduced genus44-isom-long-noreduce no
+
+# The genus of discriminant 65 has a space of conductor 65 and of dimension 2,
+# so the matrices of -hecke show the isometries between its five lattices, which
+# the eigenvalues do not. With -isom the isometries of the file are taken to the
+# reduced bases, and the matrices are those of the bases of short vectors. The
+# isometries have the denominators 2, 4 and 8.
+hecke65='65 : \[\[5,3\],\[2,5\]\]'
+echo '[[],[[[[2,1,-1,-1,0],[1,2,-1,-1,0],[-1,-1,2,1,0],[-1,-1,1,2,0],[0,0,0,0,26]],[[1,0,0,0,0],[0,1,0,0,0],[0,0,1,0,0],[0,0,0,1,0],[0,0,0,0,1]]],[[[2,1,0,1,1],[1,2,0,1,1],[0,0,2,0,0],[1,1,0,4,-1],[1,1,0,-1,8]],[[1,1,0,0,1],[0,0,-1,1,-1/2],[0,1,0,1,0],[1,0,0,1,0],[0,0,0,0,1/2]]],[[[2,-1,0,0,-1],[-1,2,0,0,1],[0,0,2,1,1],[0,0,1,4,2],[-1,1,1,2,8]],[[1,-1,0,-1/2,-3/2],[0,0,-1,1/4,3/4],[0,-1,0,1/2,1/2],[1,0,0,1/2,1/2],[0,0,0,1/4,-1/4]]],[[[2,0,0,0,0],[0,2,0,1,0],[0,0,2,1,-1],[0,1,1,4,-1],[0,0,-1,-1,6]],[[0,-1/4,3/4,1/4,-2],[0,-3/8,-7/8,3/8,0],[1,1/4,-1/4,1/4,-1],[-1,1/4,-1/4,1/4,-1],[0,1/8,1/8,3/8,0]]],[[[2,0,-1,-1,0],[0,2,1,0,-1],[-1,1,4,1,-1],[-1,0,1,4,-1],[0,-1,-1,-1,4]],[[0,-3/4,1/4,-1,1/4],[0,7/8,-1/8,-1,3/8],[-1,1/4,5/4,0,1/4],[1,1/4,1/4,-1,1/4],[0,-1/8,-1/8,0,3/8]]]]]' > "$tmp/65isom.db"
+check_output genus65-isom-hecke "$hecke65" -genus="$tmp/65isom.db" -isom -disc=1 -hecke -p=2
+echo '[[],[[[[2,6,-1,-1,-6],[6,22,-4,-5,-22],[-1,-4,2,1,4],[-1,-5,1,2,5],[-6,-22,4,5,48]],[[1,0,0,0,0],[0,1,0,0,0],[0,0,1,0,0],[0,0,0,1,0],[0,0,0,0,1]]],[[[46,3,13,-9,8],[3,2,1,-1,0],[13,1,10,-3,5],[-9,-1,-3,8,5],[8,0,5,5,10]],[[1,1,4,-4,-2],[2,0,-1,1,1],[0,1,0,1,1],[2,0,-3/2,0,-1/2],[1,0,1/2,0,1/2]]],[[[12,-5,-3,2,-9],[-5,6,3,0,2],[-3,3,4,1,1],[2,0,1,4,-2],[-9,2,1,-2,8]],[[3,-2,1,-1,-2],[0,0,-1,1/2,0],[0,-1,0,1/2,0],[1/2,-1,-2,3/4,1/2],[1/2,0,0,1/4,-1/2]]],[[[2,0,0,4,0],[0,2,-1,1,0],[0,-1,28,-29,11],[4,1,-29,40,-10],[0,0,11,-10,6]],[[0,1/2,-1,7/2,1/2],[0,-1/4,-3/2,3/4,-3/4],[1,1/4,-5/2,17/4,-5/4],[-1,-1/8,-15/4,5/8,-17/8],[0,1/8,-1/4,3/8,1/8]]],[[[4,-2,0,1,5],[-2,2,-1,-2,-3],[0,-1,4,2,-6],[1,-2,2,6,0],[5,-3,-6,0,24]],[[5/2,-5/2,3,7/2,-3/2],[-3/4,3/4,-1,-7/4,5/4],[-5/4,1/4,1,-1/4,-9/4],[-1/8,9/8,-1,-25/8,3/8],[1/8,-1/8,0,1/8,5/8]]]]]' > "$tmp/65isom-long.db"
+check_output genus65-isom-long-hecke "$hecke65" -genus="$tmp/65isom-long.db" -isom -disc=1 -hecke -p=2
+check_same genus65-isom-long-hecke-same genus65-isom-hecke genus65-isom-long-hecke
+check_reduced genus65-isom-hecke no
+check_reduced genus65-isom-long-hecke yes
+# Without -isom the program finds the isometries, and the ones which it finds
+# depend on the bases: the matrices are the same up to the signs of the entries.
+echo '[[],[[1,0,-1,-1,0,1,1,0,-1,2,1,-1,2,-1,2],[1,-1,0,0,-1,1,0,0,1,1,1,1,2,2,4],[1,0,0,0,0,1,0,1,0,1,1,-1,2,-1,3],[1,1,0,1,1,1,0,1,1,1,0,0,2,-1,4],[1,1,-1,-1,0,1,-1,-1,0,1,1,0,1,0,13]]]' > "$tmp/65.db"
+check_output genus65-hecke "$hecke65" -genus="$tmp/65.db" -disc=1 -hecke -p=2
+echo '[[],[[11,-26,21,-7,-12,23,-29,13,19,11,-8,-13,2,5,5],[1,1,2,1,-3,8,22,7,-24,19,7,-31,3,-15,22],[9,2,-6,8,-8,11,-12,1,3,5,-3,4,2,-4,5],[4,0,9,9,-7,1,0,0,1,8,14,-9,7,-9,4],[14,1,1,0,26,1,0,1,0,1,0,0,1,0,13]]]' > "$tmp/65long.db"
+check_output genus65-long-hecke '65 : \[\[5,-*3\],\[-*2,5\]\]' -genus="$tmp/65long.db" -disc=1 -hecke -p=2
+check_same_signs genus65-long-hecke-signs genus65-hecke genus65-long-hecke
+check_reduced genus65-long-hecke yes
 
 # genus_isom_error name message genus
 # The same as genus_error, for a genus file with isometries.

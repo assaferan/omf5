@@ -173,7 +173,15 @@ void genus_init_empty(genus_t genus, size_t disc);
  *
  * Function: genus_init_file
  *
- * Description: Initializes a genus from a file.
+ * Description: Initializes a genus from a file. If reduce is true, a
+ *              lattice of the file is replaced by a reduction of it when
+ *              that lowers the largest diagonal entry of its gram matrix,
+ *              as by square_matrix_reduce, and the isometries of the file
+ *              are then replaced by the same isometries in the reduced
+ *              bases. So the representatives of the genus need not be the
+ *              matrices of the file. Without isometries in the file, the
+ *              isometries are found from the reduced bases, and need not
+ *              be the ones which are found from the bases of the file.
  *              
  * Arguments:
  *     + genus_fname (const char*) - the name of the file containing the genus.
@@ -191,6 +199,7 @@ void genus_init_empty(genus_t genus, size_t disc);
  *                                   The list is again indexed by level.
  *     + disc (size_t) - the discriminant of the lattice
  *     + has_isoms (bool) - whether the genus file contains the isometries
+ *     + reduce (bool) - whether to reduce the lattices of the file
  *
  * Returns:
  *     + genus (genus_t) - the resulting genus structure
@@ -198,7 +207,7 @@ void genus_init_empty(genus_t genus, size_t disc);
  ******************************************************************************
  */
 
-void genus_init_file(genus_t genus, const char* genus_fname, size_t disc, bool has_isoms);
+void genus_init_file(genus_t genus, const char* genus_fname, size_t disc, bool has_isoms, bool reduce);
 
 /**************************************************************************
  *
