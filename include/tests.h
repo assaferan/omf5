@@ -60,7 +60,7 @@ STATUS compute_hecke_square_matrix(const genus_t genus, slong p, bool has_c, slo
 
 STATUS compute_first_hecke_matrix_all_conds(const genus_t genus);
 
-void compute_genus(genus_t genus, const Z64* Q_coeffs, const char* format);
+void compute_genus(genus_t genus, const Z64* Q_coeffs, const char* format, bool reduce);
 
 STATUS compute_first_large_hecke(const genus_t genus);
 

@@ -131,6 +131,7 @@ int main(int argc, char* argv[])
   bool do_tests, is_valid, is_prec, is_format, is_p, is_c, is_genus, is_disc, is_idxs;
   bool has_quad, has_format, has_prec, has_p, has_hecke, has_c;
   bool has_genus, has_disc, has_large, has_row, has_isom, has_nonlifts, has_idxs, has_square;
+  bool has_noreduce;
   int i, j;
   genus_t genus;
   int* idxs;
@@ -139,7 +140,7 @@ int main(int argc, char* argv[])
   idxs = NULL;
   input_type = NULL;
   genus_fname = NULL;
-  max_args = 9;
+  max_args = 10;
   num_idxs = 0;
   
   if ((argc > max_args) || (argc == 1)) {
@@ -150,7 +151,7 @@ int main(int argc, char* argv[])
   do_tests = false;
   has_quad = has_format = has_prec  = has_p = has_hecke = has_c = false;
   has_row = has_genus = has_disc = has_large = has_isom = has_nonlifts = has_idxs = false;
-  has_square = false;
+  has_square = has_noreduce = false;
   
   for (i = 1; i < argc; i++) {
     is_valid = false;
@@ -188,6 +189,11 @@ int main(int argc, char* argv[])
 
     if (strcmp(argv[i], "-square") == 0) {
       has_square = true;
+      is_valid = true;
+    }
+
+    if (strcmp(argv[i], "-noreduce") == 0) {
+      has_noreduce = true;
       is_valid = true;
     }
 
@@ -300,7 +306,7 @@ int main(int argc, char* argv[])
   }
 
   if (has_quad && has_format)
-    compute_genus(genus, Q_coeffs, input_type);
+    compute_genus(genus, Q_coeffs, input_type, !has_noreduce);
   else if (has_genus && has_disc)
     genus_init_file(genus, genus_fname, disc, has_isom);
 
@@ -476,7 +482,7 @@ bool handle_flag_int_seq(const char* flag_name, const char* param_str, int** fla
 
 int print_param_desc(char* argv[])
 {
-  fprintf(stderr, "Usage: %s [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-row] [-p=p] [-square] [-genus=g] [-isom] [-disc=d] [-cond=c] [-nonlifts] [-idxs=form_idxs] \n", argv[0]);
+  fprintf(stderr, "Usage: %s [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-row] [-p=p] [-square] [-genus=g] [-isom] [-disc=d] [-cond=c] [-nonlifts] [-idxs=form_idxs] [-noreduce] \n", argv[0]);
   fprintf(stderr, "The genus can be specified in one of two ways. Either via Q and f - \n");
   fprintf(stderr, "[Q] is the quinary quadratic form (lattice) given as 15 comma-separated integers in a format specified by f,\n");
   fprintf(stderr, "[f] is either 'GG' or 'A', the former for the format in Rama-Toranria webpage, the latter for the Magma format,\n");
@@ -494,5 +500,6 @@ int print_param_desc(char* argv[])
   fprintf(stderr, "If the flag -isom is supplied in addition to -genus=g, the genus includes the isometries.\n");
   fprintf(stderr, "If the flag -tests is supplied, additionally runs standard tests.\n");
   fprintf(stderr, "If the flag -nonlifts is supplied, computes eigenvalues only for the forms which are not lifts.\n");
+  fprintf(stderr, "If the flag -noreduce is supplied, the lattice Q is used in the basis in which it is given. Otherwise the basis is reduced when this lowers the largest diagonal entry of the Gram matrix.\n");
   return -1;
 }
