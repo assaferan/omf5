@@ -12,7 +12,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     # Jobs without a container in the matrix run directly on the runner.
     container: ${{ matrix.container }}
-    # Jobs without a compiler in the matrix use the default one.
+    # Jobs without a compiler in the matrix use the default one. Jobs without
+    # cflags in the matrix build with the flags of src/Makefile.am alone.
     env:
       CC: ${{ matrix.cc }}
 
@@ -32,6 +33,12 @@ jobs:
           - name: macos, flint 3 (homebrew)
             os: macos-latest
             flint: brew
+          # The default build defines NDEBUG, which removes the assertions.
+          # This job builds with them, so a failed assertion fails the tests.
+          - name: ubuntu, assertions, flint 3 (apt)
+            os: ubuntu-24.04
+            flint: apt
+            cflags: -UNDEBUG
           # Debian 12 packages flint 2.9.0 and antic 0.2.5, the oldest
           # versions omf5 supports.
           - name: debian 12, flint 2.9 + antic (apt)
@@ -92,7 +99,7 @@ jobs:
         cd omf5
         ./autogen.sh
         FLINT_PATH="$DEPS_PREFIX" GMP_PATH="$DEPS_PREFIX" ANTIC_PATH="$DEPS_PREFIX" \
-          CARAT_PATH="$GITHUB_WORKSPACE/carat" ./configure
+          CARAT_PATH="$GITHUB_WORKSPACE/carat" ./configure CFLAGS="${{ matrix.cflags }}"
         make -j4 V=1
 
     # Runs omf5 -tests and checks the README examples.
