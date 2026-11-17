@@ -81,6 +81,8 @@ The build defines `NDEBUG`, which removes the assertions of the code. To build w
 
     ./configure CFLAGS=-UNDEBUG
 
+The assertions inside `#ifdef DEBUG` and `#ifdef DEBUG_LEVEL_FULL` stay off.
+
 ## Usage
 
 The executable is src/omf5.

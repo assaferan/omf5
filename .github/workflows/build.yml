@@ -12,8 +12,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     # Jobs without a container in the matrix run directly on the runner.
     container: ${{ matrix.container }}
-    # Jobs without a compiler in the matrix use the default one. Jobs without
-    # cflags in the matrix build with the flags of src/Makefile.am alone.
+    # Jobs without a compiler in the matrix use the default one.
     env:
       CC: ${{ matrix.cc }}
 
@@ -35,6 +34,8 @@ jobs:
             flint: brew
           # The default build defines NDEBUG, which removes the assertions.
           # This job builds with them, so a failed assertion fails the tests.
+          # The assertions inside #ifdef DEBUG and #ifdef DEBUG_LEVEL_FULL
+          # stay off.
           - name: ubuntu, assertions, flint 3 (apt)
             os: ubuntu-24.04
             flint: apt
@@ -94,6 +95,8 @@ jobs:
         ./configure --with-gmp="$DEPS_PREFIX"
         make -j4 libfunctions.a
 
+    # Jobs without cflags in the matrix pass an empty CFLAGS, the default of
+    # configure.ac, and build with the flags of src/Makefile.am alone.
     - name: Build omf5
       run: |
         cd omf5
@@ -101,6 +104,17 @@ jobs:
         FLINT_PATH="$DEPS_PREFIX" GMP_PATH="$DEPS_PREFIX" ANTIC_PATH="$DEPS_PREFIX" \
           CARAT_PATH="$GITHUB_WORKSPACE/carat" ./configure CFLAGS="${{ matrix.cflags }}"
         make -j4 V=1
+
+    # The executable refers to the assert handler of the C library
+    # (__assert_fail in glibc, __assert_rtn on macOS) exactly when assertions
+    # are compiled in. This fails if the assertions job lost them, or if
+    # another job has them.
+    - name: Check whether the assertions are compiled in
+      run: |
+        case "${{ matrix.cflags }}" in *-UNDEBUG*) want=yes ;; *) want=no ;; esac
+        if nm omf5/src/omf5 | grep -Eq '__assert_(fail|rtn)'; then have=yes; else have=no; fi
+        echo "assertions wanted: $want, compiled in: $have"
+        test "$want" = "$have"
 
     # Runs omf5 -tests and checks the README examples.
     - name: Run tests
