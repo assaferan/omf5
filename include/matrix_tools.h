@@ -202,6 +202,56 @@ void greedy(square_matrix_t gram, isometry_t s, int dim);
 
 /****************************************************************************
  *
+ * Function: fmpz_mat_is_gram_in_basis
+ *
+ * Description: Checks that a matrix is the gram matrix of a lattice in
+ *              another basis: that t is integral with determinant 1 or
+ *              -1, and that t^T * gram * t = red.
+ *
+ * Arguments:
+ *     + red (fmpz_mat_t) - the matrix which is checked
+ *     + t (fmpz_mat_t) - the vectors of the basis, as columns
+ *     + gram (fmpz_mat_t) - the gram matrix of the lattice
+ *
+ * Returns:
+ *     + (bool) - whether red is the gram matrix in the basis t
+ *
+ ***************************************************************************
+ */
+
+bool fmpz_mat_is_gram_in_basis(const fmpz_mat_t red, const fmpz_mat_t t, const fmpz_mat_t gram);
+
+/****************************************************************************
+ *
+ * Function: square_matrix_reduce
+ *
+ * Description: Replaces a gram matrix by a reduction of it, when the
+ *              largest diagonal entry of the reduction is smaller.
+ *              An isometry test lists the vectors of a lattice up to the
+ *              largest diagonal entry of a gram matrix, so a basis of
+ *              long vectors makes it slow.
+ *              The reduction is the LLL reduction of FLINT, which has
+ *              no bound on the entries, and then greedy when the entries
+ *              are small enough for it. Each step is checked in exact
+ *              arithmetic, and is not used if the check fails.
+ *              The matrix is left as it is when it is not symmetric or
+ *              not positive definite.
+ *
+ * Arguments:
+ *     + q (square_matrix_t) - a square matrix
+ *
+ * Returns:
+ *     + q (square_matrix_t) - the gram matrix of the same lattice in the
+ *                             reduced basis, if it was replaced
+ *     + (bool) - whether q was replaced
+ *
+ ***************************************************************************
+ */
+
+bool square_matrix_reduce(square_matrix_t q);
+
+/****************************************************************************
+ *
  * Function: get_eigenvector_on_subspace
  *
  * Description: Computes an eigenvector of a rational matrix T on a linear

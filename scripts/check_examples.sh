@@ -120,12 +120,49 @@ check_same() {
   fi
 }
 
+# check_reduced name yes-or-no
+# Checks whether the example name, which was run before, said on the standard
+# error that the basis was reduced. Fails when there is no such example.
+check_reduced() {
+  if [ ! -f "$tmp/$1.err" ]; then
+    echo "FAIL $1-reduced-$2: the example $1 was not run"
+    status=1
+    return
+  fi
+  if grep -q "reduced. With -noreduce" "$tmp/$1.err"; then
+    said=yes
+  else
+    said=no
+  fi
+  if [ "$said" = "$2" ]; then
+    echo "ok   $1-reduced-$2"
+  else
+    echo "FAIL $1: the basis was reduced: $said, and not $2"
+    status=1
+  fi
+}
+
 # Discriminant 61. Primes dividing the discriminant are skipped.
 cat > "$tmp/61.exp" <<'EOF'
 1: -7 -3 3 -9 -4 -3 37 -75 10 212 -6 -88 -3 547 -147 -108 -45 -632 -650 859 -978 931 -571 453
 2: 7 -9 -9 -42
 EOF
 check_example disc61 "$tmp/61.exp" "F G P" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=100
+
+# The same lattice in a basis of long vectors: the largest diagonal entry of
+# the Gram matrix is 998, and not 16. The lattice is reduced before its genus
+# is computed, and the output is the same.
+check_example disc61-long-basis "$tmp/61.exp" "F G P" -quad=499,4,4,2,617,2,7,5,-4,10,14,-9,5,-7,196 -format=GG -prec=100
+check_same disc61-long-same disc61 disc61-long-basis
+check_reduced disc61 no
+check_reduced disc61-long-basis yes
+
+# And in a basis in which the entries of the Gram matrix have up to 31 bits.
+# They are too large for the greedy reduction, whose arithmetic has 64 bits,
+# and the basis is first reduced by LLL, which has no bound on the entries.
+check_example disc61-large-entries "$tmp/61.exp" "F G P" -quad=41578043,28285955,-265059397,171723218,-2693763,20586007,-75669270,56411810,-766248,524897235,-422290669,10705169,217430820,-4269631,54585 -format=GG -prec=100
+check_same disc61-large-same disc61 disc61-large-entries
+check_reduced disc61-large-entries yes
 
 # With -nonlifts only the form of type G is computed.
 cat > "$tmp/61nl.exp" <<'EOF'
@@ -228,17 +265,19 @@ check_example disc117-p3 "$tmp/117.exp" "F G O P P P P P Y" -quad=1,0,1,0,-1,1,0
 # the vector, and so on the basis of the lattice and on a random choice of the
 # program: the second matrix is that of the same lattice in another basis, and
 # the numbers printed had the traces 98/5, 57/5 and 31/2. The two outputs are
-# now the same, and the second has no value for the form of type O. Two of the
-# other eigenvalues at 2 are checked: -3 for the form of type G of conductor
-# 1, and 12 for the form of type P of conductor 62 whose eigenvalues are
-# rational.
+# now the same, and the second has no value for the form of type O. Here and
+# below the second basis is used as it is written, with -noreduce: the program
+# would reduce it. Two of the other eigenvalues at 2 are checked: -3 for the
+# form of type G of conductor 1, and 12 for the form of type P of conductor 62
+# whose eigenvalues are rational.
 cat > "$tmp/124p2.exp" <<'EOF'
 1: -3
 1: 12
 EOF
 check_example disc124-p2 "$tmp/124p2.exp" "F G G O P P P" -quad=1,0,1,0,-1,1,1,0,0,2,0,-1,2,-1,3 -format=GG -p=2
 no_value="'aut_rep_type' : 'O', 'field_poly' : '[^']*', 'lambda_p' : \[\], "
-check_output disc124-p2-old-basis "$no_value" -quad=4,-2,0,-6,0,1,1,2,0,2,1,-1,3,-1,3 -format=GG -p=2
+check_output disc124-p2-old-basis "$no_value" -quad=4,-2,0,-6,0,1,1,2,0,2,1,-1,3,-1,3 -format=GG -p=2 -noreduce
+check_reduced disc124-p2-old-basis no
 check_same disc124-p2-old-same disc124-p2 disc124-p2-old-basis
 
 # Discriminant 124 at the prime 31, which divides the discriminant once. The
@@ -253,14 +292,14 @@ EOF
 check_example disc124-p31 "$tmp/124p31.exp" "F G G O P P P" -quad=1,0,1,0,-1,1,1,0,0,2,0,-1,2,-1,3 -format=GG -p=31
 old_value="'aut_rep_type' : 'O', 'field_poly' : '[^']*', 'lambda_p' : \['1023',\], "
 check_output disc124-p31-old "$old_value" -quad=1,0,1,0,-1,1,1,0,0,2,0,-1,2,-1,3 -format=GG -p=31
-check_output disc124-p31-old-basis "$old_value" -quad=4,-2,0,-6,0,1,1,2,0,2,1,-1,3,-1,3 -format=GG -p=31
+check_output disc124-p31-old-basis "$old_value" -quad=4,-2,0,-6,0,1,1,2,0,2,1,-1,3,-1,3 -format=GG -p=31 -noreduce
 check_same disc124-p31-old-same disc124-p31-old disc124-p31-old-basis
 
 # With -square the operator T_{31^2} acts on this space as 0, and the two
 # eigenvalues are printed for the form of type O, in the two bases.
 old_values="'aut_rep_type' : 'O', 'field_poly' : '[^']*', 'lambda_p' : \['1023',\], 'lambda_p_square' : \['0',\], "
 check_output disc124-p31-square-old "$old_values" -quad=1,0,1,0,-1,1,1,0,0,2,0,-1,2,-1,3 -format=GG -p=31 -square
-check_output disc124-p31-square-old-basis "$old_values" -quad=4,-2,0,-6,0,1,1,2,0,2,1,-1,3,-1,3 -format=GG -p=31 -square
+check_output disc124-p31-square-old-basis "$old_values" -quad=4,-2,0,-6,0,1,1,2,0,2,1,-1,3,-1,3 -format=GG -p=31 -square -noreduce
 check_same disc124-p31-square-old-same disc124-p31-square-old disc124-p31-square-old-basis
 
 # Discriminant 112 = 2^4 * 7, at the prime 7. The only form of type O has the
@@ -271,7 +310,7 @@ check_same disc124-p31-square-old-same disc124-p31-square-old disc124-p31-square
 # and the two outputs are the same.
 old_value="14 : \[.*'aut_rep_type' : 'O', 'field_poly' : '[^']*', 'lambda_p' : \['49',\], "
 check_output disc112-p7-old "$old_value" -quad=1,-1,-1,1,0,2,2,0,-1,2,0,0,2,1,2 -format=GG -p=7
-check_output disc112-p7-old-basis "$old_value" -quad=4,-13,-11,3,1,14,28,-9,0,26,-22,-2,5,1,2 -format=GG -p=7
+check_output disc112-p7-old-basis "$old_value" -quad=4,-13,-11,3,1,14,28,-9,0,26,-22,-2,5,1,2 -format=GG -p=7 -noreduce
 check_same disc112-p7-old-same disc112-p7-old disc112-p7-old-basis
 
 # Discriminant 124 = 2^2 * 31, at the prime 2 with -square. The form of type G
@@ -289,7 +328,7 @@ check_example disc124-p2-square "$tmp/124.exp" "F G G O P P P" -quad=1,0,1,0,-1,
 # For the form of type O neither eigenvalue is printed in the second basis
 # above, and the two outputs are the same.
 no_values="'aut_rep_type' : 'O', 'field_poly' : '[^']*', 'lambda_p' : \[\], 'lambda_p_square' : \[\], "
-check_output disc124-p2-square-old-basis "$no_values" -quad=4,-2,0,-6,0,1,1,2,0,2,1,-1,3,-1,3 -format=GG -p=2 -square
+check_output disc124-p2-square-old-basis "$no_values" -quad=4,-2,0,-6,0,1,1,2,0,2,1,-1,3,-1,3 -format=GG -p=2 -square -noreduce
 check_same disc124-p2-square-old-same disc124-p2-square disc124-p2-square-old-basis
 # The flag is for a single prime.
 check_error square-with-prec "-square is for the prime of -p=p" -quad=1,0,1,0,-1,1,1,0,0,2,0,-1,2,-1,3 -format=GG -prec=10 -square
@@ -486,15 +525,17 @@ EOF
 check_example disc48 "$tmp/48.exp" "F P P P" -quad=1,0,0,1,1,1,-1,0,-1,1,0,1,1,1,6 -format=GG -prec=30
 
 # Discriminant 124, in a basis whose first vector spans the radical modulo 2,
-# so that the first column of the Gram matrix is even. The vector spanning the
-# radical modulo 4 was wrong for this basis, and the character at 2 with it:
-# the space of conductor 62 had the dimension 6 and not 7. These are the traces
-# of the three forms of conductor 62.
+# so that the first column of the Gram matrix is even. The basis is used as it
+# is written, with -noreduce: the first column of its reduction is not even.
+# The vector spanning the radical modulo 4 was wrong for this basis, and the
+# character at 2 with it: the space of conductor 62 had the dimension 6 and not
+# 7. These are the traces of the three forms of conductor 62.
 cat > "$tmp/124even.exp" <<'EOF'
 1: 4 27 21 86 202 314 477
 1: -8 -4 -12 -36 8 -64 188
 1: 44 106 212 430 600 1138 1404
 EOF
-check_example disc124-even-column "$tmp/124even.exp" "F G G O P P P" -quad=4,-2,0,-6,0,1,1,2,0,2,1,-1,3,-1,3 -format=GG -prec=20
+check_example disc124-even-column "$tmp/124even.exp" "F G G O P P P" -quad=4,-2,0,-6,0,1,1,2,0,2,1,-1,3,-1,3 -format=GG -prec=20 -noreduce
+check_reduced disc124-even-column no
 
 exit $status

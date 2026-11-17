@@ -7,6 +7,7 @@
 
 #include "flint_compat.h"
 
+#include <flint/fmpz_lll.h>
 #include <flint/fmpz_mat.h>
 #include <flint/fmpz_poly_factor.h>
 
@@ -928,6 +929,158 @@ void greedy(square_matrix_t gram, isometry_t s, int dim)
   
   return;
 
+}
+
+// greedy is run on a matrix whose entries are below this. closest_lattice_vector adds up 24 products
+// of four entries, which have to fit in 63 bits.
+#define GREEDY_MAX_ENTRY (1 << 12)
+
+// The largest diagonal entry of a square matrix.
+static void fmpz_mat_max_diag(fmpz_t max, const fmpz_mat_t mat)
+{
+  slong i;
+
+  fmpz_set(max, fmpz_mat_entry(mat, 0, 0));
+  for (i = 1; i < fmpz_mat_nrows(mat); i++)
+    if (fmpz_cmp(fmpz_mat_entry(mat, i, i), max) > 0)
+      fmpz_set(max, fmpz_mat_entry(mat, i, i));
+
+  return;
+}
+
+// Whether red is the gram matrix of the lattice of gram in the basis whose vectors are the columns
+// of t: t is integral with determinant 1 or -1, and t^T * gram * t = red.
+bool fmpz_mat_is_gram_in_basis(const fmpz_mat_t red, const fmpz_mat_t t, const fmpz_mat_t gram)
+{
+  fmpz_mat_t t_tr, prod;
+  fmpz_t det;
+  bool is_gram;
+
+  fmpz_init(det);
+  fmpz_mat_init(t_tr, QF_RANK, QF_RANK);
+  fmpz_mat_init(prod, QF_RANK, QF_RANK);
+
+  fmpz_mat_det(det, t);
+  fmpz_mat_transpose(t_tr, t);
+  fmpz_mat_mul(prod, t_tr, gram);
+  fmpz_mat_mul(prod, prod, t);
+  is_gram = fmpz_is_pm1(det) && fmpz_mat_equal(prod, red);
+
+  fmpz_mat_clear(prod);
+  fmpz_mat_clear(t_tr);
+  fmpz_clear(det);
+
+  return is_gram;
+}
+
+// Replaces red by a greedy reduction of it when its entries are small enough for greedy and the
+// largest diagonal entry does not grow, and t, a basis in which the lattice has the gram matrix red,
+// by the basis of the reduction. Returns whether they were replaced.
+static bool fmpz_mat_greedy(fmpz_mat_t red, fmpz_mat_t t)
+{
+  square_matrix_t red_sq;
+  isometry_t s;
+  fmpz_mat_t greedy_red, s_mat;
+  fmpz_t red_max, greedy_max;
+  slong i, j;
+  bool is_replaced;
+
+  for (i = 0; i < QF_RANK; i++)
+    for (j = 0; j < QF_RANK; j++)
+      if ((fmpz_cmp_si(fmpz_mat_entry(red, i, j), GREEDY_MAX_ENTRY) >= 0) ||
+	  (fmpz_cmp_si(fmpz_mat_entry(red, i, j), -GREEDY_MAX_ENTRY) <= 0))
+	return false;
+
+  fmpz_init(red_max);
+  fmpz_init(greedy_max);
+  square_matrix_init(red_sq);
+  square_matrix_set_fmpz_mat(red_sq, red);
+  isometry_init(s);
+
+  greedy(red_sq, s, QF_RANK);
+
+  fmpz_mat_init_set_square_matrix(greedy_red, red_sq);
+  fmpz_mat_init_set_square_matrix(s_mat, s->s);
+  fmpz_mat_max_diag(red_max, red);
+  fmpz_mat_max_diag(greedy_max, greedy_red);
+
+  // greedy does not check its arithmetic, so its result is checked here
+  is_replaced = (s->denom == 1) && fmpz_mat_is_gram_in_basis(greedy_red, s_mat, red)
+    && (fmpz_cmp(greedy_max, red_max) <= 0);
+
+  if (is_replaced) {
+    fmpz_mat_set(red, greedy_red);
+    fmpz_mat_mul(t, t, s_mat);
+  }
+
+  fmpz_mat_clear(s_mat);
+  fmpz_mat_clear(greedy_red);
+  isometry_clear(s);
+  square_matrix_clear(red_sq);
+  fmpz_clear(greedy_max);
+  fmpz_clear(red_max);
+
+  return is_replaced;
+}
+
+/* Replace the gram matrix q by a reduction of it, when the largest diagonal entry of the reduction
+   is smaller. Returns whether q was replaced. */
+bool square_matrix_reduce(square_matrix_t q)
+{
+  fmpz_mat_t gram, red, u, t;
+  fmpz_lll_t lll;
+  fmpz_t gram_max, red_max;
+  slong i, j;
+  bool is_smaller;
+
+  for (i = 0; i < QF_RANK; i++)
+    for (j = 0; j < i; j++)
+      if (q[i][j] != q[j][i])
+	return false;
+
+  if (!square_matrix_is_positive_definite(q))
+    return false;
+
+  fmpz_init(gram_max);
+  fmpz_init(red_max);
+  fmpz_mat_init_set_square_matrix(gram, q);
+  fmpz_mat_init_set(red, gram);
+  fmpz_mat_init(u, QF_RANK, QF_RANK);
+  fmpz_mat_init(t, QF_RANK, QF_RANK);
+
+  // The entries of q can be too large for greedy, which works with 64 bits and does not check them.
+  // The LLL reduction of FLINT has no bound on the entries: it replaces red by u * red * u^T, and
+  // makes the entries small.
+  fmpz_mat_one(u);
+  fmpz_lll_context_init(lll, 0.99, 0.51, GRAM, EXACT);
+  fmpz_lll(red, u, lll);
+  fmpz_mat_transpose(t, u);
+
+  is_smaller = fmpz_mat_is_gram_in_basis(red, t, gram);
+
+  // greedy, which reduces every other lattice of the genus, can lower the largest diagonal entry
+  // further
+  if (is_smaller)
+    fmpz_mat_greedy(red, t);
+
+  if (is_smaller) {
+    fmpz_mat_max_diag(gram_max, gram);
+    fmpz_mat_max_diag(red_max, red);
+    is_smaller = (fmpz_cmp(red_max, gram_max) < 0);
+  }
+
+  // red is positive definite with a smaller diagonal than q, so its entries fit
+  if (is_smaller)
+    square_matrix_set_fmpz_mat(q, red);
+
+  fmpz_mat_clear(t);
+  fmpz_mat_clear(u);
+  fmpz_mat_clear(red);
+  fmpz_mat_clear(gram);
+  fmpz_clear(red_max);
+  fmpz_clear(gram_max);
+
+  return is_smaller;
 }
 
 // assumes res is already initialized and is in the correct length

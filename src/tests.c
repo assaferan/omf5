@@ -32,7 +32,7 @@ void print_conductors(const genus_t genus)
 }
 
 // Now this also checks initialization from a list of matrices
-void compute_genus(genus_t genus, const Z64* Q_coeffs, const char* format)
+void compute_genus(genus_t genus, const Z64* Q_coeffs, const char* format, bool reduce)
 {
   clock_t cpuclock_0, cpuclock_1;
   double cputime, cpudiff;
@@ -43,6 +43,10 @@ void compute_genus(genus_t genus, const Z64* Q_coeffs, const char* format)
   cpuclock_0 = clock();
 
   square_matrix_init_set_symm(Q, Q_coeffs, format);
+  // The lattice which is given is the first class of the genus, and every lattice which is found
+  // is tested for an isometry with it. The forms do not depend on its basis.
+  if (reduce && square_matrix_reduce(Q))
+    fprintf(stderr, "The basis of the lattice was reduced. With -noreduce it is used as it is given.\n");
   genus_init_square_matrix(old_genus, Q, -1);
 
   cpuclock_1 = clock();
@@ -290,7 +294,7 @@ STATUS test_genus(genus_t genus, const example_genus_t ex)
 {
   slong c;
   
-  compute_genus(genus, ex->Q_coeffs, ex->format);
+  compute_genus(genus, ex->Q_coeffs, ex->format, false);
 
   if ((ex->num_conductors != 0) && (genus->num_conductors != ex->num_conductors)) {
     fprintf(stderr, "FAIL: the genus has %ld conductors, expected %d\n",
@@ -780,6 +784,150 @@ STATUS test_greedy_overflow()
   ret = test_greedy(Q1, red_Q) << 1;
 
   ret |= test_greedy(Q2, red_Q2);
+
+  return ret;
+}
+
+// Tests fmpz_mat_is_gram_in_basis, with which square_matrix_reduce checks each of its steps.
+static STATUS test_gram_in_basis(const Z64* Q_coeffs)
+{
+  square_matrix_t Q;
+  fmpz_mat_t gram, red, t, t_tr;
+  bool is_ok;
+
+  square_matrix_init_set_symm(Q, Q_coeffs, "GG");
+  fmpz_mat_init_set_square_matrix(gram, Q);
+  fmpz_mat_init(red, QF_RANK, QF_RANK);
+  fmpz_mat_init(t, QF_RANK, QF_RANK);
+  fmpz_mat_init(t_tr, QF_RANK, QF_RANK);
+
+  // the basis in which the second vector is added to the first one, and the last one is negated
+  fmpz_mat_one(t);
+  fmpz_one(fmpz_mat_entry(t, 1, 0));
+  fmpz_set_si(fmpz_mat_entry(t, 4, 4), -1);
+  fmpz_mat_transpose(t_tr, t);
+  fmpz_mat_mul(red, t_tr, gram);
+  fmpz_mat_mul(red, red, t);
+  is_ok = fmpz_mat_is_gram_in_basis(red, t, gram);
+
+  // not the gram matrix in this basis
+  fmpz_add_ui(fmpz_mat_entry(red, 0, 0), fmpz_mat_entry(red, 0, 0), 2);
+  is_ok = is_ok && !fmpz_mat_is_gram_in_basis(red, t, gram);
+
+  // the gram matrix of a sublattice of index 2
+  fmpz_set_si(fmpz_mat_entry(t, 4, 4), 2);
+  fmpz_mat_transpose(t_tr, t);
+  fmpz_mat_mul(red, t_tr, gram);
+  fmpz_mat_mul(red, red, t);
+  is_ok = is_ok && !fmpz_mat_is_gram_in_basis(red, t, gram);
+
+  fmpz_mat_clear(t_tr);
+  fmpz_mat_clear(t);
+  fmpz_mat_clear(red);
+  fmpz_mat_clear(gram);
+  square_matrix_clear(Q);
+
+  return is_ok ? SUCCESS : FAIL;
+}
+
+// Tests square_matrix_reduce on the lattice with the coefficients Q_coeffs, in the format GG.
+// If ref_coeffs is NULL the matrix has to be left as it is. Otherwise it has to be replaced, by
+// the gram matrix of a lattice which is isometric to the one with the coefficients ref_coeffs,
+// and which has no diagonal entry above max_diag.
+static STATUS test_reduce_of(const Z64* Q_coeffs, const Z64* ref_coeffs, Z64 max_diag)
+{
+  square_matrix_t Q, red, ref;
+  isometry_t s;
+  STATUS ret;
+  int i;
+
+  square_matrix_init_set_symm(Q, Q_coeffs, "GG");
+  square_matrix_init(red);
+  square_matrix_set(red, Q);
+
+  if (ref_coeffs == NULL)
+    ret = (!square_matrix_reduce(red) && square_matrix_is_equal(red, Q)) ? SUCCESS : FAIL;
+  else {
+    ret = square_matrix_reduce(red) ? SUCCESS : FAIL;
+    for (i = 0; i < QF_RANK; i++)
+      if (red[i][i] > max_diag)
+	ret = FAIL;
+    // the isometry test is not called for the matrix which was given, whose vectors are long
+    if (ret == SUCCESS) {
+      square_matrix_init_set_symm(ref, ref_coeffs, "GG");
+      if (is_isometric(s, ref, red))
+	isometry_clear(s);
+      else
+	ret = FAIL;
+      square_matrix_clear(ref);
+    }
+  }
+
+  square_matrix_clear(Q);
+  square_matrix_clear(red);
+
+  return ret;
+}
+
+// A matrix which is not symmetric is left as it is.
+static STATUS test_reduce_not_symmetric(const Z64* Q_coeffs)
+{
+  square_matrix_t Q, red;
+  STATUS ret;
+
+  square_matrix_init_set_symm(Q, Q_coeffs, "GG");
+  Q[0][4]++;
+  square_matrix_init(red);
+  square_matrix_set(red, Q);
+
+  ret = (!square_matrix_reduce(red) && square_matrix_is_equal(red, Q)) ? SUCCESS : FAIL;
+
+  square_matrix_clear(Q);
+  square_matrix_clear(red);
+
+  return ret;
+}
+
+STATUS test_reduce()
+{
+  STATUS ret;
+
+  // the lattice of discriminant 228 of the data, where the diagonal is 2, 2, 4, 4, 10
+  Z64 Q[15] = {1,0,1,0,0,1,0,0,-1,2,1,-1,2,1,5};
+  // the same lattice in a basis of long vectors
+  Z64 Q_long[15] = {384,-1109,-174,-13,-770,801,251,19,1111,20,3,175,2,13,387};
+  // and with 30000 times the first vector added to the last one: the largest entry is below 2^31
+  Z64 Q_31[15] = {1,0,1,0,60000,1,0,0,-1,2,1,29999,2,1,900000005};
+  // with 2^30 times the first vector added to the last one: an entry is 2^31, and one is above 2^61
+  Z64 Q_61[15] = {1,0,1,0,2147483648,1,0,0,-1,2,1,1073741823,2,1,1152921504606846981};
+  // not positive definite
+  Z64 Q_indef[15] = {1,0,0,0,0,1,0,0,0,1,0,0,1,0,-1};
+  // a lattice of discriminant 61 of the data, where the diagonal is 2, 2, 2, 2, 16
+  Z64 Q2[15] = {1,0,0,1,1,1,0,1,0,1,0,0,1,0,8};
+  // the same lattice in bases in which greedy alone overflows: with entries of 19 bits it does not
+  // lower the diagonal, and with entries of 31 bits it does not end
+  Z64 Q2_19[15] = {20377,1420,-16612,-1533,-24912,44321,91318,74458,8371,184784,281907,104230,130407,74970,
+    21480};
+  Z64 Q2_31[15] = {41578043,28285955,-265059397,171723218,-2693763,20586007,-75669270,56411810,-766248,
+    524897235,-422290669,10705169,217430820,-4269631,54585};
+  Z64 Q2_31b[15] = {934801935,-1682990613,-150682224,-12143746,-207903565,836414647,160982420,12864037,
+    -51556466,8250668,1309362,-23857985,51988,-1733839,201385981};
+  // a lattice of discriminant 291 of the data, where the diagonal is 2, 4, 4, 6, 8: the LLL reduction
+  // leaves it as it is, and greedy lowers the largest entry to 6
+  Z64 Q3[15] = {1,0,0,-1,-1,2,-1,-2,-2,2,2,2,3,4,4};
+
+  ret = test_gram_in_basis(Q);
+  ret |= test_reduce_of(Q, NULL, 0);
+  ret |= test_reduce_of(Q_long, Q, 10);
+  ret |= test_reduce_of(Q_31, Q, 10);
+  ret |= test_reduce_of(Q_61, Q, 10);
+  ret |= test_reduce_of(Q_indef, NULL, 0);
+  ret |= test_reduce_not_symmetric(Q_long);
+  ret |= test_reduce_of(Q2, NULL, 0);
+  ret |= test_reduce_of(Q2_19, Q2, 16);
+  ret |= test_reduce_of(Q2_31, Q2, 16);
+  ret |= test_reduce_of(Q2_31b, Q2, 16);
+  ret |= test_reduce_of(Q3, Q3, 6);
 
   return ret;
 }
@@ -1299,7 +1447,7 @@ static STATUS test_hecke_bad_prime_power_of(const Z64* Q_coeffs, int p, int k, i
   bool is_ok, self_adjoint;
   const char* name = (k == 1) ? "" : " squared";
 
-  compute_genus(genus, Q_coeffs, "GG");
+  compute_genus(genus, Q_coeffs, "GG", false);
 
   if (genus->num_conductors != num_conds) {
     fprintf(stderr, "FAIL: there are %ld conductors and not %ld\n", genus->num_conductors, num_conds);
@@ -1545,7 +1693,7 @@ static STATUS test_old_space_scalars_of(const Z64* Q_coeffs, int num, const int*
   slong c, i, j, form_idx, num_old;
   bool is_ok;
 
-  compute_genus(genus, Q_coeffs, "GG");
+  compute_genus(genus, Q_coeffs, "GG", false);
   evs = hecke_eigenforms_all_conductors(genus);
 
   num_old = 0;

@@ -82,7 +82,7 @@ This runs the standard tests (`src/omf5 -tests`) and checks the examples below (
 The executable is src/omf5.
 It runs with command-line arguments as follows
 
-src/omf5 [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-row] [-p=p] [-square] [-genus=g] [-isom] [-disc=d] [-cond=c] [-nonlifts] [-idxs=form_idxs]
+src/omf5 [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-row] [-p=p] [-square] [-genus=g] [-isom] [-disc=d] [-cond=c] [-nonlifts] [-idxs=form_idxs] [-noreduce]
 
 where the  arguments are:
 
@@ -97,6 +97,8 @@ in which case, the genus will be computed using p-neighbors, or via g and d -
 [g] is the name of a file containing the list of genera,
 
 [d] is the discriminant of the lattice, so that g[d] is the relevant genus,
+
+The lattice Q may be given in any basis. When a reduction of the basis lowers the largest diagonal entry of the Gram matrix, the genus is computed from the reduced basis, and a line on the standard error says so: the time grows quickly with this entry. The eigenvalues do not depend on the basis. The order of the classes of the genus does, and with it the Hecke matrices which -hecke prints and the eigenvectors. If the flag -noreduce is supplied, the lattice is used in the basis in which it is given. The lattices of a genus file are always used in the bases in which they are given, so these should be bases of short vectors.
 
 [p] is a prime at which to compute the Hecke matrix/eigenvalue, 
 
