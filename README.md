@@ -77,6 +77,12 @@ To check the build, run
 
 This runs the standard tests (`src/omf5 -tests`) and checks the examples below (`scripts/check_examples.sh`).
 
+The build defines `NDEBUG`, which removes the assertions of the code. To build with the assertions:
+
+    ./configure CFLAGS=-UNDEBUG
+
+The assertions inside `#ifdef DEBUG` and `#ifdef DEBUG_LEVEL_FULL` stay off.
+
 ## Usage
 
 The executable is src/omf5.
