@@ -252,6 +252,32 @@ bool square_matrix_reduce(square_matrix_t q);
 
 /****************************************************************************
  *
+ * Function: square_matrix_reduce_basis
+ *
+ * Description: The same as square_matrix_reduce, with the basis of the
+ *              reduction.
+ *
+ * Arguments:
+ *     + q (square_matrix_t) - a square matrix
+ *
+ * Returns:
+ *     + q (square_matrix_t) - the gram matrix of the same lattice in the
+ *                             reduced basis, if it was replaced
+ *     + t (fmpz_mat_t) - the vectors of the reduced basis, as columns, in
+ *                        the basis which was given: the matrix which is
+ *                        returned is t^T * q * t for the q which was
+ *                        given, and t has determinant 1 or -1. Its entries
+ *                        need not fit in 64 bits. The identity if q was
+ *                        not replaced. It has to be initialized.
+ *     + (bool) - whether q was replaced
+ *
+ ***************************************************************************
+ */
+
+bool square_matrix_reduce_basis(square_matrix_t q, fmpz_mat_t t);
+
+/****************************************************************************
+ *
  * Function: get_eigenvector_on_subspace
  *
  * Description: Computes an eigenvector of a rational matrix T on a linear

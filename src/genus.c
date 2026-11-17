@@ -781,8 +781,106 @@ void genus_init_set_square_matrix_vec_and_isoms(genus_t genus, const square_matr
   return;
 }
 
+/* Sets res to the isometry inv(L) * isom * R, for L and R which are integral with determinant 1 or
+   -1. When isom is an isometry from A to B, L is one from A to A' and R is one from B to B', this is
+   the isometry from A' to B'. The product is found with big integers, since the entries of L and R
+   can be large when those of the product are not. Returns false, and leaves res as it is, when the
+   product or its inverse does not fit in 64 bits. */
+static bool isometry_change_bases(isometry_t res, const fmpz_mat_t L, const isometry_t isom, const fmpz_mat_t R)
+{
+  fmpz_mat_t M, P;
+  fmpz_t den;
+  square_matrix_t num, inv;
+  Z64 inv_denom;
+  int i, j;
+  bool fits;
+
+  fmpz_mat_init_set_square_matrix(M, isom->s);
+  fmpz_mat_init(P, QF_RANK, QF_RANK);
+  fmpz_init(den);
+
+  // the inverse of L is P / den
+  fits = fmpz_mat_inv(P, den, L) && fmpz_is_pm1(den);
+  if (fits) {
+    fmpz_mat_scalar_mul_fmpz(P, P, den);
+    fmpz_mat_mul(P, P, M);
+    fmpz_mat_mul(P, P, R);
+    for (i = 0; fits && (i < QF_RANK); i++)
+      for (j = 0; fits && (j < QF_RANK); j++)
+	fits = fmpz_fits_si(fmpz_mat_entry(P, i, j));
+  }
+  if (fits) {
+    square_matrix_set_fmpz_mat(num, P);
+    fits = square_matrix_inv_fits(inv, &inv_denom, num, isom->denom);
+  }
+  if (fits) {
+    square_matrix_set(res->s, num);
+    square_matrix_set(res->s_inv, inv);
+    res->denom = isom->denom;
+    res->inv_denom = inv_denom;
+  }
+
+  fmpz_mat_clear(M);
+  fmpz_mat_clear(P);
+  fmpz_clear(den);
+
+  return fits;
+}
+
+/* Replace each of the h lattices of reps by a reduction of it, when that lowers the largest diagonal
+   entry of its gram matrix: every lattice which is found by the Hecke operators is tested for an
+   isometry with these, and the test lists the vectors up to this entry. If isoms is not NULL it has
+   an isometry from the first lattice to each of the lattices, and these are replaced by the same
+   isometries in the reduced bases. If one of them does not fit in 64 bits in these bases, the
+   lattices and the isometries are all left as they are. Returns whether a lattice was replaced.
+   If isoms is NULL the isometries are found later, from the reduced bases. They are isometries
+   over the rationals, which are determined only up to the isometries of the rational quadratic
+   space, and the ones which are found depend on the bases. */
+static bool genus_reps_reduce(square_matrix_t* reps, isometry_t* isoms, size_t h)
+{
+  square_matrix_t* red;
+  isometry_t* red_isoms;
+  fmpz_mat_t* t;
+  size_t i;
+  bool fits, is_replaced;
+
+  red = (square_matrix_t*)malloc(h * sizeof(square_matrix_t));
+  t = (fmpz_mat_t*)malloc(h * sizeof(fmpz_mat_t));
+  red_isoms = (isometry_t*)malloc(h * sizeof(isometry_t));
+
+  is_replaced = false;
+  for (i = 0; i < h; i++) {
+    square_matrix_set(red[i], reps[i]);
+    fmpz_mat_init(t[i], QF_RANK, QF_RANK);
+    if (square_matrix_reduce_basis(red[i], t[i]))
+      is_replaced = true;
+  }
+
+  fits = true;
+  if (isoms != NULL)
+    for (i = 0; fits && (i < h); i++)
+      fits = isometry_change_bases(red_isoms[i], t[0], isoms[i], t[i]);
+
+  is_replaced = is_replaced && fits;
+
+  if (is_replaced)
+    for (i = 0; i < h; i++) {
+      square_matrix_set(reps[i], red[i]);
+      if (isoms != NULL)
+	isometry_init_set(isoms[i], red_isoms[i]);
+    }
+
+  for (i = 0; i < h; i++)
+    fmpz_mat_clear(t[i]);
+  free(red);
+  free(t);
+  free(red_isoms);
+
+  return is_replaced;
+}
+
 /* Initialize the genus from a file */
-void genus_init_file(genus_t genus, const char* genus_fname, size_t disc, bool with_isom)
+void genus_init_file(genus_t genus, const char* genus_fname, size_t disc, bool with_isom, bool reduce)
 {
   square_matrix_t* genus_reps = NULL;
   isometry_t* isoms = NULL;
@@ -792,7 +890,13 @@ void genus_init_file(genus_t genus, const char* genus_fname, size_t disc, bool w
     genus_size = read_genus_and_isom(&genus_reps, &isoms, genus_fname, disc);
   else
     genus_size = read_genus(&genus_reps, genus_fname, disc);
-  
+
+  // The eigenvalues do not depend on the bases of the lattices. With isometries which are given, the
+  // Hecke matrices and the eigenvectors do not either. Without them the isometries are found from
+  // the bases, and on a space of nontrivial conductor the signs of the entries depend on them.
+  if (reduce && (genus_size > 0) && genus_reps_reduce(genus_reps, with_isom ? isoms : NULL, genus_size))
+    fprintf(stderr, "The bases of the lattices of the genus were reduced. With -noreduce they are used as they are given.\n");
+
   if ((genus_size > 0) && (with_isom))
     genus_init_set_square_matrix_vec_and_isoms(genus, genus_reps, isoms, genus_size);
   else if (genus_size > 0)
