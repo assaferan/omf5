@@ -833,8 +833,9 @@ static bool isometry_change_bases(isometry_t res, const fmpz_mat_t L, const isom
    an isometry from the first lattice to each of the lattices, and these are replaced by the same
    isometries in the reduced bases. If one of them does not fit in 64 bits in these bases, the
    lattices and the isometries are all left as they are. Returns whether a lattice was replaced.
-   If isoms is NULL the isometries are found later, from the reduced bases. They are determined up
-   to the automorphisms of the lattices, and the ones which are found depend on the bases. */
+   If isoms is NULL the isometries are found later, from the reduced bases. They are isometries
+   over the rationals, which are determined only up to the isometries of the rational quadratic
+   space, and the ones which are found depend on the bases. */
 static bool genus_reps_reduce(square_matrix_t* reps, isometry_t* isoms, size_t h)
 {
   square_matrix_t* red;

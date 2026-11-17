@@ -120,24 +120,10 @@ check_same() {
   fi
 }
 
-# check_same_signs name first second
-# Checks that the examples first and second, which were run before, printed the
-# same to stdout up to the signs of the numbers, and printed something.
-check_same_signs() {
-  tr -d '-' < "$tmp/$2.out" > "$tmp/$2.abs"
-  tr -d '-' < "$tmp/$3.out" > "$tmp/$3.abs"
-  if [ -s "$tmp/$2.abs" ] && cmp -s "$tmp/$2.abs" "$tmp/$3.abs"; then
-    echo "ok   $1"
-  else
-    echo "FAIL $1: the outputs of $2 and $3 differ by more than signs, or are empty"
-    status=1
-  fi
-}
-
 # check_reduced name yes-or-no
 # Checks whether the example name, which was run before, said on the standard
-# error that the basis was reduced, or the bases of the lattices of a genus file.
-# Fails when there is no such example.
+# error that the basis was reduced, or the bases of the lattices of a genus
+# file. Fails when there is no such example.
 check_reduced() {
   if [ ! -f "$tmp/$1.err" ]; then
     echo "FAIL $1-reduced-$2: the example $1 was not run"
@@ -418,12 +404,18 @@ check_same genus65-isom-long-hecke-same genus65-isom-hecke genus65-isom-long-hec
 check_reduced genus65-isom-hecke no
 check_reduced genus65-isom-long-hecke yes
 # Without -isom the program finds the isometries, and the ones which it finds
-# depend on the bases: the matrices are the same up to the signs of the entries.
+# depend on the bases. The matrix on the space of conductor 1 does not, and the
+# one on the space of conductor 65 is determined up to a conjugation by a
+# diagonal matrix of signs, so it is one of two matrices. In the bases of the
+# data, which are not reduced, it is the first of them with the present order
+# of the search for the isometries, and another order can give the second.
+one65='1 : \[\[9,4,2,0,0\],\[6,5,3,1,0\],\[2,2,9,2,0\],\[0,2,6,6,1\],\[0,0,0,10,5\]\],5 : \[\],13 : \[\],'
 echo '[[],[[1,0,-1,-1,0,1,1,0,-1,2,1,-1,2,-1,2],[1,-1,0,0,-1,1,0,0,1,1,1,1,2,2,4],[1,0,0,0,0,1,0,1,0,1,1,-1,2,-1,3],[1,1,0,1,1,1,0,1,1,1,0,0,2,-1,4],[1,1,-1,-1,0,1,-1,-1,0,1,1,0,1,0,13]]]' > "$tmp/65.db"
-check_output genus65-hecke "$hecke65" -genus="$tmp/65.db" -disc=1 -hecke -p=2
+check_output genus65-hecke "$one65$hecke65}" -genus="$tmp/65.db" -disc=1 -hecke -p=2
+check_reduced genus65-hecke no
 echo '[[],[[11,-26,21,-7,-12,23,-29,13,19,11,-8,-13,2,5,5],[1,1,2,1,-3,8,22,7,-24,19,7,-31,3,-15,22],[9,2,-6,8,-8,11,-12,1,3,5,-3,4,2,-4,5],[4,0,9,9,-7,1,0,0,1,8,14,-9,7,-9,4],[14,1,1,0,26,1,0,1,0,1,0,0,1,0,13]]]' > "$tmp/65long.db"
-check_output genus65-long-hecke '65 : \[\[5,-*3\],\[-*2,5\]\]' -genus="$tmp/65long.db" -disc=1 -hecke -p=2
-check_same_signs genus65-long-hecke-signs genus65-hecke genus65-long-hecke
+# The two entries off the diagonal have the same sign.
+check_output genus65-long-hecke "$one65"'65 : \[\[5,\(-\{0,1\}\)3\],\[\12,5\]\]}' -genus="$tmp/65long.db" -disc=1 -hecke -p=2
 check_reduced genus65-long-hecke yes
 
 # genus_isom_error name message genus
