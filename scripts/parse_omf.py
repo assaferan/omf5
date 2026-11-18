@@ -1,3 +1,4 @@
+import os
 import pickle
 from sage.all import (Matrix, QuadraticForm, PolynomialRing, QQ, NumberField, prime_range, primes_first_n, prime_divisors, divisors, is_square, ZZ, sqrt, sign, lcm, pari, prod)
 from sage.misc.persist import SagePickler
@@ -132,6 +133,8 @@ def hecke_order(F, lambda_p, lambda_p_square):
     return H, index, nbound
 
 _genus_files = {}
+# the genus file of ev_run.sh, in the data directory of the omf5 checkout
+DEFAULT_GENUS = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'qf5db.sage')
 
 def quaternion_discriminant(N, genus):
     """
@@ -145,7 +148,15 @@ def quaternion_discriminant(N, genus):
         with open(genus) as f:
             text = f.read()
         _genus_files[genus] = eval(text[text.index('=') + 1:])
-    gram = Matrix(ZZ, _genus_files[genus][N][0][0])
+    genera = _genus_files[genus]
+    if N >= len(genera) or not genera[N]:
+        raise ValueError("level %d: the genus file %s has no genus of discriminant %d" % (N, genus, N))
+    gram = genera[N][0][0]
+    if not (isinstance(gram, list) and len(gram) == 5 and all(isinstance(r, list) and len(r) == 5 for r in gram)):
+        raise ValueError("level %d: the genus file %s does not give Gram matrices (as in qf5db.sage)" % (N, genus))
+    gram = Matrix(ZZ, gram)
+    if gram.det() != 2 * N:
+        raise ValueError("level %d: the lattice in %s has determinant %d, not 2N" % (N, genus, gram.det()))
     Q = QuadraticForm(ZZ, gram)
     D = [p for p in prime_divisors(N) if p != 2 and Q.hasse_invariant(p) == -1]
     if len(D) % 2 == 0:
@@ -153,13 +164,14 @@ def quaternion_discriminant(N, genus):
     assert N % prod(D) == 0, "level %d: the quaternion algebra ramifies outside N" % N
     return D
 
-def parse_omf5(k,j,N,folder,suffix="_nl_200_",hecke_ring=True,B=200,max_deg=20,skip_lines=0,genus="data/qf5db.sage"):
+def parse_omf5(k,j,N,folder,suffix="_nl_200_",hecke_ring=True,B=200,max_deg=20,skip_lines=0,genus=DEFAULT_GENUS):
     """
-    genus is the genus file of the omf5 run (its -genus).  omf5 groups the forms
+    genus is the genus file of the omf5 run (its -genus), by default data/qf5db.sage
+    of this omf5 checkout.  omf5 groups the forms
     by spinor conductor c, the product of the primes p | N at which the spinor
     character is theta_p = -1.  The Atkin-Lehner sign is eps_p = -theta_p at the
     primes p ramified in the quaternion algebra of the genus, and theta_p at the
-    others.
+    others (Theorem 10.1 of Dummigan-Pacetti-Rama-Tornaria).
     """
     fname = folder + "hecke_ev_%d_%d%s%d.dat" %(k,j,suffix,N)
     Qx = PolynomialRing(QQ, name="x")
@@ -246,7 +258,7 @@ def parse_omf5(k,j,N,folder,suffix="_nl_200_",hecke_ring=True,B=200,max_deg=20,s
     fl.close()
     return ret
 
-def pickle_omf5(k,j,N,folder,suffix="_nl_200_",B=200,genus="data/qf5db.sage"):
+def pickle_omf5(k,j,N,folder,suffix="_nl_200_",B=200,genus=DEFAULT_GENUS):
     fname = folder + "hecke_ev_%d_%d%s%d.dat" %(k,j,suffix,N)
     parsed = parse_omf5(k,j,N,folder,suffix,B=B,genus=genus)
     f = open(fname, "wb")
