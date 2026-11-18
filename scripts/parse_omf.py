@@ -176,7 +176,10 @@ def parse_omf5(k,j,N,folder,suffix="_nl_200_",hecke_ring=True,B=200,max_deg=20,s
                 # rank; when it did not -- always for degree >= 6, since at most 5 were used -- it fell
                 # back to the ring of integers, with index 1 and nbound 0, and nbound was an index
                 # into lambda_p.)
-                H, index, nbound = hecke_order(F, f['lambda_p'], f['lambda_p_square'])
+                try:
+                    H, index, nbound = hecke_order(F, f['lambda_p'], f['lambda_p_square'])
+                except ValueError as err:
+                    raise ValueError("level %d: %s" % (N, err))
                 f['hecke_ring'] = H
                 f['hecke_ring_index'] = index
                 f['hecke_ring_generator_nbound'] = nbound
