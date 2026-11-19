@@ -81,7 +81,15 @@ The build defines `NDEBUG`, which removes the assertions of the code. To build w
 
     ./configure CFLAGS=-UNDEBUG
 
-The assertions inside `#ifdef DEBUG` and `#ifdef DEBUG_LEVEL_FULL` stay off.
+The assertions inside `#ifdef DEBUG` and `#ifdef DEBUG_LEVEL_FULL` stay off. To build with the code and the assertions inside `#ifdef DEBUG` as well:
+
+    ./configure CFLAGS="-UNDEBUG -DDEBUG"
+
+This build prints debugging output as well, and on the standard output some of it is in the middle of the eigenvalues, so its output is not meant to be parsed. To check it, run
+
+    OMF5_DEBUG_BUILD=yes make check
+
+which runs the same examples and checks their traces, types, errors and Hecke matrices. It does not check the eigenvalues printed to the standard output, or that two bases of a lattice give the same output.
 
 ## Usage
 

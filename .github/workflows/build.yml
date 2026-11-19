@@ -40,6 +40,16 @@ jobs:
             os: ubuntu-24.04
             flint: apt
             cflags: -UNDEBUG
+          # This job also defines DEBUG, which compiles the code and the
+          # assertions inside #ifdef DEBUG. That code prints debugging output,
+          # on stdout in the middle of the eigenvalues, so the tests do not
+          # check the eigenvalues printed to stdout here.
+          # The code inside #ifdef DEBUG_LEVEL_FULL stays off.
+          - name: ubuntu, debug, flint 3 (apt)
+            os: ubuntu-24.04
+            flint: apt
+            cflags: -UNDEBUG -DDEBUG
+            debug: 'yes'
           # Debian 12 packages flint 2.9.0 and antic 0.2.5, the oldest
           # versions omf5 supports.
           - name: debian 12, flint 2.9 + antic (apt)
@@ -116,8 +126,20 @@ jobs:
         echo "assertions wanted: $want, compiled in: $have"
         test "$want" = "$have"
 
+    # A line printed only inside #ifdef DEBUG is in the executable exactly
+    # when DEBUG is defined. This fails if the debug job lost the code, or if
+    # another job has it.
+    - name: Check whether the debugging code is compiled in
+      run: |
+        want=${{ matrix.debug || 'no' }}
+        if grep -q 'theta_time = %f' omf5/src/omf5; then have=yes; else have=no; fi
+        echo "debugging code wanted: $want, compiled in: $have"
+        test "$want" = "$have"
+
     # Runs omf5 -tests and checks the README examples.
     - name: Run tests
+      env:
+        OMF5_DEBUG_BUILD: ${{ matrix.debug || 'no' }}
       run: cd omf5 && make check
 
     # test-suite.log includes the logs of the failing tests. It does not

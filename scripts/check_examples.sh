@@ -14,6 +14,19 @@
 
 OMF5=${1:-src/omf5}
 
+# A build with -DDEBUG prints debugging output as well, with running times,
+# and on stdout some of it is in the middle of the eigenvalues. For such a
+# build, set OMF5_DEBUG_BUILD=yes: the examples are still run, and their
+# traces, types, errors and Hecke matrices are checked, but the eigenvalues on
+# stdout are not matched against a pattern, and stdout is not compared between
+# two examples.
+debug_build=${OMF5_DEBUG_BUILD:-no}
+# The line 'theta_time = %f' is printed only inside #ifdef DEBUG.
+if [ "$debug_build" = yes ] && ! grep -q 'theta_time = %f' "$OMF5"; then
+  echo "OMF5_DEBUG_BUILD=yes, but $OMF5 was not built with -DDEBUG"
+  exit 1
+fi
+
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
@@ -86,17 +99,21 @@ check_error() {
   fi
 }
 
-# check_output name pattern omf5-arguments...
+# check_printed in-debug-build name pattern omf5-arguments...
 # Checks that omf5 exits without an error for these arguments, and that what it
 # prints to stdout matches the pattern, which is a basic regular expression.
-check_output() {
-  name=$1
-  pattern=$2
-  shift 2
+# For a debug build the pattern is checked only if in-debug-build is yes.
+check_printed() {
+  in_debug_build=$1
+  name=$2
+  pattern=$3
+  shift 3
   if ! "$OMF5" "$@" > "$tmp/$name.out" 2> "$tmp/$name.err"; then
     echo "FAIL $name: omf5 exited with an error"
     cat "$tmp/$name.err"
     status=1
+  elif [ "$debug_build" = yes ] && [ "$in_debug_build" != yes ]; then
+    echo "skip $name: ran without an error, the eigenvalues of a debug build are not checked"
   elif ! grep -q -- "$pattern" "$tmp/$name.out"; then
     echo "FAIL $name: the output does not match '$pattern'"
     # The output does not end in a newline.
@@ -108,11 +125,27 @@ check_output() {
   fi
 }
 
+# check_output name pattern omf5-arguments...
+# The pattern is one of eigenvalues, which a debug build prints with debugging
+# output between them, so it is not checked for such a build.
+check_output() {
+  check_printed no "$@"
+}
+
+# check_matrix name pattern omf5-arguments...
+# The pattern is one of Hecke matrices, which a debug build prints whole, after
+# its debugging output, so it is checked for such a build as well.
+check_matrix() {
+  check_printed yes "$@"
+}
+
 # check_same name first second
 # Checks that the examples first and second, which were run before, printed the
 # same to stdout, and printed something.
 check_same() {
-  if [ -s "$tmp/$2.out" ] && cmp -s "$tmp/$2.out" "$tmp/$3.out"; then
+  if [ "$debug_build" = yes ]; then
+    echo "skip $1: the outputs of a debug build are not compared"
+  elif [ -s "$tmp/$2.out" ] && cmp -s "$tmp/$2.out" "$tmp/$3.out"; then
     echo "ok   $1"
   else
     echo "FAIL $1: the outputs of $2 and $3 differ, or are empty"
@@ -397,9 +430,9 @@ check_reduced genus44-isom-long-noreduce no
 # isometries have the denominators 2, 4 and 8.
 hecke65='65 : \[\[5,3\],\[2,5\]\]'
 echo '[[],[[[[2,1,-1,-1,0],[1,2,-1,-1,0],[-1,-1,2,1,0],[-1,-1,1,2,0],[0,0,0,0,26]],[[1,0,0,0,0],[0,1,0,0,0],[0,0,1,0,0],[0,0,0,1,0],[0,0,0,0,1]]],[[[2,1,0,1,1],[1,2,0,1,1],[0,0,2,0,0],[1,1,0,4,-1],[1,1,0,-1,8]],[[1,1,0,0,1],[0,0,-1,1,-1/2],[0,1,0,1,0],[1,0,0,1,0],[0,0,0,0,1/2]]],[[[2,-1,0,0,-1],[-1,2,0,0,1],[0,0,2,1,1],[0,0,1,4,2],[-1,1,1,2,8]],[[1,-1,0,-1/2,-3/2],[0,0,-1,1/4,3/4],[0,-1,0,1/2,1/2],[1,0,0,1/2,1/2],[0,0,0,1/4,-1/4]]],[[[2,0,0,0,0],[0,2,0,1,0],[0,0,2,1,-1],[0,1,1,4,-1],[0,0,-1,-1,6]],[[0,-1/4,3/4,1/4,-2],[0,-3/8,-7/8,3/8,0],[1,1/4,-1/4,1/4,-1],[-1,1/4,-1/4,1/4,-1],[0,1/8,1/8,3/8,0]]],[[[2,0,-1,-1,0],[0,2,1,0,-1],[-1,1,4,1,-1],[-1,0,1,4,-1],[0,-1,-1,-1,4]],[[0,-3/4,1/4,-1,1/4],[0,7/8,-1/8,-1,3/8],[-1,1/4,5/4,0,1/4],[1,1/4,1/4,-1,1/4],[0,-1/8,-1/8,0,3/8]]]]]' > "$tmp/65isom.db"
-check_output genus65-isom-hecke "$hecke65" -genus="$tmp/65isom.db" -isom -disc=1 -hecke -p=2
+check_matrix genus65-isom-hecke "$hecke65" -genus="$tmp/65isom.db" -isom -disc=1 -hecke -p=2
 echo '[[],[[[[2,6,-1,-1,-6],[6,22,-4,-5,-22],[-1,-4,2,1,4],[-1,-5,1,2,5],[-6,-22,4,5,48]],[[1,0,0,0,0],[0,1,0,0,0],[0,0,1,0,0],[0,0,0,1,0],[0,0,0,0,1]]],[[[46,3,13,-9,8],[3,2,1,-1,0],[13,1,10,-3,5],[-9,-1,-3,8,5],[8,0,5,5,10]],[[1,1,4,-4,-2],[2,0,-1,1,1],[0,1,0,1,1],[2,0,-3/2,0,-1/2],[1,0,1/2,0,1/2]]],[[[12,-5,-3,2,-9],[-5,6,3,0,2],[-3,3,4,1,1],[2,0,1,4,-2],[-9,2,1,-2,8]],[[3,-2,1,-1,-2],[0,0,-1,1/2,0],[0,-1,0,1/2,0],[1/2,-1,-2,3/4,1/2],[1/2,0,0,1/4,-1/2]]],[[[2,0,0,4,0],[0,2,-1,1,0],[0,-1,28,-29,11],[4,1,-29,40,-10],[0,0,11,-10,6]],[[0,1/2,-1,7/2,1/2],[0,-1/4,-3/2,3/4,-3/4],[1,1/4,-5/2,17/4,-5/4],[-1,-1/8,-15/4,5/8,-17/8],[0,1/8,-1/4,3/8,1/8]]],[[[4,-2,0,1,5],[-2,2,-1,-2,-3],[0,-1,4,2,-6],[1,-2,2,6,0],[5,-3,-6,0,24]],[[5/2,-5/2,3,7/2,-3/2],[-3/4,3/4,-1,-7/4,5/4],[-5/4,1/4,1,-1/4,-9/4],[-1/8,9/8,-1,-25/8,3/8],[1/8,-1/8,0,1/8,5/8]]]]]' > "$tmp/65isom-long.db"
-check_output genus65-isom-long-hecke "$hecke65" -genus="$tmp/65isom-long.db" -isom -disc=1 -hecke -p=2
+check_matrix genus65-isom-long-hecke "$hecke65" -genus="$tmp/65isom-long.db" -isom -disc=1 -hecke -p=2
 check_same genus65-isom-long-hecke-same genus65-isom-hecke genus65-isom-long-hecke
 check_reduced genus65-isom-hecke no
 check_reduced genus65-isom-long-hecke yes
@@ -411,11 +444,11 @@ check_reduced genus65-isom-long-hecke yes
 # of the search for the isometries, and another order can give the second.
 one65='1 : \[\[9,4,2,0,0\],\[6,5,3,1,0\],\[2,2,9,2,0\],\[0,2,6,6,1\],\[0,0,0,10,5\]\],5 : \[\],13 : \[\],'
 echo '[[],[[1,0,-1,-1,0,1,1,0,-1,2,1,-1,2,-1,2],[1,-1,0,0,-1,1,0,0,1,1,1,1,2,2,4],[1,0,0,0,0,1,0,1,0,1,1,-1,2,-1,3],[1,1,0,1,1,1,0,1,1,1,0,0,2,-1,4],[1,1,-1,-1,0,1,-1,-1,0,1,1,0,1,0,13]]]' > "$tmp/65.db"
-check_output genus65-hecke "$one65$hecke65}" -genus="$tmp/65.db" -disc=1 -hecke -p=2
+check_matrix genus65-hecke "$one65$hecke65}" -genus="$tmp/65.db" -disc=1 -hecke -p=2
 check_reduced genus65-hecke no
 echo '[[],[[11,-26,21,-7,-12,23,-29,13,19,11,-8,-13,2,5,5],[1,1,2,1,-3,8,22,7,-24,19,7,-31,3,-15,22],[9,2,-6,8,-8,11,-12,1,3,5,-3,4,2,-4,5],[4,0,9,9,-7,1,0,0,1,8,14,-9,7,-9,4],[14,1,1,0,26,1,0,1,0,1,0,0,1,0,13]]]' > "$tmp/65long.db"
 # The two entries off the diagonal have the same sign.
-check_output genus65-long-hecke "$one65"'65 : \[\[5,\(-\{0,1\}\)3\],\[\12,5\]\]}' -genus="$tmp/65long.db" -disc=1 -hecke -p=2
+check_matrix genus65-long-hecke "$one65"'65 : \[\[5,\(-\{0,1\}\)3\],\[\12,5\]\]}' -genus="$tmp/65long.db" -disc=1 -hecke -p=2
 check_reduced genus65-long-hecke yes
 
 # genus_isom_error name message genus
