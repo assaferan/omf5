@@ -1652,16 +1652,33 @@ STATUS test_hecke_bad_primes()
   Z64 Q_172[15] = {4,1,-2,-2,-2,1,-1,1,2,4,-2,0,3,2,2};
   slong dims_172[4] = {13,1,0,0};
   slong traces_172_2[4] = {30,3,0,0};
-  // Discriminant 152, with the conductors 1,2,19,38, and discriminant 208,
-  // with the conductors 1,2,13,26. The same holds, 8 and 16 divide the
-  // discriminants exactly, and the spaces of the conductors 2 and 38, and of
-  // the conductor 2, are not 0.
+  // Discriminant 152, with the conductors 1,2,19,38. The same holds, 8 divides
+  // the discriminant exactly, and the spaces of the conductors 2 and 38 are
+  // not 0.
   Z64 Q_152[15] = {3,1,2,-2,-1,2,1,-1,-2,4,0,1,1,-1,3};
   slong dims_152[4] = {12,1,0,1};
   slong traces_152_2[4] = {38,-7,0,6};
+  // Discriminant 208, with the conductors 1,2,13,26, discriminant 48, with the
+  // conductors 1,2,3,6, and discriminant 112, with the conductors 1,2,7,14.
+  // The quadratic form is not even on the radical, and 16 divides the
+  // discriminants exactly: the character at 2 is the sign on the deepest part
+  // of the radical at 2, a line in the first two lattices and a plane in the
+  // third. The spaces of the conductors 26, 6 and 2 are not 0. The form of
+  // conductor 6 of the second lattice is the lift of the newform of weight 4
+  // and level 6: its eigenvalues at 5 and 7 are 36 and 40, which are
+  // a_p + p^2 + p for the eigenvalues 6 and -16 of the newform. With the
+  // character of the spinor norm, the space of conductor 2 of this lattice
+  // would be the same as that of conductor 1, at every prime.
   Z64 Q_208[15] = {3,-1,-1,-2,0,6,-1,-2,0,3,-2,-2,2,2,1};
-  slong dims_208[4] = {11,2,0,0};
-  slong traces_208_2[4] = {29,8,0,0};
+  slong dims_208[4] = {11,0,0,7};
+  slong traces_208_2[4] = {29,0,0,11};
+  Z64 Q_48_line[15] = {5,-2,0,2,2,1,1,-1,1,3,-2,1,3,-1,1};
+  slong dims_48_line[4] = {1,0,0,1};
+  slong traces_48_line_2[4] = {12,0,0,0};
+  slong traces_48_line_3[4] = {30,0,0,-10};
+  Z64 Q_112_plane[15] = {1,-1,2,2,2,1,-2,-2,0,6,0,0,3,2,3};
+  slong dims_112_plane[4] = {7,3,0,0};
+  slong traces_112_plane_2[4] = {23,8,0,0};
   // Discriminant 125, with the conductors 1,5. The radical modulo 5 is of
   // dimension 3, and no vector outside it is isotropic modulo 5: there are
   // no 5-neighbors, and the Hecke operator at 5 is 0. One of the two lattices
@@ -1700,7 +1717,9 @@ STATUS test_hecke_bad_primes()
   ret |= test_hecke_bad_prime_of(Q_500, 3, 7, 4, traces_500_3);
   // The radical modulo 2 is of dimension 3. When the quadratic form is even on
   // the radical, the character at 2 is the sign of a permutation of the
-  // quotient by the radical, and otherwise it is that of the spinor norm.
+  // quotient by the radical. Otherwise it is that of the spinor norm when 16
+  // does not divide the discriminant, and the sign on the deepest part of the
+  // radical at 2 when it does.
   ret |= test_dims_of(Q_104, 4, dims_104);
   ret |= test_dims_of(Q_168, 8, dims_168);
   ret |= test_dims_of(Q_216, 4, dims_216);
@@ -1711,6 +1730,8 @@ STATUS test_hecke_bad_primes()
   ret |= test_dims_of(Q_172, 4, dims_172);
   ret |= test_dims_of(Q_152, 4, dims_152);
   ret |= test_dims_of(Q_208, 4, dims_208);
+  ret |= test_dims_of(Q_48_line, 4, dims_48_line);
+  ret |= test_dims_of(Q_112_plane, 4, dims_112_plane);
   ret |= test_hecke_bad_prime_of(Q_104, 2, 3, 4, traces_104_2);
   ret |= test_hecke_bad_prime_of(Q_168, 2, 5, 8, traces_168_2);
   ret |= test_hecke_bad_prime_of(Q_216, 2, 5, 4, traces_216_2);
@@ -1721,6 +1742,9 @@ STATUS test_hecke_bad_primes()
   ret |= test_hecke_bad_prime_of(Q_172, 2, 3, 4, traces_172_2);
   ret |= test_hecke_bad_prime_of(Q_152, 2, 3, 4, traces_152_2);
   ret |= test_hecke_bad_prime_of(Q_208, 2, 3, 4, traces_208_2);
+  ret |= test_hecke_bad_prime_of(Q_48_line, 2, 5, 4, traces_48_line_2);
+  ret |= test_hecke_bad_prime_of(Q_48_line, 3, 5, 4, traces_48_line_3);
+  ret |= test_hecke_bad_prime_of(Q_112_plane, 2, 3, 4, traces_112_plane_2);
   // there are no neighbors at the prime
   ret |= test_hecke_bad_prime_of(Q_125, 5, 3, 2, traces_125_5);
   ret |= test_hecke_bad_prime_of(Q_324, 3, 5, 4, traces_324_3);

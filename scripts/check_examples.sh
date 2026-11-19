@@ -658,4 +658,22 @@ check_example disc76-p2-basis "$tmp/76.exp" "F O P P P" -quad=3,-2,0,6,-2,6,8,-3
 check_matrix disc152-p2-hecke '2 : \[\[-7\]\],19 : \[\],38 : \[\[6\]\]}' -quad=3,1,2,-2,-1,2,1,-1,-2,4,0,1,1,-1,3 -format=GG -hecke -p=2
 check_same disc76-p2-same disc76-p2 disc76-p2-basis
 
+# Discriminant 336 = 2^4 * 3 * 7 and discriminant 48 = 2^4 * 3, where the
+# quadratic form is not even on the radical modulo 2, of dimension 3, and 16
+# divides the discriminant. The character at 2 is the sign on the deepest part
+# of the radical at 2, a plane in the first lattice and a line in the second.
+# The spaces of the conductors 2, 6, 21 and 42 of the first lattice and of the
+# conductor 6 of the second are of dimension 1, with the same Hecke matrices in
+# both bases, at the 2-neighbors and at the 3-neighbors. The form of conductor
+# 6 of the second lattice is the lift of the newform of weight 4 and level 6.
+# With the character of the spinor norm the spaces of the conductors 2 and 42
+# of the first lattice are 0, and that of the conductor 2 of the second is the
+# same as that of the conductor 1.
+check_matrix disc336-p2-hecke '2 : \[\[0\]\],3 : \[\],6 : \[\[-6\]\],7 : \[\],14 : \[\],21 : \[\[6\]\],42 : \[\[0\]\]}' -quad=1,1,0,0,0,2,0,0,0,1,0,0,4,4,4 -format=GG -hecke -p=2
+check_matrix disc336-p2-hecke-basis '2 : \[\[0\]\],3 : \[\],6 : \[\[-6\]\],7 : \[\],14 : \[\],21 : \[\[6\]\],42 : \[\[0\]\]}' -quad=6,-11,20,7,-4,6,-19,-8,3,19,11,-4,6,-3,2 -format=GG -hecke -p=2 -noreduce
+check_matrix disc336-p3-hecke '2 : \[\[-4\]\],3 : \[\],6 : \[\[2\]\],7 : \[\],14 : \[\],21 : \[\[-16\]\],42 : \[\[2\]\]}' -quad=1,1,0,0,0,2,0,0,0,1,0,0,4,4,4 -format=GG -hecke -p=3
+check_matrix disc336-p3-hecke-basis '2 : \[\[-4\]\],3 : \[\],6 : \[\[2\]\],7 : \[\],14 : \[\],21 : \[\[-16\]\],42 : \[\[2\]\]}' -quad=6,-11,20,7,-4,6,-19,-8,3,19,11,-4,6,-3,2 -format=GG -hecke -p=3 -noreduce
+check_matrix disc48-p3-hecke '{1 : \[\[30\]\],2 : \[\],3 : \[\],6 : \[\[-10\]\]}' -quad=5,-2,0,2,2,1,1,-1,1,3,-2,1,3,-1,1 -format=GG -hecke -p=3
+check_matrix disc48-p3-hecke-basis '{1 : \[\[30\]\],2 : \[\],3 : \[\],6 : \[\[-10\]\]}' -quad=24,-3,114,102,-6,5,-19,-14,6,143,252,-22,112,-16,4 -format=GG -hecke -p=3 -noreduce
+
 exit $status

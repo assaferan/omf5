@@ -23,8 +23,14 @@ typedef struct {
   W64 twist;
 
   // Whether the radical modulo 2 is of dimension 3 and the quadratic form is
-  // odd at a vector of it. The character at 2 is then that of the spinor norm.
+  // odd at a vector of it. The character at 2 is then that of the spinor norm
+  // when 16 does not divide the discriminant, and otherwise the sign by which
+  // an isometry acts on the deepest part of the radical at 2.
   bool odd_on_rad_2;
+  // The columns are vectors of the lattice which span the deepest part of the
+  // radical at 2 modulo 2, a line or a plane. There are no columns when it is
+  // not used.
+  fmpz_mat_t deep_2;
 
   
 } spinor;

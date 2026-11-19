@@ -162,6 +162,7 @@ void spinor_init_fmpz(spinor_t spinor, const fmpz_t disc)
   spinor->num_primes = bad_primes->num;
   spinor->twist = (1LL << (bad_primes->num)) - 1;
   spinor->odd_on_rad_2 = false;
+  fmpz_mat_init(spinor->deep_2, 0, 0);
   spinor->rads = (nmod_mat_t*)malloc((bad_primes->num) * sizeof(nmod_mat_t));
   spinor->primes = (nmod_t*)malloc((bad_primes->num) * sizeof(nmod_t));
   spinor->pivots = (slong*)malloc((bad_primes->num) * sizeof(slong));
@@ -246,6 +247,63 @@ static bool spinor_radical_2_is_odd(const nmod_mat_t rad, const fmpz_mat_t q)
   return is_odd;
 }
 
+// Sets the columns of deep to vectors which span, modulo 2, the deepest part
+// of the radical at 2 of the lattice whose Gram matrix has the adjugate adj,
+// when it is a line or a plane; deep has no columns otherwise.
+// A vector v is in the radical modulo 2^k when its products with the lattice
+// are divisible by 2^k, and the deepest part is the image modulo 2 of the
+// radical modulo 2^k for the largest k at which this image is not 0. It is the
+// last component of a Jordan decomposition at 2, modulo 2.
+// The product of the Gram matrix and its adjugate is the determinant, so the
+// columns of the adjugate divided by the power of 2 in its content are in this
+// radical, and they span its image modulo 2.
+static void spinor_deep_part_2(fmpz_mat_t deep, const fmpz_mat_t adj)
+{
+  fmpz_mat_t a;
+  nmod_mat_t a_2, cols;
+  fmpz_t content, unit, two;
+  slong i, j, k, n, rank;
+
+  n = fmpz_mat_nrows(adj);
+  fmpz_init(content);
+  fmpz_init(unit);
+  fmpz_init_set_ui(two, 2);
+  fmpz_mat_init(a, n, n);
+
+  fmpz_mat_content(content, adj);
+  fmpz_remove(unit, content, two);
+  fmpz_divexact(content, content, unit);
+  fmpz_mat_scalar_divexact_fmpz(a, adj, content);
+  nmod_mat_init_set_fmpz_mat(a_2, a, 2);
+  rank = nmod_mat_rank(a_2);
+  if (rank > 2)
+    rank = 0;
+
+  fmpz_mat_clear(deep);
+  fmpz_mat_init(deep, n, rank);
+  // columns of the matrix which are linearly independent modulo 2
+  nmod_mat_init(cols, n, rank, 2);
+  k = 0;
+  for (j = 0; (j < n) && (k < rank); j++) {
+    for (i = 0; i < n; i++)
+      nmod_mat_set_entry(cols, i, k, nmod_mat_entry(a_2, i, j));
+    if (nmod_mat_rank(cols) == k + 1) {
+      for (i = 0; i < n; i++)
+	fmpz_set(fmpz_mat_entry(deep, i, k), fmpz_mat_entry(a, i, j));
+      k++;
+    }
+  }
+
+  nmod_mat_clear(cols);
+  nmod_mat_clear(a_2);
+  fmpz_mat_clear(a);
+  fmpz_clear(two);
+  fmpz_clear(unit);
+  fmpz_clear(content);
+
+  return;
+}
+
 void spinor_init_fmpz_mat(spinor_t spinor, const fmpz_mat_t q)
 {
   slong prime_idx;
@@ -269,6 +327,7 @@ void spinor_init_fmpz_mat(spinor_t spinor, const fmpz_mat_t q)
 
   fmpz_mat_init_set(spinor->Q,q);
   spinor->odd_on_rad_2 = false;
+  fmpz_mat_init(spinor->deep_2, fmpz_mat_nrows(q), 0);
   spinor->rads = (nmod_mat_t*)malloc((bad_primes->num) * sizeof(nmod_mat_t));
   spinor->primes = (nmod_t*)malloc((bad_primes->num) * sizeof(nmod_t));
   spinor->pivots = (slong*)malloc((bad_primes->num) * sizeof(slong));
@@ -325,7 +384,10 @@ void spinor_init_fmpz_mat(spinor_t spinor, const fmpz_mat_t q)
       // used. If the quadratic form is even on the radical, the character is
       // the sign of a permutation of the quotient of the lattice modulo 2 by
       // the radical, a plane over the field of 2 elements. If the form is odd
-      // at a vector of the radical, the character is given by the spinor norm.
+      // at a vector of the radical, the character is that of the spinor norm
+      // when 16 does not divide the discriminant. When 16 divides it, the
+      // deepest part of the radical at 2 is a line or a plane, and the
+      // character is the sign by which an isometry acts on it.
       // Otherwise the radical is the whole lattice modulo 2, there is no
       // character at 2 here, and the conductors are odd.
       if (nullity == 3) {
@@ -334,6 +396,8 @@ void spinor_init_fmpz_mat(spinor_t spinor, const fmpz_mat_t q)
 	    nmod_mat_set_entry(spinor->rads[prime_idx], j, i,
 			       nmod_mat_entry(spinor->rads[prime_idx], j, i) % 2);
 	spinor->odd_on_rad_2 = spinor_radical_2_is_odd(spinor->rads[prime_idx], q);
+	if (spinor->odd_on_rad_2 && (spinor->exps[prime_idx] >= 4))
+	  spinor_deep_part_2(spinor->deep_2, adj);
       }
       else if (nullity != 1) {
 	nmod_mat_clear(spinor->rads[prime_idx]);
@@ -378,6 +442,7 @@ void spinor_clear(spinor_t spinor)
   slong prime_idx;
 
   fmpz_mat_clear(spinor->Q);
+  fmpz_mat_clear(spinor->deep_2);
   for (prime_idx = 0; prime_idx < spinor->num_primes; prime_idx++) {
     nmod_mat_clear(spinor->rads[prime_idx]);
     fmpz_mat_clear(spinor->lifts[prime_idx]);
@@ -982,6 +1047,118 @@ static bool spinor_is_neighbor_isometry_2(const spinor_t spinor, const fmpz_mat_
   return ok;
 }
 
+// The character at 2 at the isometry g = mat/denom, in lowest terms, which is
+// integral at 2 or takes the lattice to a 2-neighbor of it, when the radical
+// modulo 2 is of dimension 3, the quadratic form is odd at a vector of it and
+// 16 divides the discriminant. It is the sign by which g acts on the deepest
+// part of the radical at 2, read from the images under the inverse of g of the
+// vectors which span it.
+// When this part is a line spanned by e, the image of e is e or -e modulo 4
+// times the lattice, and the character is this sign, after the isometry is
+// multiplied by -1 if its determinant is -1, whose sign is det_sign. When it is
+// a plane, the images of the vectors are in the plane modulo 2 times the
+// lattice, and the character is the sign of the permutation of the three
+// nonzero vectors of the plane.
+// A 2-neighbor is the same as the lattice outside a hyperbolic plane H of it,
+// in which H is replaced by a lattice between 2H and H/2. The radicals modulo
+// 2^k of the two lattices then differ only by vectors of 2^(k-1) H, where k is
+// at least 2, and at least 3 when the deepest part is a line. Hence the two
+// lattices have the same deepest part, modulo 2 times either of them, and
+// modulo 4 times either of them when it is a line. So the same formula holds
+// at an isometry to a 2-neighbor, and it is 1 at an isometry which is the
+// identity on the orthogonal complement of a hyperbolic plane.
+// Returns 1 or -1, and 0 if the images are not as above.
+static int spinor_deep_sign_2(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom, int det_sign)
+{
+  fmpz_mat_t inv, image;
+  fmpz_t inv_denom, odd, two, t;
+  slong i, j, k, n, r, val;
+  ulong x, e, unit, v[2];
+  int idx[2], third, sign;
+  bool ok, plus, minus, same;
+
+  n = fmpz_mat_nrows(mat);
+  r = fmpz_mat_ncols(spinor->deep_2);
+
+  fmpz_mat_init(inv, n, n);
+  fmpz_mat_init(image, n, r);
+  fmpz_init(inv_denom);
+  fmpz_init(odd);
+  fmpz_init(t);
+  fmpz_init_set_ui(two, 2);
+
+  // The inverse of the isometry is denom * inv / inv_denom. The images are
+  // vectors of the lattice at 2 when the power of 2 in the denominator
+  // divides them, and the odd part of the denominator is a unit.
+  ok = fmpz_mat_inv(inv, inv_denom, mat);
+  if (ok) {
+    fmpz_mat_mul(image, inv, spinor->deep_2);
+    fmpz_mat_scalar_mul_fmpz(image, image, denom);
+    val = fmpz_remove(odd, inv_denom, two);
+    // an odd number is its own inverse modulo 4
+    unit = fmpz_fdiv_ui(odd, 4);
+    for (j = 0; ok && (j < r); j++)
+      for (i = 0; ok && (i < n); i++) {
+	fmpz_fdiv_q_2exp(t, fmpz_mat_entry(image, i, j), val);
+	fmpz_mul_2exp(odd, t, val);
+	ok = fmpz_equal(odd, fmpz_mat_entry(image, i, j));
+	fmpz_mul_ui(fmpz_mat_entry(image, i, j), t, unit);
+      }
+  }
+
+  sign = 0;
+  if (ok && (r == 1)) {
+    plus = minus = true;
+    for (i = 0; i < n; i++) {
+      x = fmpz_fdiv_ui(fmpz_mat_entry(image, i, 0), 4);
+      e = fmpz_fdiv_ui(fmpz_mat_entry(spinor->deep_2, i, 0), 4);
+      if (x != e)
+	plus = false;
+      if ((x + e) % 4 != 0)
+	minus = false;
+    }
+    // e is not 0 modulo 2, so at most one of the two holds
+    if (plus)
+      sign = det_sign;
+    else if (minus)
+      sign = -det_sign;
+  }
+  else if (ok && (r == 2)) {
+    // The three nonzero vectors of the plane are those of the two columns
+    // and their sum, at the indices 0, 1 and 2.
+    for (j = 0; j < 2; j++) {
+      idx[j] = -1;
+      for (k = 0; k < 3; k++) {
+	same = true;
+	for (i = 0; i < n; i++) {
+	  v[0] = fmpz_fdiv_ui(fmpz_mat_entry(spinor->deep_2, i, 0), 2);
+	  v[1] = fmpz_fdiv_ui(fmpz_mat_entry(spinor->deep_2, i, 1), 2);
+	  x = (k < 2) ? v[k] : (v[0] + v[1]) % 2;
+	  if (fmpz_fdiv_ui(fmpz_mat_entry(image, i, j), 2) != x)
+	    same = false;
+	}
+	if (same)
+	  idx[j] = k;
+      }
+    }
+    if ((idx[0] >= 0) && (idx[1] >= 0) && (idx[0] != idx[1])) {
+      // The image of the third vector is the sum of the two images. A
+      // permutation of three vectors is odd when it fixes exactly one.
+      third = 3 - idx[0] - idx[1];
+      sign = ((idx[0] == 0) + (idx[1] == 1) + (third == 2) == 1) ? -1 : 1;
+    }
+  }
+
+  fmpz_clear(two);
+  fmpz_clear(t);
+  fmpz_clear(odd);
+  fmpz_clear(inv_denom);
+  fmpz_mat_clear(image);
+  fmpz_mat_clear(inv);
+
+  return sign;
+}
+
 // TODO - use the modular arithmetic built in inside nmod_t instead of gcdext
 // Here mat/denom is the isometry in lowest terms,
 // and we're computing the spinor norm at all spinor primes
@@ -1009,6 +1186,21 @@ static W64 spinor_norm_lowest_terms(const spinor_t spinor, const fmpz_mat_t mat,
   fmpz_mat_det(det, mat);
   for (prime_idx = 0; prime_idx < spinor->num_primes; prime_idx++) {
     p = spinor->primes[prime_idx];
+    if ((p.n == 4) && (fmpz_mat_ncols(spinor->deep_2) != 0)) {
+      // The sign on the deepest part of the radical at 2, by the same formula
+      // at an isometry which is integral at 2 and at one to a 2-neighbor.
+      if (fmpz_is_even(denom) && !spinor_is_neighbor_isometry_2(spinor, mat, denom)) {
+	fprintf(stderr, "Error: the character at the prime 2 is not defined at an isometry whose denominator is even: the isometry does not take the lattice to a neighbor of it at 2\n");
+	exit(EXIT_FAILURE);
+      }
+      sign = spinor_deep_sign_2(spinor, mat, denom, fmpz_sgn(det) * fmpz_sgn(denom));
+      if (sign == 0) {
+	fprintf(stderr, "Error: the character at the prime 2 is not defined at an isometry: it does not act by a sign on the deepest part of the radical at 2\n");
+	exit(EXIT_FAILURE);
+      }
+      evs[prime_idx] = (sign == 1) ? 1 : p.n-1;
+      continue;
+    }
     if (fmpz_fdiv_ui(denom, spinor_prime(spinor, prime_idx)) == 0) {
       // The isometry is not integral at this prime.
       evs[prime_idx] = 1;
