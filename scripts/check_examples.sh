@@ -622,4 +622,58 @@ EOF
 check_example disc124-even-column "$tmp/124even.exp" "F G G O P P P" -quad=4,-2,0,-6,0,1,1,2,0,2,1,-1,3,-1,3 -format=GG -prec=20 -noreduce
 check_reduced disc124-even-column no
 
+# Discriminant 216, where the radical of the lattice modulo 2 is of dimension
+# 3, and the quadratic form is even on it. The character at 2 is the sign of
+# the permutation of the nonzero vectors of the quotient by the radical. The
+# two forms of conductor 2 are of type P, and their eigenvalues at 2 are -4
+# and -7. The second matrix is that of the same lattice in another basis, in
+# which no vector of the basis is in the radical.
+cat > "$tmp/216.exp" <<'EOF'
+1: -4
+1: -7
+EOF
+check_example disc216-p2 "$tmp/216.exp" "F O O P P P P P" -quad=2,-1,-2,0,0,3,0,0,0,2,-2,-2,4,-2,2 -format=GG -p=2
+check_example disc216-p2-basis "$tmp/216.exp" "F O O P P P P P" -quad=2,-1,-4,-3,-6,3,1,6,1,4,-1,8,7,1,6 -format=GG -p=2 -noreduce
+check_same disc216-p2-same disc216-p2 disc216-p2-basis
+check_matrix disc216-p2-hecke '2 : \[\[-6,2\],\[1,-5\]\],3 : \[\],6 : \[\]}' -quad=2,-1,-2,0,0,3,0,0,0,2,-2,-2,4,-2,2 -format=GG -hecke -p=2
+# The lattice has no 4-neighbors.
+check_matrix disc216-p2-square-hecke '2 : \[\[0,0\],\[0,0\]\],3 : \[\],6 : \[\]}' -quad=2,-1,-2,0,0,3,0,0,0,2,-2,-2,4,-2,2 -format=GG -hecke -p=2 -square
+
+# Discriminant 76, where the radical modulo 2 is of dimension 3 and the
+# quadratic form is not even on it. The character at 2 is that of the spinor
+# norm. The form of conductor 2 is of type P, the lift of the newform of
+# weight 4 and level 19, and its eigenvalue at 2 is 6, in both bases. The same
+# lift is the form of type O of conductor 1, on which T_2 is not a scalar, and
+# no eigenvalue is printed for it.
+check_matrix disc76-p2-hecke '2 : \[\[6\]\],19 : \[\],38 : \[\]}' -quad=1,0,1,-2,0,3,-2,0,-2,1,-1,2,4,-2,3 -format=GG -hecke -p=2
+check_matrix disc76-p2-hecke-basis '2 : \[\[6\]\],19 : \[\],38 : \[\]}' -quad=3,-2,0,6,-2,6,8,-3,16,6,-1,16,4,-3,13 -format=GG -hecke -p=2 -noreduce
+cat > "$tmp/76.exp" <<'EOF'
+1: 12
+1: 7
+1: 6
+EOF
+check_example disc76-p2 "$tmp/76.exp" "F O P P P" -quad=1,0,1,-2,0,3,-2,0,-2,1,-1,2,4,-2,3 -format=GG -p=2
+check_example disc76-p2-basis "$tmp/76.exp" "F O P P P" -quad=3,-2,0,6,-2,6,8,-3,16,6,-1,16,4,-3,13 -format=GG -p=2 -noreduce
+# Discriminant 152, where the same holds and 8 divides the discriminant.
+check_matrix disc152-p2-hecke '2 : \[\[-7\]\],19 : \[\],38 : \[\[6\]\]}' -quad=3,1,2,-2,-1,2,1,-1,-2,4,0,1,1,-1,3 -format=GG -hecke -p=2
+check_same disc76-p2-same disc76-p2 disc76-p2-basis
+
+# Discriminant 336 = 2^4 * 3 * 7 and discriminant 48 = 2^4 * 3, where the
+# quadratic form is not even on the radical modulo 2, of dimension 3, and 16
+# divides the discriminant. The character at 2 is the sign on the deepest part
+# of the radical at 2, a plane in the first lattice and a line in the second.
+# The spaces of the conductors 2, 6, 21 and 42 of the first lattice and of the
+# conductor 6 of the second are of dimension 1, with the same Hecke matrices in
+# both bases, at the 2-neighbors and at the 3-neighbors. The form of conductor
+# 6 of the second lattice is the lift of the newform of weight 4 and level 6.
+# With the character of the spinor norm the spaces of the conductors 2 and 42
+# of the first lattice are 0, and that of the conductor 2 of the second is the
+# same as that of the conductor 1.
+check_matrix disc336-p2-hecke '2 : \[\[0\]\],3 : \[\],6 : \[\[-6\]\],7 : \[\],14 : \[\],21 : \[\[6\]\],42 : \[\[0\]\]}' -quad=1,1,0,0,0,2,0,0,0,1,0,0,4,4,4 -format=GG -hecke -p=2
+check_matrix disc336-p2-hecke-basis '2 : \[\[0\]\],3 : \[\],6 : \[\[-6\]\],7 : \[\],14 : \[\],21 : \[\[6\]\],42 : \[\[0\]\]}' -quad=6,-11,20,7,-4,6,-19,-8,3,19,11,-4,6,-3,2 -format=GG -hecke -p=2 -noreduce
+check_matrix disc336-p3-hecke '2 : \[\[-4\]\],3 : \[\],6 : \[\[2\]\],7 : \[\],14 : \[\],21 : \[\[-16\]\],42 : \[\[2\]\]}' -quad=1,1,0,0,0,2,0,0,0,1,0,0,4,4,4 -format=GG -hecke -p=3
+check_matrix disc336-p3-hecke-basis '2 : \[\[-4\]\],3 : \[\],6 : \[\[2\]\],7 : \[\],14 : \[\],21 : \[\[-16\]\],42 : \[\[2\]\]}' -quad=6,-11,20,7,-4,6,-19,-8,3,19,11,-4,6,-3,2 -format=GG -hecke -p=3 -noreduce
+check_matrix disc48-p3-hecke '{1 : \[\[30\]\],2 : \[\],3 : \[\],6 : \[\[-10\]\]}' -quad=5,-2,0,2,2,1,1,-1,1,3,-2,1,3,-1,1 -format=GG -hecke -p=3
+check_matrix disc48-p3-hecke-basis '{1 : \[\[30\]\],2 : \[\],3 : \[\],6 : \[\[-10\]\]}' -quad=24,-3,114,102,-6,5,-19,-14,6,143,252,-22,112,-16,4 -format=GG -hecke -p=3 -noreduce
+
 exit $status
