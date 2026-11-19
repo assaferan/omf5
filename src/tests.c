@@ -1627,20 +1627,41 @@ STATUS test_hecke_bad_primes()
   Z64 Q_608[15] = {3,0,-1,0,1,2,0,2,2,1,0,1,4,0,3};
   slong dims_608[4] = {12,0,0,2};
   slong traces_608_2[4] = {0,0,0,0};
+  // Discriminant 112, with the conductors 1,2,7,14. The quadratic form is even
+  // on the radical, and 16 divides the discriminant exactly.
+  Z64 Q_112[15] = {2,2,0,-2,-2,4,-1,1,-2,1,2,0,3,0,2};
+  slong dims_112[4] = {4,1,0,0};
+  slong traces_112_2[4] = {17,-7,0,0};
   // Discriminant 76, with the conductors 1,2,19,38, discriminant 132, with the
   // conductors 1,2,3,6,11,22,33,66, and discriminant 172, with the conductors
   // 1,2,43,86. The radical modulo 2 is of dimension 3, and the quadratic form
-  // is not even on it: the operator at 2 is 0 on the spaces of even conductor,
-  // which are not 0 for the conductors 38, for 2 and 6, and for 2.
+  // is not even on it: the character at 2 is that of the spinor norm. The
+  // spaces of even conductor are not 0 for the conductors 2, for 2 and 66, and
+  // for 2. The form of conductor 2 of the first lattice is the lift of the
+  // newform of weight 4 and level 19, whose eigenvalue at 2 is a = -3. The
+  // representation of the lift at 2 is unramified. On its vectors on which the
+  // stabilizer of the lattice acts by the character at 2, T_2 has the
+  // eigenvalues 6 and a - 1, and on the vectors which the stabilizer fixes,
+  // the roots of x^2 - (a + 7) x + 6 a - 6, as in the space of conductor 1.
   Z64 Q_76_rad[15] = {1,0,1,-2,0,3,-2,0,-2,1,-1,2,4,-2,3};
-  slong dims_76_rad[4] = {6,0,0,1};
-  slong traces_76_rad_2[4] = {29,0,0,0};
+  slong dims_76_rad[4] = {6,1,0,0};
+  slong traces_76_rad_2[4] = {29,6,0,0};
   Z64 Q_132[15] = {3,0,-2,1,0,3,-2,-1,2,3,0,0,3,2,1};
-  slong dims_132[8] = {8,1,0,1,0,0,5,0};
-  slong traces_132_2[8] = {35,0,0,0,0,0,5,0};
+  slong dims_132[8] = {8,1,0,0,0,0,5,2};
+  slong traces_132_2[8] = {35,6,0,0,0,0,5,5};
   Z64 Q_172[15] = {4,1,-2,-2,-2,1,-1,1,2,4,-2,0,3,2,2};
   slong dims_172[4] = {13,1,0,0};
-  slong traces_172_2[4] = {30,0,0,0};
+  slong traces_172_2[4] = {30,3,0,0};
+  // Discriminant 152, with the conductors 1,2,19,38, and discriminant 208,
+  // with the conductors 1,2,13,26. The same holds, 8 and 16 divide the
+  // discriminants exactly, and the spaces of the conductors 2 and 38, and of
+  // the conductor 2, are not 0.
+  Z64 Q_152[15] = {3,1,2,-2,-1,2,1,-1,-2,4,0,1,1,-1,3};
+  slong dims_152[4] = {12,1,0,1};
+  slong traces_152_2[4] = {38,-7,0,6};
+  Z64 Q_208[15] = {3,-1,-1,-2,0,6,-1,-2,0,3,-2,-2,2,2,1};
+  slong dims_208[4] = {11,2,0,0};
+  slong traces_208_2[4] = {29,8,0,0};
   // Discriminant 125, with the conductors 1,5. The radical modulo 5 is of
   // dimension 3, and no vector outside it is isotropic modulo 5: there are
   // no 5-neighbors, and the Hecke operator at 5 is 0. One of the two lattices
@@ -1677,24 +1698,29 @@ STATUS test_hecke_bad_primes()
   // at the isometries to the 5-neighbors and at those which are integral at 5.
   ret |= test_hecke_bad_prime_of(Q_500, 5, 3, 4, traces_500_5);
   ret |= test_hecke_bad_prime_of(Q_500, 3, 7, 4, traces_500_3);
-  // The radical modulo 2 is of dimension 3: the character at 2 is the sign of
-  // a permutation of the quotient by the radical. When the quadratic form is
-  // even on the radical the character is found at the isometries to the
-  // 2-neighbors, and otherwise the operator is 0 when the conductor is even.
+  // The radical modulo 2 is of dimension 3. When the quadratic form is even on
+  // the radical, the character at 2 is the sign of a permutation of the
+  // quotient by the radical, and otherwise it is that of the spinor norm.
   ret |= test_dims_of(Q_104, 4, dims_104);
   ret |= test_dims_of(Q_168, 8, dims_168);
   ret |= test_dims_of(Q_216, 4, dims_216);
   ret |= test_dims_of(Q_608, 4, dims_608);
+  ret |= test_dims_of(Q_112, 4, dims_112);
   ret |= test_dims_of(Q_76_rad, 4, dims_76_rad);
   ret |= test_dims_of(Q_132, 8, dims_132);
   ret |= test_dims_of(Q_172, 4, dims_172);
+  ret |= test_dims_of(Q_152, 4, dims_152);
+  ret |= test_dims_of(Q_208, 4, dims_208);
   ret |= test_hecke_bad_prime_of(Q_104, 2, 3, 4, traces_104_2);
   ret |= test_hecke_bad_prime_of(Q_168, 2, 5, 8, traces_168_2);
   ret |= test_hecke_bad_prime_of(Q_216, 2, 5, 4, traces_216_2);
   ret |= test_hecke_bad_prime_of(Q_608, 2, 3, 4, traces_608_2);
+  ret |= test_hecke_bad_prime_of(Q_112, 2, 3, 4, traces_112_2);
   ret |= test_hecke_bad_prime_of(Q_76_rad, 2, 3, 4, traces_76_rad_2);
   ret |= test_hecke_bad_prime_of(Q_132, 2, 5, 8, traces_132_2);
   ret |= test_hecke_bad_prime_of(Q_172, 2, 3, 4, traces_172_2);
+  ret |= test_hecke_bad_prime_of(Q_152, 2, 3, 4, traces_152_2);
+  ret |= test_hecke_bad_prime_of(Q_208, 2, 3, 4, traces_208_2);
   // there are no neighbors at the prime
   ret |= test_hecke_bad_prime_of(Q_125, 5, 3, 2, traces_125_5);
   ret |= test_hecke_bad_prime_of(Q_324, 3, 5, 4, traces_324_3);

@@ -635,21 +635,27 @@ EOF
 check_example disc216-p2 "$tmp/216.exp" "F O O P P P P P" -quad=2,-1,-2,0,0,3,0,0,0,2,-2,-2,4,-2,2 -format=GG -p=2
 check_example disc216-p2-basis "$tmp/216.exp" "F O O P P P P P" -quad=2,-1,-4,-3,-6,3,1,6,1,4,-1,8,7,1,6 -format=GG -p=2 -noreduce
 check_same disc216-p2-same disc216-p2 disc216-p2-basis
-check_output disc216-p2-hecke '2 : \[\[-6,2\],\[1,-5\]\],3 : \[\],6 : \[\]}' -quad=2,-1,-2,0,0,3,0,0,0,2,-2,-2,4,-2,2 -format=GG -hecke -p=2
+check_matrix disc216-p2-hecke '2 : \[\[-6,2\],\[1,-5\]\],3 : \[\],6 : \[\]}' -quad=2,-1,-2,0,0,3,0,0,0,2,-2,-2,4,-2,2 -format=GG -hecke -p=2
 # The lattice has no 4-neighbors.
-check_output disc216-p2-square-hecke '2 : \[\[0,0\],\[0,0\]\],3 : \[\],6 : \[\]}' -quad=2,-1,-2,0,0,3,0,0,0,2,-2,-2,4,-2,2 -format=GG -hecke -p=2 -square
+check_matrix disc216-p2-square-hecke '2 : \[\[0,0\],\[0,0\]\],3 : \[\],6 : \[\]}' -quad=2,-1,-2,0,0,3,0,0,0,2,-2,-2,4,-2,2 -format=GG -hecke -p=2 -square
 
 # Discriminant 76, where the radical modulo 2 is of dimension 3 and the
-# quadratic form is not even on it. The Hecke matrix at 2 is 0 on the form of
-# conductor 38, which is of type G, in both bases.
-check_output disc76-p2-hecke '2 : \[\],19 : \[\],38 : \[\[0\]\]}' -quad=1,0,1,-2,0,3,-2,0,-2,1,-1,2,4,-2,3 -format=GG -hecke -p=2
-check_output disc76-p2-hecke-basis '2 : \[\],19 : \[\],38 : \[\[0\]\]}' -quad=3,-2,0,6,-2,6,8,-3,16,6,-1,16,4,-3,13 -format=GG -hecke -p=2 -noreduce
+# quadratic form is not even on it. The character at 2 is that of the spinor
+# norm. The form of conductor 2 is of type P, the lift of the newform of
+# weight 4 and level 19, and its eigenvalue at 2 is 6, in both bases. The same
+# lift is the form of type O of conductor 1, on which T_2 is not a scalar, and
+# no eigenvalue is printed for it.
+check_matrix disc76-p2-hecke '2 : \[\[6\]\],19 : \[\],38 : \[\]}' -quad=1,0,1,-2,0,3,-2,0,-2,1,-1,2,4,-2,3 -format=GG -hecke -p=2
+check_matrix disc76-p2-hecke-basis '2 : \[\[6\]\],19 : \[\],38 : \[\]}' -quad=3,-2,0,6,-2,6,8,-3,16,6,-1,16,4,-3,13 -format=GG -hecke -p=2 -noreduce
 cat > "$tmp/76.exp" <<'EOF'
-1: 0
 1: 12
+1: 7
+1: 6
 EOF
-check_example disc76-p2 "$tmp/76.exp" "F G O P P" -quad=1,0,1,-2,0,3,-2,0,-2,1,-1,2,4,-2,3 -format=GG -p=2
-check_example disc76-p2-basis "$tmp/76.exp" "F G O P P" -quad=3,-2,0,6,-2,6,8,-3,16,6,-1,16,4,-3,13 -format=GG -p=2 -noreduce
+check_example disc76-p2 "$tmp/76.exp" "F O P P P" -quad=1,0,1,-2,0,3,-2,0,-2,1,-1,2,4,-2,3 -format=GG -p=2
+check_example disc76-p2-basis "$tmp/76.exp" "F O P P P" -quad=3,-2,0,6,-2,6,8,-3,16,6,-1,16,4,-3,13 -format=GG -p=2 -noreduce
+# Discriminant 152, where the same holds and 8 divides the discriminant.
+check_matrix disc152-p2-hecke '2 : \[\[-7\]\],19 : \[\],38 : \[\[6\]\]}' -quad=3,1,2,-2,-1,2,1,-1,-2,4,0,1,1,-1,3 -format=GG -hecke -p=2
 check_same disc76-p2-same disc76-p2 disc76-p2-basis
 
 exit $status

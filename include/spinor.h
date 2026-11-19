@@ -22,10 +22,9 @@ typedef struct {
   slong num_primes;
   W64 twist;
 
-  // Whether the radical modulo 2 is of dimension 3 and the quadratic form does
-  // not vanish on it modulo 2. The character at 2 is then not defined at the
-  // isometries to the 2-neighbors.
-  bool no_char_at_2_nbrs;
+  // Whether the radical modulo 2 is of dimension 3 and the quadratic form is
+  // odd at a vector of it. The character at 2 is then that of the spinor norm.
+  bool odd_on_rad_2;
 
   
 } spinor;
@@ -38,7 +37,6 @@ void spinor_init_square_matrix(spinor_t spinor, const square_matrix_t q);
 void spinor_clear(spinor_t spinor);
 
 bool spinor_has_prime(const spinor_t spinor, ulong p);
-W64 spinor_hecke_zero_mask(const spinor_t spinor, ulong p);
 
 W64 spinor_norm_fmpz_mat(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom);
 

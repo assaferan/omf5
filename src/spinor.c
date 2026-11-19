@@ -161,7 +161,7 @@ void spinor_init_fmpz(spinor_t spinor, const fmpz_t disc)
   fmpz_mat_init(spinor->Q,0,0);
   spinor->num_primes = bad_primes->num;
   spinor->twist = (1LL << (bad_primes->num)) - 1;
-  spinor->no_char_at_2_nbrs = false;
+  spinor->odd_on_rad_2 = false;
   spinor->rads = (nmod_mat_t*)malloc((bad_primes->num) * sizeof(nmod_mat_t));
   spinor->primes = (nmod_t*)malloc((bad_primes->num) * sizeof(nmod_t));
   spinor->pivots = (slong*)malloc((bad_primes->num) * sizeof(slong));
@@ -210,36 +210,40 @@ static void adjugate(fmpz_mat_t adj, const fmpz_mat_t q)
   return;
 }
 
-// Whether the quadratic form of the Gram matrix q is even on the vectors whose
-// reductions modulo 2 are the rows of rad, which are in the radical modulo 2.
-// The form modulo 2 is additive on the radical, so it then vanishes on their span.
-static bool spinor_radical_2_is_isotropic(const nmod_mat_t rad, const fmpz_mat_t q)
+// The rows of rad are a basis of the radical modulo 2 of the lattice whose
+// Gram matrix is q. Returns whether the quadratic form is odd at a vector of
+// the radical. The parity of the form at v depends only on v modulo 2 when v
+// is in the radical modulo 2, and the form modulo 2 is additive on the
+// radical, so that it is enough to look at the vectors of the basis.
+static bool spinor_radical_2_is_odd(const nmod_mat_t rad, const fmpz_mat_t q)
 {
   nmod_mat_t q_4, rad_t, rad_q, prod;
-  slong i;
-  bool isotropic;
+  slong i, n, r;
+  bool is_odd;
 
-  // The value of the quadratic form at v is half of that of the Gram matrix,
-  // and its parity depends only on v modulo 2 when v is in the radical modulo 2.
+  n = nmod_mat_ncols(rad);
+  r = nmod_mat_nrows(rad);
+
+  // The value of the quadratic form at v is half of that of the Gram matrix.
   nmod_mat_init_set_fmpz_mat(q_4, q, 4);
-  nmod_mat_init(rad_t, nmod_mat_ncols(rad), nmod_mat_nrows(rad), 4);
-  nmod_mat_init(rad_q, nmod_mat_nrows(rad), nmod_mat_ncols(rad), 4);
-  nmod_mat_init(prod, nmod_mat_nrows(rad), nmod_mat_nrows(rad), 4);
+  nmod_mat_init(rad_t, n, r, 4);
+  nmod_mat_init(rad_q, r, n, 4);
+  nmod_mat_init(prod, r, r, 4);
   nmod_mat_transpose(rad_t, rad);
   nmod_mat_mul(rad_q, rad, q_4);
   nmod_mat_mul(prod, rad_q, rad_t);
 
-  isotropic = true;
-  for (i = 0; i < nmod_mat_nrows(rad); i++)
+  is_odd = false;
+  for (i = 0; i < r; i++)
     if (nmod_mat_entry(prod, i, i) != 0)
-      isotropic = false;
+      is_odd = true;
 
   nmod_mat_clear(prod);
   nmod_mat_clear(rad_q);
   nmod_mat_clear(rad_t);
   nmod_mat_clear(q_4);
 
-  return isotropic;
+  return is_odd;
 }
 
 void spinor_init_fmpz_mat(spinor_t spinor, const fmpz_mat_t q)
@@ -264,7 +268,7 @@ void spinor_init_fmpz_mat(spinor_t spinor, const fmpz_mat_t q)
   adjugate(adj, q);
 
   fmpz_mat_init_set(spinor->Q,q);
-  spinor->no_char_at_2_nbrs = false;
+  spinor->odd_on_rad_2 = false;
   spinor->rads = (nmod_mat_t*)malloc((bad_primes->num) * sizeof(nmod_mat_t));
   spinor->primes = (nmod_t*)malloc((bad_primes->num) * sizeof(nmod_t));
   spinor->pivots = (slong*)malloc((bad_primes->num) * sizeof(slong));
@@ -317,17 +321,19 @@ void spinor_init_fmpz_mat(spinor_t spinor, const fmpz_mat_t q)
     if (p == 4) {
       // The radical modulo 2 is of odd dimension. When it is a line, the
       // character at 2 is the sign by which an isometry acts on the radical
-      // modulo 4. When it is of dimension 3, the character is the sign of the
-      // permutation of the quotient of the lattice modulo 2 by the radical,
-      // and only the radical modulo 2 is used. Otherwise the radical is the
-      // whole lattice modulo 2, there is no character at 2 here, and the
-      // conductors are odd.
+      // modulo 4. When it is of dimension 3, only the radical modulo 2 is
+      // used. If the quadratic form is even on the radical, the character is
+      // the sign of a permutation of the quotient of the lattice modulo 2 by
+      // the radical, a plane over the field of 2 elements. If the form is odd
+      // at a vector of the radical, the character is given by the spinor norm.
+      // Otherwise the radical is the whole lattice modulo 2, there is no
+      // character at 2 here, and the conductors are odd.
       if (nullity == 3) {
 	for (j = 0; j < nullity; j++)
 	  for (i = 0; i < QF_RANK; i++)
 	    nmod_mat_set_entry(spinor->rads[prime_idx], j, i,
 			       nmod_mat_entry(spinor->rads[prime_idx], j, i) % 2);
-	spinor->no_char_at_2_nbrs = !spinor_radical_2_is_isotropic(spinor->rads[prime_idx], q);
+	spinor->odd_on_rad_2 = spinor_radical_2_is_odd(spinor->rads[prime_idx], q);
       }
       else if (nullity != 1) {
 	nmod_mat_clear(spinor->rads[prime_idx]);
@@ -461,23 +467,6 @@ bool spinor_has_prime(const spinor_t spinor, ulong p)
   return false;
 }
 
-// The primes of the spinor, as a mask of their indices, at which the character
-// is not defined at the isometries to the p-neighbors of the lattice. The Hecke
-// operators at p are 0 on the forms whose conductor is divisible by one of them.
-W64 spinor_hecke_zero_mask(const spinor_t spinor, ulong p)
-{
-  slong prime_idx;
-
-  if ((p != 2) || !spinor->no_char_at_2_nbrs)
-    return 0;
-
-  for (prime_idx = 0; prime_idx < spinor->num_primes; prime_idx++)
-    if (spinor_prime(spinor, prime_idx) == 2)
-      return ((W64)1) << prime_idx;
-
-  return 0;
-}
-
 // Whether one of the primes of the spinor divides denom.
 static bool spinor_divides(const spinor_t spinor, const fmpz_t denom)
 {
@@ -541,16 +530,15 @@ static bool spinor_divides(const spinor_t spinor, const fmpz_t denom)
 // dimension. When it is a line, an isometry g integral at 2 acts on L/R(L),
 // a quadratic space of dimension 4 over the field of 2 elements, and its sign
 // on the radical modulo 4 is (-1)^rank(g - 1) there, the Dickson invariant.
-// When R(L) is of dimension 3 the character at g is defined in the same way:
-// it is (-1)^rank(g - 1) for the action of g on L/R(L). This is a plane over
-// the field of 2 elements, so the character is the sign of the permutation by
-// which g acts on its three nonzero vectors.
-// At an isometry g to a 2-neighbor N of L there are two cases. The quadratic
-// form Q modulo 2 is additive on R(L).
-// - Q vanishes on R(L) modulo 2. Then Q modulo 2 is defined on L/R(L), which
-//   is a hyperbolic plane when L has 2-neighbors, and has two isotropic
-//   vectors other than 0. An isometry integral at 2 fixes both or exchanges
-//   them, and the character is 1 or -1 accordingly. Let N be the 2-neighbor at
+// When R(L) is of dimension 3, the quadratic form Q modulo 2 is additive on
+// R(L), and the character depends on whether it vanishes there.
+// - Q vanishes on R(L) modulo 2. The character at g is (-1)^rank(g - 1) for
+//   the action of g on L/R(L), a plane over the field of 2 elements, which is
+//   the sign of the permutation of its three nonzero vectors. Then Q modulo 2
+//   is defined on L/R(L), which is a hyperbolic plane when L has 2-neighbors,
+//   and has two isotropic vectors other than 0. An isometry integral at 2
+//   fixes both or exchanges them, and the character is 1 or -1 accordingly.
+//   Let g be an isometry to a 2-neighbor N of L, where N is the 2-neighbor at
 //   x and g^(-1) L the 2-neighbor at x'. The classes of x and x' in L/R(L) are
 //   isotropic and not 0, and the character at g is -1 when they are the same
 //   and 1 when they are not. It is multiplied by the characters of integral
@@ -558,17 +546,36 @@ static bool spinor_divides(const spinor_t spinor, const fmpz_t denom)
 //   move the class of x, and on the right that of x'. It is 1 at an isometry
 //   which is the identity on the orthogonal complement of a hyperbolic plane
 //   spanned by x and y, and takes x to x/2 and y to 2y: there x' = y.
-// - Q does not vanish on R(L) modulo 2. Then the character is not defined at
-//   g. Let x be isotropic in L over the 2-adic integers with N the 2-neighbor
-//   at x, let y be isotropic with B(x,y) = 1, and let w be orthogonal to both,
-//   with Q(w) odd; its class is in R(L). The isometry
+// - Q does not vanish on R(L) modulo 2. The character at g is 1 when the
+//   valuation at 2 of the spinor norm of g is even, and -1 when it is odd, as
+//   when 2 divides the discriminant exactly once. At an isometry to a
+//   2-neighbor it is the opposite, so that it is 1 at an isometry which is
+//   the identity on the orthogonal complement of a hyperbolic plane, whose
+//   spinor norm is 2.
+//   When 4 divides the discriminant exactly, this is again the sign of a
+//   permutation of a plane, in the lattices in which the two were compared.
+//   The plane is R0(L), the vectors of R(L) at which Q is even, and Q/2 is a
+//   quadratic form modulo 2 on it, which is not degenerate. The character at
+//   g is (-1)^rank(g - 1) for the action of g on R0(L). At an isometry g to
+//   the 2-neighbor N at x, the planes R0(L) and R0(N) are identified as the
+//   radicals are for an odd prime: if y in L has B(x,y) odd and e in L has its
+//   class in R0(L), then w = e - B(e,x) y is e modulo 2L, it is in N, B(w,N)
+//   is in 2Z and Q(w) is even. The character at g is (-1)^rank(h - 1) for the
+//   map h of R0(L) which is g followed by the inverse of the identification.
+//   When 8 divides the discriminant the action on R0(L) is not enough: when
+//   8 divides it exactly, Q/2 is additive on R0(L), it tells the three
+//   nonzero vectors apart together with the radical of the bilinear form
+//   modulo 4, and every g is the identity on R0(L).
+//   The action on L/R(L) is not used in this case. Let x be isotropic in L
+//   over the 2-adic integers with N the 2-neighbor at x, let y be isotropic
+//   with B(x,y) = 1, and let w be orthogonal to both, with Q(w) odd; its
+//   class is in R(L). The isometry
 //   v -> v + B(v,x) w - B(v,w) x - Q(w) B(v,x) x
 //   takes L to L and N to N. It takes y to y + w - Q(w) x, so it acts on
-//   L/R(L) by a transposition. It is the identity on N/R(N), which is spanned
-//   by x/2 and 2y. So the character of L is -1 at it, and the character of N
-//   is 1. A function on the isometries to the 2-neighbors which is multiplied
-//   by the character on both sides is therefore 0, and the Hecke operator at
-//   2 is 0 on the forms whose conductor is even: see spinor_hecke_zero_mask.
+//   L/R(L) by a transposition, and it is the identity on N/R(N), which is
+//   spanned by x/2 and 2y. So a function on the isometries to the 2-neighbors
+//   which is multiplied on both sides by the sign of the permutation of
+//   L/R(L) is 0.
 // When R(L) is of dimension 3 no plane in L modulo 2 which is isotropic
 // misses the radical, and T_4 is 0. When R(L) is the whole of L modulo 2
 // there is no character at 2 here.
@@ -825,7 +832,8 @@ static int spinor_radical_sign(const spinor_t spinor, slong prime_idx,
 // The character at 2 at an isometry which is integral at 2, when the radical
 // modulo 2 is of dimension 3; mat_p is the isometry modulo 4, or its negative.
 // It is (-1)^rank(g - 1) for the action of the isometry g on the quotient of
-// the lattice modulo 2 by the radical. Returns 1 or -1.
+// the lattice modulo 2 by the radical. It is used when the quadratic form is
+// even on the radical. Returns 1 or -1.
 static int spinor_quotient_sign_2(const spinor_t spinor, slong prime_idx, const nmod_mat_t mat_p)
 {
   nmod_mat_t ext;
@@ -891,9 +899,7 @@ static bool spinor_neighbor_vector_2(nmod_mat_t x, const fmpz_mat_t mat, const n
 // 2-neighbor at x' under the inverse. The character is -1 when x and x' are
 // the same modulo the radical, and 1 otherwise.
 // Returns 1 or -1, and 0 if 4 divides denom or if the isometry or its inverse
-// is not one to a 2-neighbor at a vector outside the radical. This is also how
-// an isometry is checked to be one to a 2-neighbor when the quadratic form
-// does not vanish on the radical modulo 2, where the sign has no meaning.
+// is not one to a 2-neighbor at a vector outside the radical.
 static int spinor_neighbor_sign_2(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom)
 {
   fmpz_mat_t inv;
@@ -955,6 +961,27 @@ static int spinor_neighbor_sign_2(const spinor_t spinor, const fmpz_mat_t mat, c
   return sign;
 }
 
+// Whether the isometry mat/denom, in lowest terms, where denom is even, can be
+// one which takes the lattice to a 2-neighbor of it at a vector outside the
+// radical: 2 divides denom exactly once, mat is of rank 1 modulo 2, and its
+// column modulo 2 is not in the radical.
+static bool spinor_is_neighbor_isometry_2(const spinor_t spinor, const fmpz_mat_t mat, const fmpz_t denom)
+{
+  nmod_mat_t q_2, x;
+  bool ok;
+
+  if (fmpz_fdiv_ui(denom, 4) != 2)
+    return false;
+
+  nmod_mat_init_set_fmpz_mat(q_2, spinor->Q, 2);
+  nmod_mat_init(x, fmpz_mat_nrows(mat), 1, 2);
+  ok = spinor_neighbor_vector_2(x, mat, q_2);
+  nmod_mat_clear(x);
+  nmod_mat_clear(q_2);
+
+  return ok;
+}
+
 // TODO - use the modular arithmetic built in inside nmod_t instead of gcdext
 // Here mat/denom is the isometry in lowest terms,
 // and we're computing the spinor norm at all spinor primes
@@ -995,16 +1022,26 @@ static W64 spinor_norm_lowest_terms(const spinor_t spinor, const fmpz_mat_t mat,
       }
       else if ((p.n == 4) && (nmod_mat_nrows(spinor->rads[prime_idx]) != 1)) {
 	// The radical modulo 2 is of dimension 3, and the isometry has to take
-	// the lattice to a 2-neighbor of it. When the quadratic form is not even
-	// on the radical the character is not defined at such an isometry, and
-	// the value is left as 1: the Hecke operator at 2 is then 0 on the forms
-	// whose conductor is even, and the value at 2 is not used for them.
-	sign = spinor_neighbor_sign_2(spinor, mat, denom);
+	// the lattice to a 2-neighbor of it.
+	if (!spinor->odd_on_rad_2)
+	  sign = spinor_neighbor_sign_2(spinor, mat, denom);
+	else if (!spinor_is_neighbor_isometry_2(spinor, mat, denom))
+	  sign = 0;
+	else {
+	  // The character is that of the spinor norm, and the sign is such
+	  // that it is 1 at an isometry which is the identity on the orthogonal
+	  // complement of a hyperbolic plane, whose spinor norm is 2.
+	  if (!has_zas) {
+	    zas = spinor_norm_zas_fmpz_mat(spinor, mat, denom);
+	    has_zas = true;
+	  }
+	  sign = ((zas >> prime_idx) & 1) ? 1 : -1;
+	}
 	if (sign == 0) {
 	  fprintf(stderr, "Error: the character at the prime 2 is not defined at an isometry whose denominator is even: the isometry does not take the lattice to a neighbor of it at 2\n");
 	  exit(EXIT_FAILURE);
 	}
-	if ((sign == -1) && !spinor->no_char_at_2_nbrs)
+	if (sign == -1)
 	  evs[prime_idx] = p.n-1;
       }
       else {
@@ -1069,8 +1106,19 @@ static W64 spinor_norm_lowest_terms(const spinor_t spinor, const fmpz_mat_t mat,
     nmod_mat_mul(rad_mat, spinor->rads[prime_idx], mat_p_t);
 
     r = nmod_mat_nrows(spinor->rads[prime_idx]);
-    if ((p.n == 4) && (r == 3))
-      evs[prime_idx] = (spinor_quotient_sign_2(spinor, prime_idx, mat_p) == 1) ? 1 : p.n-1;
+    if ((p.n == 4) && (r == 3)) {
+      if (!spinor->odd_on_rad_2)
+	sign = spinor_quotient_sign_2(spinor, prime_idx, mat_p);
+      else {
+	// the parity of the valuation at 2 of the spinor norm
+	if (!has_zas) {
+	  zas = spinor_norm_zas_fmpz_mat(spinor, mat, denom);
+	  has_zas = true;
+	}
+	sign = ((zas >> prime_idx) & 1) ? -1 : 1;
+      }
+      evs[prime_idx] = (sign == 1) ? 1 : p.n-1;
+    }
     else if (p.n == 4) {
       // the radical modulo 2 is a line
       assert(r == 1);
