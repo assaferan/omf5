@@ -14,6 +14,13 @@
 
 OMF5=${1:-src/omf5}
 
+# A build with -DDEBUG prints debugging output to stdout as well, with running
+# times, and some of it in the middle of the result. For such a build, set
+# OMF5_DEBUG_BUILD=yes: the examples are still run, and their traces, types
+# and errors are checked, but stdout is not matched against a pattern and not
+# compared between two examples.
+debug_build=${OMF5_DEBUG_BUILD:-no}
+
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
@@ -97,6 +104,8 @@ check_output() {
     echo "FAIL $name: omf5 exited with an error"
     cat "$tmp/$name.err"
     status=1
+  elif [ "$debug_build" = yes ]; then
+    echo "skip $name: ran without an error, the output of a debug build is not checked"
   elif ! grep -q -- "$pattern" "$tmp/$name.out"; then
     echo "FAIL $name: the output does not match '$pattern'"
     # The output does not end in a newline.
@@ -112,7 +121,9 @@ check_output() {
 # Checks that the examples first and second, which were run before, printed the
 # same to stdout, and printed something.
 check_same() {
-  if [ -s "$tmp/$2.out" ] && cmp -s "$tmp/$2.out" "$tmp/$3.out"; then
+  if [ "$debug_build" = yes ]; then
+    echo "skip $1: the outputs of a debug build are not compared"
+  elif [ -s "$tmp/$2.out" ] && cmp -s "$tmp/$2.out" "$tmp/$3.out"; then
     echo "ok   $1"
   else
     echo "FAIL $1: the outputs of $2 and $3 differ, or are empty"
