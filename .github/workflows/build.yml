@@ -41,8 +41,9 @@ jobs:
             flint: apt
             cflags: -UNDEBUG
           # This job also defines DEBUG, which compiles the code and the
-          # assertions inside #ifdef DEBUG. That code prints debugging output
-          # to stdout, so the tests do not check the form of stdout here.
+          # assertions inside #ifdef DEBUG. That code prints debugging output,
+          # on stdout in the middle of the eigenvalues, so the tests do not
+          # check the eigenvalues printed to stdout here.
           # The code inside #ifdef DEBUG_LEVEL_FULL stays off.
           - name: ubuntu, debug, flint 3 (apt)
             os: ubuntu-24.04

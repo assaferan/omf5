@@ -85,11 +85,11 @@ The assertions inside `#ifdef DEBUG` and `#ifdef DEBUG_LEVEL_FULL` stay off. To 
 
     ./configure CFLAGS="-UNDEBUG -DDEBUG"
 
-This build prints debugging output to the standard output, also in the middle of the result, so its output is not meant to be parsed. To check it, run
+This build prints debugging output as well, and on the standard output some of it is in the middle of the eigenvalues, so its output is not meant to be parsed. To check it, run
 
     OMF5_DEBUG_BUILD=yes make check
 
-which runs the same examples and checks their traces, types and errors, but not the form of the standard output.
+which runs the same examples and checks their traces, types, errors and Hecke matrices. It does not check the eigenvalues printed to the standard output, or that two bases of a lattice give the same output.
 
 ## Usage
 
