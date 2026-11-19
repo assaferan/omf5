@@ -632,6 +632,17 @@ int char_val(W64 x)
   return value;
 }
 
+// The value of the character of the conductor of index c at an isometry to a
+// p-neighbor whose spinor values are spin, as it is added to the Hecke matrix
+// at p. It is 0 when the character is not defined at these isometries.
+static int hecke_char_val(const genus_t genus, int p, W64 spin, slong c)
+{
+  if ((spinor_hecke_zero_mask(genus->spinor, p) & c) != 0)
+    return 0;
+
+  return char_val(spin & c);
+}
+
 /* Compute columns of the Hecke operators T_{p,1} for all conductors.
    This processes the data that was stored bit-sliced in 64-bit words and outputs it sparsely. */
 int** hecke_col_all_conds_sparse(int p, int col_idx, const genus_t genus)
@@ -683,7 +694,7 @@ int** hecke_col_all_conds_sparse(int p, int col_idx, const genus_t genus)
       r = spin_vals[spin_idx] >> (genus->spinor->num_primes);
       rpos = lut[r];
       if (unlikely(rpos==-1)) continue;
-      row[rpos] += char_val(spin_vals[spin_idx] & c);
+      row[rpos] += hecke_char_val(genus, p, spin_vals[spin_idx], c);
     }
   }
   
@@ -746,7 +757,7 @@ matrix_TYP** hecke_matrices_nbr_data_all_conductors(const genus_t genus, int p, 
 	r = spin_vals[spin_idx] >> (genus->spinor->num_primes);
 	rpos = lut[r];
 	if (unlikely(rpos==-1)) continue;
-	row[rpos] += char_val(spin_vals[spin_idx] &c);
+	row[rpos] += hecke_char_val(genus, p, spin_vals[spin_idx], c);
       }
       hecke_ptr[c]++;
     }
@@ -822,7 +833,7 @@ matrix_TYP** hecke_matrices_all_conductors(const genus_t genus, int p)
 	r = spin_vals[spin_idx] >> (genus->spinor->num_primes);
 	rpos = lut[r];
 	if (unlikely(rpos==-1)) continue;
-	row[rpos] += char_val(spin_vals[spin_idx] &c);
+	row[rpos] += hecke_char_val(genus, p, spin_vals[spin_idx], c);
       }
       hecke_ptr[c]++;
     }
@@ -993,7 +1004,7 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
       r = spin_vals[spin_idx] >> (genus->spinor->num_primes);
       rpos = lut[r];
       if (unlikely(rpos==-1)) continue;
-      row[rpos] += char_val(spin_vals[spin_idx] & c);
+      row[rpos] += hecke_char_val(genus, p, spin_vals[spin_idx], c);
     }
   }
 
@@ -1124,7 +1135,7 @@ void get_hecke_ev_all_conductors(nf_elem_t e, const genus_t genus,
       r = spin_vals[spin_idx] >> (genus->spinor->num_primes);
       rpos = lut[r];
       if (unlikely(rpos==-1)) continue;
-      row[rpos] += char_val(spin_vals[spin_idx] & c);
+      row[rpos] += hecke_char_val(genus, p, spin_vals[spin_idx], c);
     }
   }
 

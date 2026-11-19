@@ -1538,6 +1538,34 @@ static STATUS test_hecke_bad_prime_square_of(const Z64* Q_coeffs, int p, int q, 
   return test_hecke_bad_prime_power_of(Q_coeffs, p, 2, q, num_conds, traces);
 }
 
+// Checks the dimensions of the spaces of the lattice given by Q_coeffs in the
+// format GG, in the order of the conductors.
+static STATUS test_dims_of(const Z64* Q_coeffs, slong num_conds, const slong* dims)
+{
+  genus_t genus;
+  slong c;
+  STATUS ret;
+
+  compute_genus(genus, Q_coeffs, "GG", false);
+
+  ret = SUCCESS;
+  if (genus->num_conductors != num_conds) {
+    fprintf(stderr, "FAIL: there are %ld conductors and not %ld\n", genus->num_conductors, num_conds);
+    ret = FAIL;
+  }
+  else
+    for (c = 0; c < num_conds; c++)
+      if (genus->dims[c] != dims[c]) {
+	fprintf(stderr, "FAIL: the space of conductor %ld is of dimension %ld and not %ld\n",
+		genus->conductors[c], (slong)(genus->dims[c]), dims[c]);
+	ret = FAIL;
+      }
+
+  genus_clear(genus);
+
+  return ret;
+}
+
 // The neighbors at a prime p dividing the discriminant are images of the lattice
 // under isometries which are not integral at p, and the character of a conductor
 // divisible by p was not found correctly at them, for example when p = 2,
@@ -1578,10 +1606,41 @@ STATUS test_hecke_bad_primes()
   Z64 Q_500[15] = {1,0,0,-1,0,2,-2,-1,-1,3,-2,3,3,0,4};
   slong traces_500_5[4] = {390,0,20,0};
   slong traces_500_3[4] = {105,0,1,0};
-  // Discriminant 104, with the conductors 1,13. The radical modulo 2 is of
-  // dimension 3, and there is no character at 2.
+  // Discriminant 104, with the conductors 1,2,13,26. The radical modulo 2 is
+  // of dimension 3, and the quadratic form is even on it. The space of
+  // conductor 2 is of dimension 1.
   Z64 Q_104[15] = {1,0,0,-1,-1,1,0,1,1,1,-1,1,2,1,6};
-  slong traces_104_2[2] = {31,0};
+  slong dims_104[4] = {5,1,0,0};
+  slong traces_104_2[4] = {31,-9,0,0};
+  // Discriminant 168, with the conductors 1,2,3,6,7,14,21,42, and discriminant
+  // 216, with the conductors 1,2,3,6. The same holds, and the spaces of
+  // conductors 42 and 2 are of dimension 2.
+  Z64 Q_168[15] = {2,1,2,0,0,3,-2,2,-2,2,-2,0,2,0,2};
+  slong dims_168[8] = {5,1,0,0,0,0,3,2};
+  slong traces_168_2[8] = {27,-5,0,0,0,0,13,-11};
+  Z64 Q_216[15] = {2,-1,-2,0,0,3,0,0,0,2,-2,-2,4,-2,2};
+  slong dims_216[4] = {8,2,0,0};
+  slong traces_216_2[4] = {41,-11,0,0};
+  // Discriminant 608, with the conductors 1,2,19,38. The same holds, and the
+  // quotient by the radical has no isotropic vector: there are no 2-neighbors.
+  // The spaces of the conductors 1 and 38 are not 0.
+  Z64 Q_608[15] = {3,0,-1,0,1,2,0,2,2,1,0,1,4,0,3};
+  slong dims_608[4] = {12,0,0,2};
+  slong traces_608_2[4] = {0,0,0,0};
+  // Discriminant 76, with the conductors 1,2,19,38, discriminant 132, with the
+  // conductors 1,2,3,6,11,22,33,66, and discriminant 172, with the conductors
+  // 1,2,43,86. The radical modulo 2 is of dimension 3, and the quadratic form
+  // is not even on it: the operator at 2 is 0 on the spaces of even conductor,
+  // which are not 0 for the conductors 38, for 2 and 6, and for 2.
+  Z64 Q_76_rad[15] = {1,0,1,-2,0,3,-2,0,-2,1,-1,2,4,-2,3};
+  slong dims_76_rad[4] = {6,0,0,1};
+  slong traces_76_rad_2[4] = {29,0,0,0};
+  Z64 Q_132[15] = {3,0,-2,1,0,3,-2,-1,2,3,0,0,3,2,1};
+  slong dims_132[8] = {8,1,0,1,0,0,5,0};
+  slong traces_132_2[8] = {35,0,0,0,0,0,5,0};
+  Z64 Q_172[15] = {4,1,-2,-2,-2,1,-1,1,2,4,-2,0,3,2,2};
+  slong dims_172[4] = {13,1,0,0};
+  slong traces_172_2[4] = {30,0,0,0};
   // Discriminant 125, with the conductors 1,5. The radical modulo 5 is of
   // dimension 3, and no vector outside it is isotropic modulo 5: there are
   // no 5-neighbors, and the Hecke operator at 5 is 0. One of the two lattices
@@ -1618,8 +1677,24 @@ STATUS test_hecke_bad_primes()
   // at the isometries to the 5-neighbors and at those which are integral at 5.
   ret |= test_hecke_bad_prime_of(Q_500, 5, 3, 4, traces_500_5);
   ret |= test_hecke_bad_prime_of(Q_500, 3, 7, 4, traces_500_3);
-  // the radical modulo 2 is not a line
-  ret |= test_hecke_bad_prime_of(Q_104, 2, 3, 2, traces_104_2);
+  // The radical modulo 2 is of dimension 3: the character at 2 is the sign of
+  // a permutation of the quotient by the radical. When the quadratic form is
+  // even on the radical the character is found at the isometries to the
+  // 2-neighbors, and otherwise the operator is 0 when the conductor is even.
+  ret |= test_dims_of(Q_104, 4, dims_104);
+  ret |= test_dims_of(Q_168, 8, dims_168);
+  ret |= test_dims_of(Q_216, 4, dims_216);
+  ret |= test_dims_of(Q_608, 4, dims_608);
+  ret |= test_dims_of(Q_76_rad, 4, dims_76_rad);
+  ret |= test_dims_of(Q_132, 8, dims_132);
+  ret |= test_dims_of(Q_172, 4, dims_172);
+  ret |= test_hecke_bad_prime_of(Q_104, 2, 3, 4, traces_104_2);
+  ret |= test_hecke_bad_prime_of(Q_168, 2, 5, 8, traces_168_2);
+  ret |= test_hecke_bad_prime_of(Q_216, 2, 5, 4, traces_216_2);
+  ret |= test_hecke_bad_prime_of(Q_608, 2, 3, 4, traces_608_2);
+  ret |= test_hecke_bad_prime_of(Q_76_rad, 2, 3, 4, traces_76_rad_2);
+  ret |= test_hecke_bad_prime_of(Q_132, 2, 5, 8, traces_132_2);
+  ret |= test_hecke_bad_prime_of(Q_172, 2, 3, 4, traces_172_2);
   // there are no neighbors at the prime
   ret |= test_hecke_bad_prime_of(Q_125, 5, 3, 2, traces_125_5);
   ret |= test_hecke_bad_prime_of(Q_324, 3, 5, 4, traces_324_3);
@@ -1663,6 +1738,11 @@ STATUS test_hecke_square_bad_primes()
   // a plane, and its complement has no plane which is isotropic modulo 5.
   Z64 Q_500[15] = {1,0,0,-1,0,2,-2,-1,-1,3,-2,3,3,0,4};
   slong traces_500_5[4] = {0,0,0,0};
+  // Discriminant 216, with the conductors 1,2,3,6. The radical modulo 2 is of
+  // dimension 3, and the quotient by it has no isotropic plane. The space of
+  // conductor 2 is of dimension 2.
+  Z64 Q_216[15] = {2,-1,-2,0,0,3,0,0,0,2,-2,-2,4,-2,2};
+  slong traces_216_2[4] = {0,0,0,0};
   // Discriminant 192, with the conductors 1,3. The form is 0 modulo 2, and
   // there are no neighbors at 2. Counting them used to end in a division by 0.
   Z64 Q_192[15] = {2,2,2,-2,2,2,0,-2,0,2,-2,2,2,0,4};
@@ -1688,6 +1768,7 @@ STATUS test_hecke_square_bad_primes()
   // the radical modulo the prime is not a line
   ret |= test_hecke_bad_prime_square_of(Q_500, 5, 3, 4, traces_500_5);
   ret |= test_hecke_bad_prime_square_of(Q_2625, 5, 2, 8, traces_2625_5);
+  ret |= test_hecke_bad_prime_square_of(Q_216, 2, 5, 4, traces_216_2);
   // there are no neighbors at the prime
   ret |= test_hecke_bad_prime_of(Q_192, 2, 5, 2, traces_192_2);
   ret |= test_hecke_bad_prime_square_of(Q_192, 2, 5, 2, traces_192_2);
