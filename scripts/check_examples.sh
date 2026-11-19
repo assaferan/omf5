@@ -666,8 +666,9 @@ check_same disc76-p2-same disc76-p2 disc76-p2-basis
 # conductor 6 of the second are of dimension 1, with the same Hecke matrices in
 # both bases, at the 2-neighbors and at the 3-neighbors. The form of conductor
 # 6 of the second lattice is the lift of the newform of weight 4 and level 6.
-# With the character of the spinor norm the spaces of the conductors 2 and 42
-# of the first lattice are 0, and that of the conductor 2 of the second is the
+# With the character of the spinor norm the space of the conductor 6 of the
+# first lattice is 0, those of its conductors 2 and 42 are the same as those of
+# the conductors 1 and 21, and that of the conductor 2 of the second is the
 # same as that of the conductor 1.
 check_matrix disc336-p2-hecke '2 : \[\[0\]\],3 : \[\],6 : \[\[-6\]\],7 : \[\],14 : \[\],21 : \[\[6\]\],42 : \[\[0\]\]}' -quad=1,1,0,0,0,2,0,0,0,1,0,0,4,4,4 -format=GG -hecke -p=2
 check_matrix disc336-p2-hecke-basis '2 : \[\[0\]\],3 : \[\],6 : \[\[-6\]\],7 : \[\],14 : \[\],21 : \[\[6\]\],42 : \[\[0\]\]}' -quad=6,-11,20,7,-4,6,-19,-8,3,19,11,-4,6,-3,2 -format=GG -hecke -p=2 -noreduce
