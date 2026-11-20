@@ -402,7 +402,7 @@ void genus_init_square_matrix(genus_t genus, const square_matrix_t q, int h)
 	    assert(isometry_is_isom(s, slow_genus->keys[current], nbr));
 #endif // DEBUG_LEVEL_FULL
 	    
-	    greedy(nbr, s, QF_RANK);
+	    greedy_checked(nbr, s);
 #ifdef DEBUG_LEVEL_FULL
 	    assert(isometry_is_isom(s, slow_genus->keys[current], nbr));
 #endif // DEBUG_LEVEL_FULL

@@ -811,6 +811,13 @@ void update_gram_perm(square_matrix_t gram, const int* perm, int dim)
 // we supply a parameter defining the level of recursion
 // and use only this part of the matrices
 // All containers will have size n, but we will only use dim entries
+// The number of passes of the loop of greedy, over all the levels of its recursion, which are left
+// before greedy stops; negative for no bound. greedy_checked sets it. In a basis far from reduced,
+// greedy can need a number of passes of the order of the entries; on reduced lattices and their
+// neighbors it needs at most about 60.
+static long greedy_passes_left = -1;
+#define GREEDY_MAX_PASSES 100000
+
 void greedy(square_matrix_t gram, isometry_t s, int dim)
 {
   int* perm_norm;
@@ -834,6 +841,11 @@ void greedy(square_matrix_t gram, isometry_t s, int dim)
   perm_norm = (int*)malloc(dim*sizeof(int));
   
   do {
+    // the bound of greedy_checked: stop, with gram and s consistent, as each pass changes both
+    if (greedy_passes_left == 0)
+      break;
+    if (greedy_passes_left > 0)
+      greedy_passes_left--;
 
 #ifdef DEBUG_LEVEL_FULL
   isometry_inv(s0_inv, s0);
@@ -1103,6 +1115,154 @@ bool square_matrix_change_basis_fits(square_matrix_t res, const fmpz_mat_t t1, c
   fmpz_clear(den);
 
   return fits;
+}
+
+/* Whether greedy, which took the gram matrix gram0 and the isometry s0 to gram and s, kept s an
+   isometry with the same denominators, now to gram, with s->s_inv its inverse, and s0^(-1) s
+   unimodular (integral, with an integral inverse), so that gram is a gram matrix of the lattice. The matrix of s0^(-1) s
+   is (S0inv S) / (d0inv d), so it takes gram0 to gram when (S0inv S)^T gram0 (S0inv S) =
+   (d0inv d)^2 gram. Found with big integers, since greedy may have overflowed. */
+static bool greedy_is_valid(const square_matrix_t gram0, const isometry_t s0, const square_matrix_t gram,
+			    const isometry_t s)
+{
+  fmpz_mat_t A, B, M, Mt, G0, G, P;
+  fmpz_t c;
+  slong i, j;
+  bool valid;
+
+  if ((s->denom != s0->denom) || (s->inv_denom != s0->inv_denom))
+    return false;
+
+  fmpz_mat_init_set_square_matrix(A, s0->s_inv);
+  fmpz_mat_init_set_square_matrix(B, s->s);
+  fmpz_mat_init_set_square_matrix(G0, gram0);
+  fmpz_mat_init_set_square_matrix(G, gram);
+  fmpz_mat_init(M, QF_RANK, QF_RANK);
+  fmpz_mat_init(Mt, QF_RANK, QF_RANK);
+  fmpz_mat_init(P, QF_RANK, QF_RANK);
+  fmpz_init(c);
+
+  fmpz_mat_mul(M, A, B);
+  // s0^(-1) s = M / (d0inv d) is integral
+  fmpz_set_si(c, s0->inv_denom);
+  fmpz_mul_si(c, c, s->denom);
+  valid = true;
+  for (i = 0; valid && (i < QF_RANK); i++)
+    for (j = 0; valid && (j < QF_RANK); j++)
+      valid = fmpz_divisible(fmpz_mat_entry(M, i, j), c);
+  fmpz_mat_transpose(Mt, M);
+  fmpz_mat_mul(P, Mt, G0);
+  fmpz_mat_mul(P, P, M);
+  fmpz_set_si(c, s0->inv_denom);
+  fmpz_mul_si(c, c, s->denom);
+  fmpz_mul(c, c, c);
+  fmpz_mat_scalar_mul_fmpz(G, G, c);
+  valid = valid && fmpz_mat_equal(P, G);
+
+  // so is its inverse s^(-1) s0 = (Sinv S0) / (dinv d0): the change of basis is unimodular
+  if (valid) {
+    fmpz_mat_t C, D0;
+    fmpz_mat_init_set_square_matrix(C, s->s_inv);
+    fmpz_mat_init_set_square_matrix(D0, s0->s);
+    fmpz_mat_mul(P, C, D0);
+    fmpz_set_si(c, s->inv_denom);
+    fmpz_mul_si(c, c, s0->denom);
+    for (i = 0; valid && (i < QF_RANK); i++)
+      for (j = 0; valid && (j < QF_RANK); j++)
+	valid = fmpz_divisible(fmpz_mat_entry(P, i, j), c);
+    fmpz_mat_clear(C);
+    fmpz_mat_clear(D0);
+  }
+
+  // s->s_inv is the inverse of s->s: S Sinv = d dinv I
+  if (valid) {
+    fmpz_mat_clear(A);
+    fmpz_mat_init_set_square_matrix(A, s->s_inv);
+    fmpz_mat_mul(M, B, A);
+    fmpz_mat_one(P);
+    fmpz_set_si(c, s->denom);
+    fmpz_mul_si(c, c, s->inv_denom);
+    fmpz_mat_scalar_mul_fmpz(P, P, c);
+    valid = fmpz_mat_equal(M, P);
+  }
+
+  fmpz_clear(c);
+  fmpz_mat_clear(A);
+  fmpz_mat_clear(B);
+  fmpz_mat_clear(M);
+  fmpz_mat_clear(Mt);
+  fmpz_mat_clear(G0);
+  fmpz_mat_clear(G);
+  fmpz_mat_clear(P);
+
+  return valid;
+}
+
+void greedy_checked(square_matrix_t gram, isometry_t s)
+{
+  square_matrix_t gram0;
+  isometry_t s0;
+  fmpz_mat_t t, t_inv, S, Sinv;
+  fmpz_t den;
+  slong i, j;
+  bool fits, is_done;
+
+  square_matrix_set(gram0, gram);
+  isometry_init_set(s0, s);
+
+  greedy_passes_left = GREEDY_MAX_PASSES;
+  greedy(gram, s, QF_RANK);
+  is_done = (greedy_passes_left != 0);
+  greedy_passes_left = -1;
+  if (is_done && greedy_is_valid(gram0, s0, gram, s) && !square_matrix_is_far_from_reduced(gram))
+    return;
+
+  // greedy overflowed, did not end, or left the lattice far from reduced (its closest vectors overflow
+  // silently, and are then wrong but still give a basis of the lattice): start again from gram0 and s0,
+  // with a reduction found with big integers
+  square_matrix_set(gram, gram0);
+  isometry_init_set(s, s0);
+  fmpz_mat_init(t, QF_RANK, QF_RANK);
+  fmpz_mat_init(t_inv, QF_RANK, QF_RANK);
+  fmpz_mat_init_set_square_matrix(S, s0->s);
+  fmpz_mat_init_set_square_matrix(Sinv, s0->s_inv);
+  fmpz_init(den);
+
+  fits = square_matrix_reduce_basis(gram, t) && fmpz_mat_inv(t_inv, den, t) && fmpz_is_pm1(den);
+  if (fits) {
+    // the gram matrix is now t^T gram0 t, so s becomes s0 t, and its inverse t^(-1) s0^(-1)
+    fmpz_mat_scalar_mul_fmpz(t_inv, t_inv, den);
+    fmpz_mat_mul(S, S, t);
+    fmpz_mat_mul(Sinv, t_inv, Sinv);
+    for (i = 0; fits && (i < QF_RANK); i++)
+      for (j = 0; fits && (j < QF_RANK); j++)
+	fits = fmpz_fits_si(fmpz_mat_entry(S, i, j)) && fmpz_fits_si(fmpz_mat_entry(Sinv, i, j));
+  }
+  if (fits) {
+    square_matrix_set_fmpz_mat(s->s, S);
+    square_matrix_set_fmpz_mat(s->s_inv, Sinv);
+    // the reduction ends with greedy when its entries are small; this one is checked too
+    square_matrix_set(gram0, gram);
+    isometry_init_set(s0, s);
+    greedy_passes_left = GREEDY_MAX_PASSES;
+    greedy(gram, s, QF_RANK);
+    is_done = (greedy_passes_left != 0);
+    greedy_passes_left = -1;
+    fits = is_done && greedy_is_valid(gram0, s0, gram, s);
+  }
+
+  fmpz_mat_clear(t);
+  fmpz_mat_clear(t_inv);
+  fmpz_mat_clear(S);
+  fmpz_mat_clear(Sinv);
+  fmpz_clear(den);
+
+  if (!fits) {
+    fprintf(stderr, "Error: the reduction of a lattice does not fit in 64 bits. With -noreduce, the basis of a lattice may be too far from reduced.\n");
+    exit(EXIT_FAILURE);
+  }
+
+  return;
 }
 
 /* Replace the gram matrix q by a reduction of it, when the largest diagonal entry of the reduction
