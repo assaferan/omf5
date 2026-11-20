@@ -618,7 +618,9 @@ static bool spinor_divides(const spinor_t spinor, const fmpz_t denom)
 //   the identity on the orthogonal complement of a hyperbolic plane, whose
 //   spinor norm is 2.
 //   When 4 divides the discriminant exactly, this is again the sign of a
-//   permutation of a plane, in the lattices in which the two were compared.
+//   permutation of a plane, in the lattices in which the two were compared,
+//   and at an isometry integral at 2 this sign is used, because it is much
+//   cheaper than the spinor norm (spinor_radical_rank_sign_2).
 //   The plane is R0(L), the vectors of R(L) at which Q is even, and Q/2 is a
 //   quadratic form modulo 2 on it, which is not degenerate. The character at
 //   g is (-1)^rank(g - 1) for the action of g on R0(L). At an isometry g to
@@ -918,6 +920,35 @@ static int spinor_quotient_sign_2(const spinor_t spinor, slong prime_idx, const 
   }
   rank = nmod_mat_rank(ext) - r;
   nmod_mat_clear(ext);
+
+  return (rank % 2 == 0) ? 1 : -1;
+}
+
+// The character at 2 at an isometry which is integral at 2, when the radical
+// modulo 2 is of dimension 3, the quadratic form is odd at a vector of it and
+// 4 divides the discriminant exactly. The rows of rad_mat are the images of
+// the vectors of the basis of the radical, up to a sign.
+// It is (-1)^rank(g - 1) for the action of the isometry g on the radical
+// modulo 2. Here the Gram matrix on the radical is twice an odd matrix S of
+// odd determinant. The vectors of the radical at which the quadratic form is
+// even are a plane modulo 2, the radical is the sum of this plane and of the
+// line orthogonal to it for S, and g fixes the vector of this line, so the
+// character is also the sign of the permutation of the three nonzero vectors
+// of the plane. In the lattices in which it was compared, this is the
+// character of the spinor norm: it is 1 when the valuation at 2 of the spinor
+// norm is even. Returns 1 or -1.
+static int spinor_radical_rank_sign_2(const spinor_t spinor, slong prime_idx, const nmod_mat_t rad_mat)
+{
+  nmod_mat_t diff;
+  slong i, j, rank;
+
+  nmod_mat_init(diff, nmod_mat_nrows(rad_mat), nmod_mat_ncols(rad_mat), 2);
+  for (i = 0; i < nmod_mat_nrows(rad_mat); i++)
+    for (j = 0; j < nmod_mat_ncols(rad_mat); j++)
+      nmod_mat_set_entry(diff, i, j, (nmod_mat_entry(rad_mat, i, j) +
+				      nmod_mat_entry(spinor->rads[prime_idx], i, j)) % 2);
+  rank = nmod_mat_rank(diff);
+  nmod_mat_clear(diff);
 
   return (rank % 2 == 0) ? 1 : -1;
 }
@@ -1301,6 +1332,8 @@ static W64 spinor_norm_lowest_terms(const spinor_t spinor, const fmpz_mat_t mat,
     if ((p.n == 4) && (r == 3)) {
       if (!spinor->odd_on_rad_2)
 	sign = spinor_quotient_sign_2(spinor, prime_idx, mat_p);
+      else if (spinor->exps[prime_idx] == 2)
+	sign = spinor_radical_rank_sign_2(spinor, prime_idx, rad_mat);
       else {
 	// the parity of the valuation at 2 of the spinor norm
 	if (!has_zas) {
