@@ -48,12 +48,18 @@ int _add(hash_table_t table, const square_matrix_t key, hash_t val, int do_push_
 hash_t hash_form(const square_matrix_t q, W32 theta_prec)
 {
   matrix_TYP *Q, *SV;
+  square_matrix_t red;
   hash_t x;
   int norm;
   int* num_short;
 
-  Q = matrix_TYP_init_set_square_matrix(q);
   assert(square_matrix_is_positive_definite(q));
+  // The numbers of vectors of each norm do not depend on the basis, and the search for them is very
+  // slow in a basis which is far from reduced, so they are counted in a reduced basis.
+  square_matrix_set(red, q);
+  if (square_matrix_is_far_from_reduced(q))
+    square_matrix_reduce(red);
+  Q = matrix_TYP_init_set_square_matrix(red);
   num_short = (int*)malloc(theta_prec * sizeof(int));
   for (norm = 2; norm <= 2*theta_prec; norm += 2) {
     SV = short_vectors(Q, norm, norm, 0, 1, &(num_short[norm/2 - 1]));

@@ -278,6 +278,45 @@ bool square_matrix_reduce_basis(square_matrix_t q, fmpz_mat_t t);
 
 /****************************************************************************
  *
+ * Function: square_matrix_is_far_from_reduced
+ *
+ * Description: Whether the product of the diagonal entries of a positive
+ *              definite gram matrix is more than 64 times its determinant.
+ *              CARAT lists the vectors up to the largest diagonal entry, so
+ *              its searches need much memory in such a basis.
+ *
+ ***************************************************************************
+ */
+
+bool square_matrix_is_far_from_reduced(const square_matrix_t q);
+
+/****************************************************************************
+ *
+ * Function: square_matrix_change_basis_fits
+ *
+ * Description: Moves a matrix of an isometry between two lattices from the
+ *              bases of square_matrix_reduce_basis back to the bases in
+ *              which the lattices were given.
+ *
+ * Arguments:
+ *     + t1, t2 (fmpz_mat_t) - matrices of determinant 1 or -1, as returned
+ *                             by square_matrix_reduce_basis for the two
+ *                             lattices
+ *     + m (square_matrix_t) - the matrix in the reduced bases
+ *
+ * Returns:
+ *     + res (square_matrix_t) - t1 * m * t2^(-1), when its entries fit in
+ *                               64 bits; left as it is otherwise
+ *     + (bool) - whether the entries fit
+ *
+ ***************************************************************************
+ */
+
+bool square_matrix_change_basis_fits(square_matrix_t res, const fmpz_mat_t t1, const square_matrix_t m,
+				     const fmpz_mat_t t2);
+
+/****************************************************************************
+ *
  * Function: get_eigenvector_on_subspace
  *
  * Description: Computes an eigenvector of a rational matrix T on a linear

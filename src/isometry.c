@@ -311,7 +311,10 @@ bool isometry_is_isom(isometry_t s, const square_matrix_t q1, const square_matri
 
 /* Checks whether q1 and q2 are isometric, and if so computes an isometry betwenn them.
    Uses isometry testing from the CARAT package. */
-bool is_isometric(isometry_t s, const square_matrix_t q1, const square_matrix_t q2)
+/* The search of CARAT in the bases in which the lattices are given. It lists the vectors of both
+   lattices up to the largest diagonal entry of q1, so it is slow and needs much memory when that
+   entry is large, as it is in a basis which is far from reduced. */
+static bool is_isometric_in_bases(isometry_t s, const square_matrix_t q1, const square_matrix_t q2)
 {
   int i, Qmax;
   matrix_TYP *SV1, *SV2, *isom, *Q1, *Q2;
@@ -346,6 +349,60 @@ bool is_isometric(isometry_t s, const square_matrix_t q1, const square_matrix_t 
   free_mat(Q2);
 
   return (isom != NULL);
+}
+
+/* CARAT lists the vectors of both lattices up to the largest diagonal entry of q1, which is large
+   when the basis of q1 is far from reduced, and it stops when the coordinates of a vector of q2 are
+   above 10000, as they can be when the basis of q2 is far from reduced. So a lattice whose basis is
+   far from reduced is replaced by a reduction of it for the search, and the isometry is moved back
+   to the bases given. Whether the lattices are isometric does not depend on the bases. When the
+   isometry or its inverse does not fit in 64 bits in the bases given, the search is done in them. */
+bool is_isometric(isometry_t s, const square_matrix_t q1, const square_matrix_t q2)
+{
+  square_matrix_t r1, r2, s_given, s_inv;
+  fmpz_mat_t t1, t2;
+  isometry_t s_red;
+  Z64 inv_denom;
+  bool is_reduced, is_isom;
+
+  square_matrix_set(r1, q1);
+  square_matrix_set(r2, q2);
+  fmpz_mat_init(t1, QF_RANK, QF_RANK);
+  fmpz_mat_init(t2, QF_RANK, QF_RANK);
+  fmpz_mat_one(t1);
+  fmpz_mat_one(t2);
+
+  is_reduced = false;
+  if (square_matrix_is_far_from_reduced(q1) && square_matrix_reduce_basis(r1, t1))
+    is_reduced = true;
+  if (square_matrix_is_far_from_reduced(q2) && square_matrix_reduce_basis(r2, t2))
+    is_reduced = true;
+
+  if (!is_reduced)
+    is_isom = is_isometric_in_bases(s, q1, q2);
+  else {
+    isometry_init(s_red);
+    is_isom = is_isometric_in_bases(s_red, r1, r2);
+    if (is_isom) {
+      if (square_matrix_change_basis_fits(s_given, t1, s_red->s, t2)
+	  && square_matrix_inv_fits(s_inv, &inv_denom, s_given, 1)) {
+	square_matrix_set(s->s, s_given);
+	square_matrix_set(s->s_inv, s_inv);
+	s->denom = 1;
+	s->inv_denom = inv_denom;
+      }
+      else
+	is_isom = is_isometric_in_bases(s, q1, q2);
+    }
+    isometry_clear(s_red);
+  }
+
+  assert(!is_isom || isometry_is_isom(s, q1, q2));
+
+  fmpz_mat_clear(t1);
+  fmpz_mat_clear(t2);
+
+  return is_isom;
 }
 
 // Matrix operations
