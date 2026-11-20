@@ -341,6 +341,15 @@ int main(int argc, char* argv[])
     test_res |= print_hecke_matrices_weight(genus, weight, p);
   }
   else if (has_genus) {
+    // Without -prec the program computes only what was asked for, and not the eigenvalues at other
+    // primes which the types of the forms need.
+    if (!has_prec && !has_hecke && has_nonlifts && !has_idxs) {
+      fprintf(stderr, "Error: -nonlifts needs -prec=L, which determines the types of the forms\n");
+      genus_clear(genus);
+      return EXIT_FAILURE;
+    }
+    if (!has_prec && !has_hecke && !has_idxs)
+      fprintf(stderr, "Warning: without -prec the types of the forms are not determined: they are printed as U, and as O for the old forms. Use -prec=L to determine them.\n");
     test_res <<= 1;
     if (has_prec)
       test_res |= compute_eigenvalues_up_to(genus, prec, has_nonlifts, num_idxs, idxs);
@@ -524,7 +533,7 @@ int print_param_desc(char* argv[])
   fprintf(stderr, "If the flag -square is supplied in addition to -p=p, computes also the eigenvalues of T_{p^2}, or with -hecke the Hecke matrix of T_{p^2} instead of that of T_p. The prime p may divide the discriminant.\n");
   fprintf(stderr, "If the flag -isom is supplied in addition to -genus=g, the genus includes the isometries.\n");
   fprintf(stderr, "If the flag -tests is supplied, additionally runs standard tests.\n");
-  fprintf(stderr, "If the flag -nonlifts is supplied, computes eigenvalues only for the forms which are not lifts.\n");
+  fprintf(stderr, "If the flag -nonlifts is supplied, computes eigenvalues only for the forms which are not lifts. It needs -prec=L, which determines the types of the forms, unless -idxs is supplied. Without -prec the types are printed as U (O for the old forms).\n");
   fprintf(stderr, "If the flag -noreduce is supplied, the lattice Q, or the lattices of the genus file, are used in the bases in which they are given. Otherwise a basis is reduced when this lowers the largest diagonal entry of the Gram matrix.\n");
   fprintf(stderr, "If the flag -weight=a is supplied with a > 0, computes the forms of weight (a, 0) of the special orthogonal group, for now only with -hecke and -p=p for p not dividing the discriminant. T_p is normalized by p^a, so its eigenvalues are algebraic integers.\n");
   return -1;

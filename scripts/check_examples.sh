@@ -247,6 +247,7 @@ check_error prec-malformed "the value of -prec=abc is not an integer" -quad=1,0,
 check_error prec-trailing "the value of -prec=10x is not an integer" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=10x
 check_error prec-negative "the precision in -prec=-5 is negative" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -prec=-5
 check_error p-not-prime "-p=4 is not a prime" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -hecke -p=4
+check_error nonlifts-without-prec "-nonlifts needs -prec=L" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -p=2 -nonlifts
 check_error cond-not-conductor "-cond=7 is not one of the possible conductors" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -hecke -p=3 -cond=7
 check_error cond-not-conductor-row "-cond=7 is not one of the possible conductors" -quad=1,0,0,1,1,1,0,1,0,1,0,0,1,0,8 -format=GG -hecke -row -p=3 -cond=7
 check_error disc-negative "the discriminant in -disc=-1 is negative" -genus="$tmp/no-such-file" -disc=-1 -prec=10
@@ -288,7 +289,7 @@ check_example quad44 "$tmp/44.exp" "F P P" -quad=1,0,-1,-1,1,1,-1,1,0,2,1,-1,2,-
 cat > "$tmp/117.exp" <<'EOF'
 1: -8
 EOF
-check_example disc117-p3 "$tmp/117.exp" "F G O P P P P P Y" -quad=1,0,1,0,-1,1,0,1,0,2,1,-1,2,-1,3 -format=GG -p=3
+check_example disc117-p3 "$tmp/117.exp" "O U U U U U U U U" -quad=1,0,1,0,-1,1,0,1,0,2,1,-1,2,-1,3 -format=GG -p=3
 
 # Discriminant 124 = 2^2 * 31, at the prime 2. No eigenvector was found for the
 # form of type O: the vector used for it is in a space which the Hecke
@@ -308,7 +309,7 @@ cat > "$tmp/124p2.exp" <<'EOF'
 1: -3
 1: 12
 EOF
-check_example disc124-p2 "$tmp/124p2.exp" "F G G O P P P" -quad=1,0,1,0,-1,1,1,0,0,2,0,-1,2,-1,3 -format=GG -p=2
+check_example disc124-p2 "$tmp/124p2.exp" "O U U U U U U" -quad=1,0,1,0,-1,1,1,0,0,2,0,-1,2,-1,3 -format=GG -p=2
 no_value="'aut_rep_type' : 'O', 'field_poly' : '[^']*', 'lambda_p' : \[\], "
 check_output disc124-p2-old-basis "$no_value" -quad=4,-2,0,-6,0,1,1,2,0,2,1,-1,3,-1,3 -format=GG -p=2 -noreduce
 check_reduced disc124-p2-old-basis no
@@ -323,7 +324,7 @@ cat > "$tmp/124p31.exp" <<'EOF'
 1: 239
 1: 2046
 EOF
-check_example disc124-p31 "$tmp/124p31.exp" "F G G O P P P" -quad=1,0,1,0,-1,1,1,0,0,2,0,-1,2,-1,3 -format=GG -p=31
+check_example disc124-p31 "$tmp/124p31.exp" "O U U U U U U" -quad=1,0,1,0,-1,1,1,0,0,2,0,-1,2,-1,3 -format=GG -p=31
 old_value="'aut_rep_type' : 'O', 'field_poly' : '[^']*', 'lambda_p' : \['1023',\], "
 check_output disc124-p31-old "$old_value" -quad=1,0,1,0,-1,1,1,0,0,2,0,-1,2,-1,3 -format=GG -p=31
 check_output disc124-p31-old-basis "$old_value" -quad=4,-2,0,-6,0,1,1,2,0,2,1,-1,3,-1,3 -format=GG -p=31 -noreduce
@@ -358,7 +359,7 @@ cat > "$tmp/124.exp" <<'EOF'
 1: 12
 2: 24
 EOF
-check_example disc124-p2-square "$tmp/124.exp" "F G G O P P P" -quad=1,0,1,0,-1,1,1,0,0,2,0,-1,2,-1,3 -format=GG -p=2 -square
+check_example disc124-p2-square "$tmp/124.exp" "O U U U U U U" -quad=1,0,1,0,-1,1,1,0,0,2,0,-1,2,-1,3 -format=GG -p=2 -square
 # For the form of type O neither eigenvalue is printed in the second basis
 # above, and the two outputs are the same.
 no_values="'aut_rep_type' : 'O', 'field_poly' : '[^']*', 'lambda_p' : \[\], 'lambda_p_square' : \[\], "
@@ -571,7 +572,8 @@ check_example disc249 "$tmp/249.exp" "F G G G P P P" -quad=1,0,0,-1,0,1,0,0,0,1,
 # defined by a polynomial of degree 12 with a repeated factor modulo 3, where
 # Z[a] is not maximal. Testing for squares there would find it not to be a lift.
 : > "$tmp/259.exp"
-check_example disc259 "$tmp/259.exp" "F G G P P P P P Y Y" -quad=1,0,0,0,-1,1,0,1,1,1,-1,0,4,4,6 -format=GG
+check_example disc259 "$tmp/259.exp" "U U U U U U U U U U" -quad=1,0,0,0,-1,1,0,1,1,1,-1,0,4,4,6 -format=GG
+check_example disc259-prec "$tmp/259.exp" "F G G P P P P P Y Y" -quad=1,0,0,0,-1,1,0,1,1,1,-1,0,4,4,6 -format=GG -prec=100
 
 # Discriminant 55, at the prime 2. The L-polynomial of a form factors at a
 # prime when the discriminant of a quadratic equation is a square in the field
@@ -583,7 +585,11 @@ cat > "$tmp/55.exp" <<'EOF'
 1: -8
 1: 5
 EOF
-check_example disc55-p2 "$tmp/55.exp" "F P P P Y" -quad=1,1,0,0,1,1,0,0,1,1,0,-1,2,1,3 -format=GG -p=2
+check_example disc55-p2 "$tmp/55.exp" "U U U U U" -quad=1,1,0,0,1,1,0,0,1,1,0,-1,2,1,3 -format=GG -p=2
+# Without -prec the types are not determined; with it, at 2, 3 and 7, there is a Yoshida lift.
+# Only the types are checked here.
+: > "$tmp/no-traces.exp"
+check_example disc55-prec "$tmp/no-traces.exp" "F P P P Y" -quad=1,1,0,0,1,1,0,0,1,1,0,-1,2,1,3 -format=GG -prec=100
 
 # Discriminant 161, at the prime 2. The field of the form of type Y is
 # Q[a] / (a^2 + 4a - 1), and this discriminant is 5 = (a + 2)^2 at the prime
@@ -598,7 +604,9 @@ cat > "$tmp/161.exp" <<'EOF'
 1: -1
 1: 26
 EOF
-check_example disc161-p2 "$tmp/161.exp" "F G G P P P P Y" -quad=1,0,0,-1,0,1,0,0,0,1,0,1,2,0,6 -format=GG -p=2
+check_example disc161-p2 "$tmp/161.exp" "U U U U U U U U" -quad=1,0,0,-1,0,1,0,0,0,1,0,1,2,0,6 -format=GG -p=2
+# With -prec the types are determined, at 2, 3 and 5: the Yoshida lift above is found at 2
+check_example disc161-prec "$tmp/no-traces.exp" "F G G P P P P Y" -quad=1,0,0,-1,0,1,0,0,0,1,0,1,2,0,6 -format=GG -prec=100
 
 # Discriminant 48, where the lattice is not maximal at 2. The traces are those
 # of the Eisenstein series, 1 + p + p^2 + p^3 for T_p.
@@ -632,8 +640,8 @@ cat > "$tmp/216.exp" <<'EOF'
 1: -4
 1: -7
 EOF
-check_example disc216-p2 "$tmp/216.exp" "F O O P P P P P" -quad=2,-1,-2,0,0,3,0,0,0,2,-2,-2,4,-2,2 -format=GG -p=2
-check_example disc216-p2-basis "$tmp/216.exp" "F O O P P P P P" -quad=2,-1,-4,-3,-6,3,1,6,1,4,-1,8,7,1,6 -format=GG -p=2 -noreduce
+check_example disc216-p2 "$tmp/216.exp" "O O U U U U U U" -quad=2,-1,-2,0,0,3,0,0,0,2,-2,-2,4,-2,2 -format=GG -p=2
+check_example disc216-p2-basis "$tmp/216.exp" "O O U U U U U U" -quad=2,-1,-4,-3,-6,3,1,6,1,4,-1,8,7,1,6 -format=GG -p=2 -noreduce
 check_same disc216-p2-same disc216-p2 disc216-p2-basis
 check_matrix disc216-p2-hecke '2 : \[\[-6,2\],\[1,-5\]\],3 : \[\],6 : \[\]}' -quad=2,-1,-2,0,0,3,0,0,0,2,-2,-2,4,-2,2 -format=GG -hecke -p=2
 # The lattice has no 4-neighbors.
@@ -652,8 +660,8 @@ cat > "$tmp/76.exp" <<'EOF'
 1: 7
 1: 6
 EOF
-check_example disc76-p2 "$tmp/76.exp" "F O P P P" -quad=1,0,1,-2,0,3,-2,0,-2,1,-1,2,4,-2,3 -format=GG -p=2
-check_example disc76-p2-basis "$tmp/76.exp" "F O P P P" -quad=3,-2,0,6,-2,6,8,-3,16,6,-1,16,4,-3,13 -format=GG -p=2 -noreduce
+check_example disc76-p2 "$tmp/76.exp" "O U U U U" -quad=1,0,1,-2,0,3,-2,0,-2,1,-1,2,4,-2,3 -format=GG -p=2
+check_example disc76-p2-basis "$tmp/76.exp" "O U U U U" -quad=3,-2,0,6,-2,6,8,-3,16,6,-1,16,4,-3,13 -format=GG -p=2 -noreduce
 # Discriminant 152, where the same holds and 8 divides the discriminant.
 check_matrix disc152-p2-hecke '2 : \[\[-7\]\],19 : \[\],38 : \[\[6\]\]}' -quad=3,1,2,-2,-1,2,1,-1,-2,4,0,1,1,-1,3 -format=GG -hecke -p=2
 check_same disc76-p2-same disc76-p2 disc76-p2-basis
