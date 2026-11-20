@@ -168,7 +168,7 @@ double get_isom_cost(const hash_table_t table, double* red_cost)
       isometry_init(s);
       if (red_cost != NULL) {
 	cputime = clock();
-	greedy(nbr, s, QF_RANK);
+	greedy_checked(nbr, s);
 	(*red_cost) += (clock() - cputime);
       }
       cputime = clock();
@@ -501,10 +501,10 @@ int hash_table_indexof(const hash_table_t table, const square_matrix_t key, int 
       if (table->vals[offset] == value) {
 	(*num_isom)++;
 	cputime = clock();
+	square_matrix_set(key_copy, key);
 	if (table->red_on_isom) {
 	  isometry_init(s);
-	  square_matrix_set(key_copy, key);
-	  greedy(key_copy, s, QF_RANK);
+	  greedy_checked(key_copy, s);
 	  isometry_clear(s);
 	}
 	if (is_isometric(s, table->keys[offset], key_copy)) {
@@ -552,7 +552,7 @@ int hash_table_index_and_isom(const hash_table_t table, const square_matrix_t ke
 	  square_matrix_set(key_copy, key);
 	if (table->red_on_isom) {
 	  isometry_init(s);
-	  greedy(key_copy, s, QF_RANK);
+	  greedy_checked(key_copy, s);
 #ifdef DEBUG_LEVEL_FULL
 	  assert(isometry_is_isom(s, key, key_copy));
 #endif // DEBUG_LEVEL_FULL

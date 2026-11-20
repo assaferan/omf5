@@ -202,6 +202,32 @@ void greedy(square_matrix_t gram, isometry_t s, int dim);
 
 /****************************************************************************
  *
+ * Function: greedy_checked
+ *
+ * Description: greedy(gram, s, QF_RANK), whose arithmetic is checked
+ *              afterwards. greedy works with 64 bits and does not check
+ *              them, so in a basis far from reduced it can overflow and
+ *              return a matrix which is not a gram matrix of the lattice,
+ *              or need a number of passes of the order of the entries. It
+ *              is stopped after 100000 passes (reduced lattices and their
+ *              neighbors need at most about 60). In both cases the
+ *              lattice is reduced with big integers, by
+ *              square_matrix_reduce_basis, and s is changed by the same
+ *              basis. If that does not fit in 64 bits either, the program
+ *              exits with an error.
+ *
+ * Arguments:
+ *     + gram (square_matrix_t) - a gram matrix, replaced by its reduction
+ *     + s (isometry_t) - an isometry to gram, replaced by the isometry to
+ *                        the reduction
+ *
+ ***************************************************************************
+ */
+
+void greedy_checked(square_matrix_t gram, isometry_t s);
+
+/****************************************************************************
+ *
  * Function: fmpz_mat_is_gram_in_basis
  *
  * Description: Checks that a matrix is the gram matrix of a lattice in

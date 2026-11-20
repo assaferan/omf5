@@ -950,6 +950,34 @@ static STATUS test_far_from_reduced_of(const Z64* Q_coeffs, const Z64* ref_coeff
   return ret;
 }
 
+// Tests greedy_checked on the lattice with the coefficients Q_coeffs, in a basis in which greedy alone
+// overflows or does not end: the result has to be a gram matrix of the lattice, in the basis of the
+// isometry which is returned, with no diagonal entry above max_diag.
+static STATUS test_greedy_checked_of(const Z64* Q_coeffs, Z64 max_diag)
+{
+  square_matrix_t Q, red;
+  isometry_t s;
+  STATUS ret;
+  int i;
+
+  square_matrix_init_set_symm(Q, Q_coeffs, "GG");
+  square_matrix_init(red);
+  square_matrix_set(red, Q);
+  isometry_init(s);
+
+  greedy_checked(red, s);
+  ret = isometry_is_isom(s, Q, red) ? SUCCESS : FAIL;
+  for (i = 0; i < QF_RANK; i++)
+    if (red[i][i] > max_diag)
+      ret = FAIL;
+
+  isometry_clear(s);
+  square_matrix_clear(Q);
+  square_matrix_clear(red);
+
+  return ret;
+}
+
 STATUS test_reduce()
 {
   STATUS ret;
@@ -995,6 +1023,9 @@ STATUS test_reduce()
   ret |= test_far_from_reduced_of(Q_61, Q);
   ret |= test_far_from_reduced_of(Q2_19, Q2);
   ret |= test_far_from_reduced_of(Q2_31, Q2);
+  ret |= test_greedy_checked_of(Q2_19, 16);
+  ret |= test_greedy_checked_of(Q2_31, 16);
+  ret |= test_greedy_checked_of(Q2_31b, 16);
 
   return ret;
 }
