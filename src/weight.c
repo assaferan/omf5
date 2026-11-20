@@ -601,7 +601,155 @@ static void weight_add_block(fmpq_mat_t T, const weight_space_t S, slong c, slon
   return;
 }
 
-fmpq_mat_struct* hecke_matrices_weight(const genus_t genus, const weight_rep_t W, const weight_space_t S, int p)
+// The sums acc[i][b] for the lattice L_j, by orbits of the automorphisms of L_j on the isotropic
+// lines, as process_isotropic_vector_all_conductors does: for an automorphism g of L_j the neighbor at
+// g v is g N_v, whose isometry to the first lattice is t s, for t = isoms[j] g isoms[j]^(-1) and s that
+// of N_v. So rho(t s) = rho(t) rho(s), and the orbit adds (sum of rho(t), by the spinor bits of t) times
+// rho(s), with the spinor bits of t s those of t xor those of s. Only the representative of an orbit,
+// the smallest vector in it, is tested for isometry.
+static void weight_sums_orbits(fmpq_mat_t** acc, const genus_t genus, const weight_rep_t W, slong j, int p,
+			       const fmpz_t pa)
+{
+  neighbor_manager_t nbr_man;
+  fmpq_mat_t* Raut;
+  W64* bits_aut;
+  fmpq_mat_t* orbsum;
+  fmpq_mat_t Rs, prod;
+  slong* orbit_aut;
+  vector_t* orbit;
+  square_matrix_t* auts;
+  vector_t g_vec;
+  square_matrix_t nbr, aut_tr;
+  isometry_t s_nbr, hash_isom, s_inv, t;
+  slong k, e, b, nb, num_auts, orb_size, i;
+  int num_isom, line, vec_cmp;
+  double theta_time, isom_time;
+  bool found, has_auts;
+  W64 bits_s;
+
+  nb = (slong)1 << genus->spinor->num_primes;
+  theta_time = isom_time = 0;
+  num_isom = 0;
+  has_auts = false;
+  Raut = NULL;
+  bits_aut = NULL;
+  num_auts = 0;
+  orbsum = (fmpq_mat_t*)malloc(nb * sizeof(fmpq_mat_t));
+  for (b = 0; b < nb; b++)
+    fmpq_mat_init(orbsum[b], W->dim, W->dim);
+  fmpq_mat_init(Rs, W->dim, W->dim);
+  fmpq_mat_init(prod, W->dim, W->dim);
+
+  for (line = 0; line < p; line++) {
+    nbr_process_init(nbr_man, genus->genus_reps->keys[j], p, line, genus->isoms[j]);
+    if (!has_auts) {
+      // rho of every automorphism of L_j, taken to the first lattice
+      num_auts = nbr_man->num_auts;
+      Raut = (fmpq_mat_t*)malloc(num_auts * sizeof(fmpq_mat_t));
+      bits_aut = (W64*)malloc(num_auts * sizeof(W64));
+      isometry_inv(s_inv, genus->isoms[j]);
+      for (k = 0; k < num_auts; k++) {
+	square_matrix_transpose(aut_tr, nbr_man->auts[k]);
+	isometry_init_set_square_matrix(t, aut_tr, 1);
+	isometry_muleq_left(t, genus->isoms[j]);
+	isometry_muleq_right(t, s_inv);
+	assert(isometry_is_isom(t, genus->genus_reps->keys[0], genus->genus_reps->keys[0]));
+	fmpq_mat_init(Raut[k], W->dim, W->dim);
+	weight_rep_action(Raut[k], W, t);
+	bits_aut[k] = spinor_norm_isom(genus->spinor, t);
+	isometry_clear(t);
+      }
+      orbit = (vector_t*)malloc((num_auts + 1) * sizeof(vector_t));
+      orbit_aut = (slong*)malloc((num_auts + 1) * sizeof(slong));
+      // nbr_process_init finds the automorphisms again for every line, not always in the same
+      // order, so the orbits are found with this list, whose k-th element is that of Raut[k]
+      auts = (square_matrix_t*)malloc(num_auts * sizeof(square_matrix_t));
+      for (k = 0; k < num_auts; k++)
+	square_matrix_set(auts[k], nbr_man->auts[k]);
+      has_auts = true;
+    }
+    assert(nbr_man->num_auts == num_auts);
+    while (!nbr_process_has_ended(nbr_man)) {
+      // the orbit of the isotropic vector, which is skipped unless it is the smallest in it
+      vector_mod_p(nbr_man->iso_vec, nbr_man->p);
+      normalize_mod_p(nbr_man->iso_vec, nbr_man->p);
+      vector_set(orbit[0], nbr_man->iso_vec);
+      orbit_aut[0] = -1;
+      orb_size = 1;
+      vec_cmp = 1;
+      for (k = 0; k < num_auts; k++) {
+	square_matrix_mul_vec_left(g_vec, nbr_man->iso_vec, auts[k]);
+	vector_mod_p(g_vec, nbr_man->p);
+	normalize_mod_p(g_vec, nbr_man->p);
+	vec_cmp = vector_cmp(g_vec, nbr_man->iso_vec);
+	if (vec_cmp < 0)
+	  break;
+	if (vec_cmp > 0) {
+	  found = false;
+	  for (e = 0; (e < orb_size) && !found; e++)
+	    found = (vector_cmp(g_vec, orbit[e]) == 0);
+	  if (!found) {
+	    vector_set(orbit[orb_size], g_vec);
+	    orbit_aut[orb_size] = k;
+	    orb_size++;
+	  }
+	}
+      }
+      if ((vec_cmp >= 0) && nbr_process_build_nb_and_isom(nbr, s_nbr, nbr_man)) {
+	i = hash_table_index_and_isom(genus->genus_reps, nbr, hash_isom, &theta_time, &isom_time, &num_isom);
+	assert((0 <= i) && (i < genus->genus_reps->num_stored));
+	isometry_muleq_left(s_nbr, genus->isoms[j]);
+	isometry_muleq_right(s_nbr, hash_isom);
+	isometry_inv(t, genus->isoms[i]);
+	isometry_muleq_right(s_nbr, t);
+	assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[0], genus->genus_reps->keys[0]));
+	bits_s = spinor_norm_isom(genus->spinor, s_nbr);
+	weight_rep_action(Rs, W, s_nbr);
+	fmpq_mat_scalar_mul_fmpz(Rs, Rs, pa);
+	for (b = 0; b < nb; b++)
+	  fmpq_mat_zero(orbsum[b]);
+	for (e = 0; e < orb_size; e++) {
+	  if (orbit_aut[e] < 0) {
+	    for (k = 0; k < W->dim; k++)
+	      fmpq_add_si(fmpq_mat_entry(orbsum[0], k, k), fmpq_mat_entry(orbsum[0], k, k), 1);
+	  }
+	  else
+	    fmpq_mat_add(orbsum[bits_aut[orbit_aut[e]]], orbsum[bits_aut[orbit_aut[e]]], Raut[orbit_aut[e]]);
+	}
+	for (b = 0; b < nb; b++) {
+	  if (fmpq_mat_is_zero(orbsum[b]))
+	    continue;
+	  fmpq_mat_mul(prod, orbsum[b], Rs);
+	  fmpq_mat_add(acc[i][b ^ bits_s], acc[i][b ^ bits_s], prod);
+	}
+	isometry_clear(s_nbr);
+	isometry_clear(hash_isom);
+	square_matrix_clear(nbr);
+      }
+      nbr_process_advance(nbr_man);
+    }
+    nbr_process_clear(nbr_man);
+  }
+
+  if (has_auts) {
+    for (k = 0; k < num_auts; k++)
+      fmpq_mat_clear(Raut[k]);
+    free(Raut);
+    free(bits_aut);
+    free(orbit);
+    free(orbit_aut);
+    free(auts);
+  }
+  for (b = 0; b < nb; b++)
+    fmpq_mat_clear(orbsum[b]);
+  free(orbsum);
+  fmpq_mat_clear(Rs);
+  fmpq_mat_clear(prod);
+  return;
+}
+
+static fmpq_mat_struct* hecke_matrices_weight_impl(const genus_t genus, const weight_rep_t W,
+						   const weight_space_t S, int p, bool use_orbits)
 {
   fmpq_mat_struct* T;
   fmpq_mat_t** acc;
@@ -650,6 +798,9 @@ fmpq_mat_struct* hecke_matrices_weight(const genus_t genus, const weight_rep_t W
       for (b = 0; b < nb; b++)
 	fmpq_mat_zero(acc[i][b]);
 
+    if (use_orbits)
+      weight_sums_orbits(acc, genus, W, j, p, pa);
+    else {
     nbr_data_init(nbr_man, genus->genus_reps->keys[j], p, 1);
     while (!nbr_data_has_ended(nbr_man)) {
       // the isometry from the first lattice to itself through this neighbor, as in
@@ -671,6 +822,7 @@ fmpq_mat_struct* hecke_matrices_weight(const genus_t genus, const weight_rep_t W
       nbr_data_get_next_neighbor(nbr_man);
     }
     nbr_data_clear(nbr_man);
+    }
 
     for (c = 0; c < genus->num_conductors; c++) {
       if (fmpq_mat_nrows(S->H[c] + j) == 0)
@@ -702,6 +854,16 @@ fmpq_mat_struct* hecke_matrices_weight(const genus_t genus, const weight_rep_t W
   fmpz_mat_clear(nbr_isom);
   fmpz_clear(pa);
   return T;
+}
+
+fmpq_mat_struct* hecke_matrices_weight(const genus_t genus, const weight_rep_t W, const weight_space_t S, int p)
+{
+  return hecke_matrices_weight_impl(genus, W, S, p, true);
+}
+
+fmpq_mat_struct* hecke_matrices_weight_by_neighbor(const genus_t genus, const weight_rep_t W, const weight_space_t S, int p)
+{
+  return hecke_matrices_weight_impl(genus, W, S, p, false);
 }
 
 int print_hecke_matrices_weight(const genus_t genus, int a, int p)
