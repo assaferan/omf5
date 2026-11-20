@@ -167,7 +167,7 @@ The lattices have to be a full set of representatives for the classes of a singl
 
 If the flag -tests is supplied, additionally runs standard tests.
 
-If the flag -nonlifts is supplied, computes eigenvalues only for the forms which are not lifts.
+If the flag -nonlifts is supplied, computes eigenvalues only for the forms which are not lifts. It needs -prec=L, which determines the types of the forms, unless form_idxs is supplied.
 
 Each form is printed with its automorphic type, `aut_rep_type`, which is one of:
 
@@ -176,8 +176,9 @@ Each form is printed with its automorphic type, `aut_rep_type`, which is one of:
 - `Y` - a Yoshida lift,
 - `F` - the Eisenstein series, which is the constant function,
 - `O` - an old form, for which no eigenvector was found. The vector used for it is an eigenvector of one Hecke operator, in a space which the Hecke operators at the primes up to 20 not dividing the discriminant do not split. The eigenvalues printed for it are those of an eigenform only if the vector is an eigenvector of the other operators as well, which is not checked at the primes not dividing the discriminant. It need not be an eigenvector of the operator at a prime p dividing the discriminant, and the number found from it then depends on the vector, which depends on the basis of the lattice. So with -p=p the program computes the matrix of the operator, and prints the eigenvalue of this form only when the operator acts on that space as an element of the field of the form: every vector which could have been used is then an eigenvector, with this eigenvalue. Otherwise no eigenvalue at p is printed for this form, also when form_idxs gives the form the type `G`, and a warning says so. With -square the same is done for T_{p^2}. The matrix takes longer to compute than an eigenvalue does.
+- `U` - not determined, since -prec was not supplied (see below).
 
-A form is taken to be a lift if its L-polynomial factors, in the same way, at each of the primes p not dividing the discriminant with p^2 <= L. If there are fewer than two such primes, or L is not supplied, the first two primes not dividing the discriminant are used. So the types are more reliable when L is larger. For example, for discriminant 249 there is a form which is not a lift, whose L-polynomial factors at 2 and at 5, but not at 7. It is reported as a Yoshida lift, and so is left out when -nonlifts is supplied, unless L is at least 49.
+With -prec=L, a form is taken to be a lift if its L-polynomial factors, in the same way, at each of the primes p not dividing the discriminant with p^2 <= L. If there are fewer than two such primes, the first two primes not dividing the discriminant are used. So the types are more reliable when L is larger. Even then the types `P`, `Y` and `F` say only that the L-polynomial factors in this way at the primes checked: a form which is not a lift can have an L-polynomial which factors at all of them. The function `aut_rep` in scripts/parse_omf.py confirms a type: it looks in the LMFDB for the classical modular forms of which the form would be the lift (for `Y`, newforms f of weight 2 and g of weight 4, of trivial character and levels dividing the discriminant, with T_p = p a_p(f) + a_p(g) at the primes p below a bound, through `check_yoshida`), and returns them. Without -prec, as with -p=p alone, the program computes only what was asked for, and not the eigenvalues at other primes which the types need: the forms which are not old get the type `U`, a warning says so, and -nonlifts, which needs the types, is an error unless -idxs is supplied. For example, for discriminant 249 there is a form which is not a lift, whose L-polynomial factors at 2 and at 5, but not at 7. It is reported as a Yoshida lift, and so is left out when -nonlifts is supplied, unless L is at least 49.
 
 If form_idxs is supplied the lifts are not detected. Instead, the forms at these indices are given the type `G`, and the eigenvalues are computed only for them, whether or not -nonlifts is supplied. The indices are counted over all the conductors, in the order in which the forms are printed, starting from 0. They can be given in any order. An index at which there is no form is ignored, with a warning.
     
@@ -194,6 +195,7 @@ recomputing genus took 0.033674 sec
 The possible conductors are:
 1 61
 The corresponding dimensions are: 8 0
+Warning: without -prec the types of the forms are not determined: they are printed as U, and as O for the old forms. Use -prec=L to determine them.
 constructing eigenvector for poly
 x+7
 constructing eigenvector for poly
@@ -206,9 +208,9 @@ For conductor 1, eigenvectors are:
 1 1 1 1 1 1 1 1 over Number field with defining polynomial x-15
 4*a^5 - 88*a^4 + 700*a^3 - 2448*a^2 + 3648*a - 1880 3*a^4 - 50*a^3 + 272*a^2 - 558*a + 397 4*a^4 - 73*a^3 + 453*a^2 - 1091*a + 867 -2*a^4 + 32*a^3 - 150*a^2 + 172*a + 12 14*a^3 - 194*a^2 + 786*a - 862 -a^5 + 20*a^4 - 147*a^3 + 475*a^2 - 620*a + 241 4*a^3 - 40*a^2 + 96*a - 92 -a^4 + 19*a^3 - 123*a^2 + 329*a - 288 over Number field with defining polynomial x^6-29*x^5+322*x^4-1714*x^3+4471*x^2-5205*x+2026
 For conductor 61, eigenvectors are:
-Found nonlift at total_idx = 0, c = 0, form_idx = 0
-Found lift of type F at total_idx = 1, c = 0, form_idx = 1
-Found lift of type P at total_idx = 2, c = 0, form_idx = 2
+Found form of type U at total_idx = 0, c = 0, form_idx = 0
+Found form of type U at total_idx = 1, c = 0, form_idx = 1
+Found form of type U at total_idx = 2, c = 0, form_idx = 2
 For conductor 1:
 traces of hecke eigenvalues of T_{p^1} are:
 
@@ -234,10 +236,10 @@ For conductor 61:
 Its output on stdout is
 
 ```
-{1 : [{ 'aut_rep_type' : 'G', 'field_poly' : '2  7 1', 'lambda_p' : [], 'lambda_p_square' : [], }, { 'aut_rep_type' : 'F', 'field_poly' : '2  -15 1', 'lambda_p' : [], 'lambda_p_square' : [], }, { 'aut_rep_type' : 'P', 'field_poly' : '7  2026 -5205 4471 -1714 322 -29 1', 'lambda_p' : [], 'lambda_p_square' : [], }, ], 61 : [], }
+{1 : [{ 'aut_rep_type' : 'U', 'field_poly' : '2  7 1', 'lambda_p' : [], 'lambda_p_square' : [], }, { 'aut_rep_type' : 'U', 'field_poly' : '2  -15 1', 'lambda_p' : [], 'lambda_p_square' : [], }, { 'aut_rep_type' : 'U', 'field_poly' : '7  2026 -5205 4471 -1714 322 -29 1', 'lambda_p' : [], 'lambda_p_square' : [], }, ], 61 : [], }
 ```
 
-so that the first form is not a lift, the second is the Eisenstein series, and the third is a Galois orbit of 6 Saito-Kurokawa lifts.
+Without -prec the types of the forms are not determined, so all three have the type `U`. With -prec=100, as in the next example, they are `G`, `F` and `P`: the first form is not a lift, the second is the Eisenstein series, and the third is a Galois orbit of 6 Saito-Kurokawa lifts.
 
 2. Hecke eigenvalues, for primes up to 100. The output to stderr starts as in the previous example, and continues with:
 

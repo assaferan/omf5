@@ -46,7 +46,8 @@ typedef enum {
   // we see them in the spaces of orthogonal modular forms, but they do not correspond to paramodular forms
   P,
   F,
-  O // oldform
+  O, // oldform
+  U // undetermined: without -prec the program does not compute the eigenvalues it would need
 } aut_type;
 
 /****************************************************************

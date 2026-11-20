@@ -314,7 +314,10 @@ STATUS test_genus(genus_t genus, const example_genus_t ex)
   return SUCCESS;
 }
 
-STATUS test_evs(const genus_t genus, const example_evs_t ex, bool nonlifts, int num_idxs, const int* idxs)
+// If set_types is false the lifts are not detected, since that needs the eigenvalues at primes which
+// were not asked for: the forms which are not old get the type U. nonlifts needs the types.
+STATUS test_evs(const genus_t genus, const example_evs_t ex, bool nonlifts, int num_idxs, const int* idxs,
+		bool set_types)
 {
   int form_idx, k, i;
   slong c, c2, num_conductors;
@@ -330,7 +333,7 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex, bool nonlifts, int 
   // The matrices at the primes dividing the discriminant, see test_eigenvalues
   fmpq_mat_t** bad_hecke[2];
 
-  char lift_types[5] = {'G', 'Y', 'P', 'F', 'O'};
+  char lift_types[6] = {'G', 'Y', 'P', 'F', 'O', 'U'};
 
   num_conductors = genus->num_conductors;
   for (c = 1; c < num_conductors; c++)
@@ -386,9 +389,15 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex, bool nonlifts, int 
   has_spinor = false;
   total_idx = 0;
   for (c = 0; c < num_conductors; c++) {
-    if (num_idxs == 0)
+    if ((num_idxs == 0) && set_types)
       // No indices were given, so detect the lifts.
       eigenvalues_set_lifts(evs[c], num_lift_ps, c, genus);
+    else if (num_idxs == 0) {
+      // The types are not determined; the old forms are known without them.
+      for (form_idx = 0; form_idx < evs[c]->num; form_idx++)
+	if (evs[c]->lift_type[form_idx] != O)
+	  evs[c]->lift_type[form_idx] = U;
+    }
     else
       // The forms at the given indices are taken to be the nonlifts,
       // and all the others are skipped. The indices can be in any order.
@@ -420,6 +429,9 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex, bool nonlifts, int 
 	else if (evs[c]->lift_type[form_idx] == O)
 	  // an old form
 	  fprintf(stderr, "Found form of type O");
+	else if (evs[c]->lift_type[form_idx] == U)
+	  // without -prec the type is not determined
+	  fprintf(stderr, "Found form of type U");
 	else
 	  fprintf(stderr, "Found lift of type %c", lift_types[evs[c]->lift_type[form_idx]]);
 	fprintf(stderr, " at total_idx = %d", total_idx);
@@ -714,7 +726,7 @@ STATUS test_61()
   
   example_evs_init_61(ex_61_evs);
   // Check all the forms, lifts included.
-  ret = test_evs(genus, ex_61_evs, false, 0, NULL);
+  ret = test_evs(genus, ex_61_evs, false, 0, NULL, true);
   example_evs_clear(ex_61_evs, genus->num_conductors);
 
   genus_clear(genus);
@@ -831,7 +843,7 @@ STATUS test_69()
   
   example_evs_init_69(ex_69_evs);
   // Check all the forms, lifts included.
-  ret = test_evs(genus, ex_69_evs, false, 0, NULL);
+  ret = test_evs(genus, ex_69_evs, false, 0, NULL, true);
   example_evs_clear(ex_69_evs, genus->num_conductors);
 
   genus_clear(genus);
@@ -2097,7 +2109,7 @@ STATUS compute_eigenvectors(const genus_t genus, bool nonlifts, int num_idxs, co
 
   example_evs_init(dummy, genus->num_conductors, NULL, num_ps, NULL, NULL);
   
-  ret = test_evs(genus, dummy, nonlifts, num_idxs, idxs);
+  ret = test_evs(genus, dummy, nonlifts, num_idxs, idxs, false);
   example_evs_clear(dummy, genus->num_conductors);
 
   return ret;
@@ -2117,7 +2129,7 @@ STATUS compute_eigenvalues(const genus_t genus, int p, bool square, bool nonlift
 
   example_evs_init(dummy, genus->num_conductors, NULL, num_ps, ps, NULL);
   
-  ret = test_evs(genus, dummy, nonlifts, num_idxs, idxs);
+  ret = test_evs(genus, dummy, nonlifts, num_idxs, idxs, false);
   example_evs_clear(dummy, genus->num_conductors);
 
   return ret;
@@ -2139,7 +2151,7 @@ STATUS compute_eigenvalues_up_to(const genus_t genus, int prec, bool nonlifts, i
   // num_ps[1] = primes_up_to_prime_to(&(ps[1]), floor(sqrt(prec)), 1);
   
   example_evs_init(dummy, genus->num_conductors, NULL, num_ps, (const int**)ps, NULL);
-  ret = test_evs(genus, dummy, nonlifts, num_idxs, idxs);
+  ret = test_evs(genus, dummy, nonlifts, num_idxs, idxs, true);
   example_evs_clear(dummy, genus->num_conductors);
 
   free(ps[0]);
