@@ -253,6 +253,37 @@ bool fq_nmod_quad_isotropic_vector_p2(fq_nmod_mat_t vec, const fq_nmod_mat_t q, 
   return true;
 }
 
+/* Sets x to a pseudo-random element of F from the state *seed, which it advances: the coefficients
+   of x in the powers of the generator of F are the high bits of a 64-bit linear congruential
+   generator, modulo the characteristic. A fixed seed gives the same elements in every run, on
+   every version of flint (whose random state was renamed in 3.2). */
+static void fq_nmod_rand_seeded(fq_nmod_t x, ulong* seed, const fq_nmod_ctx_t F)
+{
+  fq_nmod_t pw, gen, t;
+  slong k, deg;
+  ulong p;
+
+  deg = fq_nmod_ctx_degree(F);
+  p = FQ_NMOD_CTX_PRIME_UI(F);
+  fq_nmod_init(pw, F);
+  fq_nmod_init(gen, F);
+  fq_nmod_init(t, F);
+  fq_nmod_one(pw, F);
+  fq_nmod_gen(gen, F);
+  fq_nmod_zero(x, F);
+  for (k = 0; k < deg; k++) {
+    *seed = (*seed) * UWORD(6364136223846793005) + UWORD(1442695040888963407);
+    fq_nmod_mul_ui(t, pw, ((*seed) >> 33) % p, F);
+    fq_nmod_add(x, x, t, F);
+    fq_nmod_mul(pw, pw, gen, F);
+  }
+  fq_nmod_clear(pw, F);
+  fq_nmod_clear(gen, F);
+  fq_nmod_clear(t, F);
+
+  return;
+}
+
 bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q,
 				   const fq_nmod_ctx_t F, slong start, bool deterministic)
 {
@@ -260,7 +291,7 @@ bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q,
   slong row, col, i, j, k, dim, n;
   fq_nmod_t a, b, c, d, ac, scalar;
   fmpz_t p, x, y;
-  flint_rand_t state;
+  ulong seed = 1;
   bool nonzero;
 
   n = fq_nmod_mat_nrows(q, F);
@@ -531,7 +562,7 @@ bool fq_nmod_quad_isotropic_vector(fq_nmod_mat_t vec, const fq_nmod_mat_t q,
     do {
       do {
 	for (i = 0; i < 2; i++)
-	  fq_nmod_randtest(fq_nmod_mat_entry(v,0,i),state,F);
+	  fq_nmod_rand_seeded(fq_nmod_mat_entry(v,0,i), &seed, F);
       } while(fq_nmod_is_zero(fq_nmod_mat_entry(v,0,0),F) && fq_nmod_is_zero(fq_nmod_mat_entry(v,0,1),F));
       // d = -(a*v[0]*v[0] + b*v[1]*v[1])/c;
       fq_nmod_sqr(scalar,fq_nmod_mat_entry(v,0,0),F);
