@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <inttypes.h>
 #include <limits.h>
+#include <math.h>
 #include <stdlib.h>
 
 #include <flint/nmod_mat.h>
@@ -1021,6 +1022,87 @@ static bool fmpz_mat_greedy(fmpz_mat_t red, fmpz_mat_t t)
   fmpz_clear(red_max);
 
   return is_replaced;
+}
+
+/* Whether the basis of the positive definite gram matrix q is far from reduced: whether the
+   product of its diagonal entries is more than ORTHO_DEFECT_MAX times its determinant. This
+   orthogonality defect is at least 1, it is small for a reduced basis, and it bounds the ratio of
+   the largest diagonal entry to the largest of the successive minima. CARAT lists the vectors up to
+   the largest diagonal entry, so a large defect makes its searches slow and needs much memory. It
+   is found in floating point, which is enough for this comparison, and is cheaper than a reduction. */
+#define ORTHO_DEFECT_MAX 64.0
+bool square_matrix_is_far_from_reduced(const square_matrix_t q)
+{
+  double a[QF_RANK][QF_RANK], det, prod, f, tmp;
+  int i, j, k, piv;
+
+  prod = 1;
+  for (i = 0; i < QF_RANK; i++) {
+    prod *= (double)q[i][i];
+    for (j = 0; j < QF_RANK; j++)
+      a[i][j] = (double)q[i][j];
+  }
+
+  det = 1;
+  for (k = 0; k < QF_RANK; k++) {
+    piv = k;
+    for (i = k + 1; i < QF_RANK; i++)
+      if (fabs(a[i][k]) > fabs(a[piv][k]))
+	piv = i;
+    if (a[piv][k] == 0)
+      return true;
+    if (piv != k)
+      for (j = 0; j < QF_RANK; j++) {
+	tmp = a[k][j]; a[k][j] = a[piv][j]; a[piv][j] = tmp;
+      }
+    det *= a[k][k];
+    for (i = k + 1; i < QF_RANK; i++) {
+      f = a[i][k] / a[k][k];
+      for (j = k; j < QF_RANK; j++)
+	a[i][j] -= f * a[k][j];
+    }
+  }
+
+  return !(prod <= ORTHO_DEFECT_MAX * fabs(det));
+}
+
+/* Sets res to t1 * m * t2^(-1), for t1 and t2 of determinant 1 or -1, when its entries fit in 64
+   bits. If s^T * r1 * s = r2 for r1 = t1^T * q1 * t1 and r2 = t2^T * q2 * t2, then res^T * q1 * res =
+   q2 for res = t1 * s * t2^(-1): an isometry between reductions of two lattices gives one between the
+   lattices. The entries of t1 and t2 can be large when those of res are not, so the product is found
+   with big integers. Returns false, and leaves res as it is, when res does not fit. */
+bool square_matrix_change_basis_fits(square_matrix_t res, const fmpz_mat_t t1, const square_matrix_t m,
+				     const fmpz_mat_t t2)
+{
+  fmpz_mat_t M, P, t2_inv;
+  fmpz_t den;
+  slong i, j;
+  bool fits;
+
+  fmpz_mat_init_set_square_matrix(M, m);
+  fmpz_mat_init(P, QF_RANK, QF_RANK);
+  fmpz_mat_init(t2_inv, QF_RANK, QF_RANK);
+  fmpz_init(den);
+
+  // the inverse of t2 is t2_inv / den with den = 1 or -1, so it is t2_inv * den
+  fits = fmpz_mat_inv(t2_inv, den, t2) && fmpz_is_pm1(den);
+  if (fits) {
+    fmpz_mat_scalar_mul_fmpz(t2_inv, t2_inv, den);
+    fmpz_mat_mul(P, t1, M);
+    fmpz_mat_mul(P, P, t2_inv);
+    for (i = 0; fits && (i < QF_RANK); i++)
+      for (j = 0; fits && (j < QF_RANK); j++)
+	fits = fmpz_fits_si(fmpz_mat_entry(P, i, j));
+  }
+  if (fits)
+    square_matrix_set_fmpz_mat(res, P);
+
+  fmpz_mat_clear(M);
+  fmpz_mat_clear(P);
+  fmpz_mat_clear(t2_inv);
+  fmpz_clear(den);
+
+  return fits;
 }
 
 /* Replace the gram matrix q by a reduction of it, when the largest diagonal entry of the reduction

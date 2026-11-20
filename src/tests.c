@@ -6,6 +6,7 @@
 #include <flint/nmod_mat.h>
 
 #include "arith.h"
+#include "aut_grp.h"
 #include "eigenvalues.h"
 #include "genus.h"
 #include "hecke.h"
@@ -907,6 +908,48 @@ static STATUS test_reduce_not_symmetric(const Z64* Q_coeffs)
   return ret;
 }
 
+// Tests is_isometric and aut_grp_init_square_matrix on the lattice with the coefficients Q_coeffs,
+// whose basis is far from reduced, and the one with the coefficients ref_coeffs, which is isometric
+// to it in a reduced basis. CARAT alone would list the vectors up to the largest diagonal entry of
+// the first one, which is too many, or overflow. The isometries in both directions have to be found
+// in the bases given, and the automorphism groups have to have the same order, with generators
+// which are automorphisms of the lattice in the basis given.
+static STATUS test_far_from_reduced_of(const Z64* Q_coeffs, const Z64* ref_coeffs)
+{
+  square_matrix_t Q, ref;
+  isometry_t s;
+  aut_grp_t grp, ref_grp;
+  STATUS ret;
+  slong i;
+
+  square_matrix_init_set_symm(Q, Q_coeffs, "GG");
+  square_matrix_init_set_symm(ref, ref_coeffs, "GG");
+
+  ret = (square_matrix_is_far_from_reduced(Q) && !square_matrix_is_far_from_reduced(ref)) ? SUCCESS : FAIL;
+
+  if (!is_isometric(s, Q, ref) || !isometry_is_isom(s, Q, ref))
+    ret = FAIL;
+  if (!is_isometric(s, ref, Q) || !isometry_is_isom(s, ref, Q))
+    ret = FAIL;
+
+  aut_grp_init_square_matrix(grp, Q);
+  aut_grp_init_square_matrix(ref_grp, ref);
+  if (grp->order != ref_grp->order)
+    ret = FAIL;
+  for (i = 0; i < grp->num_gens; i++) {
+    isometry_init_set_square_matrix(s, grp->gens[i], 1);
+    if (!isometry_is_isom(s, Q, Q))
+      ret = FAIL;
+  }
+  aut_grp_clear(grp);
+  aut_grp_clear(ref_grp);
+
+  square_matrix_clear(Q);
+  square_matrix_clear(ref);
+
+  return ret;
+}
+
 STATUS test_reduce()
 {
   STATUS ret;
@@ -947,6 +990,11 @@ STATUS test_reduce()
   ret |= test_reduce_of(Q2_31, Q2, 16);
   ret |= test_reduce_of(Q2_31b, Q2, 16);
   ret |= test_reduce_of(Q3, Q3, 6);
+  ret |= test_far_from_reduced_of(Q_long, Q);
+  ret |= test_far_from_reduced_of(Q_31, Q);
+  ret |= test_far_from_reduced_of(Q_61, Q);
+  ret |= test_far_from_reduced_of(Q2_19, Q2);
+  ret |= test_far_from_reduced_of(Q2_31, Q2);
 
   return ret;
 }
