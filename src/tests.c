@@ -722,6 +722,97 @@ STATUS test_61()
   return ret;
 }
 
+// Tests the forms of weight (a, 0) on the lattice with the coefficients Q_coeffs: the space of the
+// conductor index c has dimension dim, and T_p has trace tr on it (with the normalization p^a).
+static STATUS test_weight_of(const Z64* Q_coeffs, int a, slong c, slong dim, int p, slong tr)
+{
+  genus_t genus;
+  weight_rep_t W;
+  weight_space_t S;
+  fmpq_mat_struct* T;
+  fmpq_t trace;
+  slong i;
+  STATUS ret;
+
+  compute_genus(genus, Q_coeffs, "GG", false);
+  weight_rep_init(W, a, genus->genus_reps->keys[0]);
+  weight_space_init(S, genus, W);
+  ret = (S->dims[c] == dim) ? SUCCESS : FAIL;
+  if (ret == SUCCESS) {
+    T = hecke_matrices_weight(genus, W, S, p);
+    fmpq_init(trace);
+    fmpq_mat_trace(trace, T + c);
+    if (fmpq_cmp_si(trace, tr) != 0)
+      ret = FAIL;
+    fmpq_clear(trace);
+    for (i = 0; i < genus->num_conductors; i++)
+      fmpq_mat_clear(T + i);
+    free(T);
+  }
+  weight_space_clear(S);
+  weight_rep_clear(W);
+  genus_clear(genus);
+  return ret;
+}
+
+// The Hecke matrices of the weight (a, 0) by orbits of the automorphisms and neighbor by neighbor
+// have to be the same, at every conductor.
+static STATUS test_weight_orbits_of(const Z64* Q_coeffs, int a, int p)
+{
+  genus_t genus;
+  weight_rep_t W;
+  weight_space_t S;
+  fmpq_mat_struct *T1, *T2;
+  slong c;
+  STATUS ret;
+
+  compute_genus(genus, Q_coeffs, "GG", false);
+  weight_rep_init(W, a, genus->genus_reps->keys[0]);
+  weight_space_init(S, genus, W);
+  T1 = hecke_matrices_weight(genus, W, S, p);
+  T2 = hecke_matrices_weight_by_neighbor(genus, W, S, p);
+  ret = SUCCESS;
+  for (c = 0; c < genus->num_conductors; c++) {
+    if (!fmpq_mat_equal(T1 + c, T2 + c))
+      ret = FAIL;
+    fmpq_mat_clear(T1 + c);
+    fmpq_mat_clear(T2 + c);
+  }
+  free(T1);
+  free(T2);
+  weight_space_clear(S);
+  weight_rep_clear(W);
+  genus_clear(genus);
+  return ret;
+}
+
+// Weights (1, 0) and (2, 0): the values are those of Magma's ModFrmAlg (core,
+// test/Geometry/ModFrmAlg/Rank5Disc83Wt4.m for D = 83), times p^a.
+STATUS test_weight()
+{
+  STATUS ret;
+  // D = 83, the first lattice of the data
+  Z64 Q83[15] = {1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2};
+  // D = 124: four conductors 1, 2, 31, 62, each with forms of weight (1, 0)
+  Z64 Q124[15] = {1,0,1,0,-1,1,1,0,0,2,0,-1,2,-1,3};
+  // D = 61, the lattice of the data with the diagonal 2, 2, 2, 2, 16
+  Z64 Q61[15] = {1,0,0,1,1,1,0,1,0,1,0,0,1,0,8};
+  // D5, of discriminant 2, whose genus has one class
+  Z64 QD5[15] = {1,-1,0,0,0,1,-1,0,0,1,-1,-1,1,0,1};
+
+  ret = test_weight_of(Q83, 1, 0, 1, 2, -17);
+  ret |= test_weight_of(Q83, 1, 0, 1, 3, -23);
+  ret |= test_weight_of(Q124, 1, 0, 1, 3, -28);
+  ret |= test_weight_of(Q124, 1, 3, 1, 3, 0);
+  ret |= test_weight_of(Q61, 2, 0, 31, 3, 1527);
+  ret |= test_weight_orbits_of(Q124, 1, 3);
+  ret |= test_weight_orbits_of(Q61, 2, 3);
+  // D5, whose automorphisms (3840 of them) are found in different orders for different lines
+  ret |= test_weight_orbits_of(QD5, 4, 5);
+
+  return ret;
+}
+
 STATUS test_69()
 {
   example_genus_t ex_69_genus;

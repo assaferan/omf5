@@ -96,7 +96,7 @@ which runs the same examples and checks their traces, types, errors and Hecke ma
 The executable is src/omf5.
 It runs with command-line arguments as follows
 
-src/omf5 [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-row] [-p=p] [-square] [-genus=g] [-isom] [-disc=d] [-cond=c] [-nonlifts] [-idxs=form_idxs] [-noreduce]
+src/omf5 [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-row] [-p=p] [-square] [-genus=g] [-isom] [-disc=d] [-cond=c] [-nonlifts] [-idxs=form_idxs] [-noreduce] [-weight=a]
 
 where the  arguments are:
 
@@ -130,6 +130,8 @@ the first prime not dividing the discriminant.
 If the flag -row is supplied in addition to -hecke, computes a single row.
 
 If the flag -square is supplied in addition to -p=p, computes also the eigenvalues of T_{p^2}, the Hecke operator of the p^2-neighbors, and with -hecke its Hecke matrix instead of that of T_p. It is not used with -prec or with -row.
+
+If the flag -weight=a is supplied with a > 0, the forms have the weight (a, 0): their values are the polynomials of degree a in 5 variables which are harmonic for the inverse of the Gram matrix of the first lattice, on which an isometry g acts by f -> det(g)^a f(g^(-1) x). The factor det(g)^a makes -1 act trivially, so these are the forms of the special orthogonal group, as in Magma's `OrthogonalModularForms(L : weight := [a,0], Special := true)`. For now it is supported only with -hecke and -p=p, for p which does not divide the discriminant. The Hecke matrices are printed for each conductor, as without the weight, with rational entries, and T_p is normalized by p^a, which makes its eigenvalues algebraic integers: on the lattice of discriminant 83, the first eigenvalues with the weight (1, 0) are T_2 = -17 and T_3 = -23, which are p times those of Magma. A line on the standard error gives the dimension of the space of each conductor.
 
 The prime p may divide the discriminant. The Hecke matrix is then that of the p-neighbors, and the character of a conductor divisible by p is found at the isometries to the p-neighbors, which are not integral at p, as follows. When p divides the discriminant exactly once, it is given by the parity of the valuation at p of the spinor norm. When p^2 divides the discriminant and the radical of the lattice modulo p is a line, the lattice and its p-neighbors have the same radical modulo p, the isometry acts on it by a sign, and the character is this sign. The Hecke matrices are then those of HeckeOperator in the package ModFrmAlg of Magma.
 

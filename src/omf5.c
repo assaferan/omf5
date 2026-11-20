@@ -24,6 +24,7 @@
 
 #include "io.h"
 #include "tests.h"
+#include "weight.h"
 
 #define MAX_STR_LEN 256 // used to prevent buffer overflow from input
 
@@ -131,7 +132,8 @@ int main(int argc, char* argv[])
   bool do_tests, is_valid, is_prec, is_format, is_p, is_c, is_genus, is_disc, is_idxs;
   bool has_quad, has_format, has_prec, has_p, has_hecke, has_c;
   bool has_genus, has_disc, has_large, has_row, has_isom, has_nonlifts, has_idxs, has_square;
-  bool has_noreduce;
+  bool has_noreduce, has_weight, is_weight;
+  int weight;
   int i, j;
   genus_t genus;
   int* idxs;
@@ -151,7 +153,8 @@ int main(int argc, char* argv[])
   do_tests = false;
   has_quad = has_format = has_prec  = has_p = has_hecke = has_c = false;
   has_row = has_genus = has_disc = has_large = has_isom = has_nonlifts = has_idxs = false;
-  has_square = has_noreduce = false;
+  has_square = has_noreduce = has_weight = false;
+  weight = 0;
   
   for (i = 1; i < argc; i++) {
     is_valid = false;
@@ -241,6 +244,15 @@ int main(int argc, char* argv[])
     if (is_p)
       has_p = true;
 
+    is_weight = handle_flag_int("weight", argv[i], &weight);
+    if ((is_weight) && (weight < 0)) {
+      fprintf(stderr, "Error: the weight in %s is negative\n", argv[i]);
+      is_weight = false;
+    }
+    is_valid = (is_valid) || (is_weight);
+    if (is_weight)
+      has_weight = true;
+
     is_c = handle_flag_int("cond", argv[i], &c);
     is_valid = (is_valid) || (is_c);
     if (is_c)
@@ -303,6 +315,8 @@ int main(int argc, char* argv[])
     test_res |= test_61();
     test_res <<= 1;
     test_res |= test_69();
+    test_res <<= 1;
+    test_res |= test_weight();
   }
 
   if (has_quad && has_format)
@@ -315,7 +329,18 @@ int main(int argc, char* argv[])
   if (has_genus && fmpz_is_even(genus->disc) && !spinor_has_prime(genus->spinor, 2))
     fprintf(stderr, "Warning: the bilinear form of the lattice is 0 modulo 2. The forms whose conductor is even are not computed.\n");
 
-  if (has_genus) {
+  if (has_genus && has_weight && (weight > 0)) {
+    // weights (a, 0) with a > 0: only the Hecke matrices, for now
+    if (!(has_hecke && has_p) || has_prec || has_row || has_square || has_c || has_large || has_isom ||
+	has_nonlifts || has_idxs) {
+      fprintf(stderr, "Error: a nonzero -weight is supported only with -hecke and -p, without -prec, -row, -square, -cond, -large, -isom, -nonlifts and -idxs\n");
+      genus_clear(genus);
+      return EXIT_FAILURE;
+    }
+    test_res <<= 1;
+    test_res |= print_hecke_matrices_weight(genus, weight, p);
+  }
+  else if (has_genus) {
     test_res <<= 1;
     if (has_prec)
       test_res |= compute_eigenvalues_up_to(genus, prec, has_nonlifts, num_idxs, idxs);
@@ -482,7 +507,7 @@ bool handle_flag_int_seq(const char* flag_name, const char* param_str, int** fla
 
 int print_param_desc(char* argv[])
 {
-  fprintf(stderr, "Usage: %s [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-row] [-p=p] [-square] [-genus=g] [-isom] [-disc=d] [-cond=c] [-nonlifts] [-idxs=form_idxs] [-noreduce] \n", argv[0]);
+  fprintf(stderr, "Usage: %s [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-row] [-p=p] [-square] [-genus=g] [-isom] [-disc=d] [-cond=c] [-nonlifts] [-idxs=form_idxs] [-noreduce] [-weight=a] \n", argv[0]);
   fprintf(stderr, "The genus can be specified in one of two ways. Either via Q and f - \n");
   fprintf(stderr, "[Q] is the quinary quadratic form (lattice) given as 15 comma-separated integers in a format specified by f,\n");
   fprintf(stderr, "[f] is either 'GG' or 'A', the former for the format in Rama-Toranria webpage, the latter for the Magma format,\n");
@@ -501,5 +526,6 @@ int print_param_desc(char* argv[])
   fprintf(stderr, "If the flag -tests is supplied, additionally runs standard tests.\n");
   fprintf(stderr, "If the flag -nonlifts is supplied, computes eigenvalues only for the forms which are not lifts.\n");
   fprintf(stderr, "If the flag -noreduce is supplied, the lattice Q, or the lattices of the genus file, are used in the bases in which they are given. Otherwise a basis is reduced when this lowers the largest diagonal entry of the Gram matrix.\n");
+  fprintf(stderr, "If the flag -weight=a is supplied with a > 0, computes the forms of weight (a, 0) of the special orthogonal group, for now only with -hecke and -p=p for p not dividing the discriminant. T_p is normalized by p^a, so its eigenvalues are algebraic integers.\n");
   return -1;
 }
