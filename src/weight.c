@@ -772,7 +772,9 @@ static fmpq_mat_struct* hecke_matrices_weight_impl(const genus_t genus, const we
     fmpq_mat_init(T + c, S->dims[c], S->dims[c]);
 
   fmpz_init(pa);
-  fmpz_ui_pow_ui(pa, p, W->a);
+  // fmpz_ui_pow_ui is not in flint 2.9
+  fmpz_set_ui(pa, p);
+  fmpz_pow_ui(pa, pa, W->a);
   fmpq_mat_init(R, W->dim, W->dim);
   fmpq_mat_init(M, W->dim, W->dim);
   fmpz_mat_init(nbr_fmpz, QF_RANK, QF_RANK);
