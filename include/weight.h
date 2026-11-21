@@ -107,4 +107,11 @@ fmpq_mat_struct* hecke_matrices_weight_by_neighbor(const genus_t genus, const we
 // Prints the matrices of hecke_matrices_weight as omf5 -hecke does, {c : [[...], ...], ...}
 int print_hecke_matrices_weight(const genus_t genus, int a, int p);
 
+// Prints the eigenforms of the weight (a, 0) of each conductor, with their eigenvalues at the primes ps
+// (which have to be prime to the discriminant), as omf5 -prec does: {c : [{ 'aut_rep_type' : ...,
+// 'field_poly' : ..., 'lambda_p' : [...], 'lambda_p_square' : [], }, ...], ...}. The types are not
+// determined: U, or O for an old form. An eigenvalue is 'NULL' when the vector of the form is not an
+// eigenvector of that operator, which can happen only for an old form.
+int print_eigenvalues_weight(const genus_t genus, int a, const int* ps, int num_ps);
+
 #endif // __WEIGHT_H__
