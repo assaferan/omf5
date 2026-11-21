@@ -1293,7 +1293,7 @@ void hecke_eigenforms(eigenvalues_t evs, const decomposition_t D, const genus_t 
   slong i, j, p_idx;
   bool ev_init;
 
-  eigenvalues_init(evs, D->num[c], genus->dims[c]);
+  eigenvalues_init(evs, D->num[c], (D->dims != NULL) ? D->dims[c] : genus->dims[c]);
   
   for (i = 0; i < D->num[c]; i++) {
     p_idx = 0;
