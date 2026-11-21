@@ -152,7 +152,8 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
   fmpq_init(trace);
 
   // When no eigenvector was found for the form, the vector we have is an
-  // eigenvector of the last Hecke operator of the decomposition, in a space
+  // eigenvector of the Hecke operator of the decomposition chosen in
+  // hecke_eigenforms (the one with the largest irreducible factor), in a space
   // which the operators of the decomposition, at primes not dividing the
   // discriminant, do not split. It need not be an eigenvector of the operator
   // at a prime dividing the discriminant, and the number found from it then

@@ -73,8 +73,12 @@ typedef enum {
  *     + lift_type (aut_type*) - automorphic type of the form
  *     + is_old (bool*) - whether no eigenvector was found for
  *                        the form. The vector is then an
- *                        eigenvector of the last operator of
- *                        the decomposition, in a space which
+ *                        eigenvector of the operator of the
+ *                        decomposition whose irreducible
+ *                        factor on the space has the largest
+ *                        degree (the last one, unless an
+ *                        earlier one has a factor of larger
+ *                        degree), in a space which
  *                        the operators of the decomposition
  *                        do not split, and it need not be an
  *                        eigenvector of the other Hecke
@@ -85,7 +89,8 @@ typedef enum {
  *                        was not split. Not initialized for
  *                        the other forms.
  *     + old_hecke (fmpq_mat_t*) - for a form with is_old, the
- *                        last operator of the decomposition
+ *                        operator of the decomposition of
+ *                        which the vector is an eigenvector,
  *                        on that space, in that basis. The
  *                        generator of the field of the form
  *                        acts on the space as this matrix.
