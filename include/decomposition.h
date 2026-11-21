@@ -46,12 +46,21 @@
  ****************************************************************
  */
 
+// A source of Hecke matrices other than the genus: sets hecke[c], for each conductor index c, to the
+// matrix of T_p on the space of conductor c (the matrices are initialized by it).
+typedef void (*hecke_source_t)(fmpq_mat_t* hecke, const genus_t genus, int p, void* data);
+
 typedef struct {
   fmpq_mat_t** bases; // bases for the vector spaces, by conductor
   fmpq_mat_t** hecke;
   slong* num; // number of elements in the decomposition, by conductor
   slong num_primes;
   slong num_conductors;
+  // If source is not NULL, the Hecke matrices come from it, and the spaces have the dimensions
+  // dims, as for the forms of a weight; otherwise from the genus, with the dimensions genus->dims.
+  hecke_source_t source;
+  void* source_data;
+  const slong* dims;
 } decomposition_struct;
 
 typedef decomposition_struct decomposition_t[1];

@@ -685,4 +685,13 @@ check_matrix disc336-p3-hecke-basis '2 : \[\[-4\]\],3 : \[\],6 : \[\[2\]\],7 : \
 check_matrix disc48-p3-hecke '{1 : \[\[30\]\],2 : \[\],3 : \[\],6 : \[\[-10\]\]}' -quad=5,-2,0,2,2,1,1,-1,1,3,-2,1,3,-1,1 -format=GG -hecke -p=3
 check_matrix disc48-p3-hecke-basis '{1 : \[\[30\]\],2 : \[\],3 : \[\],6 : \[\[-10\]\]}' -quad=24,-3,114,102,-6,5,-19,-14,6,143,252,-22,112,-16,4 -format=GG -hecke -p=3 -noreduce
 
+# Forms of weight (1, 0) on the lattice of discriminant 83: T_p for the primes up to 29 are p times the
+# eigenvalues of Magma (core, test/Geometry/ModFrmAlg/Rank5Disc83Wt4.m). Without -prec the types are
+# not determined.
+check_matrix weight1-disc83-hecke '{1 : \[\[-17\]\],83 : ' -quad=1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2 -format=GG -hecke -p=2 -weight=1
+check_output weight1-disc83-prec "{1 : \[{ 'aut_rep_type' : 'U', 'field_poly' : '2  17 1', 'lambda_p' : \['-17','-23','-36','-124','-359','-288','464','1302','252','-4134',\]" -quad=1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2 -format=GG -prec=30 -weight=1
+# D5, whose genus has one class, with the weight (4, 0): 81 T_3 = 1224 as in Magma, and T_5 = 23580
+check_output weight4-d5-p5 "'field_poly' : '2  -1224 1', 'lambda_p' : \['23580',\]" -quad=1,-1,0,0,0,1,-1,0,0,1,-1,-1,1,0,1 -format=GG -p=5 -weight=4
+check_error weight-square "a nonzero -weight is supported only with" -quad=1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2 -format=GG -p=2 -square -weight=1
+
 exit $status

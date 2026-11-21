@@ -33,6 +33,9 @@ void decomposition_init(decomposition_t decomp, slong num)
   decomp->hecke = (fmpq_mat_t**)malloc(0*sizeof(fmpq_mat_t*));
   decomp->num_primes = 0;
   decomp->num_conductors = num;
+  decomp->source = NULL;
+  decomp->source_data = NULL;
+  decomp->dims = NULL;
   
   return;
 }
@@ -99,7 +102,10 @@ bool decomposition_finite_subspace(decomposition_t decomp, const genus_t genus, 
     (decomp->num_primes)++;
     decomp->hecke = (fmpq_mat_t**)realloc(decomp->hecke, (decomp->num_primes)*sizeof(fmpq_mat_t*));
     decomp->hecke[idx] = (fmpq_mat_t*)malloc((genus->num_conductors)*sizeof(fmpq_mat_t));
-    get_hecke_fmpq_mat_all_conductors(decomp->hecke[idx], genus, ps[idx], 1);
+    if (decomp->source != NULL)
+      decomp->source(decomp->hecke[idx], genus, ps[idx], decomp->source_data);
+    else
+      get_hecke_fmpq_mat_all_conductors(decomp->hecke[idx], genus, ps[idx], 1);
   }
 #ifdef DEBUG
   fprintf(stderr, "idx = %ld, hecke operator is", idx);
@@ -172,7 +178,7 @@ bool decomposition_finite(decomposition_t decomp, const genus_t genus, const int
   if (num_ps == 0)
     dim = 0;
   else
-    dim = genus->dims[c];
+    dim = (decomp->dims != NULL) ? decomp->dims[c] : genus->dims[c];
 
   fmpq_mat_init(basis_M, dim, dim);
   fmpq_mat_one(basis_M);
