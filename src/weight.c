@@ -933,12 +933,16 @@ typedef struct
 {
   const weight_rep_struct* W;
   const weight_space_struct* S;
+  // the primes of the matrices the decomposition took, in the order of its list D->hecke
+  int* ps;
+  slong num_ps;
 } weight_source_struct;
 
 // The source of Hecke matrices of the decomposition for the forms of a weight: see decomposition.h.
+// It records the prime of each matrix, so that the eigenvalues reuse the matrices of the decomposition.
 static void weight_hecke_source(fmpq_mat_t* hecke, const genus_t genus, int p, void* data)
 {
-  const weight_source_struct* d = (const weight_source_struct*)data;
+  weight_source_struct* d = (weight_source_struct*)data;
   fmpq_mat_struct* T;
   slong c;
 
@@ -948,6 +952,8 @@ static void weight_hecke_source(fmpq_mat_t* hecke, const genus_t genus, int p, v
     fmpq_mat_clear(T + c);
   }
   free(T);
+  d->ps = (int*)realloc(d->ps, (d->num_ps + 1) * sizeof(int));
+  d->ps[d->num_ps++] = p;
   return;
 }
 
@@ -988,6 +994,18 @@ static bool weight_eigenvalue(nf_elem_t ev, const nf_elem_t* v, const fmpq_mat_t
   return is_eigen;
 }
 
+// Sets ev (initialized in the field of the form i of evs) to the eigenvalue of T, the matrix of a
+// Hecke operator on the whole space of the conductor, at the form, and returns true; returns false
+// when it is not defined: when the vector of an old form is not an eigenvector of T, or when T is
+// not an element of the field of the form on its space, so that the number would depend on the
+// vector which was kept.
+static bool weight_form_eigenvalue(nf_elem_t ev, const eigenvalues_t evs, slong i, const fmpq_mat_t T)
+{
+  if (evs->is_old[i] && !ev_is_scalar_on_old_space(evs, i, T))
+    return false;
+  return weight_eigenvalue(ev, (const nf_elem_t*)evs->eigenvecs[i], T, evs->nfs[i]);
+}
+
 int print_eigenvalues_weight(const genus_t genus, int a, const int* ps, int num_ps)
 {
   weight_rep_t W;
@@ -995,9 +1013,11 @@ int print_eigenvalues_weight(const genus_t genus, int a, const int* ps, int num_
   weight_source_struct data;
   decomposition_t D;
   eigenvalues_t* evs;
-  fmpq_mat_struct* T;
-  nf_elem_t ev;
-  slong c, i;
+  fmpq_mat_struct* Tp;
+  // evals[c][i * num_ps + n]: the eigenvalue of the form i of conductor c at ps[n], if has_ev[c][...]
+  nf_elem_t** evals;
+  bool** has_ev;
+  slong c, i, k;
   int n;
 
   for (n = 0; n < num_ps; n++)
@@ -1023,6 +1043,8 @@ int print_eigenvalues_weight(const genus_t genus, int a, const int* ps, int num_
   // the eigenforms, from the decomposition of the spaces of the weight
   data.W = W;
   data.S = S;
+  data.ps = NULL;
+  data.num_ps = 0;
   decomposition_init(D, genus->num_conductors);
   D->source = weight_hecke_source;
   D->source_data = &data;
@@ -1036,16 +1058,40 @@ int print_eigenvalues_weight(const genus_t genus, int a, const int* ps, int num_
       if (evs[c]->lift_type[i] != O)
 	evs[c]->lift_type[i] = U;
   }
-  decomposition_clear(D);
+  assert(data.num_ps == D->num_primes);
 
-  // the eigenvalues, from the Hecke matrices at each prime
-  T = (fmpq_mat_struct*)malloc((num_ps > 0 ? num_ps : 1) * genus->num_conductors * sizeof(fmpq_mat_struct));
-  for (n = 0; n < num_ps; n++) {
-    fmpq_mat_struct* Tp = hecke_matrices_weight(genus, W, S, ps[n]);
-    for (c = 0; c < genus->num_conductors; c++)
-      T[n * genus->num_conductors + c] = Tp[c];
-    free(Tp);
+  // the eigenvalues, one prime at a time: the matrices of the decomposition are used again, and any
+  // other is computed and cleared once its eigenvalues are found
+  evals = (nf_elem_t**)malloc(genus->num_conductors * sizeof(nf_elem_t*));
+  has_ev = (bool**)malloc(genus->num_conductors * sizeof(bool*));
+  for (c = 0; c < genus->num_conductors; c++) {
+    k = (evs[c]->num * num_ps > 0) ? evs[c]->num * num_ps : 1;
+    evals[c] = (nf_elem_t*)malloc(k * sizeof(nf_elem_t));
+    has_ev[c] = (bool*)malloc(k * sizeof(bool));
+    for (i = 0; i < evs[c]->num * num_ps; i++)
+      nf_elem_init(evals[c][i], evs[c]->nfs[i / num_ps]);
   }
+  for (n = 0; n < num_ps; n++) {
+    for (k = 0; (k < data.num_ps) && (data.ps[k] != ps[n]); k++);
+    Tp = (k < data.num_ps) ? NULL : hecke_matrices_weight(genus, W, S, ps[n]);
+    for (c = 0; c < genus->num_conductors; c++) {
+      // D->hecke[k] is an array of fmpq_mat_t, i.e. of one-element arrays of fmpq_mat_struct
+      const fmpq_mat_struct* Tc = (Tp == NULL) ? &(D->hecke[k][c][0]) : Tp + c;
+      for (i = 0; i < evs[c]->num; i++) {
+	has_ev[c][i * num_ps + n] = weight_form_eigenvalue(evals[c][i * num_ps + n], evs[c], i, Tc);
+	if (!has_ev[c][i * num_ps + n])
+	  fprintf(stderr, "Warning: T_%d is not a scalar on the space of the old form %ld of conductor %ld\n",
+		  ps[n], (long)i, (long)genus->conductors[c]);
+      }
+    }
+    if (Tp != NULL) {
+      for (c = 0; c < genus->num_conductors; c++)
+	fmpq_mat_clear(Tp + c);
+      free(Tp);
+    }
+  }
+  decomposition_clear(D);
+  free(data.ps);
 
   printf("{");
   for (c = 0; c < genus->num_conductors; c++) {
@@ -1056,18 +1102,13 @@ int print_eigenvalues_weight(const genus_t genus, int a, const int* ps, int num_
       fmpq_poly_print(evs[c]->nfs[i]->pol);
       printf("', 'lambda_p' : [");
       for (n = 0; n < num_ps; n++) {
-	nf_elem_init(ev, evs[c]->nfs[i]);
-	if (weight_eigenvalue(ev, evs[c]->eigenvecs[i], T + n * genus->num_conductors + c, evs[c]->nfs[i])) {
+	if (has_ev[c][i * num_ps + n]) {
 	  printf("'");
-	  nf_elem_print_pretty(ev, evs[c]->nfs[i], "a");
+	  nf_elem_print_pretty(evals[c][i * num_ps + n], evs[c]->nfs[i], "a");
 	  printf("',");
 	}
-	else {
-	  fprintf(stderr, "Warning: the vector of the form %ld of conductor %ld is not an eigenvector of T_%d\n",
-		  (long)i, (long)genus->conductors[c], ps[n]);
+	else
 	  printf("'NULL',");
-	}
-	nf_elem_clear(ev, evs[c]->nfs[i]);
       }
       printf("], 'lambda_p_square' : [], }, ");
     }
@@ -1075,12 +1116,15 @@ int print_eigenvalues_weight(const genus_t genus, int a, const int* ps, int num_
   }
   printf("}");
 
-  for (n = 0; n < num_ps; n++)
-    for (c = 0; c < genus->num_conductors; c++)
-      fmpq_mat_clear(T + n * genus->num_conductors + c);
-  free(T);
-  for (c = 0; c < genus->num_conductors; c++)
+  for (c = 0; c < genus->num_conductors; c++) {
+    for (i = 0; i < evs[c]->num * num_ps; i++)
+      nf_elem_clear(evals[c][i], evs[c]->nfs[i / num_ps]);
+    free(evals[c]);
+    free(has_ev[c]);
     eigenvalues_clear(evs[c]);
+  }
+  free(evals);
+  free(has_ev);
   free(evs);
   weight_space_clear(S);
   weight_rep_clear(W);
