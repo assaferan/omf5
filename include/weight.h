@@ -64,7 +64,8 @@ void weight_rep_init(weight_rep_t W, int a, int b, const square_matrix_t q0);
 // conditions on the polynomials of bidegree (a, b), and their nullspace. It grows quickly with a and b.
 double weight_rep_matrix_size(int a, int b);
 
-// The largest size for which omf5 computes the forms of a weight: 10^8 entries, about the weight (4, 4).
+// The largest size for which omf5 computes the forms of a weight (a, b) with b > 0: 10^8 entries, about
+// the weight (4, 4). The weights (a, 0) are not limited, as before the weights (a, b).
 #define WEIGHT_MAX_MATRIX_SIZE 1e8
 
 void weight_rep_clear(weight_rep_t W);

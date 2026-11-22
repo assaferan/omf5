@@ -702,6 +702,8 @@ check_output weight2-disc216-old "{ 'aut_rep_type' : 'O', 'field_poly' : '3  437
 # are the 21 forms of 2.K.83.3.2.a in the LMFDB.
 check_output weight11-disc83-p2 "{1 : \[{ 'aut_rep_type' : 'U', 'field_poly' : '16  -11995456 878488032 -287608308 -626609168 216197675 128987273 -51842362 -8874345 5043614 10208 -192324 13580 2479 -269 -6 1', 'lambda_p' : \['a'," -quad=1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2 -format=GG -p=2 -weight=1,1
 check_error weight-too-large "is too large" -quad=1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2 -format=GG -p=2 -weight=5,5
+# the size is computed in closed form, so a huge weight is rejected at once
+check_error weight-huge "is too large" -quad=1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2 -format=GG -p=2 -weight=2147483647,1
 check_error weight-b-greater "is not a or a,b with a >= b >= 0" -quad=1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2 -format=GG -p=2 -weight=1,2
 check_error weight-square "a nonzero -weight is supported only with" -quad=1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2 -format=GG -p=2 -square -weight=1
 

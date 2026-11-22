@@ -375,18 +375,34 @@ static slong weight_target_index(const weight_target_struct* t, const ulong* e)
 
   kx = weight_monomial_index(t->ex, t->nx, e);
   ky = weight_monomial_index(t->ey, t->ny, e + QF_RANK);
-  assert((kx >= 0) && (ky >= 0));
+  // checked in every build: a negative index would write outside the matrix of the conditions
+  if ((kx < 0) || (ky < 0)) {
+    fprintf(stderr, "Error: a monomial of the weight is not in its target bidegree\n");
+    abort();
+  }
   return kx * t->ny + ky;
+}
+
+// The number of monomials of degree d in QF_RANK = 5 variables, C(d + 4, 4), and of bidegree (a, b).
+static double weight_num_monomials(double d)
+{
+  return (d < 0) ? 0 : (d + 1) * (d + 2) * (d + 3) * (d + 4) / 24;
+}
+
+static double weight_num_bimonomials(double a, double b)
+{
+  return weight_num_monomials(a) * weight_num_monomials(b);
 }
 
 double weight_rep_matrix_size(int a, int b)
 {
   double nmons, nrows;
 
-  nmons = (double)weight_bimonomials(NULL, a, b);
-  nrows = ((a >= 2) ? (double)weight_bimonomials(NULL, a - 2, b) : 0) +
-    ((b >= 1) ? (double)weight_bimonomials(NULL, a - 1, b - 1) + (double)weight_bimonomials(NULL, a + 1, b - 1) : 0) +
-    ((b >= 2) ? (double)weight_bimonomials(NULL, a, b - 2) : 0);
+  // in closed form, so that a large weight is rejected at once
+  nmons = weight_num_bimonomials(a, b);
+  nrows = ((a >= 2) ? weight_num_bimonomials(a - 2.0, b) : 0) +
+    ((b >= 1) ? weight_num_bimonomials(a - 1.0, b - 1.0) + weight_num_bimonomials(a + 1.0, b - 1.0) : 0) +
+    ((b >= 2) ? weight_num_bimonomials(a, b - 2.0) : 0);
   return nmons * (nrows + nmons);
 }
 

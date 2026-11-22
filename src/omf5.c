@@ -331,6 +331,15 @@ int main(int argc, char* argv[])
     test_res |= test_weight();
   }
 
+  // a weight (a, b) with b > 0 whose representation is too large is rejected before the genus is computed
+  if (has_weight && (weight_b > 0) && (weight_rep_matrix_size(weight, weight_b) > WEIGHT_MAX_MATRIX_SIZE)) {
+    fprintf(stderr, "Error: the weight (%d, %d) is too large: its representation would need matrices with %.3g entries, more than %.3g\n",
+	    weight, weight_b, weight_rep_matrix_size(weight, weight_b), WEIGHT_MAX_MATRIX_SIZE);
+    if (has_idxs)
+      free(idxs);
+    return EXIT_FAILURE;
+  }
+
   if (has_quad && has_format)
     compute_genus(genus, Q_coeffs, input_type, !has_noreduce);
   else if (has_genus && has_disc)
@@ -348,12 +357,6 @@ int main(int argc, char* argv[])
     if (!(has_p || has_prec) || (has_hecke && !has_p) || (has_hecke && has_prec) || has_row || has_square ||
 	has_c || has_large || has_isom || has_nonlifts || has_idxs) {
       fprintf(stderr, "Error: a nonzero -weight is supported only with -hecke -p=p, with -p=p or with -prec=L, without -row, -square, -cond, -large, -isom, -nonlifts and -idxs\n");
-      genus_clear(genus);
-      return EXIT_FAILURE;
-    }
-    if (weight_rep_matrix_size(weight, weight_b) > WEIGHT_MAX_MATRIX_SIZE) {
-      fprintf(stderr, "Error: the weight (%d, %d) is too large: its representation would need matrices with %.3g entries, more than %.3g\n",
-	      weight, weight_b, weight_rep_matrix_size(weight, weight_b), WEIGHT_MAX_MATRIX_SIZE);
       genus_clear(genus);
       return EXIT_FAILURE;
     }
