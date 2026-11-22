@@ -78,7 +78,10 @@ typedef enum {
  *                        factor on the space has the largest
  *                        degree (the last one, unless an
  *                        earlier one has a factor of larger
- *                        degree), in a space which
+ *                        degree), or of a combination of
+ *                        these operators when its factor has
+ *                        a larger degree still (see
+ *                        hecke_eigenforms), in a space which
  *                        the operators of the decomposition
  *                        do not split, and it need not be an
  *                        eigenvector of the other Hecke
@@ -89,8 +92,9 @@ typedef enum {
  *                        was not split. Not initialized for
  *                        the other forms.
  *     + old_hecke (fmpq_mat_t*) - for a form with is_old, the
- *                        operator of the decomposition of
- *                        which the vector is an eigenvector,
+ *                        operator of the decomposition, or
+ *                        the combination of them, of which
+ *                        the vector is an eigenvector,
  *                        on that space, in that basis. The
  *                        generator of the field of the form
  *                        acts on the space as this matrix.

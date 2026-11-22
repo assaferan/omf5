@@ -153,7 +153,8 @@ STATUS test_eigenvalues(const genus_t genus, const eigenvalues_t evs,
 
   // When no eigenvector was found for the form, the vector we have is an
   // eigenvector of the Hecke operator of the decomposition chosen in
-  // hecke_eigenforms (the one with the largest irreducible factor), in a space
+  // hecke_eigenforms (the one with the largest irreducible factor, or a
+  // combination of them when its factor is larger still), in a space
   // which the operators of the decomposition, at primes not dividing the
   // discriminant, do not split. It need not be an eigenvector of the operator
   // at a prime dividing the discriminant, and the number found from it then
