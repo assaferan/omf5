@@ -27,6 +27,7 @@
 
 #include "arith.h"
 #include "decomposition.h"
+#include "fmpq_poly.h"
 #include "hecke.h"
 #include "matrix_tools.h"
 
@@ -1287,17 +1288,45 @@ void get_hecke_fmpq_mat_all_conductors(fmpq_mat_t* hecke_fmpq_mat, const genus_t
   return;
 }
 
+// The degree of the irreducible factor of the characteristic polynomial of
+// T on the space spanned by the rows of basis_W, or 0 if it has more than one.
+static slong factor_degree_on_subspace(const fmpq_mat_t T, const fmpq_mat_t basis_W)
+{
+  fmpq_mat_t T_W;
+  fmpq_poly_t f;
+  fmpq_poly_factor_t fac;
+  slong deg;
+
+  fmpq_mat_init(T_W, fmpq_mat_nrows(basis_W), fmpq_mat_nrows(basis_W));
+  restrict_mat(T_W, T, basis_W);
+  fmpq_poly_init(f);
+  fmpq_mat_charpoly(f, T_W);
+  fmpq_poly_factor(fac, f);
+  deg = (fac->num == 1) ? fmpq_poly_degree(&(fac->p[0])) : 0;
+  fmpq_poly_factor_clear(fac);
+  fmpq_poly_clear(f);
+  fmpq_mat_clear(T_W);
+
+  return deg;
+}
+
 /* Compute the Hecke eigenformson the space with conductor c, given the decomposition to Hecke subspaces */
 void hecke_eigenforms(eigenvalues_t evs, const decomposition_t D, const genus_t genus, slong c)
 {
-  slong i, j, p_idx;
-  bool ev_init;
+  slong i, j, p_idx, best_idx, best_deg, k;
+  bool ev_init, use_comb;
+  fmpq_mat_t comb, term;
+  fmpz_t coeff;
+  const fmpq_mat_struct* chosen;
 
   eigenvalues_init(evs, D->num[c], (D->dims != NULL) ? D->dims[c] : genus->dims[c]);
   
   for (i = 0; i < D->num[c]; i++) {
     p_idx = 0;
     ev_init = false;
+    best_idx = 0;
+    best_deg = 0;
+    use_comb = false;
     do {
       // The field and the eigenvector are initialized by every attempt,
       // so those of the attempt which failed are cleared before the next one.
@@ -1308,8 +1337,52 @@ void hecke_eigenforms(eigenvalues_t evs, const decomposition_t D, const genus_t 
       }
       ev_init = get_eigenvector_on_subspace(evs->eigenvecs[i], evs->nfs[i],
 					    D->hecke[p_idx][c], D->bases[c][i]);
+      // the operator whose irreducible factor on the space has the largest degree
+      if (fmpq_poly_degree(evs->nfs[i]->pol) > best_deg) {
+	best_deg = fmpq_poly_degree(evs->nfs[i]->pol);
+	best_idx = p_idx;
+      }
       p_idx++;
     } while ((!ev_init) && (p_idx < D->num_primes));
+    // For a space which was not split, the field is taken from the last
+    // operator, unless an earlier one has a factor of larger degree: its
+    // eigenvalues generate more of the field of the forms of the space. When
+    // the space holds Galois conjugate forms with multiplicity, an operator
+    // with a rational eigenvalue on it would give the field Q, and the vector
+    // would not be an eigenvector of the others. When the last operator has
+    // a factor of the largest degree, it is kept, so the output is the same
+    // as before for these forms.
+    // No single operator need generate the field of the forms, as when T_5
+    // gives Q(sqrt 5) and T_7 gives Q(sqrt 2) on a space of dimension 4 whose
+    // forms have the field Q(sqrt 2, sqrt 5). The combination
+    // T_{p_1} + 2 T_{p_2} + ... of the operators of the decomposition then has
+    // a factor of larger degree, and it is used instead. If its factor has
+    // multiplicity one, its eigenvector is an eigenvector of every operator,
+    // and the form is not old.
+    fmpq_mat_init(comb, evs->dim, evs->dim);
+    if (!ev_init) {
+      fmpq_mat_init(term, evs->dim, evs->dim);
+      fmpz_init(coeff);
+      for (k = 0; k < D->num_primes; k++) {
+	fmpz_set_si(coeff, k+1);
+	fmpq_mat_scalar_mul_fmpz(term, D->hecke[k][c], coeff);
+	fmpq_mat_add(comb, comb, term);
+      }
+      fmpz_clear(coeff);
+      fmpq_mat_clear(term);
+      use_comb = (factor_degree_on_subspace(comb, D->bases[c][i]) > best_deg);
+    }
+    if ((!ev_init) && (use_comb || (fmpq_poly_degree(evs->nfs[i]->pol) < best_deg))) {
+      for (j = 0; j < evs->dim; j++)
+	nf_elem_clear(evs->eigenvecs[i][j], evs->nfs[i]);
+      nf_clear(evs->nfs[i]);
+      ev_init = get_eigenvector_on_subspace(evs->eigenvecs[i], evs->nfs[i],
+					    use_comb ? comb : D->hecke[best_idx][c],
+					    D->bases[c][i]);
+      if (!use_comb)
+	p_idx = best_idx + 1;
+    }
+    chosen = use_comb ? comb : D->hecke[p_idx-1][c];
     if (ev_init) {
       nf_elem_init(evs->eigenvals[i], evs->nfs[i]);
       nf_elem_gen(evs->eigenvals[i], evs->nfs[i]);
@@ -1320,14 +1393,15 @@ void hecke_eigenforms(eigenvalues_t evs, const decomposition_t D, const genus_t 
       nf_elem_gen(evs->eigenvals[i], evs->nfs[i]);
       evs->lift_type[i] = O; // it's an old form
       evs->is_old[i] = true;
-      // The space which was not split is kept, with the operator of the
-      // last attempt on it: the vector is an eigenvector of this operator,
-      // and the eigenvalue is the generator of the field.
+      // The space which was not split is kept, with the operator chosen
+      // above on it: the vector is an eigenvector of this operator, and the
+      // eigenvalue is the generator of the field.
       fmpq_mat_init_set(evs->old_basis[i], D->bases[c][i]);
       fmpq_mat_init(evs->old_hecke[i], fmpq_mat_nrows(D->bases[c][i]),
 		    fmpq_mat_nrows(D->bases[c][i]));
-      restrict_mat(evs->old_hecke[i], D->hecke[p_idx-1][c], D->bases[c][i]);
+      restrict_mat(evs->old_hecke[i], chosen, D->bases[c][i]);
     }
+    fmpq_mat_clear(comb);
   }
   
   return;

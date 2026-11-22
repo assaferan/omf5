@@ -692,6 +692,11 @@ check_matrix weight1-disc83-hecke '{1 : \[\[-17\]\],83 : ' -quad=1,0,-1,0,0,1,0,
 check_output weight1-disc83-prec "{1 : \[{ 'aut_rep_type' : 'U', 'field_poly' : '2  17 1', 'lambda_p' : \['-17','-23','-36','-124','-359','-288','464','1302','252','-4134',\]" -quad=1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2 -format=GG -prec=30 -weight=1
 # D5, whose genus has one class, with the weight (4, 0): 81 T_3 = 1224 as in Magma, and T_5 = 23580
 check_output weight4-d5-p5 "'field_poly' : '2  -1224 1', 'lambda_p' : \['23580',\]" -quad=1,-1,0,0,0,1,-1,0,0,1,-1,-1,1,0,1 -format=GG -p=5 -weight=4
+# The lattice of discriminant 216 with the weight (2, 0): the space of conductor 1 on which T_7 = 2185 and
+# T_19 = 104719 is not split by the primes up to 19. It holds two Galois conjugate forms over Q(sqrt 3),
+# each twice, with T_5 = 750 -+ 204 sqrt 3, so the old form has the field of x^2 - 1500 x + 437652 (from
+# T_5, not from T_19, which would give Q), and T_11 = 15972 -+ 2724 sqrt 3 is defined.
+check_output weight2-disc216-old "{ 'aut_rep_type' : 'O', 'field_poly' : '3  437652 -1500 1', 'lambda_p' : \['(-227\*a+441774)/17',\]" -quad=2,-1,-2,0,0,3,0,0,0,2,-2,-2,4,-2,2 -format=GG -p=11 -weight=2
 check_error weight-square "a nonzero -weight is supported only with" -quad=1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2 -format=GG -p=2 -square -weight=1
 
 exit $status
