@@ -697,6 +697,12 @@ check_output weight4-d5-p5 "'field_poly' : '2  -1224 1', 'lambda_p' : \['23580',
 # each twice, with T_5 = 750 -+ 204 sqrt 3, so the old form has the field of x^2 - 1500 x + 437652 (from
 # T_5, not from T_19, which would give Q), and T_11 = 15972 -+ 2724 sqrt 3 is defined.
 check_output weight2-disc216-old "{ 'aut_rep_type' : 'O', 'field_poly' : '3  437652 -1500 1', 'lambda_p' : \['(-227\*a+441774)/17',\]" -quad=2,-1,-2,0,0,3,0,0,0,2,-2,-2,4,-2,2 -format=GG -p=11 -weight=2
+# The weight (1, 1), of the paramodular forms of weight (3, 2): on the lattice of discriminant 83 the space of
+# conductor 1 has dimension 15 and is one Galois orbit, as in Magma; with the 6 forms of conductor 83 these
+# are the 21 forms of 2.K.83.3.2.a in the LMFDB.
+check_output weight11-disc83-p2 "{1 : \[{ 'aut_rep_type' : 'U', 'field_poly' : '16  -11995456 878488032 -287608308 -626609168 216197675 128987273 -51842362 -8874345 5043614 10208 -192324 13580 2479 -269 -6 1', 'lambda_p' : \['a'," -quad=1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2 -format=GG -p=2 -weight=1,1
+check_error weight-too-large "is too large" -quad=1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2 -format=GG -p=2 -weight=5,5
+check_error weight-b-greater "is not a or a,b with a >= b >= 0" -quad=1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2 -format=GG -p=2 -weight=1,2
 check_error weight-square "a nonzero -weight is supported only with" -quad=1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2 -format=GG -p=2 -square -weight=1
 
 exit $status
