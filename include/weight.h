@@ -121,20 +121,20 @@ void weight_space_init(weight_space_t S, const genus_t genus, const weight_rep_t
 
 void weight_space_clear(weight_space_t S);
 
-// The matrices of T_p, p not dividing the discriminant, on the spaces of each conductor, with the
-// normalization p^a, which makes the eigenvalues algebraic integers. Returns an array of
-// genus->num_conductors matrices, to be cleared and freed by the caller.
-// The neighbors are taken by orbits of the automorphisms of each lattice, so only one neighbor of each
-// orbit is tested for isometry.
+// The matrices of T_p on the spaces of each conductor, with the normalization p^a, which makes the
+// eigenvalues algebraic integers. Returns an array of genus->num_conductors matrices, to be cleared and
+// freed by the caller. When p does not divide the discriminant, the neighbors are taken by orbits of the
+// automorphisms of each lattice, so only one neighbor of each orbit is tested for isometry; when it
+// does, every neighbor of nbr_data is, and the characters are those of the weight 0.
 fmpq_mat_struct* hecke_matrices_weight(const genus_t genus, const weight_rep_t W, const weight_space_t S, int p);
 
 // The same, with every neighbor tested for isometry (the neighbors of nbr_data). For tests.
 fmpq_mat_struct* hecke_matrices_weight_by_neighbor(const genus_t genus, const weight_rep_t W, const weight_space_t S, int p);
 
-// The matrices of T_{p^2}, the operator of the p^2-neighbors, p not dividing the discriminant, with the
-// normalization p^(2a): the eigenvalues are algebraic integers, and the factor at p of the spin
-// L-function of a form is 1 - T_p x + p (T_{p^2} + p^(2a) (p^2 + 1)) x^2 - p^w T_p x^3 + p^(2w) x^4, w =
-// 2a + 3, as for the weight 0. Without it, they are those of HeckeOperator(M, p, 2) in Magma. Every
+// The matrices of T_{p^2}, the operator of the p^2-neighbors, with the normalization p^(2a): the
+// eigenvalues are algebraic integers, and when p does not divide the discriminant the factor at p of the
+// spin L-function of a form is 1 - T_p x + p (T_{p^2} + p^(2a) (p^2 + 1)) x^2 - p^w T_p x^3 + p^(2w) x^4,
+// w = 2a + 3, as for the weight 0. Without it, they are those of HeckeOperator(M, p, 2) in Magma. Every
 // neighbor is tested for isometry.
 fmpq_mat_struct* hecke_matrices_weight_square(const genus_t genus, const weight_rep_t W, const weight_space_t S, int p);
 
@@ -143,8 +143,10 @@ fmpq_mat_struct* hecke_matrices_weight_square(const genus_t genus, const weight_
 int print_hecke_matrices_weight(const genus_t genus, int a, int b, int p, int k);
 
 // Prints the eigenforms of the weight (a, b) of each conductor, with their eigenvalues of T_p at the
-// primes ps and of T_{p^2} at the primes ps2 (which have to be prime to the discriminant), as omf5 -prec
-// does: {c : [{ 'aut_rep_type' : ..., 'field_poly' : ..., 'lambda_p' : [...], 'lambda_p_square' : [...],
+// primes ps and of T_{p^2} at the primes ps2, as omf5 -prec does. At a prime p dividing the
+// discriminant exactly once, the eigenvalue of T_p is reported as T_p + p^a, negated when p divides the
+// conductor, as T_p + 1 is for the weight 0; the others are reported as they are. The output is
+// {c : [{ 'aut_rep_type' : ..., 'field_poly' : ..., 'lambda_p' : [...], 'lambda_p_square' : [...],
 // }, ...], ...}. The types are not determined: U, or O for an old form. An eigenvalue of an old form is
 // 'NULL' when the operator is not an element of the field of the form on its space (see
 // ev_is_scalar_on_old_space). The matrices which the decomposition computed are used again, and the

@@ -1285,9 +1285,11 @@ static fmpq_mat_struct* hecke_matrices_weight_impl(const genus_t genus, const we
       for (b = 0; b < nb; b++)
 	fmpq_mat_zero(acc[i][b]);
 
-    // the orbits are taken only for T_p: for T_{p^2}, every neighbor is tested for isometry, as for
+    // the orbits are taken only for T_p at a prime p which does not divide the discriminant, since the
+    // neighbor manager of the orbits needs the form to be nondegenerate modulo p. For T_{p^2}, and at
+    // the primes dividing the discriminant, every neighbor of nbr_data is tested for isometry, as for
     // the weight 0
-    if (use_orbits && (k == 1))
+    if (use_orbits && (k == 1) && (fmpz_fdiv_ui(genus->disc, p) != 0))
       weight_sums_orbits(acc, genus, W, j, p, pa);
     else {
     nbr_data_init(nbr_man, genus->genus_reps->keys[j], p, k);
@@ -1368,10 +1370,6 @@ int print_hecke_matrices_weight(const genus_t genus, int a, int b, int p, int k)
   slong c, r, col;
   char* str;
 
-  if (fmpz_fdiv_ui(genus->disc, p) == 0) {
-    fprintf(stderr, "Error: with -weight, -p has to be a prime which does not divide the discriminant\n");
-    return 1;
-  }
   // a genus file may give no lattice: there are no forms
   if (genus->genus_reps->num_stored == 0) {
     printf("{");
@@ -1501,6 +1499,24 @@ static bool weight_form_eigenvalue(nf_elem_t ev, const eigenvalues_t evs, slong 
   return weight_eigenvalue(ev, (const nf_elem_t*)evs->eigenvecs[i], T, evs->nfs[i]);
 }
 
+// At a prime p which divides the discriminant exactly once, the eigenvalue t of T_p (normalized by
+// p^a) of a form of conductor c is reported as lambda = t + p^a, negated when p divides c, as T_p + 1 is
+// for the weight 0. lambda is the number for which the factor at p of the spin L-function of a newform
+// is, with w = 2a + 3 and a sign eps,
+//   (1 - (lambda + eps p^(a+1)) x + p^w x^2) (1 + eps p^(a+1) x),
+// the shape of Roberts-Schmidt for the paramodular level p.
+static void weight_bad_prime_eigenvalue(nf_elem_t ev, const nf_t nf, int p, int a, slong conductor)
+{
+  fmpz_t pa;
+
+  fmpz_init_set_ui(pa, p);
+  fmpz_pow_ui(pa, pa, a);
+  nf_elem_add_fmpz(ev, ev, pa, nf);
+  if (conductor % p == 0)
+    nf_elem_neg(ev, ev, nf);
+  fmpz_clear(pa);
+}
+
 int print_eigenvalues_weight(const genus_t genus, int a, int b, const int* ps, int num_ps, const int* ps2,
 			     int num_ps2)
 {
@@ -1516,13 +1532,9 @@ int print_eigenvalues_weight(const genus_t genus, int a, int b, const int* ps, i
   bool** has_ev;
   slong c, i, k, nq;
   int n, q;
+  bool once;
 
   nq = num_ps + num_ps2;
-  for (n = 0; n < nq; n++)
-    if (fmpz_fdiv_ui(genus->disc, (n < num_ps) ? ps[n] : ps2[n - num_ps]) == 0) {
-      fprintf(stderr, "Error: with -weight, the primes have to be prime to the discriminant\n");
-      return 1;
-    }
   if (genus->genus_reps->num_stored == 0) {
     printf("{");
     for (c = 0; c < genus->num_conductors; c++)
@@ -1584,11 +1596,15 @@ int print_eigenvalues_weight(const genus_t genus, int a, int b, const int* ps, i
       q = ps2[n - num_ps];
       Tp = hecke_matrices_weight_square(genus, W, S, q);
     }
+    // whether q divides the discriminant exactly once (q^2 fits in a ulong, since q is an int)
+    once = (fmpz_fdiv_ui(genus->disc, q) == 0) && (fmpz_fdiv_ui(genus->disc, (ulong)q * q) != 0);
     for (c = 0; c < genus->num_conductors; c++) {
       // D->hecke[k] is an array of fmpq_mat_t, i.e. of one-element arrays of fmpq_mat_struct
       const fmpq_mat_struct* Tc = (Tp == NULL) ? &(D->hecke[k][c][0]) : Tp + c;
       for (i = 0; i < evs[c]->num; i++) {
 	has_ev[c][i * nq + n] = weight_form_eigenvalue(evals[c][i * nq + n], evs[c], i, Tc);
+	if (has_ev[c][i * nq + n] && (n < num_ps) && once)
+	  weight_bad_prime_eigenvalue(evals[c][i * nq + n], evs[c]->nfs[i], q, a, genus->conductors[c]);
 	if (!has_ev[c][i * nq + n])
 	  fprintf(stderr, "Warning: T_{%d^%d} is not a scalar on the space of the old form %ld of conductor %ld\n",
 		  q, (n < num_ps) ? 1 : 2, (long)i, (long)genus->conductors[c]);

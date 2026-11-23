@@ -822,6 +822,9 @@ STATUS test_weight()
   Z64 Q19[15] = {1,0,0,1,1,1,0,1,0,1,0,1,1,0,3};
   // D5, of discriminant 2, whose genus has one class
   Z64 QD5[15] = {1,-1,0,0,0,1,-1,0,0,1,-1,-1,1,0,1};
+  // D = 39 and D = 52, the first lattices of the data: conductors 1, 3, 13, 39 and 1, 2, 13, 26
+  Z64 Q39[15] = {1,1,1,1,0,1,1,1,0,1,1,0,2,0,3};
+  Z64 Q52[15] = {1,-1,1,-1,-1,1,-1,1,1,2,0,-1,2,1,2};
 
   ret = test_weight_of(Q83, 1, 0, 0, 1, 2, -17);
   ret |= test_weight_of(Q83, 1, 0, 0, 1, 3, -23);
@@ -852,6 +855,23 @@ STATUS test_weight()
   ret |= test_weight_of_k(Q83, 2, 1, 0, 27, 2, 2, -40);
   ret |= test_weight_of_k(Q83, 2, 1, 1, 52, 2, 2, -332);
   ret |= test_weight_of_k(Q19, 2, 2, 0, 2, 2, 2, -42);
+  // primes dividing the discriminant: at the conductor 1, the traces of HeckeOperator(M, p, k) in Magma
+  // times p^(ka), at p = 3 and 13 for D = 39 and at p = 2, with 4 | D, for D = 52. At the other
+  // conductors they are omf5's; at D = 39 their newforms satisfy the functional equation with the factor
+  // (1 - (lambda + eps p^(a+1)) x + p^w x^2) (1 + eps p^(a+1) x) at p, lambda = T_p + p^a negated when p
+  // divides the conductor.
+  ret |= test_weight_of(Q39, 1, 1, 0, 2, 3, -13);
+  ret |= test_weight_of(Q39, 1, 1, 0, 2, 13, 112);
+  ret |= test_weight_of_k(Q39, 1, 1, 0, 2, 3, 2, -66);
+  ret |= test_weight_of_k(Q39, 1, 1, 0, 2, 13, 2, 0);
+  ret |= test_weight_of(Q39, 2, 1, 0, 2, 3, -138);
+  ret |= test_weight_of_k(Q39, 2, 1, 0, 2, 3, 2, 1188);
+  ret |= test_weight_of(Q39, 2, 1, 0, 2, 13, -13610);
+  ret |= test_weight_of(Q39, 1, 1, 1, 1, 3, 9);
+  ret |= test_weight_of(Q39, 2, 1, 3, 2, 13, -728);
+  ret |= test_weight_of(Q52, 1, 1, 0, 3, 2, 7);
+  ret |= test_weight_of_k(Q52, 1, 1, 0, 3, 2, 2, -26);
+  ret |= test_weight_of(Q52, 2, 1, 0, 4, 2, -50);
   ret |= test_weight_orbits_of(Q124, 1, 0, 3);
   ret |= test_weight_orbits_of(Q61, 2, 0, 3);
   ret |= test_weight_orbits_of(Q124, 1, 1, 3);
