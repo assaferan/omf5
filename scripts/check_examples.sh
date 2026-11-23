@@ -705,6 +705,12 @@ check_error weight-too-large "is too large" -quad=1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,
 # the size is computed in closed form, so a huge weight is rejected at once
 check_error weight-huge "is too large" -quad=1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2 -format=GG -p=2 -weight=2147483647,1
 check_error weight-b-greater "is not a or a,b with a >= b >= 0" -quad=1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2 -format=GG -p=2 -weight=1,2
-check_error weight-square "a nonzero -weight is supported only with" -quad=1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2 -format=GG -p=2 -square -weight=1
+# T_{p^2} with a weight, normalized by p^(2a): with (1, 0) on the lattice of discriminant 83, T_4 is 4 times
+# HeckeOperator(M, 2, 2) in Magma, and -prec=30 gives T_{p^2} for p = 2, 3 and 5
+check_matrix weight1-disc83-square '{1 : \[\[46\]\],83 : ' -quad=1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2 -format=GG -hecke -p=2 -square -weight=1
+check_output weight1-disc83-prec-square "'lambda_p_square' : \['46','0','80',\]" -quad=1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2 -format=GG -prec=30 -weight=1
+# 2.K.19.3.2.a.a, of weight (1, 1): T_2 = -9 and T_4 = 0
+check_output weight11-disc19-square "{1 : \[{ 'aut_rep_type' : 'U', 'field_poly' : '2  9 1', 'lambda_p' : \['-9',\], 'lambda_p_square' : \['0',\], }, \], 19 : \[\], }" -quad=1,0,0,1,1,1,0,1,0,1,0,1,1,0,3 -format=GG -p=2 -square -weight=1,1
+check_error weight-square-bad-prime "the primes have to be prime to the discriminant" -quad=1,0,0,1,1,1,0,1,0,1,0,1,1,0,3 -format=GG -p=19 -square -weight=1,1
 
 exit $status
