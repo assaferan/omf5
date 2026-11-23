@@ -878,6 +878,13 @@ STATUS test_weight()
   ret |= test_weight_orbits_of(Q61, 2, 1, 3);
   // D5, whose automorphisms (3840 of them) are found in different orders for different lines
   ret |= test_weight_orbits_of(QD5, 4, 0, 5);
+  // primes dividing the discriminant, exactly once (3 and 13 for D = 39, 31 for D = 124) and with
+  // 4 | D (2 for D = 52 and D = 124)
+  ret |= test_weight_orbits_of(Q39, 1, 1, 3);
+  ret |= test_weight_orbits_of(Q39, 2, 1, 13);
+  ret |= test_weight_orbits_of(Q124, 1, 1, 31);
+  ret |= test_weight_orbits_of(Q52, 2, 1, 2);
+  ret |= test_weight_orbits_of(Q124, 1, 0, 2);
 
   return ret;
 }

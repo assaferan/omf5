@@ -1285,11 +1285,10 @@ static fmpq_mat_struct* hecke_matrices_weight_impl(const genus_t genus, const we
       for (b = 0; b < nb; b++)
 	fmpq_mat_zero(acc[i][b]);
 
-    // the orbits are taken only for T_p at a prime p which does not divide the discriminant, since the
-    // neighbor manager of the orbits needs the form to be nondegenerate modulo p. For T_{p^2}, and at
-    // the primes dividing the discriminant, every neighbor of nbr_data is tested for isometry, as for
-    // the weight 0
-    if (use_orbits && (k == 1) && (fmpz_fdiv_ui(genus->disc, p) != 0))
+    // the orbits are taken for T_p, also at the primes dividing the discriminant, as for the Hecke
+    // matrices of the weight 0 (hecke_col_all_conductors). For T_{p^2} every neighbor of nbr_data is
+    // tested for isometry
+    if (use_orbits && (k == 1))
       weight_sums_orbits(acc, genus, W, j, p, pa);
     else {
     nbr_data_init(nbr_man, genus->genus_reps->keys[j], p, k);
