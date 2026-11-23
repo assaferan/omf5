@@ -711,6 +711,12 @@ check_matrix weight1-disc83-square '{1 : \[\[46\]\],83 : ' -quad=1,0,-1,0,0,1,0,
 check_output weight1-disc83-prec-square "'lambda_p_square' : \['46','0','80',\]" -quad=1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2 -format=GG -prec=30 -weight=1
 # 2.K.19.3.2.a.a, of weight (1, 1): T_2 = -9 and T_4 = 0
 check_output weight11-disc19-square "{1 : \[{ 'aut_rep_type' : 'U', 'field_poly' : '2  9 1', 'lambda_p' : \['-9',\], 'lambda_p_square' : \['0',\], }, \], 19 : \[\], }" -quad=1,0,0,1,1,1,0,1,0,1,0,1,1,0,3 -format=GG -p=2 -square -weight=1,1
-check_error weight-square-bad-prime "the primes have to be prime to the discriminant" -quad=1,0,0,1,1,1,0,1,0,1,0,1,1,0,3 -format=GG -p=19 -square -weight=1,1
+# A prime dividing the discriminant: the Hecke matrix of T_3 with the weight (1, 1) on the lattice of
+# discriminant 39, whose block of conductor 1 has the characteristic polynomial of 3 times
+# HeckeOperator(M, 3) in Magma. With -p=p at p dividing the discriminant exactly once, the eigenvalue is
+# printed as T_p + p^a, negated when p divides the conductor: for 2.K.19.3.2.a.a, T_19 + 19 = -969, and
+# T_{19^2} = 0
+check_matrix weight11-disc39-hecke-bad-prime '{1 : \[\[-19,15\],\[10,6\]\],3 : \[\[9\]\],13 : \[\],39 : ' -quad=1,1,1,1,0,1,1,1,0,1,1,0,2,0,3 -format=GG -hecke -p=3 -weight=1,1
+check_output weight11-disc19-bad-prime "{1 : \[{ 'aut_rep_type' : 'U', 'field_poly' : '2  9 1', 'lambda_p' : \['-969',\], 'lambda_p_square' : \['0',\], }, \], 19 : \[\], }" -quad=1,0,0,1,1,1,0,1,0,1,0,1,1,0,3 -format=GG -p=19 -square -weight=1,1
 
 exit $status
