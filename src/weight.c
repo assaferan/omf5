@@ -225,14 +225,18 @@ square_matrix_t** hecke_matrices_isometries(const genus_t genus, int p)
 /* Algebraic modular forms of weight (a, b): see weight.h. */
 
 #include <flint/fmpz_mat.h>
+#include <flint/fmpz_vec.h>
+#include <flint/nmod_mat.h>
+#include <flint/ulong_extras.h>
 #include <flint/fmpq_mat.h>
-#include <flint/fmpq_mpoly.h>
+#include <flint/fmpz_mpoly.h>
 
 #include "aut_grp.h"
 #include "spinor.h"
 
 // genus.c
 int popcnt(W64 x);
+
 
 // Fills exps (if not NULL) with the exponents of the monomials of degree a in QF_RANK variables,
 // in a fixed order, and returns their number.
@@ -288,17 +292,27 @@ static slong weight_monomial_index(const ulong* exps, slong n, const ulong* e)
 // the pivot of each row. Returns its dimension. B is initialized here.
 static slong weight_nullspace_rref(fmpq_mat_t B, slong** piv, const fmpz_mat_t A)
 {
-  fmpz_mat_t X;
+  fmpz_mat_t X, Y;
+  fmpz_t den;
   slong nullity, i, j, n;
 
   n = fmpz_mat_ncols(A);
   fmpz_mat_init(X, n, n);
   nullity = fmpz_mat_nullspace(X, A);
+  // the reduced row echelon form, which is unique, by the multimodular algorithm
+  fmpz_mat_init(Y, nullity, n);
+  for (i = 0; i < nullity; i++)
+    for (j = 0; j < n; j++)
+      fmpz_swap(fmpz_mat_entry(Y, i, j), fmpz_mat_entry(X, j, i));
+  fmpz_init(den);
+  if (nullity > 0)
+    fmpz_mat_rref_mul(Y, den, Y);
   fmpq_mat_init(B, nullity, n);
   for (i = 0; i < nullity; i++)
     for (j = 0; j < n; j++)
-      fmpq_set_fmpz(fmpq_mat_entry(B, i, j), fmpz_mat_entry(X, j, i));
-  fmpq_mat_rref(B, B);
+      fmpq_set_fmpz_frac(fmpq_mat_entry(B, i, j), fmpz_mat_entry(Y, i, j), den);
+  fmpz_mat_clear(Y);
+  fmpz_clear(den);
   *piv = (slong*)malloc((nullity > 0 ? nullity : 1) * sizeof(slong));
   for (i = 0; i < nullity; i++) {
     for (j = 0; fmpq_is_zero(fmpq_mat_entry(B, i, j)); j++);
@@ -396,25 +410,145 @@ static double weight_num_bimonomials(double a, double b)
 
 double weight_rep_matrix_size(int a, int b)
 {
-  double nmons, nrows;
+  double nmons, nrows, dim, blocks;
 
-  // in closed form, so that a large weight is rejected at once
+  // in closed form, so that a large weight is rejected at once: the basis, dim x nmons, and the blocks
+  // of the conditions, about 1/16 of the rows and of the columns each
   nmons = weight_num_bimonomials(a, b);
   nrows = ((a >= 2) ? weight_num_bimonomials(a - 2.0, b) : 0) +
     ((b >= 1) ? weight_num_bimonomials(a - 1.0, b - 1.0) + weight_num_bimonomials(a + 1.0, b - 1.0) : 0) +
     ((b >= 2) ? weight_num_bimonomials(a, b - 2.0) : 0);
-  return nmons * (nrows + nmons);
+  dim = (2.0*a + 3) * (2.0*b + 1) * (a - b + 1.0) * (a + b + 2.0) / 6;
+  blocks = (nrows + nmons) * nmons / 256;
+  return (dim * nmons > blocks) ? dim * nmons : blocks;
+}
+
+// A (n x n) is the matrix of the substitution x_r -> sum_j h_rj x_j on the n monomials of degree d of
+// exps, of the order of weight_monomials: A[k][i] is the coefficient of the monomial i in the image of
+// the monomial k.
+static void weight_monomial_action(fmpz_mat_t A, const ulong* exps, slong n, int d, const fmpz_mat_t h)
+{
+  fmpz_mpoly_ctx_t ctx;
+  fmpz_mpoly_struct lin[QF_RANK];
+  fmpz_mpoly_t img, pw, var;
+  fmpz_t c;
+  ulong e[QF_RANK];
+  slong k, r, j, t, i;
+
+  fmpz_mpoly_ctx_init(ctx, QF_RANK, ORD_LEX);
+  fmpz_mpoly_init(img, ctx);
+  fmpz_mpoly_init(pw, ctx);
+  fmpz_mpoly_init(var, ctx);
+  fmpz_init(c);
+  for (r = 0; r < QF_RANK; r++) {
+    fmpz_mpoly_init(lin + r, ctx);
+    for (j = 0; j < QF_RANK; j++) {
+      fmpz_mpoly_gen(var, j, ctx);
+      fmpz_mpoly_scalar_mul_fmpz(var, var, fmpz_mat_entry(h, r, j), ctx);
+      fmpz_mpoly_add(lin + r, lin + r, var, ctx);
+    }
+  }
+  fmpz_mat_zero(A);
+  for (k = 0; k < n; k++) {
+    fmpz_mpoly_one(img, ctx);
+    for (r = 0; r < QF_RANK; r++) {
+      if (exps[QF_RANK*k + r] == 0) continue;
+      fmpz_mpoly_pow_ui(pw, lin + r, exps[QF_RANK*k + r], ctx);
+      fmpz_mpoly_mul(img, img, pw, ctx);
+    }
+    for (t = 0; t < fmpz_mpoly_length(img, ctx); t++) {
+      fmpz_mpoly_get_term_exp_ui(e, img, t, ctx);
+      i = weight_monomial_index(exps, n, e);
+      // checked in every build: the image of a monomial of degree d has degree d
+      if (i < 0) {
+	fprintf(stderr, "Error: the image of a monomial of degree %d is not of degree %d\n", d, d);
+	abort();
+      }
+      fmpz_mpoly_get_term_coeff_fmpz(c, img, t, ctx);
+      fmpz_set(fmpz_mat_entry(A, k, i), c);
+    }
+  }
+  for (r = 0; r < QF_RANK; r++)
+    fmpz_mpoly_clear(lin + r, ctx);
+  fmpz_mpoly_clear(img, ctx);
+  fmpz_mpoly_clear(pw, ctx);
+  fmpz_mpoly_clear(var, ctx);
+  fmpz_clear(c);
+  fmpz_mpoly_ctx_clear(ctx);
+  return;
+}
+
+// The images of the monomial of bidegree (a, b) with exponents mon under the operators which define the
+// representation, in coordinates in which the inverse Gram matrix is diag(c): Delta_xx, Delta_xy, Delta_yy
+// and E, with Delta_uv = sum_i c_i d/du_i d/dv_i and E = sum_i x_i d/dy_i. Sets rows[t] to the row of the
+// t-th image, numbered as in weight_rep_init, and coeffs[t] to its coefficient; returns their number.
+static slong weight_conditions(slong* rows, fmpz* coeffs, const ulong* mon, int a, int b, const fmpz* c,
+			       const weight_target_struct* t_xx, const weight_target_struct* t_xy,
+			       const weight_target_struct* t_yy, const weight_target_struct* t_e,
+			       slong off_xy, slong off_yy, slong off_e)
+{
+  ulong e[WEIGHT_NVARS];
+  slong i, r, n;
+
+  n = 0;
+  for (i = 0; i < QF_RANK; i++) {
+    // Delta_xx
+    if ((a >= 2) && (mon[i] >= 2)) {
+      for (r = 0; r < WEIGHT_NVARS; r++)
+	e[r] = mon[r];
+      e[i] -= 2;
+      rows[n] = weight_target_index(t_xx, e);
+      fmpz_mul_ui(coeffs + n, c + i, mon[i] * (mon[i] - 1));
+      n++;
+    }
+    // Delta_yy
+    if ((b >= 2) && (mon[QF_RANK + i] >= 2)) {
+      for (r = 0; r < WEIGHT_NVARS; r++)
+	e[r] = mon[r];
+      e[QF_RANK + i] -= 2;
+      rows[n] = off_yy + weight_target_index(t_yy, e);
+      fmpz_mul_ui(coeffs + n, c + i, mon[QF_RANK + i] * (mon[QF_RANK + i] - 1));
+      n++;
+    }
+    if ((b < 1) || (mon[QF_RANK + i] == 0))
+      continue;
+    // Delta_xy
+    if (mon[i] >= 1) {
+      for (r = 0; r < WEIGHT_NVARS; r++)
+	e[r] = mon[r];
+      e[i]--;
+      e[QF_RANK + i]--;
+      rows[n] = off_xy + weight_target_index(t_xy, e);
+      fmpz_mul_ui(coeffs + n, c + i, mon[i] * mon[QF_RANK + i]);
+      n++;
+    }
+    // E
+    for (r = 0; r < WEIGHT_NVARS; r++)
+      e[r] = mon[r];
+    e[i]++;
+    e[QF_RANK + i]--;
+    rows[n] = off_e + weight_target_index(t_e, e);
+    fmpz_set_ui(coeffs + n, mon[QF_RANK + i]);
+    n++;
+  }
+  return n;
 }
 
 void weight_rep_init(weight_rep_t W, int a, int b, const square_matrix_t q0)
 {
-  slong i, j, k, r, nrows, off_xy, off_yy, off_e;
-  ulong e[WEIGHT_NVARS];
-  const ulong* mon;
-  fmpz_mat_t q, qinv, A;
-  fmpz_t den, c;
-  fmpq_mat_t B;
+  slong i, j, k, r, t, nrows, off_xy, off_yy, off_e, nc, nr, nullity, cnt, rank, nterms, dim_expected;
+  slong *col_sig, *cols, *row_loc, *row_list, *rows;
+  fmpz *c, *coeffs;
+  fmpq_mat_t Q, M, Minv, G;
+  fmpq_t mu, dot;
+  fmpz_mat_t Mi, Ax, By, Nz, Fs, F2, Res, Blk, X, Rz;
+  nmod_mat_t Rp;
+  fmpz_t g;
+  ulong prime;
+  bool done;
+  fmpz_t den;
   weight_target_struct t_xx, t_xy, t_yy, t_e;
+  int sig;
 
   assert((0 <= b) && (b <= a));
   W->a = a;
@@ -422,14 +556,75 @@ void weight_rep_init(weight_rep_t W, int a, int b, const square_matrix_t q0)
   W->nmons = weight_bimonomials(NULL, a, b);
   W->exps = (ulong*)malloc(WEIGHT_NVARS * W->nmons * sizeof(ulong));
   weight_bimonomials(W->exps, a, b);
+  W->nx = weight_monomials(NULL, a);
+  W->ny = weight_monomials(NULL, b);
+  W->ex = (ulong*)malloc(QF_RANK * W->nx * sizeof(ulong));
+  W->ey = (ulong*)malloc(QF_RANK * W->ny * sizeof(ulong));
+  weight_monomials(W->ex, a);
+  weight_monomials(W->ey, b);
+  dim_expected = (2*a + 3) * (2*b + 1) * (a - b + 1) * (a + b + 2) / 6;
 
   // The polynomials f of bidegree (a, b) which are harmonic for q0^(-1) in x, in y and in both, that is
   // Delta_xx f = Delta_xy f = Delta_yy f = 0 with Delta_uv = sum_{i,j} qinv_ij d/du_i d/dv_j, and are
   // highest weight vectors for GL_2, E f = 0 with E = sum_i x_i d/dy_i. They form the irreducible
   // representation of highest weight (a, b) of O(q0) (Howe duality for O(5) x GL_2 on the harmonic
-  // polynomials). qinv is the adjugate of q0, a multiple of its inverse, which has the same kernels.
-  // The rows of A are the coefficients of the four images: Delta_xx f of bidegree (a - 2, b), then
-  // Delta_xy f of (a - 1, b - 1), Delta_yy f of (a, b - 2) and E f of (a + 1, b - 1).
+  // polynomials).
+  //
+  // They are found in the coordinates x = M x', y = M y', with M^T q0 M = D diagonal (Gram-Schmidt over
+  // the rationals): f(M x', M y') satisfies the same conditions with qinv replaced by D^(-1), and E is
+  // unchanged. There each operator keeps the parities of e_x_i + e_y_i, i = 1, ..., QF_RANK, of the
+  // exponents of a monomial, so the conditions split into blocks, one for each parity vector.
+  fmpq_mat_init(Q, QF_RANK, QF_RANK);
+  for (i = 0; i < QF_RANK; i++)
+    for (j = 0; j < QF_RANK; j++)
+      fmpq_set_si(fmpq_mat_entry(Q, i, j), q0[i][j], 1);
+  fmpq_mat_init(M, QF_RANK, QF_RANK);
+  fmpq_mat_one(M);
+  fmpq_mat_init(G, QF_RANK, QF_RANK);
+  fmpq_init(mu);
+  fmpq_init(dot);
+  // the column k of M is e_k minus its projections on the previous columns, for the form q0
+  for (k = 0; k < QF_RANK; k++)
+    for (j = 0; j < k; j++) {
+      // mu = <e_k, m_j> / <m_j, m_j>, with <u, v> = u^T q0 v
+      fmpq_zero(mu);
+      fmpq_zero(dot);
+      for (i = 0; i < QF_RANK; i++)
+	fmpq_addmul(mu, fmpq_mat_entry(Q, k, i), fmpq_mat_entry(M, i, j));
+      fmpq_mat_mul(G, Q, M);
+      for (i = 0; i < QF_RANK; i++)
+	fmpq_addmul(dot, fmpq_mat_entry(M, i, j), fmpq_mat_entry(G, i, j));
+      fmpq_div(mu, mu, dot);
+      for (i = 0; i < QF_RANK; i++)
+	fmpq_submul(fmpq_mat_entry(M, i, k), mu, fmpq_mat_entry(M, i, j));
+    }
+  // D = M^T q0 M, and c_i proportional to 1 / D_ii, integral
+  fmpq_mat_mul(G, Q, M);
+  fmpq_mat_transpose(Q, M);
+  fmpq_mat_mul(G, Q, G);
+  c = _fmpz_vec_init(QF_RANK);
+  for (i = 0; i < QF_RANK; i++) {
+    // checked in every build: q0 is positive definite, and D diagonal
+    for (j = 0; j < QF_RANK; j++)
+      if ((i != j) && !fmpq_is_zero(fmpq_mat_entry(G, i, j))) {
+	fprintf(stderr, "Error: the Gram-Schmidt basis of the weight is not orthogonal\n");
+	abort();
+      }
+    if (fmpq_sgn(fmpq_mat_entry(G, i, i)) <= 0) {
+      fprintf(stderr, "Error: the quadratic form of the weight is not positive definite\n");
+      abort();
+    }
+  }
+  // 1 / D_ii = den_i / num_i; times the product of the numerators
+  for (i = 0; i < QF_RANK; i++) {
+    fmpz_set(c + i, fmpq_denref(fmpq_mat_entry(G, i, i)));
+    for (j = 0; j < QF_RANK; j++)
+      if (j != i)
+	fmpz_mul(c + i, c + i, fmpq_numref(fmpq_mat_entry(G, j, j)));
+  }
+
+  // the rows of the conditions, numbered as Delta_xx f of bidegree (a - 2, b), then Delta_xy f of
+  // (a - 1, b - 1), Delta_yy f of (a, b - 2) and E f of (a + 1, b - 1)
   weight_target_init(&t_xx, a - 2 >= 0 ? a - 2 : 0, b);
   weight_target_init(&t_xy, a - 1 >= 0 ? a - 1 : 0, b - 1 >= 0 ? b - 1 : 0);
   weight_target_init(&t_yy, a, b - 2 >= 0 ? b - 2 : 0);
@@ -439,117 +634,208 @@ void weight_rep_init(weight_rep_t W, int a, int b, const square_matrix_t q0)
   off_e = off_yy + ((b >= 2) ? t_yy.nx * t_yy.ny : 0);
   nrows = off_e + ((b >= 1) ? t_e.nx * t_e.ny : 0);
 
-  fmpz_mat_init_set_square_matrix(q, q0);
-  fmpz_mat_init(qinv, QF_RANK, QF_RANK);
-  fmpz_init(den);
-  fmpz_init(c);
-  fmpz_mat_inv(qinv, den, q);
-  fmpz_mat_init(A, (nrows > 0) ? nrows : 1, W->nmons);
+  col_sig = (slong*)malloc((W->nmons > 0 ? W->nmons : 1) * sizeof(slong));
   for (k = 0; k < W->nmons; k++) {
-    mon = W->exps + WEIGHT_NVARS*k;
-    // Delta_xx and Delta_yy: the x part at 0, the y part at QF_RANK
-    for (int v = 0; v < 2; v++) {
-      const weight_target_struct* t = (v == 0) ? &t_xx : &t_yy;
-      slong off = (v == 0) ? 0 : off_yy;
-      int sh = (v == 0) ? 0 : QF_RANK;
-      if (((v == 0) && (a < 2)) || ((v == 1) && (b < 2)))
-	continue;
-      for (i = 0; i < QF_RANK; i++)
-	for (j = i; j < QF_RANK; j++) {
-	  for (r = 0; r < WEIGHT_NVARS; r++)
-	    e[r] = mon[r];
-	  if (i == j) {
-	    if (mon[sh + i] < 2) continue;
-	    e[sh + i] -= 2;
-	    fmpz_mul_ui(c, fmpz_mat_entry(qinv, i, i), mon[sh + i] * (mon[sh + i] - 1));
-	  }
-	  else {
-	    if ((mon[sh + i] == 0) || (mon[sh + j] == 0)) continue;
-	    e[sh + i]--;
-	    e[sh + j]--;
-	    fmpz_mul_ui(c, fmpz_mat_entry(qinv, i, j), 2 * mon[sh + i] * mon[sh + j]);
-	  }
-	  r = off + weight_target_index(t, e);
-	  fmpz_add(fmpz_mat_entry(A, r, k), fmpz_mat_entry(A, r, k), c);
+    sig = 0;
+    for (i = 0; i < QF_RANK; i++)
+      sig |= (int)((W->exps[WEIGHT_NVARS*k + i] + W->exps[WEIGHT_NVARS*k + QF_RANK + i]) & 1) << i;
+    col_sig[k] = sig;
+  }
+  cols = (slong*)malloc((W->nmons > 0 ? W->nmons : 1) * sizeof(slong));
+  row_loc = (slong*)malloc((nrows > 0 ? nrows : 1) * sizeof(slong));
+  row_list = (slong*)malloc((nrows > 0 ? nrows : 1) * sizeof(slong));
+  for (r = 0; r < nrows; r++)
+    row_loc[r] = -1;
+  rows = (slong*)malloc(4 * QF_RANK * sizeof(slong));
+  coeffs = _fmpz_vec_init(4 * QF_RANK);
+
+  // the kernel, in the coordinates x', y', as the rows of Nz
+  fmpz_mat_init(Nz, dim_expected, W->nmons);
+  cnt = 0;
+  for (sig = 0; sig < (1 << QF_RANK); sig++) {
+    nc = 0;
+    for (k = 0; k < W->nmons; k++)
+      if (col_sig[k] == sig)
+	cols[nc++] = k;
+    if (nc == 0)
+      continue;
+    nr = 0;
+    for (j = 0; j < nc; j++) {
+      nterms = weight_conditions(rows, coeffs, W->exps + WEIGHT_NVARS*cols[j], a, b, c,
+				 &t_xx, &t_xy, &t_yy, &t_e, off_xy, off_yy, off_e);
+      for (t = 0; t < nterms; t++)
+	if (row_loc[rows[t]] < 0) {
+	  row_loc[rows[t]] = nr;
+	  row_list[nr++] = rows[t];
 	}
     }
-    if (b < 1)
-      continue;
-    // Delta_xy, over all ordered pairs (i, j)
-    for (i = 0; i < QF_RANK; i++)
-      for (j = 0; j < QF_RANK; j++) {
-	if ((mon[i] == 0) || (mon[QF_RANK + j] == 0)) continue;
-	for (r = 0; r < WEIGHT_NVARS; r++)
-	  e[r] = mon[r];
-	e[i]--;
-	e[QF_RANK + j]--;
-	fmpz_mul_ui(c, fmpz_mat_entry(qinv, i, j), mon[i] * mon[QF_RANK + j]);
-	r = off_xy + weight_target_index(&t_xy, e);
-	fmpz_add(fmpz_mat_entry(A, r, k), fmpz_mat_entry(A, r, k), c);
-      }
-    // E = sum_i x_i d/dy_i
-    for (i = 0; i < QF_RANK; i++) {
-      if (mon[QF_RANK + i] == 0) continue;
-      for (r = 0; r < WEIGHT_NVARS; r++)
-	e[r] = mon[r];
-      e[i]++;
-      e[QF_RANK + i]--;
-      r = off_e + weight_target_index(&t_e, e);
-      fmpz_add_ui(fmpz_mat_entry(A, r, k), fmpz_mat_entry(A, r, k), mon[QF_RANK + i]);
+    fmpz_mat_init(X, nc, nc);
+    if (nr == 0) {
+      nullity = nc;
+      fmpz_mat_one(X);
     }
-  }
-  if (nrows == 0) {
-    // degree at most 1 in x and 0 in y: every polynomial
-    W->dim = W->nmons;
-    fmpq_mat_init(W->basis, W->dim, W->nmons);
-    fmpq_mat_one(W->basis);
-    W->pivots = (slong*)malloc((W->dim > 0 ? W->dim : 1) * sizeof(slong));
-    for (i = 0; i < W->dim; i++)
-      W->pivots[i] = i;
-  }
-  else {
-    W->dim = weight_nullspace_rref(B, &(W->pivots), A);
-    fmpq_mat_init_set(W->basis, B);
-    fmpq_mat_clear(B);
+    else {
+      fmpz_mat_init(Blk, nr, nc);
+      for (j = 0; j < nc; j++) {
+	nterms = weight_conditions(rows, coeffs, W->exps + WEIGHT_NVARS*cols[j], a, b, c,
+				   &t_xx, &t_xy, &t_yy, &t_e, off_xy, off_yy, off_e);
+	for (t = 0; t < nterms; t++)
+	  fmpz_add(fmpz_mat_entry(Blk, row_loc[rows[t]], j), fmpz_mat_entry(Blk, row_loc[rows[t]], j), coeffs + t);
+      }
+      nullity = fmpz_mat_nullspace(X, Blk);
+      fmpz_mat_clear(Blk);
+    }
+    for (r = 0; r < nr; r++)
+      row_loc[row_list[r]] = -1;
+    // checked in every build: at most the dimension of the representation
+    if (cnt + nullity > dim_expected) {
+      fprintf(stderr, "Error: the representation of weight (%d, %d) has dimension more than %ld\n", a, b,
+	      (long)dim_expected);
+      abort();
+    }
+    for (i = 0; i < nullity; i++) {
+      for (j = 0; j < nc; j++)
+	fmpz_set(fmpz_mat_entry(Nz, cnt, cols[j]), fmpz_mat_entry(X, j, i));
+      cnt++;
+    }
+    fmpz_mat_clear(X);
   }
   // the dimension of the representation of highest weight (a, b) of SO(5), checked in every build
-  if (W->dim != (2*a + 3) * (2*b + 1) * (a - b + 1) * (a + b + 2) / 6) {
-    fprintf(stderr, "Error: the representation of weight (%d, %d) has dimension %ld, not %d\n", a, b,
-	    (long)W->dim, (2*a + 3) * (2*b + 1) * (a - b + 1) * (a + b + 2) / 6);
+  if (cnt != dim_expected) {
+    fprintf(stderr, "Error: the representation of weight (%d, %d) has dimension %ld, not %ld\n", a, b,
+	    (long)cnt, (long)dim_expected);
     abort();
   }
-  fmpz_mat_clear(A);
-  fmpz_mat_clear(q);
-  fmpz_mat_clear(qinv);
+  W->dim = cnt;
+
+  // back to x, y: f(x, y) = f'(M^(-1) x, M^(-1) y). With Mi = den M^(-1) integral, and Ax, By the matrices
+  // of Mi on the monomials of degree a and b, the coefficient of x^i y^j is, up to den^(a + b),
+  // sum_{kx, ky} f'[kx, ky] Ax[kx][i] By[ky][j], computed as Ax^T (f' By) for all the rows at once.
+  fmpq_mat_init(Minv, QF_RANK, QF_RANK);
+  fmpq_mat_inv(Minv, M);
+  fmpz_mat_init(Mi, QF_RANK, QF_RANK);
+  fmpz_init(den);
+  fmpq_mat_get_fmpz_mat_matwise(Mi, den, Minv);
+  fmpz_mat_init(Ax, W->nx, W->nx);
+  fmpz_mat_init(By, W->ny, W->ny);
+  weight_monomial_action(Ax, W->ex, W->nx, a, Mi);
+  weight_monomial_action(By, W->ey, W->ny, b, Mi);
+  fmpz_mat_init(Fs, W->dim * W->nx, W->ny);
+  for (i = 0; i < W->dim; i++)
+    for (k = 0; k < W->nmons; k++)
+      fmpz_set(fmpz_mat_entry(Fs, i * W->nx + k / W->ny, k % W->ny), fmpz_mat_entry(Nz, i, k));
+  fmpz_mat_clear(Nz);
+  fmpz_mat_init(F2, W->dim * W->nx, W->ny);
+  fmpz_mat_mul(F2, Fs, By);
+  fmpz_mat_clear(Fs);
+  // F2 rearranged as nx x (dim ny), then multiplied by Ax^T
+  fmpz_mat_init(Fs, W->nx, (W->dim > 0 ? W->dim : 1) * W->ny);
+  for (i = 0; i < W->dim; i++)
+    for (k = 0; k < W->nx; k++)
+      for (j = 0; j < W->ny; j++)
+	fmpz_swap(fmpz_mat_entry(Fs, k, i * W->ny + j), fmpz_mat_entry(F2, i * W->nx + k, j));
+  fmpz_mat_clear(F2);
+  fmpz_mat_transpose(Ax, Ax);
+  fmpz_mat_init(Res, W->nx, (W->dim > 0 ? W->dim : 1) * W->ny);
+  fmpz_mat_mul(Res, Ax, Fs);
+  fmpz_mat_clear(Fs);
+  fmpz_mat_init(Rz, W->dim, W->nmons);
+  for (i = 0; i < W->dim; i++)
+    for (k = 0; k < W->nx; k++)
+      for (j = 0; j < W->ny; j++)
+	fmpz_swap(fmpz_mat_entry(Rz, i, k * W->ny + j), fmpz_mat_entry(Res, k, i * W->ny + j));
+  fmpz_mat_clear(Res);
+
+  // the basis in reduced row echelon form, which is unique. Its pivots are found modulo a prime, and the
+  // rows are then the solution X of P X = Rz, with P the columns of Rz at the pivots. X is checked to be
+  // in reduced row echelon form, which proves it is the basis; otherwise, another prime is tried.
+  for (i = 0; i < W->dim; i++) {
+    _fmpz_vec_content(den, fmpz_mat_entry(Rz, i, 0), W->nmons);
+    if (!fmpz_is_zero(den) && !fmpz_is_one(den))
+      _fmpz_vec_scalar_divexact_fmpz(fmpz_mat_entry(Rz, i, 0), fmpz_mat_entry(Rz, i, 0), W->nmons, den);
+  }
+  W->pivots = (slong*)malloc((W->dim > 0 ? W->dim : 1) * sizeof(slong));
+  fmpz_mat_init(X, W->dim, W->nmons);
+  fmpz_mat_init(Blk, W->dim, W->dim);
+  prime = UWORD(1) << 60;
+  done = (W->dim == 0);
+  while (!done) {
+    prime = n_nextprime(prime, 1);
+    nmod_mat_init(Rp, W->dim, W->nmons, prime);
+    fmpz_mat_get_nmod_mat(Rp, Rz);
+    rank = nmod_mat_rref(Rp);
+    if (rank == W->dim) {
+      for (i = 0; i < W->dim; i++) {
+	for (k = 0; nmod_mat_entry(Rp, i, k) == 0; k++);
+	W->pivots[i] = k;
+      }
+      for (i = 0; i < W->dim; i++)
+	for (j = 0; j < W->dim; j++)
+	  fmpz_set(fmpz_mat_entry(Blk, i, j), fmpz_mat_entry(Rz, i, W->pivots[j]));
+      if (fmpz_mat_solve(X, den, Blk, Rz)) {
+	done = true;
+	for (i = 0; (i < W->dim) && done; i++) {
+	  for (k = 0; (k < W->pivots[i]) && done; k++)
+	    done = fmpz_is_zero(fmpz_mat_entry(X, i, k));
+	  done = done && fmpz_equal(fmpz_mat_entry(X, i, W->pivots[i]), den);
+	  for (j = 0; (j < W->dim) && done; j++)
+	    done = (j == i) || fmpz_is_zero(fmpz_mat_entry(X, i, W->pivots[j]));
+	}
+      }
+    }
+    nmod_mat_clear(Rp);
+  }
+  fmpz_mat_clear(Blk);
+  fmpz_mat_swap(Rz, X);
+  fmpz_mat_clear(X);
+  // the row i of the basis is the row i of Rz divided by den; with g the gcd of den and the content of
+  // the row, its denominator is den / g and its numerators the row divided by g
+  W->basis_den = _fmpz_vec_init(W->dim > 0 ? W->dim : 1);
+  fmpz_init(g);
+  for (i = 0; i < W->dim; i++) {
+    _fmpz_vec_content(g, fmpz_mat_entry(Rz, i, 0), W->nmons);
+    fmpz_gcd(g, g, den);
+    fmpz_divexact(W->basis_den + i, den, g);
+    _fmpz_vec_scalar_divexact_fmpz(fmpz_mat_entry(Rz, i, 0), fmpz_mat_entry(Rz, i, 0), W->nmons, g);
+  }
+  fmpz_clear(g);
+  // the basis for weight_rep_action, the row i as the columns i * ny, ..., i * ny + ny - 1
+  fmpz_mat_init(W->basis_z, W->nx, (W->dim > 0 ? W->dim : 1) * W->ny);
+  for (i = 0; i < W->dim; i++)
+    for (k = 0; k < W->nmons; k++)
+      fmpz_swap(fmpz_mat_entry(W->basis_z, k / W->ny, i * W->ny + k % W->ny), fmpz_mat_entry(Rz, i, k));
+
+  fmpz_mat_clear(Rz);
+  fmpz_mat_clear(Ax);
+  fmpz_mat_clear(By);
+  fmpz_mat_clear(Mi);
   fmpz_clear(den);
-  fmpz_clear(c);
+  fmpq_mat_clear(Minv);
+  fmpq_mat_clear(Q);
+  fmpq_mat_clear(M);
+  fmpq_mat_clear(G);
+  fmpq_clear(mu);
+  fmpq_clear(dot);
+  _fmpz_vec_clear(c, QF_RANK);
+  _fmpz_vec_clear(coeffs, 4 * QF_RANK);
+  free(rows);
+  free(col_sig);
+  free(cols);
+  free(row_loc);
+  free(row_list);
   weight_target_clear(&t_xx);
   weight_target_clear(&t_xy);
   weight_target_clear(&t_yy);
   weight_target_clear(&t_e);
-
-  // the basis as polynomials
-  fmpq_mpoly_ctx_init(W->ctx, WEIGHT_NVARS, ORD_LEX);
-  W->polys = (fmpq_mpoly_struct*)malloc((W->dim > 0 ? W->dim : 1) * sizeof(fmpq_mpoly_struct));
-  for (i = 0; i < W->dim; i++) {
-    fmpq_mpoly_init(W->polys + i, W->ctx);
-    for (k = 0; k < W->nmons; k++)
-      if (!fmpq_is_zero(fmpq_mat_entry(W->basis, i, k)))
-	fmpq_mpoly_set_coeff_fmpq_ui(W->polys + i, fmpq_mat_entry(W->basis, i, k), W->exps + WEIGHT_NVARS*k, W->ctx);
-  }
-
   return;
 }
 
 void weight_rep_clear(weight_rep_t W)
 {
-  slong i;
-
-  for (i = 0; i < W->dim; i++)
-    fmpq_mpoly_clear(W->polys + i, W->ctx);
-  free(W->polys);
-  fmpq_mpoly_ctx_clear(W->ctx);
-  fmpq_mat_clear(W->basis);
+  _fmpz_vec_clear(W->basis_den, W->dim > 0 ? W->dim : 1);
+  fmpz_mat_clear(W->basis_z);
+  free(W->ex);
+  free(W->ey);
   free(W->pivots);
   free(W->exps);
   return;
@@ -557,29 +843,11 @@ void weight_rep_clear(weight_rep_t W)
 
 void weight_rep_action(fmpq_mat_t R, const weight_rep_t W, const isometry_t s)
 {
-  fmpq_mpoly_struct lin[WEIGHT_NVARS];
-  fmpq_mpoly_struct* lin_ptr[WEIGHT_NVARS];
-  fmpq_mpoly_t img, var;
-  fmpq_t c;
-  fmpz_mat_t S;
-  fmpz_t det;
-  slong i, j, k, m;
-  int sign, v;
-
-  // the linear forms x_i -> sum_j h_ij x_j and y_i -> sum_j h_ij y_j, for h = s^(-1) = s_inv / inv_denom
-  fmpq_init(c);
-  fmpq_mpoly_init(var, W->ctx);
-  for (v = 0; v < 2; v++)
-    for (i = 0; i < QF_RANK; i++) {
-      fmpq_mpoly_init(lin + v*QF_RANK + i, W->ctx);
-      for (j = 0; j < QF_RANK; j++) {
-	fmpq_set_si(c, s->s_inv[i][j], s->inv_denom);
-	fmpq_mpoly_gen(var, v*QF_RANK + j, W->ctx);
-	fmpq_mpoly_scalar_mul_fmpq(var, var, c, W->ctx);
-	fmpq_mpoly_add(lin + v*QF_RANK + i, lin + v*QF_RANK + i, var, W->ctx);
-      }
-      lin_ptr[v*QF_RANK + i] = lin + v*QF_RANK + i;
-    }
+  fmpz_mat_t A, B, Ax, Z, Zx, Bp, P, S, Sinv;
+  fmpz_t det, scale, sum;
+  slong k, m, kx, ky, py, npx, cnt, j;
+  slong *xrow, *xpos, *piv_of;
+  int sign;
 
   // det(s) = det(S) / denom^QF_RANK, which is 1 or -1; the factor det(s)^(a + b)
   fmpz_mat_init_set_square_matrix(S, s->s);
@@ -589,24 +857,84 @@ void weight_rep_action(fmpq_mat_t R, const weight_rep_t W, const isometry_t s)
   if (((W->a + W->b) % 2) == 0)
     sign = 1;
 
-  fmpq_mpoly_init(img, W->ctx);
-  for (k = 0; k < W->dim; k++) {
-    fmpq_mpoly_compose_fmpq_mpoly(img, W->polys + k, lin_ptr, W->ctx, W->ctx);
-    for (m = 0; m < W->dim; m++) {
-      fmpq_mpoly_get_coeff_fmpq_ui(c, img, W->exps + WEIGHT_NVARS*(W->pivots[m]), W->ctx);
-      if (sign < 0)
-	fmpq_neg(c, c);
-      fmpq_set(fmpq_mat_entry(R, m, k), c);
-    }
+  // f(h x, h y) for h = s^(-1) = s_inv / inv_denom. With f = sum_{kx, ky} f[kx, ky] x^kx y^ky and A, B
+  // the matrices of s_inv on the monomials of degree a and b, the coefficient of x^px y^py in
+  // f(s_inv x, s_inv y) is sum_ky B[ky][py] sum_kx A[kx][px] f[kx, ky]. The coordinates of f(h x, h y)
+  // are its coefficients at the pivots (px, py), divided by inv_denom^(a + b). The inner sums are one
+  // product Z = Ax^T basis_z, Ax the columns of A at the monomials px of the pivots.
+  fmpz_mat_init_set_square_matrix(Sinv, s->s_inv);
+  fmpz_mat_init(A, W->nx, W->nx);
+  fmpz_mat_init(B, W->ny, W->ny);
+  weight_monomial_action(A, W->ex, W->nx, W->a, Sinv);
+  weight_monomial_action(B, W->ey, W->ny, W->b, Sinv);
+  fmpz_mat_clear(Sinv);
+  xrow = (slong*)malloc(W->nx * sizeof(slong));
+  xpos = (slong*)malloc((W->dim > 0 ? W->dim : 1) * sizeof(slong));
+  for (kx = 0; kx < W->nx; kx++)
+    xrow[kx] = -1;
+  npx = 0;
+  for (m = 0; m < W->dim; m++) {
+    kx = W->pivots[m] / W->ny;
+    if (xrow[kx] < 0)
+      xrow[kx] = npx++;
+    xpos[m] = xrow[kx];
   }
+  fmpz_mat_init(Ax, (npx > 0) ? npx : 1, W->nx);
+  for (kx = 0; kx < W->nx; kx++)
+    if (xrow[kx] >= 0)
+      for (k = 0; k < W->nx; k++)
+	fmpz_set(fmpz_mat_entry(Ax, xrow[kx], k), fmpz_mat_entry(A, k, kx));
+  fmpz_mat_init(Z, (npx > 0) ? npx : 1, (W->dim > 0 ? W->dim : 1) * W->ny);
+  if (W->dim > 0)
+    fmpz_mat_mul(Z, Ax, W->basis_z);
 
-  fmpq_mpoly_clear(img, W->ctx);
-  for (i = 0; i < WEIGHT_NVARS; i++)
-    fmpq_mpoly_clear(lin + i, W->ctx);
-  fmpq_mpoly_clear(var, W->ctx);
+  // then, for each monomial px of the pivots, the sums over ky as one product: the row of Z at px as a
+  // dim x ny matrix, times the columns of B at the monomials py of the pivots (px, py)
+  fmpz_init(scale);
+  fmpz_init(sum);
+  fmpz_set_si(scale, s->inv_denom);
+  fmpz_pow_ui(scale, scale, (ulong)(W->a + W->b));
+  if (sign < 0)
+    fmpz_neg(scale, scale);
+  piv_of = (slong*)malloc((W->dim > 0 ? W->dim : 1) * sizeof(slong));
+  fmpz_mat_init(Zx, (W->dim > 0 ? W->dim : 1), W->ny);
+  for (kx = 0; kx < npx; kx++) {
+    cnt = 0;
+    for (m = 0; m < W->dim; m++)
+      if (xpos[m] == kx)
+	piv_of[cnt++] = m;
+    fmpz_mat_init(Bp, W->ny, cnt);
+    for (j = 0; j < cnt; j++) {
+      py = W->pivots[piv_of[j]] % W->ny;
+      for (ky = 0; ky < W->ny; ky++)
+	fmpz_set(fmpz_mat_entry(Bp, ky, j), fmpz_mat_entry(B, ky, py));
+    }
+    for (k = 0; k < W->dim; k++)
+      for (ky = 0; ky < W->ny; ky++)
+	fmpz_set(fmpz_mat_entry(Zx, k, ky), fmpz_mat_entry(Z, kx, k * W->ny + ky));
+    fmpz_mat_init(P, W->dim, cnt);
+    fmpz_mat_mul(P, Zx, Bp);
+    for (k = 0; k < W->dim; k++) {
+      fmpz_mul(det, W->basis_den + k, scale);
+      for (j = 0; j < cnt; j++)
+	fmpq_set_fmpz_frac(fmpq_mat_entry(R, piv_of[j], k), fmpz_mat_entry(P, k, j), det);
+    }
+    fmpz_mat_clear(P);
+    fmpz_mat_clear(Bp);
+  }
+  fmpz_mat_clear(Zx);
+  free(piv_of);
+
+  free(xrow);
+  free(xpos);
+  fmpz_mat_clear(A);
+  fmpz_mat_clear(B);
+  fmpz_mat_clear(Ax);
+  fmpz_mat_clear(Z);
   fmpz_mat_clear(S);
   fmpz_clear(det);
-  fmpq_clear(c);
+  fmpz_clear(scale);
+  fmpz_clear(sum);
   return;
 }
 
@@ -713,36 +1041,42 @@ void weight_space_clear(weight_space_t S)
 // image is not in H[c][j]: the sum over the neighbors has to be invariant under Aut(L_j).
 static void weight_add_block(fmpq_mat_t T, const weight_space_t S, slong c, slong j, slong i, const fmpq_mat_t M)
 {
-  slong k, m, r, dW;
-  fmpq_mat_t b, u, v;
+  slong k, m, dW, ni, nj;
+  fmpq_mat_t Ht, U, Up, Hjt, V;
   const fmpq_mat_struct* Hi = S->H[c] + i;
   const fmpq_mat_struct* Hj = S->H[c] + j;
 
+  // the images of the basis vectors of H[c][i], the columns of U = M Hi^T
   dW = fmpq_mat_ncols(Hi);
-  fmpq_mat_init(b, dW, 1);
-  fmpq_mat_init(u, dW, 1);
-  fmpq_mat_init(v, dW, 1);
-  for (k = 0; k < fmpq_mat_nrows(Hi); k++) {
-    for (r = 0; r < dW; r++)
-      fmpq_set(fmpq_mat_entry(b, r, 0), fmpq_mat_entry(Hi, k, r));
-    fmpq_mat_mul(u, M, b);
-    // its coordinates in H[c][j] are its entries at the pivots; check that it lies there
-    fmpq_mat_zero(v);
-    for (m = 0; m < fmpq_mat_nrows(Hj); m++) {
-      fmpq_add(fmpq_mat_entry(T, S->offsets[c][j] + m, S->offsets[c][i] + k),
-	       fmpq_mat_entry(T, S->offsets[c][j] + m, S->offsets[c][i] + k),
-	       fmpq_mat_entry(u, S->pivots[c][j][m], 0));
-      for (r = 0; r < dW; r++)
-	fmpq_addmul(fmpq_mat_entry(v, r, 0), fmpq_mat_entry(u, S->pivots[c][j][m], 0), fmpq_mat_entry(Hj, m, r));
-    }
-    if (!fmpq_mat_equal(u, v)) {
-      fprintf(stderr, "Error: at the conductor index %ld, the image of a form under a Hecke operator is not invariant under the automorphisms of the lattice\n", (long)c);
-      exit(EXIT_FAILURE);
-    }
+  ni = fmpq_mat_nrows(Hi);
+  nj = fmpq_mat_nrows(Hj);
+  fmpq_mat_init(Ht, dW, ni);
+  fmpq_mat_transpose(Ht, Hi);
+  fmpq_mat_init(U, dW, ni);
+  fmpq_mat_mul(U, M, Ht);
+  // their coordinates in H[c][j] are their entries at the pivots, Up; check that they lie there,
+  // U = Hj^T Up
+  fmpq_mat_init(Up, nj, ni);
+  for (m = 0; m < nj; m++)
+    for (k = 0; k < ni; k++)
+      fmpq_set(fmpq_mat_entry(Up, m, k), fmpq_mat_entry(U, S->pivots[c][j][m], k));
+  fmpq_mat_init(Hjt, dW, nj);
+  fmpq_mat_transpose(Hjt, Hj);
+  fmpq_mat_init(V, dW, ni);
+  fmpq_mat_mul(V, Hjt, Up);
+  if (!fmpq_mat_equal(U, V)) {
+    fprintf(stderr, "Error: at the conductor index %ld, the image of a form under a Hecke operator is not invariant under the automorphisms of the lattice\n", (long)c);
+    exit(EXIT_FAILURE);
   }
-  fmpq_mat_clear(b);
-  fmpq_mat_clear(u);
-  fmpq_mat_clear(v);
+  for (m = 0; m < nj; m++)
+    for (k = 0; k < ni; k++)
+      fmpq_add(fmpq_mat_entry(T, S->offsets[c][j] + m, S->offsets[c][i] + k),
+	       fmpq_mat_entry(T, S->offsets[c][j] + m, S->offsets[c][i] + k), fmpq_mat_entry(Up, m, k));
+  fmpq_mat_clear(Ht);
+  fmpq_mat_clear(U);
+  fmpq_mat_clear(Up);
+  fmpq_mat_clear(Hjt);
+  fmpq_mat_clear(V);
   return;
 }
 

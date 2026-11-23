@@ -7,7 +7,7 @@
 square_matrix_t** hecke_matrices_isometries(const genus_t genus, int p);
 
 #include <flint/fmpq_mat.h>
-#include <flint/fmpq_mpoly.h>
+#include <flint/fmpz_mpoly.h>
 
 // the variables of the polynomials of a weight: x_1, ..., x_QF_RANK and y_1, ..., y_QF_RANK
 #define WEIGHT_NVARS (2*QF_RANK)
@@ -33,12 +33,19 @@ square_matrix_t** hecke_matrices_isometries(const genus_t genus, int p);
  *     + nmons (slong) - the number of monomials of bidegree (a, b)
  *     + exps (ulong*) - their exponents, WEIGHT_NVARS for each monomial, x first
  *     + dim (slong) - the dimension of the representation
- *     + basis (fmpq_mat_t) - its basis, dim x nmons, in reduced row echelon
- *                            form, so that the coordinates of a vector of it
- *                            are its entries at the pivots
- *     + pivots (slong*) - the pivot of each row of basis
- *     + ctx (fmpq_mpoly_ctx_t) - the polynomial ring
- *     + polys (fmpq_mpoly_struct*) - the polynomials of the basis
+ *     + pivots (slong*) - the pivots of its basis, dim x nmons, in reduced row
+ *                         echelon form, so that the coordinates of a vector
+ *                         of it are its entries at the pivots
+ *     + nx, ny (slong) - the numbers of monomials of degree a and b in
+ *                        QF_RANK variables; the monomial k of bidegree
+ *                        (a, b) is the product of the monomial k / ny of
+ *                        degree a in x and k % ny of degree b in y
+ *     + ex, ey (ulong*) - their exponents, QF_RANK for each monomial
+ *     + basis_z (fmpz_mat_t) - the rows of the basis times their denominators,
+ *                              nx x (dim ny): the entry (kx, k * ny + ky)
+ *                              is the coefficient of the basis vector k at
+ *                              the monomial kx * ny + ky
+ *     + basis_den (fmpz*) - the denominator of each row of the basis
  *
  ***************************************************************************
  */
@@ -50,23 +57,26 @@ typedef struct
   slong nmons;
   ulong* exps;
   slong dim;
-  fmpq_mat_t basis;
   slong* pivots;
-  fmpq_mpoly_ctx_t ctx;
-  fmpq_mpoly_struct* polys;
+  slong nx, ny;
+  ulong *ex, *ey;
+  fmpz_mat_t basis_z;
+  fmpz* basis_den;
 } weight_rep_struct;
 
 typedef weight_rep_struct weight_rep_t[1];
 
 void weight_rep_init(weight_rep_t W, int a, int b, const square_matrix_t q0);
 
-// The number of entries of the integer matrices which weight_rep_init builds for the weight (a, b): the
-// conditions on the polynomials of bidegree (a, b), and their nullspace. It grows quickly with a and b.
+// The number of entries of the largest integer matrices which weight_rep_init builds for the weight
+// (a, b): the basis of the representation, dim x nmons, or a block of the conditions on the
+// polynomials of bidegree (a, b). The memory is about 200 bytes for each.
 double weight_rep_matrix_size(int a, int b);
 
-// The largest size for which omf5 computes the forms of a weight (a, b) with b > 0: 10^8 entries, about
-// the weight (4, 4). The weights (a, 0) are not limited, as before the weights (a, b).
-#define WEIGHT_MAX_MATRIX_SIZE 1e8
+// The largest size for which omf5 computes the forms of a weight (a, b) with b > 0: 2.5 10^7 entries,
+// about 5 GB, which allows the weight (6, 6) and not (7, 7). The weights (a, 0) are not limited, as
+// before the weights (a, b).
+#define WEIGHT_MAX_MATRIX_SIZE 2.5e7
 
 void weight_rep_clear(weight_rep_t W);
 
