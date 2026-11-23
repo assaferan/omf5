@@ -736,9 +736,9 @@ STATUS test_61()
   return ret;
 }
 
-// Tests the forms of weight (a, 0) on the lattice with the coefficients Q_coeffs: the space of the
+// Tests the forms of weight (a, b) on the lattice with the coefficients Q_coeffs: the space of the
 // conductor index c has dimension dim, and T_p has trace tr on it (with the normalization p^a).
-static STATUS test_weight_of(const Z64* Q_coeffs, int a, slong c, slong dim, int p, slong tr)
+static STATUS test_weight_of(const Z64* Q_coeffs, int a, int b, slong c, slong dim, int p, slong tr)
 {
   genus_t genus;
   weight_rep_t W;
@@ -749,7 +749,7 @@ static STATUS test_weight_of(const Z64* Q_coeffs, int a, slong c, slong dim, int
   STATUS ret;
 
   compute_genus(genus, Q_coeffs, "GG", false);
-  weight_rep_init(W, a, genus->genus_reps->keys[0]);
+  weight_rep_init(W, a, b, genus->genus_reps->keys[0]);
   weight_space_init(S, genus, W);
   ret = (S->dims[c] == dim) ? SUCCESS : FAIL;
   if (ret == SUCCESS) {
@@ -769,9 +769,9 @@ static STATUS test_weight_of(const Z64* Q_coeffs, int a, slong c, slong dim, int
   return ret;
 }
 
-// The Hecke matrices of the weight (a, 0) by orbits of the automorphisms and neighbor by neighbor
+// The Hecke matrices of the weight (a, b) by orbits of the automorphisms and neighbor by neighbor
 // have to be the same, at every conductor.
-static STATUS test_weight_orbits_of(const Z64* Q_coeffs, int a, int p)
+static STATUS test_weight_orbits_of(const Z64* Q_coeffs, int a, int b, int p)
 {
   genus_t genus;
   weight_rep_t W;
@@ -781,7 +781,7 @@ static STATUS test_weight_orbits_of(const Z64* Q_coeffs, int a, int p)
   STATUS ret;
 
   compute_genus(genus, Q_coeffs, "GG", false);
-  weight_rep_init(W, a, genus->genus_reps->keys[0]);
+  weight_rep_init(W, a, b, genus->genus_reps->keys[0]);
   weight_space_init(S, genus, W);
   T1 = hecke_matrices_weight(genus, W, S, p);
   T2 = hecke_matrices_weight_by_neighbor(genus, W, S, p);
@@ -800,8 +800,9 @@ static STATUS test_weight_orbits_of(const Z64* Q_coeffs, int a, int p)
   return ret;
 }
 
-// Weights (1, 0) and (2, 0): the values are those of Magma's ModFrmAlg (core,
-// test/Geometry/ModFrmAlg/Rank5Disc83Wt4.m for D = 83), times p^a.
+// Weights (1, 0), (2, 0), (1, 1) and (2, 1): the values are those of Magma's ModFrmAlg (core,
+// test/Geometry/ModFrmAlg/Rank5Disc83Wt4.m for D = 83, and HighestWeightRepresentation(G, [a,b]) with
+// the level IdentityMatrix(Rationals(), 5) for (1, 1) and (2, 1)), times p^a.
 STATUS test_weight()
 {
   STATUS ret;
@@ -811,18 +812,35 @@ STATUS test_weight()
   Z64 Q124[15] = {1,0,1,0,-1,1,1,0,0,2,0,-1,2,-1,3};
   // D = 61, the lattice of the data with the diagonal 2, 2, 2, 2, 16
   Z64 Q61[15] = {1,0,0,1,1,1,0,1,0,1,0,0,1,0,8};
+  // D = 19, the lattice of the example of Rama-Tornaria's quinary (gp/example.gp)
+  Z64 Q19[15] = {1,0,0,1,1,1,0,1,0,1,0,1,1,0,3};
   // D5, of discriminant 2, whose genus has one class
   Z64 QD5[15] = {1,-1,0,0,0,1,-1,0,0,1,-1,-1,1,0,1};
 
-  ret = test_weight_of(Q83, 1, 0, 1, 2, -17);
-  ret |= test_weight_of(Q83, 1, 0, 1, 3, -23);
-  ret |= test_weight_of(Q124, 1, 0, 1, 3, -28);
-  ret |= test_weight_of(Q124, 1, 3, 1, 3, 0);
-  ret |= test_weight_of(Q61, 2, 0, 31, 3, 1527);
-  ret |= test_weight_orbits_of(Q124, 1, 3);
-  ret |= test_weight_orbits_of(Q61, 2, 3);
+  ret = test_weight_of(Q83, 1, 0, 0, 1, 2, -17);
+  ret |= test_weight_of(Q83, 1, 0, 0, 1, 3, -23);
+  ret |= test_weight_of(Q124, 1, 0, 0, 1, 3, -28);
+  ret |= test_weight_of(Q124, 1, 0, 3, 1, 3, 0);
+  ret |= test_weight_of(Q61, 2, 0, 0, 31, 3, 1527);
+  // the paramodular weights (3, 2) and (4, 2) of level 83: 21 and 79 forms over the two conductors, as
+  // in the LMFDB; Magma gives the conductor 1 only, and the traces at the conductor 83 are omf5's
+  ret |= test_weight_of(Q83, 1, 1, 0, 15, 2, 6);
+  ret |= test_weight_of(Q83, 1, 1, 0, 15, 3, 77);
+  ret |= test_weight_of(Q83, 1, 1, 1, 6, 2, -45);
+  ret |= test_weight_of(Q83, 2, 1, 0, 27, 2, -227);
+  ret |= test_weight_of(Q83, 2, 1, 0, 27, 3, -861);
+  ret |= test_weight_of(Q83, 2, 1, 1, 52, 2, 122);
+  // the weight (2, 2), the paramodular weight (3, 4) of level 19: 2 forms of conductor 1, on which T_2 has
+  // the characteristic polynomial x^2 - 3x - 78, as in Magma and as the factor for (2, 2) of the
+  // representation of Rama-Tornaria's quinary (which is that of GL_5, (2, 2) + (2, 0) + (0, 0) for SO_5)
+  ret |= test_weight_of(Q19, 2, 2, 0, 2, 2, 3);
+  ret |= test_weight_of(Q19, 2, 2, 1, 0, 2, 0);
+  ret |= test_weight_orbits_of(Q124, 1, 0, 3);
+  ret |= test_weight_orbits_of(Q61, 2, 0, 3);
+  ret |= test_weight_orbits_of(Q124, 1, 1, 3);
+  ret |= test_weight_orbits_of(Q61, 2, 1, 3);
   // D5, whose automorphisms (3840 of them) are found in different orders for different lines
-  ret |= test_weight_orbits_of(QD5, 4, 5);
+  ret |= test_weight_orbits_of(QD5, 4, 0, 5);
 
   return ret;
 }

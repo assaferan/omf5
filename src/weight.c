@@ -222,7 +222,7 @@ square_matrix_t** hecke_matrices_isometries(const genus_t genus, int p)
   return hecke;
 }
 
-/* Algebraic modular forms of weight (a, 0): see weight.h. */
+/* Algebraic modular forms of weight (a, b): see weight.h. */
 
 #include <flint/fmpz_mat.h>
 #include <flint/fmpq_mat.h>
@@ -315,83 +315,227 @@ static void weight_clear_denominators(fmpz_mat_t A, const fmpq_mat_t M)
   return;
 }
 
-void weight_rep_init(weight_rep_t W, int a, const square_matrix_t q0)
+// The monomials of bidegree (a, b) in x_1, ..., x_QF_RANK and y_1, ..., y_QF_RANK: the monomial
+// kx * ny + ky is the product of the monomials kx of degree a in x and ky of degree b in y, of the
+// orders of weight_monomials. Fills exps (if not NULL), WEIGHT_NVARS exponents for each, the x first.
+static slong weight_bimonomials(ulong* exps, int a, int b)
 {
-  slong i, j, k, r, nlow;
-  ulong* low;
-  ulong e[QF_RANK];
-  fmpz_mat_t q, qinv, lap;
+  slong nx, ny, kx, ky, i;
+  ulong *ex, *ey;
+
+  if ((a < 0) || (b < 0))
+    return 0;
+  nx = weight_monomials(NULL, a);
+  ny = weight_monomials(NULL, b);
+  if (exps != NULL) {
+    ex = (ulong*)malloc(QF_RANK * nx * sizeof(ulong));
+    ey = (ulong*)malloc(QF_RANK * ny * sizeof(ulong));
+    weight_monomials(ex, a);
+    weight_monomials(ey, b);
+    for (kx = 0; kx < nx; kx++)
+      for (ky = 0; ky < ny; ky++)
+	for (i = 0; i < QF_RANK; i++) {
+	  exps[WEIGHT_NVARS*(kx*ny + ky) + i] = ex[QF_RANK*kx + i];
+	  exps[WEIGHT_NVARS*(kx*ny + ky) + QF_RANK + i] = ey[QF_RANK*ky + i];
+	}
+    free(ex);
+    free(ey);
+  }
+  return nx * ny;
+}
+
+// The monomials of a bidegree, with the index of a monomial of it.
+typedef struct
+{
+  slong nx, ny;
+  ulong *ex, *ey;
+} weight_target_struct;
+
+static void weight_target_init(weight_target_struct* t, int a, int b)
+{
+  t->nx = weight_monomials(NULL, a);
+  t->ny = weight_monomials(NULL, b);
+  t->ex = (ulong*)malloc(QF_RANK * (t->nx > 0 ? t->nx : 1) * sizeof(ulong));
+  t->ey = (ulong*)malloc(QF_RANK * (t->ny > 0 ? t->ny : 1) * sizeof(ulong));
+  weight_monomials(t->ex, a);
+  weight_monomials(t->ey, b);
+  return;
+}
+
+static void weight_target_clear(weight_target_struct* t)
+{
+  free(t->ex);
+  free(t->ey);
+  return;
+}
+
+static slong weight_target_index(const weight_target_struct* t, const ulong* e)
+{
+  slong kx, ky;
+
+  kx = weight_monomial_index(t->ex, t->nx, e);
+  ky = weight_monomial_index(t->ey, t->ny, e + QF_RANK);
+  // checked in every build: a negative index would write outside the matrix of the conditions
+  if ((kx < 0) || (ky < 0)) {
+    fprintf(stderr, "Error: a monomial of the weight is not in its target bidegree\n");
+    abort();
+  }
+  return kx * t->ny + ky;
+}
+
+// The number of monomials of degree d in QF_RANK = 5 variables, C(d + 4, 4), and of bidegree (a, b).
+static double weight_num_monomials(double d)
+{
+  return (d < 0) ? 0 : (d + 1) * (d + 2) * (d + 3) * (d + 4) / 24;
+}
+
+static double weight_num_bimonomials(double a, double b)
+{
+  return weight_num_monomials(a) * weight_num_monomials(b);
+}
+
+double weight_rep_matrix_size(int a, int b)
+{
+  double nmons, nrows;
+
+  // in closed form, so that a large weight is rejected at once
+  nmons = weight_num_bimonomials(a, b);
+  nrows = ((a >= 2) ? weight_num_bimonomials(a - 2.0, b) : 0) +
+    ((b >= 1) ? weight_num_bimonomials(a - 1.0, b - 1.0) + weight_num_bimonomials(a + 1.0, b - 1.0) : 0) +
+    ((b >= 2) ? weight_num_bimonomials(a, b - 2.0) : 0);
+  return nmons * (nrows + nmons);
+}
+
+void weight_rep_init(weight_rep_t W, int a, int b, const square_matrix_t q0)
+{
+  slong i, j, k, r, nrows, off_xy, off_yy, off_e;
+  ulong e[WEIGHT_NVARS];
+  const ulong* mon;
+  fmpz_mat_t q, qinv, A;
   fmpz_t den, c;
   fmpq_mat_t B;
-  ulong* mon;
+  weight_target_struct t_xx, t_xy, t_yy, t_e;
 
+  assert((0 <= b) && (b <= a));
   W->a = a;
-  W->nmons = weight_monomials(NULL, a);
-  W->exps = (ulong*)malloc(QF_RANK * W->nmons * sizeof(ulong));
-  weight_monomials(W->exps, a);
+  W->b = b;
+  W->nmons = weight_bimonomials(NULL, a, b);
+  W->exps = (ulong*)malloc(WEIGHT_NVARS * W->nmons * sizeof(ulong));
+  weight_bimonomials(W->exps, a, b);
 
-  if (a < 2) {
-    // every polynomial of degree at most 1 is harmonic
+  // The polynomials f of bidegree (a, b) which are harmonic for q0^(-1) in x, in y and in both, that is
+  // Delta_xx f = Delta_xy f = Delta_yy f = 0 with Delta_uv = sum_{i,j} qinv_ij d/du_i d/dv_j, and are
+  // highest weight vectors for GL_2, E f = 0 with E = sum_i x_i d/dy_i. They form the irreducible
+  // representation of highest weight (a, b) of O(q0) (Howe duality for O(5) x GL_2 on the harmonic
+  // polynomials). qinv is the adjugate of q0, a multiple of its inverse, which has the same kernels.
+  // The rows of A are the coefficients of the four images: Delta_xx f of bidegree (a - 2, b), then
+  // Delta_xy f of (a - 1, b - 1), Delta_yy f of (a, b - 2) and E f of (a + 1, b - 1).
+  weight_target_init(&t_xx, a - 2 >= 0 ? a - 2 : 0, b);
+  weight_target_init(&t_xy, a - 1 >= 0 ? a - 1 : 0, b - 1 >= 0 ? b - 1 : 0);
+  weight_target_init(&t_yy, a, b - 2 >= 0 ? b - 2 : 0);
+  weight_target_init(&t_e, a + 1, b - 1 >= 0 ? b - 1 : 0);
+  off_xy = (a >= 2) ? t_xx.nx * t_xx.ny : 0;
+  off_yy = off_xy + ((b >= 1) ? t_xy.nx * t_xy.ny : 0);
+  off_e = off_yy + ((b >= 2) ? t_yy.nx * t_yy.ny : 0);
+  nrows = off_e + ((b >= 1) ? t_e.nx * t_e.ny : 0);
+
+  fmpz_mat_init_set_square_matrix(q, q0);
+  fmpz_mat_init(qinv, QF_RANK, QF_RANK);
+  fmpz_init(den);
+  fmpz_init(c);
+  fmpz_mat_inv(qinv, den, q);
+  fmpz_mat_init(A, (nrows > 0) ? nrows : 1, W->nmons);
+  for (k = 0; k < W->nmons; k++) {
+    mon = W->exps + WEIGHT_NVARS*k;
+    // Delta_xx and Delta_yy: the x part at 0, the y part at QF_RANK
+    for (int v = 0; v < 2; v++) {
+      const weight_target_struct* t = (v == 0) ? &t_xx : &t_yy;
+      slong off = (v == 0) ? 0 : off_yy;
+      int sh = (v == 0) ? 0 : QF_RANK;
+      if (((v == 0) && (a < 2)) || ((v == 1) && (b < 2)))
+	continue;
+      for (i = 0; i < QF_RANK; i++)
+	for (j = i; j < QF_RANK; j++) {
+	  for (r = 0; r < WEIGHT_NVARS; r++)
+	    e[r] = mon[r];
+	  if (i == j) {
+	    if (mon[sh + i] < 2) continue;
+	    e[sh + i] -= 2;
+	    fmpz_mul_ui(c, fmpz_mat_entry(qinv, i, i), mon[sh + i] * (mon[sh + i] - 1));
+	  }
+	  else {
+	    if ((mon[sh + i] == 0) || (mon[sh + j] == 0)) continue;
+	    e[sh + i]--;
+	    e[sh + j]--;
+	    fmpz_mul_ui(c, fmpz_mat_entry(qinv, i, j), 2 * mon[sh + i] * mon[sh + j]);
+	  }
+	  r = off + weight_target_index(t, e);
+	  fmpz_add(fmpz_mat_entry(A, r, k), fmpz_mat_entry(A, r, k), c);
+	}
+    }
+    if (b < 1)
+      continue;
+    // Delta_xy, over all ordered pairs (i, j)
+    for (i = 0; i < QF_RANK; i++)
+      for (j = 0; j < QF_RANK; j++) {
+	if ((mon[i] == 0) || (mon[QF_RANK + j] == 0)) continue;
+	for (r = 0; r < WEIGHT_NVARS; r++)
+	  e[r] = mon[r];
+	e[i]--;
+	e[QF_RANK + j]--;
+	fmpz_mul_ui(c, fmpz_mat_entry(qinv, i, j), mon[i] * mon[QF_RANK + j]);
+	r = off_xy + weight_target_index(&t_xy, e);
+	fmpz_add(fmpz_mat_entry(A, r, k), fmpz_mat_entry(A, r, k), c);
+      }
+    // E = sum_i x_i d/dy_i
+    for (i = 0; i < QF_RANK; i++) {
+      if (mon[QF_RANK + i] == 0) continue;
+      for (r = 0; r < WEIGHT_NVARS; r++)
+	e[r] = mon[r];
+      e[i]++;
+      e[QF_RANK + i]--;
+      r = off_e + weight_target_index(&t_e, e);
+      fmpz_add_ui(fmpz_mat_entry(A, r, k), fmpz_mat_entry(A, r, k), mon[QF_RANK + i]);
+    }
+  }
+  if (nrows == 0) {
+    // degree at most 1 in x and 0 in y: every polynomial
     W->dim = W->nmons;
     fmpq_mat_init(W->basis, W->dim, W->nmons);
     fmpq_mat_one(W->basis);
-    W->pivots = (slong*)malloc(W->dim * sizeof(slong));
+    W->pivots = (slong*)malloc((W->dim > 0 ? W->dim : 1) * sizeof(slong));
     for (i = 0; i < W->dim; i++)
       W->pivots[i] = i;
   }
   else {
-    // the laplacian sum_{i,j} qinv_ij d_i d_j, from degree a to degree a - 2, with qinv the adjugate
-    // of q0, a multiple of its inverse, which has the same kernel
-    nlow = weight_monomials(NULL, a - 2);
-    low = (ulong*)malloc(QF_RANK * nlow * sizeof(ulong));
-    weight_monomials(low, a - 2);
-    fmpz_mat_init_set_square_matrix(q, q0);
-    fmpz_mat_init(qinv, QF_RANK, QF_RANK);
-    fmpz_init(den);
-    fmpz_init(c);
-    fmpz_mat_inv(qinv, den, q);
-    fmpz_mat_init(lap, nlow, W->nmons);
-    for (k = 0; k < W->nmons; k++) {
-      mon = W->exps + QF_RANK*k;
-      for (i = 0; i < QF_RANK; i++)
-	for (j = i; j < QF_RANK; j++) {
-	  for (r = 0; r < QF_RANK; r++)
-	    e[r] = mon[r];
-	  if (i == j) {
-	    if (mon[i] < 2) continue;
-	    e[i] -= 2;
-	    fmpz_mul_ui(c, fmpz_mat_entry(qinv, i, i), mon[i] * (mon[i] - 1));
-	  }
-	  else {
-	    if ((mon[i] == 0) || (mon[j] == 0)) continue;
-	    e[i]--;
-	    e[j]--;
-	    fmpz_mul_ui(c, fmpz_mat_entry(qinv, i, j), 2 * mon[i] * mon[j]);
-	  }
-	  r = weight_monomial_index(low, nlow, e);
-	  assert(r >= 0);
-	  fmpz_add(fmpz_mat_entry(lap, r, k), fmpz_mat_entry(lap, r, k), c);
-	}
-    }
-    W->dim = weight_nullspace_rref(B, &(W->pivots), lap);
+    W->dim = weight_nullspace_rref(B, &(W->pivots), A);
     fmpq_mat_init_set(W->basis, B);
     fmpq_mat_clear(B);
-    fmpz_mat_clear(lap);
-    fmpz_mat_clear(q);
-    fmpz_mat_clear(qinv);
-    fmpz_clear(den);
-    fmpz_clear(c);
-    free(low);
   }
+  // the dimension of the representation of highest weight (a, b) of SO(5), checked in every build
+  if (W->dim != (2*a + 3) * (2*b + 1) * (a - b + 1) * (a + b + 2) / 6) {
+    fprintf(stderr, "Error: the representation of weight (%d, %d) has dimension %ld, not %d\n", a, b,
+	    (long)W->dim, (2*a + 3) * (2*b + 1) * (a - b + 1) * (a + b + 2) / 6);
+    abort();
+  }
+  fmpz_mat_clear(A);
+  fmpz_mat_clear(q);
+  fmpz_mat_clear(qinv);
+  fmpz_clear(den);
+  fmpz_clear(c);
+  weight_target_clear(&t_xx);
+  weight_target_clear(&t_xy);
+  weight_target_clear(&t_yy);
+  weight_target_clear(&t_e);
 
   // the basis as polynomials
-  fmpq_mpoly_ctx_init(W->ctx, QF_RANK, ORD_LEX);
-  W->polys = (fmpq_mpoly_struct*)malloc(W->dim * sizeof(fmpq_mpoly_struct));
+  fmpq_mpoly_ctx_init(W->ctx, WEIGHT_NVARS, ORD_LEX);
+  W->polys = (fmpq_mpoly_struct*)malloc((W->dim > 0 ? W->dim : 1) * sizeof(fmpq_mpoly_struct));
   for (i = 0; i < W->dim; i++) {
     fmpq_mpoly_init(W->polys + i, W->ctx);
     for (k = 0; k < W->nmons; k++)
       if (!fmpq_is_zero(fmpq_mat_entry(W->basis, i, k)))
-	fmpq_mpoly_set_coeff_fmpq_ui(W->polys + i, fmpq_mat_entry(W->basis, i, k), W->exps + QF_RANK*k, W->ctx);
+	fmpq_mpoly_set_coeff_fmpq_ui(W->polys + i, fmpq_mat_entry(W->basis, i, k), W->exps + WEIGHT_NVARS*k, W->ctx);
   }
 
   return;
@@ -413,42 +557,43 @@ void weight_rep_clear(weight_rep_t W)
 
 void weight_rep_action(fmpq_mat_t R, const weight_rep_t W, const isometry_t s)
 {
-  fmpq_mpoly_struct lin[QF_RANK];
-  fmpq_mpoly_struct* lin_ptr[QF_RANK];
+  fmpq_mpoly_struct lin[WEIGHT_NVARS];
+  fmpq_mpoly_struct* lin_ptr[WEIGHT_NVARS];
   fmpq_mpoly_t img, var;
   fmpq_t c;
   fmpz_mat_t S;
   fmpz_t det;
   slong i, j, k, m;
-  int sign;
+  int sign, v;
 
-  // the linear forms x_i -> sum_j h_ij x_j, for h = s^(-1) = s_inv / inv_denom
+  // the linear forms x_i -> sum_j h_ij x_j and y_i -> sum_j h_ij y_j, for h = s^(-1) = s_inv / inv_denom
   fmpq_init(c);
   fmpq_mpoly_init(var, W->ctx);
-  for (i = 0; i < QF_RANK; i++) {
-    fmpq_mpoly_init(lin + i, W->ctx);
-    for (j = 0; j < QF_RANK; j++) {
-      fmpq_set_si(c, s->s_inv[i][j], s->inv_denom);
-      fmpq_mpoly_gen(var, j, W->ctx);
-      fmpq_mpoly_scalar_mul_fmpq(var, var, c, W->ctx);
-      fmpq_mpoly_add(lin + i, lin + i, var, W->ctx);
+  for (v = 0; v < 2; v++)
+    for (i = 0; i < QF_RANK; i++) {
+      fmpq_mpoly_init(lin + v*QF_RANK + i, W->ctx);
+      for (j = 0; j < QF_RANK; j++) {
+	fmpq_set_si(c, s->s_inv[i][j], s->inv_denom);
+	fmpq_mpoly_gen(var, v*QF_RANK + j, W->ctx);
+	fmpq_mpoly_scalar_mul_fmpq(var, var, c, W->ctx);
+	fmpq_mpoly_add(lin + v*QF_RANK + i, lin + v*QF_RANK + i, var, W->ctx);
+      }
+      lin_ptr[v*QF_RANK + i] = lin + v*QF_RANK + i;
     }
-    lin_ptr[i] = lin + i;
-  }
 
-  // det(s) = det(S) / denom^QF_RANK, which is 1 or -1
+  // det(s) = det(S) / denom^QF_RANK, which is 1 or -1; the factor det(s)^(a + b)
   fmpz_mat_init_set_square_matrix(S, s->s);
   fmpz_init(det);
   fmpz_mat_det(det, S);
   sign = ((fmpz_sgn(det) < 0) != (s->denom < 0)) ? -1 : 1;
-  if ((W->a % 2) == 0)
+  if (((W->a + W->b) % 2) == 0)
     sign = 1;
 
   fmpq_mpoly_init(img, W->ctx);
   for (k = 0; k < W->dim; k++) {
     fmpq_mpoly_compose_fmpq_mpoly(img, W->polys + k, lin_ptr, W->ctx, W->ctx);
     for (m = 0; m < W->dim; m++) {
-      fmpq_mpoly_get_coeff_fmpq_ui(c, img, W->exps + QF_RANK*(W->pivots[m]), W->ctx);
+      fmpq_mpoly_get_coeff_fmpq_ui(c, img, W->exps + WEIGHT_NVARS*(W->pivots[m]), W->ctx);
       if (sign < 0)
 	fmpq_neg(c, c);
       fmpq_set(fmpq_mat_entry(R, m, k), c);
@@ -456,7 +601,7 @@ void weight_rep_action(fmpq_mat_t R, const weight_rep_t W, const isometry_t s)
   }
 
   fmpq_mpoly_clear(img, W->ctx);
-  for (i = 0; i < QF_RANK; i++)
+  for (i = 0; i < WEIGHT_NVARS; i++)
     fmpq_mpoly_clear(lin + i, W->ctx);
   fmpq_mpoly_clear(var, W->ctx);
   fmpz_mat_clear(S);
@@ -868,7 +1013,7 @@ fmpq_mat_struct* hecke_matrices_weight_by_neighbor(const genus_t genus, const we
   return hecke_matrices_weight_impl(genus, W, S, p, false);
 }
 
-int print_hecke_matrices_weight(const genus_t genus, int a, int p)
+int print_hecke_matrices_weight(const genus_t genus, int a, int b, int p)
 {
   weight_rep_t W;
   weight_space_t S;
@@ -888,11 +1033,14 @@ int print_hecke_matrices_weight(const genus_t genus, int a, int p)
     printf("}");
     return 0;
   }
-  weight_rep_init(W, a, genus->genus_reps->keys[0]);
+  weight_rep_init(W, a, b, genus->genus_reps->keys[0]);
   weight_space_init(S, genus, W);
   T = hecke_matrices_weight(genus, W, S, p);
 
-  fprintf(stderr, "With the weight %d, the corresponding dimensions are: ", a);
+  if (b == 0)
+    fprintf(stderr, "With the weight %d, the corresponding dimensions are: ", a);
+  else
+    fprintf(stderr, "With the weight (%d, %d), the corresponding dimensions are: ", a, b);
   for (c = 0; c < genus->num_conductors; c++)
     fprintf(stderr, "%ld ", (long)S->dims[c]);
   fprintf(stderr, "\n");
@@ -922,7 +1070,7 @@ int print_hecke_matrices_weight(const genus_t genus, int a, int p)
   return 0;
 }
 
-/* Eigenvalues of the forms of weight (a, 0). */
+/* Eigenvalues of the forms of weight (a, b). */
 
 #include "arith.h"
 #include "decomposition.h"
@@ -1006,7 +1154,7 @@ static bool weight_form_eigenvalue(nf_elem_t ev, const eigenvalues_t evs, slong 
   return weight_eigenvalue(ev, (const nf_elem_t*)evs->eigenvecs[i], T, evs->nfs[i]);
 }
 
-int print_eigenvalues_weight(const genus_t genus, int a, const int* ps, int num_ps)
+int print_eigenvalues_weight(const genus_t genus, int a, int b, const int* ps, int num_ps)
 {
   weight_rep_t W;
   weight_space_t S;
@@ -1033,9 +1181,12 @@ int print_eigenvalues_weight(const genus_t genus, int a, const int* ps, int num_
     return 0;
   }
 
-  weight_rep_init(W, a, genus->genus_reps->keys[0]);
+  weight_rep_init(W, a, b, genus->genus_reps->keys[0]);
   weight_space_init(S, genus, W);
-  fprintf(stderr, "With the weight %d, the corresponding dimensions are: ", a);
+  if (b == 0)
+    fprintf(stderr, "With the weight %d, the corresponding dimensions are: ", a);
+  else
+    fprintf(stderr, "With the weight (%d, %d), the corresponding dimensions are: ", a, b);
   for (c = 0; c < genus->num_conductors; c++)
     fprintf(stderr, "%ld ", (long)S->dims[c]);
   fprintf(stderr, "\n");

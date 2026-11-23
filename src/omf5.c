@@ -134,7 +134,9 @@ int main(int argc, char* argv[])
   bool has_quad, has_format, has_prec, has_p, has_hecke, has_c;
   bool has_genus, has_disc, has_large, has_row, has_isom, has_nonlifts, has_idxs, has_square;
   bool has_noreduce, has_weight, is_weight;
-  int weight;
+  int weight, weight_b;
+  int* weight_vals;
+  int num_weight_vals;
   int i, j;
   genus_t genus;
   int* idxs;
@@ -155,7 +157,9 @@ int main(int argc, char* argv[])
   has_quad = has_format = has_prec  = has_p = has_hecke = has_c = false;
   has_row = has_genus = has_disc = has_large = has_isom = has_nonlifts = has_idxs = false;
   has_square = has_noreduce = has_weight = false;
-  weight = 0;
+  weight = weight_b = 0;
+  weight_vals = NULL;
+  num_weight_vals = 0;
   
   for (i = 1; i < argc; i++) {
     is_valid = false;
@@ -245,10 +249,17 @@ int main(int argc, char* argv[])
     if (is_p)
       has_p = true;
 
-    is_weight = handle_flag_int("weight", argv[i], &weight);
-    if ((is_weight) && (weight < 0)) {
-      fprintf(stderr, "Error: the weight in %s is negative\n", argv[i]);
-      is_weight = false;
+    // -weight=a for the weight (a, 0), or -weight=a,b for (a, b), a >= b >= 0
+    is_weight = handle_flag_int_seq("weight", argv[i], &weight_vals, &num_weight_vals);
+    if (is_weight) {
+      weight = weight_vals[0];
+      weight_b = (num_weight_vals > 1) ? weight_vals[1] : 0;
+      if ((num_weight_vals > 2) || (weight_b < 0) || (weight < weight_b)) {
+	fprintf(stderr, "Error: the weight in %s is not a or a,b with a >= b >= 0\n", argv[i]);
+	is_weight = false;
+      }
+      free(weight_vals);
+      weight_vals = NULL;
     }
     is_valid = (is_valid) || (is_weight);
     if (is_weight)
@@ -320,6 +331,15 @@ int main(int argc, char* argv[])
     test_res |= test_weight();
   }
 
+  // a weight (a, b) with b > 0 whose representation is too large is rejected before the genus is computed
+  if (has_weight && (weight_b > 0) && (weight_rep_matrix_size(weight, weight_b) > WEIGHT_MAX_MATRIX_SIZE)) {
+    fprintf(stderr, "Error: the weight (%d, %d) is too large: its representation would need matrices with %.3g entries, more than %.3g\n",
+	    weight, weight_b, weight_rep_matrix_size(weight, weight_b), WEIGHT_MAX_MATRIX_SIZE);
+    if (has_idxs)
+      free(idxs);
+    return EXIT_FAILURE;
+  }
+
   if (has_quad && has_format)
     compute_genus(genus, Q_coeffs, input_type, !has_noreduce);
   else if (has_genus && has_disc)
@@ -331,7 +351,7 @@ int main(int argc, char* argv[])
     fprintf(stderr, "Warning: the bilinear form of the lattice is 0 modulo 2. The forms whose conductor is even are not computed.\n");
 
   if (has_genus && has_weight && (weight > 0)) {
-    // weights (a, 0) with a > 0: only the Hecke matrices, for now
+    // weights (a, b) with a > 0
     // the Hecke matrices with -hecke -p=p, the eigenvalues at p with -p=p, or at the primes up to L
     // prime to the discriminant with -prec=L
     if (!(has_p || has_prec) || (has_hecke && !has_p) || (has_hecke && has_prec) || has_row || has_square ||
@@ -342,14 +362,14 @@ int main(int argc, char* argv[])
     }
     test_res <<= 1;
     if (has_hecke)
-      test_res |= print_hecke_matrices_weight(genus, weight, p);
+      test_res |= print_hecke_matrices_weight(genus, weight, weight_b, p);
     else if (has_p && !has_prec)
-      test_res |= print_eigenvalues_weight(genus, weight, &p, 1);
+      test_res |= print_eigenvalues_weight(genus, weight, weight_b, &p, 1);
     else {
       int* wps;
       int num_wps;
       num_wps = primes_up_to_prime_to(&wps, prec, fmpz_get_si(genus->disc));
-      test_res |= print_eigenvalues_weight(genus, weight, wps, num_wps);
+      test_res |= print_eigenvalues_weight(genus, weight, weight_b, wps, num_wps);
       free(wps);
     }
   }
@@ -529,7 +549,7 @@ bool handle_flag_int_seq(const char* flag_name, const char* param_str, int** fla
 
 int print_param_desc(char* argv[])
 {
-  fprintf(stderr, "Usage: %s [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-row] [-p=p] [-square] [-genus=g] [-isom] [-disc=d] [-cond=c] [-nonlifts] [-idxs=form_idxs] [-noreduce] [-weight=a] \n", argv[0]);
+  fprintf(stderr, "Usage: %s [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-row] [-p=p] [-square] [-genus=g] [-isom] [-disc=d] [-cond=c] [-nonlifts] [-idxs=form_idxs] [-noreduce] [-weight=a[,b]] \n", argv[0]);
   fprintf(stderr, "The genus can be specified in one of two ways. Either via Q and f - \n");
   fprintf(stderr, "[Q] is the quinary quadratic form (lattice) given as 15 comma-separated integers in a format specified by f,\n");
   fprintf(stderr, "[f] is either 'GG' or 'A', the former for the format in Rama-Toranria webpage, the latter for the Magma format,\n");
@@ -548,6 +568,6 @@ int print_param_desc(char* argv[])
   fprintf(stderr, "If the flag -tests is supplied, additionally runs standard tests.\n");
   fprintf(stderr, "If the flag -nonlifts is supplied, computes eigenvalues only for the forms which are not lifts. It needs -prec=L, which determines the types of the forms, unless -idxs is supplied. Without -prec the types are printed as U (O for the old forms).\n");
   fprintf(stderr, "If the flag -noreduce is supplied, the lattice Q, or the lattices of the genus file, are used in the bases in which they are given. Otherwise a basis is reduced when this lowers the largest diagonal entry of the Gram matrix.\n");
-  fprintf(stderr, "If the flag -weight=a is supplied with a > 0, computes the forms of weight (a, 0) of the special orthogonal group: with -hecke -p=p the Hecke matrices, with -p=p or -prec=L the eigenforms and their eigenvalues, at primes not dividing the discriminant. T_p is normalized by p^a, so its eigenvalues are algebraic integers.\n");
+  fprintf(stderr, "If the flag -weight=a,b is supplied with a >= b >= 0 and a > 0 (-weight=a for b = 0), computes the forms of weight (a, b) of the special orthogonal group, which correspond to paramodular forms of weight (a - b + 3, 2b): with -hecke -p=p the Hecke matrices, with -p=p or -prec=L the eigenforms and their eigenvalues, at primes not dividing the discriminant. T_p is normalized by p^a, so its eigenvalues are algebraic integers.\n");
   return -1;
 }

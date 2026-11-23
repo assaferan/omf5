@@ -9,21 +9,29 @@ square_matrix_t** hecke_matrices_isometries(const genus_t genus, int p);
 #include <flint/fmpq_mat.h>
 #include <flint/fmpq_mpoly.h>
 
+// the variables of the polynomials of a weight: x_1, ..., x_QF_RANK and y_1, ..., y_QF_RANK
+#define WEIGHT_NVARS (2*QF_RANK)
+
 /****************************************************************************
  *
  * Type: weight_rep_t
  *
- * Description: The representation of weight (a, 0) of the orthogonal group of
- *              the first lattice of a genus, with gram matrix q0: the
- *              polynomials of degree a in QF_RANK variables which are
- *              harmonic for the laplacian of q0^(-1), on which g acts by
- *              f -> det(g)^a f(g^(-1) x). The factor det(g)^a makes -1 act
- *              trivially, so the forms are those of the special orthogonal
- *              group, as in Magma.
+ * Description: The representation of weight (a, b), a >= b >= 0, of the
+ *              orthogonal group of the first lattice of a genus, with gram
+ *              matrix q0: the polynomials f(x, y) in two vectors of QF_RANK
+ *              variables, of degree a in x and b in y, which are harmonic
+ *              for the laplacians of q0^(-1) in x, in y and in both, and are
+ *              killed by sum_i x_i d/dy_i, on which g acts by
+ *              f -> det(g)^(a + b) f(g^(-1) x, g^(-1) y). These form the
+ *              irreducible representation of highest weight (a, b), of
+ *              dimension (2a + 3)(2b + 1)(a - b + 1)(a + b + 2) / 6; with
+ *              b = 0, the harmonic polynomials of degree a in x. The factor
+ *              det(g)^(a + b) makes -1 act trivially, so the forms are those
+ *              of the special orthogonal group, as in Magma.
  *
- *     + a (int) - the weight
- *     + nmons (slong) - the number of monomials of degree a
- *     + exps (ulong*) - their exponents, QF_RANK for each monomial
+ *     + a, b (int) - the weight
+ *     + nmons (slong) - the number of monomials of bidegree (a, b)
+ *     + exps (ulong*) - their exponents, WEIGHT_NVARS for each monomial, x first
  *     + dim (slong) - the dimension of the representation
  *     + basis (fmpq_mat_t) - its basis, dim x nmons, in reduced row echelon
  *                            form, so that the coordinates of a vector of it
@@ -38,6 +46,7 @@ square_matrix_t** hecke_matrices_isometries(const genus_t genus, int p);
 typedef struct
 {
   int a;
+  int b;
   slong nmons;
   ulong* exps;
   slong dim;
@@ -49,7 +58,15 @@ typedef struct
 
 typedef weight_rep_struct weight_rep_t[1];
 
-void weight_rep_init(weight_rep_t W, int a, const square_matrix_t q0);
+void weight_rep_init(weight_rep_t W, int a, int b, const square_matrix_t q0);
+
+// The number of entries of the integer matrices which weight_rep_init builds for the weight (a, b): the
+// conditions on the polynomials of bidegree (a, b), and their nullspace. It grows quickly with a and b.
+double weight_rep_matrix_size(int a, int b);
+
+// The largest size for which omf5 computes the forms of a weight (a, b) with b > 0: 10^8 entries, about
+// the weight (4, 4). The weights (a, 0) are not limited, as before the weights (a, b).
+#define WEIGHT_MAX_MATRIX_SIZE 1e8
 
 void weight_rep_clear(weight_rep_t W);
 
@@ -105,14 +122,14 @@ fmpq_mat_struct* hecke_matrices_weight(const genus_t genus, const weight_rep_t W
 fmpq_mat_struct* hecke_matrices_weight_by_neighbor(const genus_t genus, const weight_rep_t W, const weight_space_t S, int p);
 
 // Prints the matrices of hecke_matrices_weight as omf5 -hecke does, {c : [[...], ...], ...}
-int print_hecke_matrices_weight(const genus_t genus, int a, int p);
+int print_hecke_matrices_weight(const genus_t genus, int a, int b, int p);
 
-// Prints the eigenforms of the weight (a, 0) of each conductor, with their eigenvalues at the primes ps
+// Prints the eigenforms of the weight (a, b) of each conductor, with their eigenvalues at the primes ps
 // (which have to be prime to the discriminant), as omf5 -prec does: {c : [{ 'aut_rep_type' : ...,
 // 'field_poly' : ..., 'lambda_p' : [...], 'lambda_p_square' : [], }, ...], ...}. The types are not
 // determined: U, or O for an old form. An eigenvalue of an old form is 'NULL' when the operator is not
 // an element of the field of the form on its space (see ev_is_scalar_on_old_space). The matrices which
 // the decomposition computed are used again, and the others are computed one prime at a time.
-int print_eigenvalues_weight(const genus_t genus, int a, const int* ps, int num_ps);
+int print_eigenvalues_weight(const genus_t genus, int a, int b, const int* ps, int num_ps);
 
 #endif // __WEIGHT_H__
