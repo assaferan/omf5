@@ -145,7 +145,8 @@ int print_hecke_matrices_weight(const genus_t genus, int a, int b, int p, int k)
 // Prints the eigenforms of the weight (a, b) of each conductor, with their eigenvalues of T_p at the
 // primes ps and of T_{p^2} at the primes ps2, as omf5 -prec does. At a prime p dividing the
 // discriminant exactly once, the eigenvalue of T_p is reported as T_p + p^a, negated when p divides the
-// conductor, as T_p + 1 is for the weight 0; the others are reported as they are: {c : [{ 'aut_rep_type' : ..., 'field_poly' : ..., 'lambda_p' : [...], 'lambda_p_square' : [...],
+// conductor, as T_p + 1 is for the weight 0; the others are reported as they are. The output is
+// {c : [{ 'aut_rep_type' : ..., 'field_poly' : ..., 'lambda_p' : [...], 'lambda_p_square' : [...],
 // }, ...], ...}. The types are not determined: U, or O for an old form. An eigenvalue of an old form is
 // 'NULL' when the operator is not an element of the field of the form on its space (see
 // ev_is_scalar_on_old_space). The matrices which the decomposition computed are used again, and the
