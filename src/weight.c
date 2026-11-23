@@ -1579,6 +1579,8 @@ int print_eigenvalues_weight(const genus_t genus, int a, int b, const int* ps, i
       Tp = (k < data.num_ps) ? NULL : hecke_matrices_weight(genus, W, S, q);
     }
     else {
+      // the decomposition has only matrices of T_p, so k is not used
+      k = 0;
       q = ps2[n - num_ps];
       Tp = hecke_matrices_weight_square(genus, W, S, q);
     }
