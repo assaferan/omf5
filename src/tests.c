@@ -737,8 +737,9 @@ STATUS test_61()
 }
 
 // Tests the forms of weight (a, b) on the lattice with the coefficients Q_coeffs: the space of the
-// conductor index c has dimension dim, and T_p has trace tr on it (with the normalization p^a).
-static STATUS test_weight_of(const Z64* Q_coeffs, int a, int b, slong c, slong dim, int p, slong tr)
+// conductor index c has dimension dim, and T_{p^k}, k = 1 or 2, has trace tr on it (with the
+// normalization p^a for T_p, and p^(2a) for T_{p^2}).
+static STATUS test_weight_of_k(const Z64* Q_coeffs, int a, int b, slong c, slong dim, int p, int k, slong tr)
 {
   genus_t genus;
   weight_rep_t W;
@@ -753,7 +754,7 @@ static STATUS test_weight_of(const Z64* Q_coeffs, int a, int b, slong c, slong d
   weight_space_init(S, genus, W);
   ret = (S->dims[c] == dim) ? SUCCESS : FAIL;
   if (ret == SUCCESS) {
-    T = hecke_matrices_weight(genus, W, S, p);
+    T = (k == 1) ? hecke_matrices_weight(genus, W, S, p) : hecke_matrices_weight_square(genus, W, S, p);
     fmpq_init(trace);
     fmpq_mat_trace(trace, T + c);
     if (fmpq_cmp_si(trace, tr) != 0)
@@ -767,6 +768,11 @@ static STATUS test_weight_of(const Z64* Q_coeffs, int a, int b, slong c, slong d
   weight_rep_clear(W);
   genus_clear(genus);
   return ret;
+}
+
+static STATUS test_weight_of(const Z64* Q_coeffs, int a, int b, slong c, slong dim, int p, slong tr)
+{
+  return test_weight_of_k(Q_coeffs, a, b, c, dim, p, 1, tr);
 }
 
 // The Hecke matrices of the weight (a, b) by orbits of the automorphisms and neighbor by neighbor
@@ -800,7 +806,7 @@ static STATUS test_weight_orbits_of(const Z64* Q_coeffs, int a, int b, int p)
   return ret;
 }
 
-// Weights (1, 0), (2, 0), (1, 1) and (2, 1): the values are those of Magma's ModFrmAlg (core,
+// Weights (1, 0), (2, 0), (1, 1) and (2, 1): the values of T_p are those of Magma's ModFrmAlg (core,
 // test/Geometry/ModFrmAlg/Rank5Disc83Wt4.m for D = 83, and HighestWeightRepresentation(G, [a,b]) with
 // the level IdentityMatrix(Rationals(), 5) for (1, 1) and (2, 1)), times p^a.
 STATUS test_weight()
@@ -835,6 +841,17 @@ STATUS test_weight()
   // representation of Rama-Tornaria's quinary (which is that of GL_5, (2, 2) + (2, 0) + (0, 0) for SO_5)
   ret |= test_weight_of(Q19, 2, 2, 0, 2, 2, 3);
   ret |= test_weight_of(Q19, 2, 2, 1, 0, 2, 0);
+  // T_{p^2}: at the conductor 1, the traces of HeckeOperator(M, p, 2) in Magma times p^(2a); at the
+  // conductor 83, omf5's. With this normalization the factor at p of the spin L-function of every form
+  // of these spaces, 1 - T_p x + p (T_{p^2} + p^(2a) (p^2 + 1)) x^2 - p^w T_p x^3 + p^(2w) x^4 with
+  // w = 2a + 3, has its roots of absolute value p^(w/2).
+  ret |= test_weight_of_k(Q83, 1, 0, 0, 1, 2, 2, 46);
+  ret |= test_weight_of_k(Q83, 1, 1, 0, 15, 2, 2, -58);
+  ret |= test_weight_of_k(Q83, 1, 1, 0, 15, 3, 2, -403);
+  ret |= test_weight_of_k(Q83, 1, 1, 1, 6, 2, 2, 32);
+  ret |= test_weight_of_k(Q83, 2, 1, 0, 27, 2, 2, -40);
+  ret |= test_weight_of_k(Q83, 2, 1, 1, 52, 2, 2, -332);
+  ret |= test_weight_of_k(Q19, 2, 2, 0, 2, 2, 2, -42);
   ret |= test_weight_orbits_of(Q124, 1, 0, 3);
   ret |= test_weight_orbits_of(Q61, 2, 0, 3);
   ret |= test_weight_orbits_of(Q124, 1, 1, 3);

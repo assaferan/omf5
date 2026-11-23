@@ -131,15 +131,25 @@ fmpq_mat_struct* hecke_matrices_weight(const genus_t genus, const weight_rep_t W
 // The same, with every neighbor tested for isometry (the neighbors of nbr_data). For tests.
 fmpq_mat_struct* hecke_matrices_weight_by_neighbor(const genus_t genus, const weight_rep_t W, const weight_space_t S, int p);
 
-// Prints the matrices of hecke_matrices_weight as omf5 -hecke does, {c : [[...], ...], ...}
-int print_hecke_matrices_weight(const genus_t genus, int a, int b, int p);
+// The matrices of T_{p^2}, the operator of the p^2-neighbors, p not dividing the discriminant, with the
+// normalization p^(2a): the eigenvalues are algebraic integers, and the factor at p of the spin
+// L-function of a form is 1 - T_p x + p (T_{p^2} + p^(2a) (p^2 + 1)) x^2 - p^w T_p x^3 + p^(2w) x^4, w =
+// 2a + 3, as for the weight 0. Without it, they are those of HeckeOperator(M, p, 2) in Magma. Every
+// neighbor is tested for isometry.
+fmpq_mat_struct* hecke_matrices_weight_square(const genus_t genus, const weight_rep_t W, const weight_space_t S, int p);
 
-// Prints the eigenforms of the weight (a, b) of each conductor, with their eigenvalues at the primes ps
-// (which have to be prime to the discriminant), as omf5 -prec does: {c : [{ 'aut_rep_type' : ...,
-// 'field_poly' : ..., 'lambda_p' : [...], 'lambda_p_square' : [], }, ...], ...}. The types are not
-// determined: U, or O for an old form. An eigenvalue of an old form is 'NULL' when the operator is not
-// an element of the field of the form on its space (see ev_is_scalar_on_old_space). The matrices which
-// the decomposition computed are used again, and the others are computed one prime at a time.
-int print_eigenvalues_weight(const genus_t genus, int a, int b, const int* ps, int num_ps);
+// Prints the matrices of hecke_matrices_weight (k = 1) or of hecke_matrices_weight_square (k = 2) as
+// omf5 -hecke does, {c : [[...], ...], ...}
+int print_hecke_matrices_weight(const genus_t genus, int a, int b, int p, int k);
+
+// Prints the eigenforms of the weight (a, b) of each conductor, with their eigenvalues of T_p at the
+// primes ps and of T_{p^2} at the primes ps2 (which have to be prime to the discriminant), as omf5 -prec
+// does: {c : [{ 'aut_rep_type' : ..., 'field_poly' : ..., 'lambda_p' : [...], 'lambda_p_square' : [...],
+// }, ...], ...}. The types are not determined: U, or O for an old form. An eigenvalue of an old form is
+// 'NULL' when the operator is not an element of the field of the form on its space (see
+// ev_is_scalar_on_old_space). The matrices which the decomposition computed are used again, and the
+// others are computed one operator at a time.
+int print_eigenvalues_weight(const genus_t genus, int a, int b, const int* ps, int num_ps, const int* ps2,
+			     int num_ps2);
 
 #endif // __WEIGHT_H__
