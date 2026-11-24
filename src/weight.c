@@ -1525,8 +1525,8 @@ int print_eigenvalues_weight(const genus_t genus, int a, int b, const int* ps, i
   decomposition_t D;
   eigenvalues_t* evs;
   fmpq_mat_struct* Tp;
-  // evals[c][i * nq + n]: the eigenvalue of the form i of conductor c of T_q for n < num_ps, and of
-  // T_{q^2} otherwise, where q = ps[n] or ps2[n - num_ps], if has_ev[c][...]
+  // evals[c][i * nq + n]: the eigenvalue of the form i of conductor c of T_q for n < xnum_ps, and of
+  // T_{q^2} otherwise, where q = xps[n] or xps2[n - xnum_ps], if has_ev[c][...]
   nf_elem_t** evals;
   bool** has_ev;
   slong c, i, k, nq;

@@ -375,7 +375,7 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex, bool nonlifts, int 
     }
 
   // The lifts are detected at the primes p not dividing the discriminant
-  // for which T_{p^2} is computed, and at two primes at least.
+  // for which T_{p^2} is computed, and at LIFT_TYPE_MIN_PRIMES primes at least.
   // These are the first such primes, as eigenvalues_set_lifts expects.
   num_lift_ps = 0;
   for (i = 0; i < ex->num_ps[1]; i++)
