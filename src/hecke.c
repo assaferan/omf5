@@ -466,8 +466,11 @@ static bool hecke_use_transport(int p)
 slong hecke_col_nbr_data_all_conductors(W64* spin_vals, int p, int k, int gen_idx, const genus_t genus)
 {
   // T_p with a table of T_q (-transport): the same entries, carried along isometries in Z[1/q]
-  if ((k == 1) && hecke_use_transport(p))
-    return hecke_col_all_conductors_transport(spin_vals, p, gen_idx, genus, hecke_transport_table);
+  if ((k == 1) && hecke_use_transport(p)) {
+    slong nt = hecke_col_all_conductors_transport(spin_vals, p, gen_idx, genus, hecke_transport_table);
+    if (nt >= 0)
+      return nt;
+  }
 
   square_matrix_t Q;
   nbr_data_t nbr_man;
@@ -521,8 +524,11 @@ slong hecke_col_all_conductors(W64* spin_vals, int p, int gen_idx, const genus_t
   int num_isom;
   double theta_time, isom_time, total_time;
 
-  if (hecke_use_transport(p))
-    return hecke_col_all_conductors_transport(spin_vals, p, gen_idx, genus, hecke_transport_table);
+  if (hecke_use_transport(p)) {
+    slong nt = hecke_col_all_conductors_transport(spin_vals, p, gen_idx, genus, hecke_transport_table);
+    if (nt >= 0)
+      return nt;
+  }
 
   num_isom = lc = 0;
   theta_time = isom_time = total_time = 0;
