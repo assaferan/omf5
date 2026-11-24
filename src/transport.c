@@ -492,6 +492,8 @@ static W64 lattice_set_slot(const lattice_set_struct* S, const W64* key)
   int w;
   for (w = 0; w < S->nw; w++)
     h = (h ^ key[w]) * 0x9E3779B97F4A7C15ULL;
+  // the product carries only upwards, so the high bits are folded into the low ones, which the mask keeps
+  h ^= h >> 32;
   h &= S->mask;
   for (i = h; S->used[i]; i = (i + 1) & S->mask) {
     for (w = 0; (w < S->nw) && (S->keys[i * S->nw + w] == key[w]); w++);
