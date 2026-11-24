@@ -123,9 +123,9 @@ void weight_space_clear(weight_space_t S);
 
 // The matrices of T_p on the spaces of each conductor, with the normalization p^a, which makes the
 // eigenvalues algebraic integers. Returns an array of genus->num_conductors matrices, to be cleared and
-// freed by the caller. When p does not divide the discriminant, the neighbors are taken by orbits of the
-// automorphisms of each lattice, so only one neighbor of each orbit is tested for isometry; when it
-// does, every neighbor of nbr_data is, and the characters are those of the weight 0.
+// freed by the caller. The neighbors are taken by orbits of the automorphisms of each lattice, so only one
+// neighbor of each orbit is tested for isometry, also when p divides the discriminant; the characters are
+// then those of the weight 0.
 fmpq_mat_struct* hecke_matrices_weight(const genus_t genus, const weight_rep_t W, const weight_space_t S, int p);
 
 // The same, with every neighbor tested for isometry (the neighbors of nbr_data). For tests.
