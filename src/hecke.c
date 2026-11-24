@@ -677,14 +677,14 @@ static void hecke_col_add_rows(int** rows, int p, int k, bool orbits, int gen_id
   slong* hist;
   int np = genus->spinor->num_primes;
 
-  if ((k == 1) && hecke_use_transport(p)) {
+  if (((k == 1) || (k == 2)) && hecke_use_transport(p)) {
     nb = ((slong)genus->genus_reps->num_stored) << np;
     hist = (slong*)calloc(nb, sizeof(slong));
     if (hist == NULL) {
       fprintf(stderr, "Error: out of memory in hecke_col_add_rows\n");
       exit(EXIT_FAILURE);
     }
-    n = hecke_col_all_conductors_transport(hist, p, gen_idx, genus, hecke_transport_table);
+    n = hecke_col_all_conductors_transport(hist, p, k, gen_idx, genus, hecke_transport_table);
     if (n >= 0) {
 #ifdef DEBUG
       assert(n == num_nbrs);
@@ -890,6 +890,12 @@ matrix_TYP* hecke_matrix(const genus_t genus, int p)
 void get_hecke_ev_nbr_data(nf_elem_t e, const genus_t genus, const eigenvalues_t evs,
 			   int p, int k, int ev_idx)
 {
+  // with a table of T_q (-transport), through the column of every conductor, at the trivial one
+  if (((k == 1) || (k == 2)) && hecke_use_transport(p)) {
+    get_hecke_ev_nbr_data_all_conductors(e, genus, evs, p, k, ev_idx, 0);
+    return;
+  }
+
   nf_elem_t e_new;
   int* a;
   int num, i, pivot;
@@ -1168,6 +1174,12 @@ void get_hecke_ev_all_conductors(nf_elem_t e, const genus_t genus,
 /* get the Hecke eigenvalue of T_{p,1} on an eigenform (evs[ev_idx]) with trivial conductor */
 void get_hecke_ev(nf_elem_t e, const genus_t genus, const eigenvalues_t evs, int p, int ev_idx)
 {
+  // with a table of T_q (-transport), through the column of every conductor, at the trivial one
+  if (hecke_use_transport(p)) {
+    get_hecke_ev_all_conductors(e, genus, evs, p, ev_idx, 0);
+    return;
+  }
+
   nf_elem_t e_new;
   int* a;
   int num, i, pivot;
