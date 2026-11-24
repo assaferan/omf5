@@ -27,6 +27,7 @@
  */
 
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "aut_grp.h"
@@ -70,6 +71,11 @@ static W64 line_set_slot(const line_set_struct* S, W64 key)
   while ((S->keys[h] != LINE_SET_EMPTY) && (S->keys[h] != key))
     h = (h + 1) & S->mask;
   return h;
+}
+
+static bool line_set_contains(const line_set_struct* S, W64 key)
+{
+  return S->keys[line_set_slot(S, key)] == key;
 }
 
 // inserts the key, and returns whether it was not there. The set is kept at most half full.
@@ -218,6 +224,17 @@ typedef struct {
   isometry_t c;
 } transport_item;
 
+// The stack of lines to visit holds at most this many items (about 2 MB). A line reached when it is
+// full is not marked as seen: it is reached again from another line, or found later as the first line of
+// a new orbit, at the cost of one more isometry test. At D = 61, p = 97 this gives 48351 isometry tests
+// for the 8 columns, with 31 MB, in the time of the orbits.
+#define TRANSPORT_MAX_STACK (((slong)1) << 12)
+
+bool hecke_transport_fits(int p)
+{
+  return ((W64)p * p * p + (W64)p * p + p + 1) <= TRANSPORT_MAX_LINES;
+}
+
 // the spinor bits of the isometry c : keys[i] -> keys[j], normalized to the frame of keys[0] as in
 // process_isotropic_vector_nbr_data_all_conductors
 static W64 transport_bits(const genus_t genus, int i, int j, const isometry_t c)
@@ -252,7 +269,7 @@ slong hecke_col_all_conductors_transport(W64* spin_vals, int p, int gen_idx, con
   W64 key, num_lines_bound;
   line_set_struct seen;
   transport_item* stack;
-  transport_item item;
+  transport_item item, child;
 
   assert(q != p);
   assert(gen_idx < T->num_classes);
@@ -323,62 +340,72 @@ slong hecke_col_all_conductors_transport(W64* spin_vals, int p, int gen_idx, con
 	      const isometry_struct* g = (a < grp->num_gens) ? auts[a] : gs[a - grp->num_gens];
 	      mat_vec_mod_p(w, g->s, item.v, p);
 	      key = line_key(w, p);
-	      if (!line_set_insert(&seen, key))
+	      // a line reached when the stack is full is left for later: it is reached again from another
+	      // line, or begins a new orbit
+	      if (line_set_contains(&seen, key) || (num_items == TRANSPORT_MAX_STACK))
 		continue;
-	      if (num_items == cap_items) {
-		cap_items *= 2;
-		stack = (transport_item*)realloc(stack, cap_items * sizeof(transport_item));
-	      }
-	      vector_set(stack[num_items].v, w);
-	      isometry_init(stack[num_items].c);
+	      line_set_insert(&seen, key);
+	      vector_set(child.v, w);
+	      isometry_init(child.c);
 	      if (a < grp->num_gens) {
 		// c_{av} = a c_v
-		isometry_mul(stack[num_items].c, g, item.c);
-		stack[num_items].cls = item.cls;
-		stack[num_items].bits = item.bits ^ bits_gen[a];
+		isometry_mul(child.c, g, item.c);
+		child.cls = item.cls;
+		child.bits = item.bits ^ bits_gen[a];
 	      }
 	      else {
 		// c_{gv} = g c_v t, t from the table at (cls, line of c_v^(-1) l_g)
 		vector_t lw;
 		line_mod_q(lw, item.c->s_inv, item.c->inv_denom, lgs[a - grp->num_gens], q);
 		idx = tq_table_pos(T, item.cls, lw);
-		assert(idx >= 0);
+		if (idx < 0) {
+		  fprintf(stderr, "Error: a carried line is not in the table of T_%ld\n", (long)q);
+		  exit(EXIT_FAILURE);
+		}
 		j2 = T->cls[item.cls][idx];
 		isometry_init(tmp);
 		isometry_mul(tmp, g, item.c);
-		isometry_mul(stack[num_items].c, tmp, T->isom[item.cls][idx]);
+		isometry_mul(child.c, tmp, T->isom[item.cls][idx]);
 		isometry_clear(tmp);
-		stack[num_items].cls = j2;
-		stack[num_items].bits = item.bits ^ bits_gen[a] ^ (T->spin[item.cls][idx] & mask);
+		child.cls = j2;
+		child.bits = item.bits ^ bits_gen[a] ^ (T->spin[item.cls][idx] & mask);
 	      }
-	      isometry_reduce(stack[num_items].c);
+	      isometry_reduce(child.c);
 	      if (check) {
 		square_matrix_t nb;
 		isometry_t sn;
 		vector_t uu;
 		bool okk;
 		// the neighbor at w, built directly, must be the image of keys[cls] under c
-		okk = isometry_is_isom(stack[num_items].c, genus->genus_reps->keys[gen_idx],
-				       genus->genus_reps->keys[stack[num_items].cls]);
+		okk = isometry_is_isom(child.c, genus->genus_reps->keys[gen_idx],
+				       genus->genus_reps->keys[child.cls]);
 		vector_set(uu, w);
 		(void)uu; (void)nb; (void)sn;
 		if (!okk)
 		  fprintf(stderr, "transport: not an isometry, generator %d (%s), class %d -> %d\n", a,
-			  (a < grp->num_gens) ? "aut" : "g", item.cls, stack[num_items].cls);
+			  (a < grp->num_gens) ? "aut" : "g", item.cls, child.cls);
 		{
 		  // integrality away from p and q: the denominators of c and c^(-1) are products of p and q
-		  Z64 d1 = stack[num_items].c->denom, d2 = stack[num_items].c->inv_denom;
+		  Z64 d1 = child.c->denom, d2 = child.c->inv_denom;
 		  while (d1 % p == 0) d1 /= p;
 		  while (d1 % q == 0) d1 /= q;
 		  while (d2 % p == 0) d2 /= p;
 		  while (d2 % q == 0) d2 /= q;
 		  if ((d1 != 1 && d1 != -1) || (d2 != 1 && d2 != -1))
 		    fprintf(stderr, "transport: denominators %ld, %ld, generator %d (%s), class %d -> %d\n",
-			    (long)stack[num_items].c->denom, (long)stack[num_items].c->inv_denom, a,
-			    (a < grp->num_gens) ? "aut" : "g", item.cls, stack[num_items].cls);
+			    (long)child.c->denom, (long)child.c->inv_denom, a,
+			    (a < grp->num_gens) ? "aut" : "g", item.cls, child.cls);
 		}
 	      }
-	      num_items++;
+	      if (num_items == cap_items) {
+		cap_items *= 2;
+		stack = (transport_item*)realloc(stack, cap_items * sizeof(transport_item));
+		if (stack == NULL) {
+		  fprintf(stderr, "Error: out of memory in hecke_col_all_conductors_transport\n");
+		  exit(EXIT_FAILURE);
+		}
+	      }
+	      stack[num_items++] = child;
 	    }
 	    isometry_clear(item.c);
 	  }

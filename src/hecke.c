@@ -446,7 +446,7 @@ void hecke_set_transport_table(const tq_table_struct* T)
 slong hecke_col_nbr_data_all_conductors(W64* spin_vals, int p, int k, int gen_idx, const genus_t genus)
 {
   // T_p with a table of T_q (-transport): the same entries, carried along isometries in Z[1/q]
-  if ((k == 1) && (hecke_transport_table != NULL) && (hecke_transport_table->q != p))
+  if ((k == 1) && (hecke_transport_table != NULL) && (hecke_transport_table->q != p) && hecke_transport_fits(p))
     return hecke_col_all_conductors_transport(spin_vals, p, gen_idx, genus, hecke_transport_table);
 
   square_matrix_t Q;
@@ -501,7 +501,7 @@ slong hecke_col_all_conductors(W64* spin_vals, int p, int gen_idx, const genus_t
   int num_isom;
   double theta_time, isom_time, total_time;
 
-  if ((hecke_transport_table != NULL) && (hecke_transport_table->q != p))
+  if ((hecke_transport_table != NULL) && (hecke_transport_table->q != p) && hecke_transport_fits(p))
     return hecke_col_all_conductors_transport(spin_vals, p, gen_idx, genus, hecke_transport_table);
 
   num_isom = lc = 0;
@@ -796,7 +796,7 @@ matrix_TYP** hecke_matrices_all_conductors(const genus_t genus, int p)
 
   // with a table of T_q (-transport), the columns of every conductor come from hecke_col_all_conductors
   only_trivial = genus_is_trivial_cond(genus) &&
-    ((hecke_transport_table == NULL) || (hecke_transport_table->q == p));
+    ((hecke_transport_table == NULL) || (hecke_transport_table->q == p) || !hecke_transport_fits(p));
 
   if (only_trivial)
     hecke[0] = hecke_matrix(genus, p);

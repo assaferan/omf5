@@ -364,7 +364,8 @@ int main(int argc, char* argv[])
   // the table of T_q for the smallest prime q which does not divide the discriminant and is not p
   // (issue #63)
   transport_q = 0;
-  if (has_genus && has_transport) {
+  // the table is used only at the weight 0
+  if (has_genus && has_transport && !(has_weight && (weight > 0))) {
     for (transport_q = 2; (fmpz_fdiv_ui(genus->disc, transport_q) == 0) || (has_p && (transport_q == p)) ||
 	   !n_is_prime(transport_q); transport_q++);
     tq_table_init(transport_table, genus, transport_q);
