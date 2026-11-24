@@ -208,7 +208,6 @@ static void seen_set_clear(seen_set_struct* S)
     line_set_clear(&(S->shadow));
 }
 
-static W64 line_key(vector_t v, Z64 p);
 
 // the bit of the line of v, for an isotropic v
 static W64 seen_set_bit(const seen_set_struct* S, const vector_t v)
