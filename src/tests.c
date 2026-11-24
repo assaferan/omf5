@@ -2537,12 +2537,43 @@ static int cmp_w64(const void* a, const void* b)
 
 // The table of T_q has every isotropic line of every class once, with an isometry onto the class it
 // gives, and its entries are those of hecke_col_nbr_data_all_conductors, as multisets.
+// Whether q times the isometry s / d is integral and its columns mod q lie on the line w, with one of
+// them not 0: the isometry goes through the q-neighbor at w, whose basis times q spans the line w mod q.
+static bool tq_isom_through_line(const isometry_t s, const vector_t w, int q)
+{
+  int r, k;
+  bool nonzero = false;
+  Z64 col[QF_RANK];
+
+  for (k = 0; k < QF_RANK; k++) {
+    for (r = 0; r < QF_RANK; r++) {
+      __int128 x = (__int128)s->s[r][k] * q;
+      if (x % s->denom != 0)
+	return false;
+      x /= s->denom;
+      col[r] = (Z64)(((x % q) + q) % q);
+    }
+    // col must be a multiple of w mod q: col_r w_t = col_t w_r
+    for (r = 0; r < QF_RANK; r++)
+      if (col[r] != 0)
+	nonzero = true;
+    for (r = 0; r < QF_RANK; r++)
+      for (int t = 0; t < QF_RANK; t++)
+	if (((col[r] * w[t] - col[t] * w[r]) % q) != 0)
+	  return false;
+  }
+  return nonzero;
+}
+
+// The table of T_q has every isotropic line of every class once, with an isometry onto the class it
+// gives which goes through the neighbor at the line, and its entries are those of
+// hecke_col_nbr_data_all_conductors, as multisets.
 static STATUS test_tq_table_of(const Z64* Q_coeffs, int q)
 {
   genus_t genus;
   tq_table_t T;
   W64 *col, *tab;
-  slong j, idx, lc, n;
+  slong j, k, lc, n;
   STATUS ret;
 
   compute_genus(genus, Q_coeffs, "GG", false);
@@ -2552,21 +2583,24 @@ static STATUS test_tq_table_of(const Z64* Q_coeffs, int q)
   tab = (W64*)malloc(T->size * sizeof(W64));
   for (j = 0; j < T->num_classes; j++) {
     lc = hecke_col_nbr_data_all_conductors(col, q, 1, j, genus);
-    n = 0;
-    for (idx = 0; idx < T->size; idx++)
-      if (T->cls[j][idx] >= 0) {
-	tab[n++] = T->spin[j][idx];
-	if (!isometry_is_isom(T->isom[j][idx], genus->genus_reps->keys[j],
-			      genus->genus_reps->keys[T->cls[j][idx]]))
-	  ret = FAIL;
-      }
-    if ((n != lc) || (n != T->num_lines[j]))
+    n = T->num_lines[j];
+    for (k = 0; k < n; k++) {
+      tab[k] = T->spin[j][k];
+      if (!isometry_is_isom(T->isom[j][k], genus->genus_reps->keys[j],
+			    genus->genus_reps->keys[T->cls[j][k]]))
+	ret = FAIL;
+      if (!tq_isom_through_line(T->isom[j][k], T->line[j][k], q))
+	ret = FAIL;
+      if (tq_table_pos(T, j, T->line[j][k]) != k)
+	ret = FAIL;
+    }
+    if (n != lc)
       ret = FAIL;
     else {
       qsort(col, lc, sizeof(W64), cmp_w64);
       qsort(tab, n, sizeof(W64), cmp_w64);
-      for (idx = 0; idx < n; idx++)
-	if (col[idx] != tab[idx])
+      for (k = 0; k < n; k++)
+	if (col[k] != tab[k])
 	  ret = FAIL;
     }
   }
@@ -2576,14 +2610,51 @@ static STATUS test_tq_table_of(const Z64* Q_coeffs, int q)
   fprintf(stderr, ": lines, and lines back to the class, of each class:");
   for (j = 0; j < T->num_classes; j++) {
     n = 0;
-    for (idx = 0; idx < T->size; idx++)
-      if (T->cls[j][idx] == j)
+    for (k = 0; k < T->num_lines[j]; k++)
+      if (T->cls[j][k] == j)
 	n++;
     fprintf(stderr, " %ld/%ld", (long)T->num_lines[j], (long)n);
   }
   fprintf(stderr, "%s\n", (ret == SUCCESS) ? "" : " FAIL");
   free(col);
   free(tab);
+  tq_table_clear(T);
+  genus_clear(genus);
+  return ret;
+}
+
+// The Hecke matrices of every conductor at p, with the classes carried along the table of T_q
+// (hecke_set_transport_table), are those of the orbits of the automorphisms.
+static STATUS test_transport_of(const Z64* Q_coeffs, int q, int p)
+{
+  genus_t genus;
+  tq_table_t T;
+  matrix_TYP **h1, **h2;
+  slong c, i, j;
+  STATUS ret;
+
+  compute_genus(genus, Q_coeffs, "GG", false);
+  h1 = hecke_matrices_all_conductors(genus, p);
+  tq_table_init(T, genus, q);
+  hecke_set_transport_table(T);
+  h2 = hecke_matrices_all_conductors(genus, p);
+  hecke_set_transport_table(NULL);
+  ret = SUCCESS;
+  for (c = 0; c < genus->num_conductors; c++) {
+    for (i = 0; i < genus->dims[c]; i++)
+      for (j = 0; j < genus->dims[c]; j++)
+	if (h1[c]->array.SZ[i][j] != h2[c]->array.SZ[i][j])
+	  ret = FAIL;
+    free_mat(h1[c]);
+    free_mat(h2[c]);
+  }
+  free(h1);
+  free(h2);
+  if (ret != SUCCESS) {
+    fprintf(stderr, "FAIL: T_%d carried along the table of T_%d differs from the orbits for the discriminant ", p, q);
+    fmpz_fprint(stderr, genus->disc);
+    fprintf(stderr, "\n");
+  }
   tq_table_clear(T);
   genus_clear(genus);
   return ret;
@@ -2605,6 +2676,13 @@ STATUS test_tq_table()
   ret |= test_tq_table_of(Q39, 2);
   ret |= test_tq_table_of(Q70, 3);
   ret |= test_tq_table_of(Q42, 5);
+  // the Hecke matrices carried along the table are those of the orbits: at good primes, at the primes
+  // 3 and 13 dividing D = 39, and with the conductors of D = 70 and D = 42
+  ret |= test_transport_of(Q83, 2, 11);
+  ret |= test_transport_of(Q39, 2, 3);
+  ret |= test_transport_of(Q39, 2, 13);
+  ret |= test_transport_of(Q70, 3, 11);
+  ret |= test_transport_of(Q42, 5, 13);
 
   return ret;
 }

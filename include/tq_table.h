@@ -36,13 +36,17 @@
  *     + q (int) - the prime
  *     + num_classes (slong) - the number of classes of the genus
  *     + size (slong) - q^5, the number of indices of lines
- *     + cls (int**) - cls[j][idx] is j', or -1 if idx is not an
- *                     isotropic line of L_j outside its radical
- *     + isom (isometry_t**) - isom[j][idx], when cls[j][idx] >= 0
- *     + spin (W64**) - spin[j][idx], the entry of spin_vals which
+ *     + pos (int**) - pos[j][idx] is the position of the line of index idx
+ *                     in the arrays below, or -1 if idx is not an isotropic
+ *                     line of L_j outside its radical
+ *     + cls (int**) - cls[j][k] is j' for the line at the position k
+ *     + isom (isometry_t**) - isom[j][k]
+ *     + spin (W64**) - spin[j][k], the entry of spin_vals which
  *                      hecke_col_nbr_data_all_conductors gives for this
  *                      neighbor: (j' << num_primes) | spinor bits
- *     + num_lines (slong*) - the number of lines of each class
+ *     + line (vector_t**) - line[j][k], the normalized vector of the line
+ *     + num_lines (slong*) - the number of lines of each class, the length
+ *                            of these arrays
  *
  ***********************************************************************
  */
@@ -52,17 +56,22 @@ typedef struct
   int q;
   slong num_classes;
   slong size;
+  int** pos;
   int** cls;
   isometry_t** isom;
   W64** spin;
+  vector_t** line;
   slong* num_lines;
 } tq_table_struct;
 
 typedef tq_table_struct tq_table_t[1];
 
-// The index of the line of the vector w mod q (w not 0 mod q): the normalized vector, with its first
-// nonzero entry 1, read as an integer in base q.
+// The index of the line of the vector w mod q: the normalized vector, with its first nonzero entry 1,
+// read as an integer in base q. It is -1 when w is 0 mod q.
 slong tq_table_line_index(const vector_t w, int q);
+
+// The position of the line of w of the class j in the arrays of the table, or -1.
+slong tq_table_pos(const tq_table_t T, slong j, const vector_t w);
 
 // Builds the table of T_q for the genus, with one isometry test for each class and line. q must be a
 // prime which does not divide the discriminant.

@@ -26,6 +26,8 @@
 #include "arith.h"
 #include "io.h"
 #include "tests.h"
+#include "hecke.h"
+#include "tq_table.h"
 #include "weight.h"
 
 #define MAX_STR_LEN 256 // used to prevent buffer overflow from input
@@ -134,6 +136,9 @@ int main(int argc, char* argv[])
   bool do_tests, is_valid, is_prec, is_format, is_p, is_c, is_genus, is_disc, is_idxs;
   bool has_quad, has_format, has_prec, has_p, has_hecke, has_c;
   bool has_genus, has_disc, has_large, has_row, has_isom, has_nonlifts, has_idxs, has_square;
+  bool has_transport;
+  tq_table_t transport_table;
+  int transport_q;
   bool has_noreduce, has_weight, is_weight;
   int weight, weight_b;
   int* weight_vals;
@@ -158,6 +163,7 @@ int main(int argc, char* argv[])
   has_quad = has_format = has_prec  = has_p = has_hecke = has_c = false;
   has_row = has_genus = has_disc = has_large = has_isom = has_nonlifts = has_idxs = false;
   has_square = has_noreduce = has_weight = false;
+  has_transport = false;
   weight = weight_b = 0;
   weight_vals = NULL;
   num_weight_vals = 0;
@@ -196,6 +202,10 @@ int main(int argc, char* argv[])
       is_valid = true;
     }
 
+    if (strcmp(argv[i], "-transport") == 0) {
+      has_transport = true;
+      continue;
+    }
     if (strcmp(argv[i], "-square") == 0) {
       has_square = true;
       is_valid = true;
@@ -350,6 +360,17 @@ int main(int argc, char* argv[])
 
   has_genus = (has_quad && has_format) || (has_genus && has_disc);
 
+  // -transport: the Hecke columns of the weight 0 at p carry the classes along isometries in Z[1/q], with
+  // the table of T_q for the smallest prime q which does not divide the discriminant and is not p
+  // (issue #63)
+  transport_q = 0;
+  if (has_genus && has_transport) {
+    for (transport_q = 2; (fmpz_fdiv_ui(genus->disc, transport_q) == 0) || (has_p && (transport_q == p)) ||
+	   !n_is_prime(transport_q); transport_q++);
+    tq_table_init(transport_table, genus, transport_q);
+    hecke_set_transport_table(transport_table);
+  }
+
   if (has_genus && fmpz_is_even(genus->disc) && !spinor_has_prime(genus->spinor, 2))
     fprintf(stderr, "Warning: the bilinear form of the lattice is 0 modulo 2. The forms whose conductor is even are not computed.\n");
 
@@ -427,6 +448,11 @@ int main(int argc, char* argv[])
   else {
     if (!do_tests)
       return print_param_desc(argv);
+  }
+
+  if (transport_q > 0) {
+    hecke_set_transport_table(NULL);
+    tq_table_clear(transport_table);
   }
 
   if (has_genus)
@@ -555,7 +581,7 @@ bool handle_flag_int_seq(const char* flag_name, const char* param_str, int** fla
 
 int print_param_desc(char* argv[])
 {
-  fprintf(stderr, "Usage: %s [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-row] [-p=p] [-square] [-genus=g] [-isom] [-disc=d] [-cond=c] [-nonlifts] [-idxs=form_idxs] [-noreduce] [-weight=a[,b]] \n", argv[0]);
+  fprintf(stderr, "Usage: %s [-tests] [-quad=Q] [-format=f] [-prec=L] [-hecke] [-row] [-p=p] [-square] [-genus=g] [-isom] [-disc=d] [-cond=c] [-nonlifts] [-idxs=form_idxs] [-noreduce] [-transport] [-weight=a[,b]] \n", argv[0]);
   fprintf(stderr, "The genus can be specified in one of two ways. Either via Q and f - \n");
   fprintf(stderr, "[Q] is the quinary quadratic form (lattice) given as 15 comma-separated integers in a format specified by f,\n");
   fprintf(stderr, "[f] is either 'GG' or 'A', the former for the format in Rama-Toranria webpage, the latter for the Magma format,\n");
@@ -573,6 +599,7 @@ int print_param_desc(char* argv[])
   fprintf(stderr, "If the flag -isom is supplied in addition to -genus=g, the genus includes the isometries.\n");
   fprintf(stderr, "If the flag -tests is supplied, additionally runs standard tests.\n");
   fprintf(stderr, "If the flag -nonlifts is supplied, computes eigenvalues only for the forms which are not lifts. It needs -prec=L, which determines the types of the forms, unless -idxs is supplied. Without -prec the types are printed as U (O for the old forms).\n");
+  fprintf(stderr, "If the flag -transport is supplied, -hecke, -p=p and -prec=L find the classes of the p-neighbors for T_p by carrying them along isometries with entries in Z[1/q], from the q-neighbors of the classes, for the smallest prime q not dividing the discriminant and other than p: only a few neighbors of each class are tested for isometry. The Hecke matrices are the same.\n");
   fprintf(stderr, "If the flag -noreduce is supplied, the lattice Q, or the lattices of the genus file, are used in the bases in which they are given. Otherwise a basis is reduced when this lowers the largest diagonal entry of the Gram matrix.\n");
   fprintf(stderr, "If the flag -weight=a,b is supplied with a >= b >= 0 and a > 0 (-weight=a for b = 0), computes the forms of weight (a, b) of the special orthogonal group, which correspond to paramodular forms of weight (a - b + 3, 2b): with -hecke -p=p the Hecke matrices, with -p=p or -prec=L the eigenforms and their eigenvalues, and with -square those of T_{p^2}. With -prec=L the primes are those not dividing the discriminant, as without the weight, and -p=p may divide it. T_p is normalized by p^a and T_{p^2} by p^(2a), so that their eigenvalues are algebraic integers and the factor at p of the spin L-function is 1 - T_p x + p (T_{p^2} + p^(2a) (p^2 + 1)) x^2 - p^(2a+3) T_p x^3 + p^(4a+6) x^4. At a prime p dividing the discriminant exactly once, the eigenvalue of T_p is reported as T_p + p^a, negated when p divides the conductor, as T_p + 1 is without the weight. With -prec=L the types are determined from these factors as without the weight, P (Saito-Kurokawa, only for b = 0), Y (Yoshida) or G, at the primes p with p^2 <= L which do not divide the discriminant when there are two of them at least, and are U otherwise.\n");
   return -1;
