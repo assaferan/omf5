@@ -1525,21 +1525,57 @@ int print_eigenvalues_weight(const genus_t genus, int a, int b, const int* ps, i
   decomposition_t D;
   eigenvalues_t* evs;
   fmpq_mat_struct* Tp;
-  // evals[c][i * nq + n]: the eigenvalue of the form i of conductor c of T_q for n < num_ps, and of
-  // T_{q^2} otherwise, where q = ps[n] or ps2[n - num_ps], if has_ev[c][...]
+  // evals[c][i * nq + n]: the eigenvalue of the form i of conductor c of T_q for n < xnum_ps, and of
+  // T_{q^2} otherwise, where q = xps[n] or xps2[n - xnum_ps], if has_ev[c][...]
   nf_elem_t** evals;
   bool** has_ev;
   slong c, i, k, nq;
-  int n, m, q, num_type_ps;
-  bool once;
+  int n, m, q, num_type_ps, xnum_ps, xnum_ps2;
+  int *xps, *xps2;
+  bool once, found;
   aut_type t;
 
-  nq = num_ps + num_ps2;
+  // The primes at which the eigenvalues are computed: those of ps and ps2, which are printed, and, for
+  // the types, the first primes not dividing the discriminant after those of ps2, until there are
+  // LIFT_TYPE_MIN_PRIMES of them at which T_p and T_{p^2} are known. The eigenvalues at these extra
+  // primes are not printed. As for the weight 0, which computes them in eigenvalues_set_lifts.
+  xps = (int*)malloc((num_ps + LIFT_TYPE_MIN_PRIMES) * sizeof(int));
+  xps2 = (int*)malloc((num_ps2 + LIFT_TYPE_MIN_PRIMES) * sizeof(int));
+  for (n = 0; n < num_ps; n++)
+    xps[n] = ps[n];
+  for (n = 0; n < num_ps2; n++)
+    xps2[n] = ps2[n];
+  xnum_ps = num_ps;
+  xnum_ps2 = num_ps2;
+  num_type_ps = 0;
+  if (set_types) {
+    for (n = 0; n < num_ps2; n++)
+      if (fmpz_fdiv_ui(genus->disc, ps2[n]) != 0)
+	num_type_ps++;
+    for (q = 2; num_type_ps < LIFT_TYPE_MIN_PRIMES; q = (int)n_nextprime(q, 1)) {
+      if (fmpz_fdiv_ui(genus->disc, q) == 0)
+	continue;
+      for (found = false, n = 0; n < xnum_ps2; n++)
+	found = found || (xps2[n] == q);
+      if (found)
+	continue;
+      xps2[xnum_ps2++] = q;
+      for (found = false, n = 0; n < xnum_ps; n++)
+	found = found || (xps[n] == q);
+      if (!found)
+	xps[xnum_ps++] = q;
+      num_type_ps++;
+    }
+  }
+
+  nq = xnum_ps + xnum_ps2;
   if (genus->genus_reps->num_stored == 0) {
     printf("{");
     for (c = 0; c < genus->num_conductors; c++)
       printf("%ld : [], ", (long)genus->conductors[c]);
     printf("}");
+    free(xps);
+    free(xps2);
     return 0;
   }
 
@@ -1585,15 +1621,15 @@ int print_eigenvalues_weight(const genus_t genus, int a, int b, const int* ps, i
       nf_elem_init(evals[c][i], evs[c]->nfs[i / nq]);
   }
   for (n = 0; n < nq; n++) {
-    if (n < num_ps) {
-      q = ps[n];
+    if (n < xnum_ps) {
+      q = xps[n];
       for (k = 0; (k < data.num_ps) && (data.ps[k] != q); k++);
       Tp = (k < data.num_ps) ? NULL : hecke_matrices_weight(genus, W, S, q);
     }
     else {
       // the decomposition has only matrices of T_p, so k is not used
       k = 0;
-      q = ps2[n - num_ps];
+      q = xps2[n - xnum_ps];
       Tp = hecke_matrices_weight_square(genus, W, S, q);
     }
     // whether q divides the discriminant exactly once (q^2 fits in a ulong, since q is an int)
@@ -1603,11 +1639,12 @@ int print_eigenvalues_weight(const genus_t genus, int a, int b, const int* ps, i
       const fmpq_mat_struct* Tc = (Tp == NULL) ? &(D->hecke[k][c][0]) : Tp + c;
       for (i = 0; i < evs[c]->num; i++) {
 	has_ev[c][i * nq + n] = weight_form_eigenvalue(evals[c][i * nq + n], evs[c], i, Tc);
-	if (has_ev[c][i * nq + n] && (n < num_ps) && once)
+	if (has_ev[c][i * nq + n] && (n < xnum_ps) && once)
 	  weight_bad_prime_eigenvalue(evals[c][i * nq + n], evs[c]->nfs[i], q, a, genus->conductors[c]);
-	if (!has_ev[c][i * nq + n])
+	// (at the extra primes for the types, which are not printed, an old form is not typed)
+	if (!has_ev[c][i * nq + n] && ((n < num_ps) || ((n >= xnum_ps) && (n - xnum_ps < num_ps2))))
 	  fprintf(stderr, "Warning: T_{%d^%d} is not a scalar on the space of the old form %ld of conductor %ld\n",
-		  q, (n < num_ps) ? 1 : 2, (long)i, (long)genus->conductors[c]);
+		  q, (n < xnum_ps) ? 1 : 2, (long)i, (long)genus->conductors[c]);
       }
     }
     if (Tp != NULL) {
@@ -1619,29 +1656,22 @@ int print_eigenvalues_weight(const genus_t genus, int a, int b, const int* ps, i
   decomposition_clear(D);
   free(data.ps);
 
-  // The types, as for the weight 0: from the factors at the primes q of ps2 which do not divide the
-  // discriminant and are in ps, at two of them at least. A form is a lift when it has the same type at
-  // all of them, and G otherwise.
-  num_type_ps = 0;
+  // The types, as for the weight 0: from the factors at the primes q of xps2 which do not divide the
+  // discriminant (and are in xps), LIFT_TYPE_MIN_PRIMES of them at least. A form is a lift when it has the
+  // same type at all of them, and G otherwise.
   if (set_types)
-    for (n = 0; n < num_ps2; n++)
-      if (fmpz_fdiv_ui(genus->disc, ps2[n]) != 0)
-	num_type_ps++;
-  if (set_types && (num_type_ps < 2))
-    fprintf(stderr, "Warning: with a weight the types are determined at two primes p with p^2 <= L at least, which do not divide the discriminant: they are printed as U, and as O for the old forms. Use a larger L to determine them.\n");
-  if (num_type_ps >= 2)
     for (c = 0; c < genus->num_conductors; c++)
       for (i = 0; i < evs[c]->num; i++) {
 	if (evs[c]->lift_type[i] == O)
 	  continue;
-	for (n = 0; (n < num_ps2) && (evs[c]->lift_type[i] != G); n++) {
-	  q = ps2[n];
+	for (n = 0; (n < xnum_ps2) && (evs[c]->lift_type[i] != G); n++) {
+	  q = xps2[n];
 	  if (fmpz_fdiv_ui(genus->disc, q) == 0)
 	    continue;
-	  for (m = 0; (m < num_ps) && (ps[m] != q); m++);
-	  assert(m < num_ps);
-	  assert(has_ev[c][i * nq + m] && has_ev[c][i * nq + num_ps + n]);
-	  t = lpoly_type(evals[c][i * nq + m], evals[c][i * nq + num_ps + n], q, a, b, evs[c]->nfs[i]);
+	  for (m = 0; (m < xnum_ps) && (xps[m] != q); m++);
+	  assert(m < xnum_ps);
+	  assert(has_ev[c][i * nq + m] && has_ev[c][i * nq + xnum_ps + n]);
+	  t = lpoly_type(evals[c][i * nq + m], evals[c][i * nq + xnum_ps + n], q, a, b, evs[c]->nfs[i]);
 	  evs[c]->lift_type[i] = (evs[c]->lift_type[i] == U) ? t : ((evs[c]->lift_type[i] == t) ? t : G);
 	}
       }
@@ -1654,12 +1684,14 @@ int print_eigenvalues_weight(const genus_t genus, int a, int b, const int* ps, i
       printf("'field_poly' : '");
       fmpq_poly_print(evs[c]->nfs[i]->pol);
       printf("', 'lambda_p' : [");
-      for (n = 0; n < nq; n++) {
+      // only the eigenvalues at the primes of ps and ps2, which come first in xps and xps2
+      for (n = 0; n < num_ps + num_ps2; n++) {
+	k = (n < num_ps) ? n : xnum_ps + (n - num_ps);
 	if (n == num_ps)
 	  printf("], 'lambda_p_square' : [");
-	if (has_ev[c][i * nq + n]) {
+	if (has_ev[c][i * nq + k]) {
 	  printf("'");
-	  nf_elem_print_pretty(evals[c][i * nq + n], evs[c]->nfs[i], "a");
+	  nf_elem_print_pretty(evals[c][i * nq + k], evs[c]->nfs[i], "a");
 	  printf("',");
 	}
 	else
@@ -1685,5 +1717,7 @@ int print_eigenvalues_weight(const genus_t genus, int a, int b, const int* ps, i
   free(evs);
   weight_space_clear(S);
   weight_rep_clear(W);
+  free(xps);
+  free(xps2);
   return 0;
 }

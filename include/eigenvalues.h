@@ -26,6 +26,13 @@
 #include "genus.h"
 #include "typedefs.h"
 
+// The types of the forms are determined at this many primes p not dividing the discriminant at least: those
+// with p^2 <= L for -prec=L, or the first ones at the weight 0 if there are fewer. With two primes, forms
+// which are not lifts were typed as Yoshida lifts on the lattices of discriminant 50 and 63 with the
+// weight (1, 1); among the forms of discriminant at most 83 with -prec=200, none which is not a lift has a
+// factor of a lift at three of the first primes.
+#define LIFT_TYPE_MIN_PRIMES 3
+
 /****************************************************************
  *
  * Type: aut_type
