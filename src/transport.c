@@ -397,7 +397,7 @@ typedef struct {
 // The stack of lines to visit holds at most this many items (about 2 MB). A line reached when it is
 // full is not marked as seen: it is reached again from another line, or found later as the first line of
 // a new orbit, at the cost of one more isometry test. At D = 61, p = 97 this gives 48351 isometry tests
-// for the 8 columns, with 18 MB, in less than the time of the orbits.
+// for the 8 columns, with 10 MB, in less than the time of the orbits.
 #define TRANSPORT_MAX_STACK (((slong)1) << 12)
 
 static slong transport_memory_mb = TRANSPORT_DEFAULT_MEMORY_MB;
@@ -407,8 +407,7 @@ void hecke_transport_set_memory(slong mb)
   transport_memory_mb = mb;
 }
 
-// the memory of the lines of p, in bits: with the bitmap, 64 bits of spin_vals and 2 of the bitmap for each
-// line; with the hash set, 64 and up to 256
+// the memory of the lines of p, in bits: 2 a line with the bitmap, up to 256 with the hash set
 static W64 transport_bits_needed(int p, bool bitmap)
 {
   W64 lines = (W64)p * p * p + (W64)p * p + p + 1;
@@ -445,7 +444,7 @@ static W64 transport_bits(const genus_t genus, int i, int j, const isometry_t c)
   return bits;
 }
 
-slong hecke_col_all_conductors_transport(W64* spin_vals, int p, int gen_idx, const genus_t genus,
+slong hecke_col_all_conductors_transport(slong* hist, int p, int gen_idx, const genus_t genus,
 					 const tq_table_t T)
 {
   neighbor_manager_t nbr_man;
@@ -530,7 +529,8 @@ slong hecke_col_all_conductors_transport(W64* spin_vals, int p, int gen_idx, con
 	    // the entry of this neighbor
 	    if (check && (item.bits != transport_bits(genus, gen_idx, item.cls, item.c)))
 	      fprintf(stderr, "transport: carried spinor bits differ, class %d -> %d\n", gen_idx, item.cls);
-	    spin_vals[lc++] = (((W64)item.cls) << (genus->spinor->num_primes)) | item.bits;
+	    hist[(((W64)item.cls) << (genus->spinor->num_primes)) | item.bits]++;
+	    lc++;
 	    // its images under the generators
 	    for (a = 0; a < grp->num_gens + num_gs; a++) {
 	      const isometry_struct* g = (a < grp->num_gens) ? auts[a] : gs[a - grp->num_gens];
