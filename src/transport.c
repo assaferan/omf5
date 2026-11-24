@@ -32,6 +32,7 @@
 
 #include <flint/ulong_extras.h>
 
+#include "arith.h"
 #include "aut_grp.h"
 #include "hash.h"
 #include "isometry.h"
@@ -118,6 +119,173 @@ static W64 line_key(vector_t v, Z64 p)
   for (k = QF_RANK - 1; k >= 0; k--)
     key = key * (W64)p + (W64)v[k];
   return key;
+}
+
+// ---- the set of the isotropic lines mod p reached, as a bitmap of 2 (p^3 + p^2 + p + 1) bits ----
+//
+// For a coordinate k with Q(e_k) = a != 0 mod p, Q(v) = a v_k^2 + b v_k + c, where b = sum_{i != k} G_ik v_i
+// and c do not depend on v_k. An isotropic v is not a multiple of e_k, so its other four coordinates are a
+// point y of P^3, and v_k is one of the two roots of this quadratic, whose sum is -b/a. The line of v is
+// then the index of y among the p^3 + p^2 + p + 1 points of P^3, and one bit telling which root v_k is.
+// When there is no such k (Q(e_k) = 0 mod p for each k), the lines are kept in the hash set above.
+
+typedef struct {
+  int k;               // the coordinate solved for, or -1 for the hash set
+  Z64 p;
+  Z64 a_inv;           // the inverse of Q(e_k) mod p
+  Z64 g[QF_RANK];      // G_ik mod p
+  W64 offs[QF_RANK - 1]; // the index of the first point of P^3 whose first nonzero coordinate is the t-th
+  W64* bits;
+  line_set_struct hash;
+  Z64 g_full[QF_RANK][QF_RANK]; // G mod 2p, for the check
+  bool check;           // with OMF5_TRANSPORT_CHECK, the lines are also kept in shadow, to check the bitmap
+  line_set_struct shadow;
+} seen_set_struct;
+
+// the k for a Gram matrix mod p, or -1
+static int seen_set_chart(const square_matrix_t G, Z64 p)
+{
+  int k;
+  for (k = QF_RANK - 1; k >= 0; k--)
+    if (((G[k][k] / 2) % p) != 0)
+      return k;
+  return -1;
+}
+
+static W64 seen_set_num_points(Z64 p)
+{
+  return (W64)p * p * p + (W64)p * p + p + 1;
+}
+
+static void seen_set_init(seen_set_struct* S, const square_matrix_t G, Z64 p, int k)
+{
+  Z64 x, y, a;
+  W64 num_words;
+  int i, t;
+
+  S->p = p;
+  S->k = k;
+  S->bits = NULL;
+  S->check = (k >= 0) && (getenv("OMF5_TRANSPORT_CHECK") != NULL);
+  if (S->check) {
+    int r, c;
+    line_set_init(&(S->shadow), seen_set_num_points(p));
+    for (r = 0; r < QF_RANK; r++)
+      for (c = 0; c < QF_RANK; c++)
+	S->g_full[r][c] = ((G[r][c] % (2 * p)) + 2 * p) % (2 * p);
+  }
+  if (k < 0) {
+    line_set_init(&(S->hash), seen_set_num_points(p));
+    return;
+  }
+  a = ((G[k][k] / 2) % p + p) % p;
+  gcdext(a, p, &x, &y);
+  S->a_inv = ((x % p) + p) % p;
+  for (i = 0; i < QF_RANK; i++)
+    S->g[i] = ((G[i][k] % p) + p) % p;
+  S->offs[0] = 0;
+  for (t = 1; t < QF_RANK - 1; t++) {
+    W64 n = 1;
+    for (i = t; i < QF_RANK - 1; i++)
+      n *= (W64)p;
+    S->offs[t] = S->offs[t - 1] + n;
+  }
+  num_words = (2 * seen_set_num_points(p) + 63) / 64;
+  S->bits = (W64*)calloc(num_words, sizeof(W64));
+  if (S->bits == NULL) {
+    fprintf(stderr, "Error: out of memory for the lines of T_%ld in hecke_col_all_conductors_transport\n", (long)p);
+    exit(EXIT_FAILURE);
+  }
+}
+
+static void seen_set_clear(seen_set_struct* S)
+{
+  if (S->k < 0)
+    line_set_clear(&(S->hash));
+  else
+    free(S->bits);
+  if (S->check)
+    line_set_clear(&(S->shadow));
+}
+
+
+// the bit of the line of v, for an isotropic v
+static W64 seen_set_bit(const seen_set_struct* S, const vector_t v)
+{
+  Z64 p = S->p, y[QF_RANK - 1], x, inv, s, b, other;
+  int i, n, t, k = S->k;
+  W64 idx;
+
+  for (i = 0, n = 0; i < QF_RANK; i++)
+    if (i != k)
+      y[n++] = ((v[i] % p) + p) % p;
+  x = ((v[k] % p) + p) % p;
+  for (t = 0; (t < QF_RANK - 1) && (y[t] == 0); t++);
+  assert(t < QF_RANK - 1);
+  gcdext(y[t], p, &inv, &s);
+  inv = ((inv % p) + p) % p;
+  b = 0;
+  for (i = 0, n = 0; i < QF_RANK; i++)
+    if (i != k) {
+      y[n] = (y[n] * inv) % p;
+      b = (b + S->g[i] * y[n]) % p;
+      n++;
+    }
+  x = (x * inv) % p;
+  // the other root: -b/a - x
+  other = ((((p - b) % p) * S->a_inv) % p - x + p) % p;
+  idx = 0;
+  for (i = t + 1; i < QF_RANK - 1; i++)
+    idx = idx * (W64)p + (W64)y[i];
+  return 2 * (S->offs[t] + idx) + ((x > other) ? 1 : 0);
+}
+
+static bool seen_set_contains(const seen_set_struct* S, const vector_t v)
+{
+  W64 bit;
+  vector_t w;
+
+  if (S->k < 0) {
+    vector_set(w, v);
+    return line_set_contains(&(S->hash), line_key(w, S->p));
+  }
+  bit = seen_set_bit(S, v);
+  if (S->check) {
+    vector_set(w, v);
+    if (line_set_contains(&(S->shadow), line_key(w, S->p)) != (bool)((S->bits[bit >> 6] >> (bit & 63)) & 1))
+      fprintf(stderr, "transport: the bitmap of the lines differs from the hash set, p = %ld\n", (long)S->p);
+  }
+  return (S->bits[bit >> 6] >> (bit & 63)) & 1;
+}
+
+// inserts the line of v, and returns whether it was not there
+static bool seen_set_insert(seen_set_struct* S, const vector_t v)
+{
+  W64 bit, m;
+  vector_t w;
+
+  if (S->k < 0) {
+    vector_set(w, v);
+    return line_set_insert(&(S->hash), line_key(w, S->p));
+  }
+  bit = seen_set_bit(S, v);
+  if (S->check) {
+    Z64 qv = 0;
+    int r, c;
+    vector_set(w, v);
+    for (r = 0; r < QF_RANK; r++)
+      for (c = 0; c < QF_RANK; c++)
+	qv = (qv + (((S->g_full[r][c] * ((v[r] % S->p + S->p) % S->p)) % (2 * S->p)) * ((v[c] % S->p + S->p) % S->p))) % (2 * S->p);
+    if (qv % (2 * S->p) != 0)
+      fprintf(stderr, "transport: a line of the bitmap is not isotropic mod %ld\n", (long)S->p);
+    if (line_set_insert(&(S->shadow), line_key(w, S->p)) != !((S->bits[bit >> 6] >> (bit & 63)) & 1))
+      fprintf(stderr, "transport: the bitmap of the lines differs from the hash set, p = %ld\n", (long)S->p);
+  }
+  m = ((W64)1) << (bit & 63);
+  if (S->bits[bit >> 6] & m)
+    return false;
+  S->bits[bit >> 6] |= m;
+  return true;
 }
 
 // res = S v mod p, for an integral matrix S (the numerator of an isometry, whose denominator is prime to p)
@@ -229,7 +397,7 @@ typedef struct {
 // The stack of lines to visit holds at most this many items (about 2 MB). A line reached when it is
 // full is not marked as seen: it is reached again from another line, or found later as the first line of
 // a new orbit, at the cost of one more isometry test. At D = 61, p = 97 this gives 48351 isometry tests
-// for the 8 columns, with 31 MB, in the time of the orbits.
+// for the 8 columns, with 18 MB, in less than the time of the orbits.
 #define TRANSPORT_MAX_STACK (((slong)1) << 12)
 
 static slong transport_memory_mb = TRANSPORT_DEFAULT_MEMORY_MB;
@@ -239,10 +407,17 @@ void hecke_transport_set_memory(slong mb)
   transport_memory_mb = mb;
 }
 
-bool hecke_transport_fits(int p)
+// the memory of the lines of p, in bits: with the bitmap, 64 bits of spin_vals and 2 of the bitmap for each
+// line; with the hash set, 64 and up to 256
+static W64 transport_bits_needed(int p, bool bitmap)
 {
   W64 lines = (W64)p * p * p + (W64)p * p + p + 1;
-  return lines <= ((W64)transport_memory_mb << 20) / TRANSPORT_BYTES_PER_LINE;
+  return lines * (bitmap ? TRANSPORT_BITS_PER_LINE : TRANSPORT_BITS_PER_LINE_HASH);
+}
+
+bool hecke_transport_fits(int p)
+{
+  return transport_bits_needed(p, true) <= (((W64)transport_memory_mb) << 23);
 }
 
 int hecke_transport_max_prime(void)
@@ -284,13 +459,19 @@ slong hecke_col_all_conductors_transport(W64* spin_vals, int p, int gen_idx, con
   int a, i, j2, num_isom;
   double theta_time, isom_time;
   Z64 q = T->q;
-  W64 key, num_lines_bound;
-  line_set_struct seen;
+  int chart;
+  seen_set_struct seen;
   transport_item* stack;
   transport_item item, child;
 
   assert(q != p);
   assert(gen_idx < T->num_classes);
+  // the lines are kept in a bitmap when the Gram matrix of the class has a diagonal entry prime to p, and
+  // otherwise in a hash set, which takes more memory: then, if it does not fit, the column is left to the
+  // orbits (-1)
+  chart = seen_set_chart(genus->genus_reps->keys[gen_idx], p);
+  if ((chart < 0) && (transport_bits_needed(p, false) > (((W64)transport_memory_mb) << 23)))
+    return -1;
   num_isom = 0;
   theta_time = isom_time = 0;
 
@@ -320,9 +501,7 @@ slong hecke_col_all_conductors_transport(W64* spin_vals, int p, int gen_idx, con
       num_gs++;
     }
 
-  // the isotropic lines of a nondegenerate form mod p; the set grows if there are more
-  num_lines_bound = (W64)p * p * p + (W64)p * p + p + 1;
-  line_set_init(&seen, num_lines_bound);
+  seen_set_init(&seen, genus->genus_reps->keys[gen_idx], p, chart);
   cap_items = 1024;
   stack = (transport_item*)malloc(cap_items * sizeof(transport_item));
 
@@ -332,8 +511,7 @@ slong hecke_col_all_conductors_transport(W64* spin_vals, int p, int gen_idx, con
     nbr_process_init(nbr_man, genus->genus_reps->keys[gen_idx], p, i, genus->isoms[gen_idx]);
     while (!nbr_process_has_ended(nbr_man)) {
       vector_set(u, nbr_man->iso_vec);
-      key = line_key(u, p);
-      if (line_set_insert(&seen, key)) {
+      if (seen_set_insert(&seen, u)) {
 	// a new orbit: its first neighbor is tested for isometry
 	num_roots++;
 	if (nbr_process_build_nb_and_isom(nbr, s_nbr, nbr_man)) {
@@ -357,12 +535,11 @@ slong hecke_col_all_conductors_transport(W64* spin_vals, int p, int gen_idx, con
 	    for (a = 0; a < grp->num_gens + num_gs; a++) {
 	      const isometry_struct* g = (a < grp->num_gens) ? auts[a] : gs[a - grp->num_gens];
 	      mat_vec_mod_p(w, g->s, item.v, p);
-	      key = line_key(w, p);
 	      // a line reached when the stack is full is left for later: it is reached again from another
 	      // line, or begins a new orbit
-	      if (line_set_contains(&seen, key) || (num_items == TRANSPORT_MAX_STACK))
+	      if (seen_set_contains(&seen, w) || (num_items == TRANSPORT_MAX_STACK))
 		continue;
-	      line_set_insert(&seen, key);
+	      seen_set_insert(&seen, w);
 	      vector_set(child.v, w);
 	      isometry_init(child.c);
 	      if (a < grp->num_gens) {
@@ -440,7 +617,7 @@ slong hecke_col_all_conductors_transport(W64* spin_vals, int p, int gen_idx, con
     fprintf(stderr, "transport stats: class %d, p = %d, q = %ld, %ld generators of Aut, %ld g's, %ld roots, %ld lines\n",
 	    gen_idx, p, (long)q, (long)grp->num_gens, (long)num_gs, (long)num_roots, (long)lc);
   free(stack);
-  line_set_clear(&seen);
+  seen_set_clear(&seen);
   for (a = 0; a < grp->num_gens; a++)
     isometry_clear(auts[a]);
   free(auts);

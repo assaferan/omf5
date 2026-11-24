@@ -17,13 +17,15 @@
 #include "tq_table.h"
 #include "typedefs.h"
 
-// The memory of T_p with transport for each of the p^3 + p^2 + p + 1 isotropic lines mod p: up to 32
-// bytes for the set of the lines reached (8 bytes a slot, at most half of the slots used, rounded to a
-// power of 2) and 8 for the entry of spin_vals, which the column of the orbits does not need when there
-// is only the trivial conductor. So it grows as p^3 (405 MB at p = 251 was measured). -transport=M bounds
-// it by M MB (256 by default): the primes p for which it would need more use the orbits and the
-// neighbors instead.
-#define TRANSPORT_BYTES_PER_LINE 40
+// The memory of T_p with transport for each of the p^3 + p^2 + p + 1 isotropic lines mod p, in bits: 64
+// for the entry of spin_vals, which the column of the orbits does not need when there is only the trivial
+// conductor, and 2 for the bitmap of the lines reached. So it grows as p^3, about 8 bytes a line. When the
+// Gram matrix of a class has no diagonal entry prime to p, its lines are kept in a hash set instead, of up
+// to 32 bytes a line (8 bytes a slot, at most half of the slots used, rounded to a power of 2).
+// -transport=M bounds it by M MB (256 by default): the primes p for which it would need more use the
+// orbits and the neighbors instead, and so do the columns of the classes whose hash set would not fit.
+#define TRANSPORT_BITS_PER_LINE 66
+#define TRANSPORT_BITS_PER_LINE_HASH 320
 #define TRANSPORT_DEFAULT_MEMORY_MB 256
 
 // Sets the bound, in MB, on the memory of the set of the lines seen.
@@ -41,7 +43,8 @@ int hecke_transport_max_prime(void);
 // g = T->isom[gen_idx][w] with T->cls[gen_idx][w] = gen_idx is tested for isometry; the class and an
 // isometry of the others are carried along the generators with the table T of T_q (usually: when the
 // stack is full, an orbit can need more tests). Needs T->q != p.
-// Returns the number of entries.
+// Returns the number of entries, or -1 when the lines of the class do not fit in the memory bound (then
+// nothing is computed, and the column is to be computed by the orbits).
 slong hecke_col_all_conductors_transport(W64* spin_vals, int p, int gen_idx, const genus_t genus,
 					 const tq_table_t T);
 
