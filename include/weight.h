@@ -147,11 +147,13 @@ int print_hecke_matrices_weight(const genus_t genus, int a, int b, int p, int k)
 // discriminant exactly once, the eigenvalue of T_p is reported as T_p + p^a, negated when p divides the
 // conductor, as T_p + 1 is for the weight 0; the others are reported as they are. The output is
 // {c : [{ 'aut_rep_type' : ..., 'field_poly' : ..., 'lambda_p' : [...], 'lambda_p_square' : [...],
-// }, ...], ...}. The types are not determined: U, or O for an old form. An eigenvalue of an old form is
+// }, ...], ...}. With set_types, the types are found by lpoly_type at the primes of ps2 which do not
+// divide the discriminant, if there are two of them at least; otherwise they are U, or O for an old
+// form. An eigenvalue of an old form is
 // 'NULL' when the operator is not an element of the field of the form on its space (see
 // ev_is_scalar_on_old_space). The matrices which the decomposition computed are used again, and the
 // others are computed one operator at a time.
 int print_eigenvalues_weight(const genus_t genus, int a, int b, const int* ps, int num_ps, const int* ps2,
-			     int num_ps2);
+			     int num_ps2, bool set_types);
 
 #endif // __WEIGHT_H__

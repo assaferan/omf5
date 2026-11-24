@@ -197,6 +197,31 @@ void eigenvalues_set_lifts(eigenvalues_t evs, slong prec, slong c, const genus_t
 
 /*********************************************************************
  *
+ * Function: lpoly_type
+ *
+ * Description: The type (G, Y, P or F) of a form of the weight (a, b),
+ *              from its eigenvalues of T_p and T_{p^2} at a prime p
+ *              not dividing the discriminant, normalized by p^a and
+ *              p^(2a), by the factorization of its L-polynomial at p.
+ *              P only when b = 0, F only when a = 0.
+ *
+ * Arguments:
+ *     + Tp (const nf_elem_t) - the eigenvalue of T_p
+ *     + Tp2 (const nf_elem_t) - the eigenvalue of T_{p^2}
+ *     + p (slong) - the prime
+ *     + a, b (int) - the weight, (0, 0) for the trivial weight
+ *     + K (const nf_t) - the field of the eigenvalues
+ *
+ * Returns:
+ *     + the type
+ *
+ *********************************************************************
+ */
+
+aut_type lpoly_type(const nf_elem_t Tp, const nf_elem_t Tp2, slong p, int a, int b, const nf_t K);
+
+/*********************************************************************
+ *
  * Function: ev_get_pivot
  *
  * Description: Find a nonzero entry in the vector

@@ -1517,7 +1517,7 @@ static void weight_bad_prime_eigenvalue(nf_elem_t ev, const nf_t nf, int p, int 
 }
 
 int print_eigenvalues_weight(const genus_t genus, int a, int b, const int* ps, int num_ps, const int* ps2,
-			     int num_ps2)
+			     int num_ps2, bool set_types)
 {
   weight_rep_t W;
   weight_space_t S;
@@ -1530,8 +1530,9 @@ int print_eigenvalues_weight(const genus_t genus, int a, int b, const int* ps, i
   nf_elem_t** evals;
   bool** has_ev;
   slong c, i, k, nq;
-  int n, q;
+  int n, m, q, num_type_ps;
   bool once;
+  aut_type t;
 
   nq = num_ps + num_ps2;
   if (genus->genus_reps->num_stored == 0) {
@@ -1565,7 +1566,7 @@ int print_eigenvalues_weight(const genus_t genus, int a, int b, const int* ps, i
   for (c = 0; c < genus->num_conductors; c++) {
     decompose(D, genus, c);
     hecke_eigenforms(evs[c], D, genus, c);
-    // the types are not determined for a weight
+    // the types are set below, from the eigenvalues
     for (i = 0; i < evs[c]->num; i++)
       if (evs[c]->lift_type[i] != O)
 	evs[c]->lift_type[i] = U;
@@ -1618,11 +1619,38 @@ int print_eigenvalues_weight(const genus_t genus, int a, int b, const int* ps, i
   decomposition_clear(D);
   free(data.ps);
 
+  // The types, as for the weight 0: from the factors at the primes q of ps2 which do not divide the
+  // discriminant and are in ps, at two of them at least. A form is a lift when it has the same type at
+  // all of them, and G otherwise.
+  num_type_ps = 0;
+  if (set_types)
+    for (n = 0; n < num_ps2; n++)
+      if (fmpz_fdiv_ui(genus->disc, ps2[n]) != 0)
+	num_type_ps++;
+  if (set_types && (num_type_ps < 2))
+    fprintf(stderr, "Warning: with a weight the types are determined at two primes p with p^2 <= L at least, which do not divide the discriminant: they are printed as U, and as O for the old forms. Use a larger L to determine them.\n");
+  if (num_type_ps >= 2)
+    for (c = 0; c < genus->num_conductors; c++)
+      for (i = 0; i < evs[c]->num; i++) {
+	if (evs[c]->lift_type[i] == O)
+	  continue;
+	for (n = 0; (n < num_ps2) && (evs[c]->lift_type[i] != G); n++) {
+	  q = ps2[n];
+	  if (fmpz_fdiv_ui(genus->disc, q) == 0)
+	    continue;
+	  for (m = 0; (m < num_ps) && (ps[m] != q); m++);
+	  assert(m < num_ps);
+	  assert(has_ev[c][i * nq + m] && has_ev[c][i * nq + num_ps + n]);
+	  t = lpoly_type(evals[c][i * nq + m], evals[c][i * nq + num_ps + n], q, a, b, evs[c]->nfs[i]);
+	  evs[c]->lift_type[i] = (evs[c]->lift_type[i] == U) ? t : ((evs[c]->lift_type[i] == t) ? t : G);
+	}
+      }
+
   printf("{");
   for (c = 0; c < genus->num_conductors; c++) {
     printf("%ld : [", (long)genus->conductors[c]);
     for (i = 0; i < evs[c]->num; i++) {
-      printf("{ 'aut_rep_type' : '%c', ", (evs[c]->lift_type[i] == O) ? 'O' : 'U');
+      printf("{ 'aut_rep_type' : '%c', ", "GYPFOU"[evs[c]->lift_type[i]]);
       printf("'field_poly' : '");
       fmpq_poly_print(evs[c]->nfs[i]->pol);
       printf("', 'lambda_p' : [");
