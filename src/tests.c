@@ -381,8 +381,8 @@ STATUS test_evs(const genus_t genus, const example_evs_t ex, bool nonlifts, int 
   for (i = 0; i < ex->num_ps[1]; i++)
     if (fmpz_fdiv_ui(genus->disc, ex->ps[1][i]) != 0)
       num_lift_ps++;
-  if (num_lift_ps < 2)
-    num_lift_ps = 2;
+  if (num_lift_ps < LIFT_TYPE_MIN_PRIMES)
+    num_lift_ps = LIFT_TYPE_MIN_PRIMES;
 
   // When indices are given, only the forms at these indices are computed.
   // They are the ones which are given the type G below.

@@ -1620,16 +1620,16 @@ int print_eigenvalues_weight(const genus_t genus, int a, int b, const int* ps, i
   free(data.ps);
 
   // The types, as for the weight 0: from the factors at the primes q of ps2 which do not divide the
-  // discriminant and are in ps, at two of them at least. A form is a lift when it has the same type at
-  // all of them, and G otherwise.
+  // discriminant and are in ps, at LIFT_TYPE_MIN_PRIMES of them at least. A form is a lift when it has
+  // the same type at all of them, and G otherwise.
   num_type_ps = 0;
   if (set_types)
     for (n = 0; n < num_ps2; n++)
       if (fmpz_fdiv_ui(genus->disc, ps2[n]) != 0)
 	num_type_ps++;
-  if (set_types && (num_type_ps < 2))
-    fprintf(stderr, "Warning: with a weight the types are determined at two primes p with p^2 <= L at least, which do not divide the discriminant: they are printed as U, and as O for the old forms. Use a larger L to determine them.\n");
-  if (num_type_ps >= 2)
+  if (set_types && (num_type_ps < LIFT_TYPE_MIN_PRIMES))
+    fprintf(stderr, "Warning: with a weight the types are determined at %d primes p with p^2 <= L at least, which do not divide the discriminant: they are printed as U, and as O for the old forms. Use a larger L to determine them.\n", LIFT_TYPE_MIN_PRIMES);
+  if (num_type_ps >= LIFT_TYPE_MIN_PRIMES)
     for (c = 0; c < genus->num_conductors; c++)
       for (i = 0; i < evs[c]->num; i++) {
 	if (evs[c]->lift_type[i] == O)
