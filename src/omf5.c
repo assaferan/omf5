@@ -330,6 +330,8 @@ int main(int argc, char* argv[])
     test_res |= test_69();
     test_res <<= 1;
     test_res |= test_weight();
+    test_res <<= 1;
+    test_res |= test_tq_table();
   }
 
   // a weight (a, b) with b > 0 whose representation is too large is rejected before the genus is computed

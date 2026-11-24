@@ -32,6 +32,8 @@ typedef example_evs example_evs_t[1];
 STATUS test_61();
 STATUS test_69();
 STATUS test_weight();
+
+STATUS test_tq_table();
 STATUS test_greedy_overflow();
 STATUS test_hecke_bad_primes();
 STATUS test_hecke_square_bad_primes();

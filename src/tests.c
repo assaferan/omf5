@@ -15,6 +15,7 @@
 #include "matrix_tools.h"
 #include "spinor.h"
 #include "tests.h"
+#include "tq_table.h"
 #include "weight.h"
 
 void print_conductors(const genus_t genus)
@@ -2526,4 +2527,84 @@ STATUS compute_first_large_hecke(const genus_t genus)
   fmpz_clear(prime);
  
   return SUCCESS;
+}
+
+static int cmp_w64(const void* a, const void* b)
+{
+  W64 x = *(const W64*)a, y = *(const W64*)b;
+  return (x > y) - (x < y);
+}
+
+// The table of T_q has every isotropic line of every class once, with an isometry onto the class it
+// gives, and its entries are those of hecke_col_nbr_data_all_conductors, as multisets.
+static STATUS test_tq_table_of(const Z64* Q_coeffs, int q)
+{
+  genus_t genus;
+  tq_table_t T;
+  W64 *col, *tab;
+  slong j, idx, lc, n;
+  STATUS ret;
+
+  compute_genus(genus, Q_coeffs, "GG", false);
+  tq_table_init(T, genus, q);
+  ret = SUCCESS;
+  col = (W64*)malloc(T->size * sizeof(W64));
+  tab = (W64*)malloc(T->size * sizeof(W64));
+  for (j = 0; j < T->num_classes; j++) {
+    lc = hecke_col_nbr_data_all_conductors(col, q, 1, j, genus);
+    n = 0;
+    for (idx = 0; idx < T->size; idx++)
+      if (T->cls[j][idx] >= 0) {
+	tab[n++] = T->spin[j][idx];
+	if (!isometry_is_isom(T->isom[j][idx], genus->genus_reps->keys[j],
+			      genus->genus_reps->keys[T->cls[j][idx]]))
+	  ret = FAIL;
+      }
+    if ((n != lc) || (n != T->num_lines[j]))
+      ret = FAIL;
+    else {
+      qsort(col, lc, sizeof(W64), cmp_w64);
+      qsort(tab, n, sizeof(W64), cmp_w64);
+      for (idx = 0; idx < n; idx++)
+	if (col[idx] != tab[idx])
+	  ret = FAIL;
+    }
+  }
+  // the entries which go back to their class give the isometries in Z[1/q] used to carry the classes
+  fprintf(stderr, "T_%d table of the discriminant ", q);
+  fmpz_fprint(stderr, genus->disc);
+  fprintf(stderr, ": lines, and lines back to the class, of each class:");
+  for (j = 0; j < T->num_classes; j++) {
+    n = 0;
+    for (idx = 0; idx < T->size; idx++)
+      if (T->cls[j][idx] == j)
+	n++;
+    fprintf(stderr, " %ld/%ld", (long)T->num_lines[j], (long)n);
+  }
+  fprintf(stderr, "%s\n", (ret == SUCCESS) ? "" : " FAIL");
+  free(col);
+  free(tab);
+  tq_table_clear(T);
+  genus_clear(genus);
+  return ret;
+}
+
+STATUS test_tq_table()
+{
+  STATUS ret;
+  // D = 61, 83 and 39 (q = 2), D = 70 = 2 * 5 * 7 (q = 3) and D = 42 = 2 * 3 * 7 (q = 5), which have
+  // forms of nontrivial conductors
+  Z64 Q61[15] = {1,0,0,1,1,1,0,1,0,1,0,0,1,0,8};
+  Z64 Q83[15] = {1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2};
+  Z64 Q39[15] = {1,1,1,1,0,1,1,1,0,1,1,0,2,0,3};
+  Z64 Q70[15] = {1,1,-1,1,0,1,-1,1,0,1,-1,0,1,0,14};
+  Z64 Q42[15] = {1,-1,-1,-1,-1,1,1,1,0,1,1,1,1,1,9};
+
+  ret = test_tq_table_of(Q61, 2);
+  ret |= test_tq_table_of(Q83, 2);
+  ret |= test_tq_table_of(Q39, 2);
+  ret |= test_tq_table_of(Q70, 3);
+  ret |= test_tq_table_of(Q42, 5);
+
+  return ret;
 }
