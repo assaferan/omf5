@@ -29,8 +29,9 @@ jobs:
             os: ubuntu-24.04
             flint: apt
             cc: clang
-          - name: macos, flint 3 (homebrew)
-            os: macos-latest
+          - name: macos 15, flint 3 (homebrew)
+            # pinned: macos-latest jobs were cancelled several times without a runner (2026-11-24)
+            os: macos-15
             flint: brew
           # The default build defines NDEBUG, which removes the assertions.
           # This job builds with them, so a failed assertion fails the tests.
