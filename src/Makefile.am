@@ -66,6 +66,8 @@ SOURCES += qf_inv.c
 SOURCES += spinor.c
 SOURCES += square_matrix.c
 SOURCES += tests.c
+SOURCES += tq_table.c
+SOURCES += transport.c
 SOURCES += weight.c
 
 

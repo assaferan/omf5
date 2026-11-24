@@ -29,6 +29,7 @@
 #include "decomposition.h"
 #include "fmpq_poly.h"
 #include "hecke.h"
+#include "transport.h"
 #include "matrix_tools.h"
 
 #include "typedefs.h"
@@ -433,8 +434,41 @@ int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const genus_t gen
 /* compute Hecke column,
    using nbr_data type as a neighbor manager - for all conductors at once.
    Data is stored bit-sliced in spin_vals */
+// the table of T_q with which hecke_col_all_conductors and
+// hecke_col_nbr_data_all_conductors (for T_p) carry the classes, or NULL (see transport.h)
+static const tq_table_struct* hecke_transport_table = NULL;
+
+void hecke_set_transport_table(const tq_table_struct* T)
+{
+  hecke_transport_table = T;
+}
+
+// Whether T_p is computed by hecke_col_all_conductors_transport. When a table is set but p is q or does
+// not fit in the memory bound, this is said once for each prime.
+static bool hecke_use_transport(int p)
+{
+  static int reported_p = 0;
+
+  if (hecke_transport_table == NULL)
+    return false;
+  if ((hecke_transport_table->q != p) && hecke_transport_fits(p))
+    return true;
+  if (p != reported_p) {
+    if (hecke_transport_table->q == p)
+      fprintf(stderr, "-transport: T_%d is computed without it, since %d is the prime q of its table\n", p, p);
+    else
+      fprintf(stderr, "-transport: T_%d is computed without it, since its lines would need more memory than the bound (the largest prime within it is %d)\n", p, hecke_transport_max_prime());
+    reported_p = p;
+  }
+  return false;
+}
+
 slong hecke_col_nbr_data_all_conductors(W64* spin_vals, int p, int k, int gen_idx, const genus_t genus)
 {
+  // T_p with a table of T_q (-transport): the same entries, carried along isometries in Z[1/q]
+  if ((k == 1) && hecke_use_transport(p))
+    return hecke_col_all_conductors_transport(spin_vals, p, gen_idx, genus, hecke_transport_table);
+
   square_matrix_t Q;
   nbr_data_t nbr_man;
   int lc;
@@ -486,6 +520,9 @@ slong hecke_col_all_conductors(W64* spin_vals, int p, int gen_idx, const genus_t
   int lc, i;
   int num_isom;
   double theta_time, isom_time, total_time;
+
+  if (hecke_use_transport(p))
+    return hecke_col_all_conductors_transport(spin_vals, p, gen_idx, genus, hecke_transport_table);
 
   num_isom = lc = 0;
   theta_time = isom_time = total_time = 0;
@@ -777,7 +814,9 @@ matrix_TYP** hecke_matrices_all_conductors(const genus_t genus, int p)
 
   hecke = (matrix_TYP**)malloc(genus->num_conductors * sizeof(matrix_TYP*));
 
-  only_trivial = genus_is_trivial_cond(genus);
+  // with a table of T_q (-transport), the columns of every conductor come from hecke_col_all_conductors
+  only_trivial = genus_is_trivial_cond(genus) &&
+    !hecke_use_transport(p);
 
   if (only_trivial)
     hecke[0] = hecke_matrix(genus, p);

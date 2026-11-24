@@ -25,6 +25,7 @@
 #include "matrix_tools.h"
 #include "nbr_data.h"
 #include "neighbor.h"
+#include "tq_table.h"
 
 // !! TODO - merge these when we finish debugging
 
@@ -253,6 +254,11 @@ void hecke_col(int* T, int p, int gen_idx, const genus_t genus);
  */
 
 slong hecke_col_all_conductors(W64* spin_vals, int p, int gen_idx, const genus_t genus);
+
+// With a table T of T_q (not NULL), hecke_col_all_conductors, and hecke_col_nbr_data_all_conductors for
+// T_p, carry the classes along isometries in Z[1/q] (hecke_col_all_conductors_transport) at the primes p
+// other than q. NULL restores the orbits and the neighbors.
+void hecke_set_transport_table(const tq_table_struct* T);
 
 /***************************************************************************
  *
