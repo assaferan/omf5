@@ -30,6 +30,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <flint/ulong_extras.h>
+
 #include "aut_grp.h"
 #include "hash.h"
 #include "isometry.h"
@@ -230,9 +232,25 @@ typedef struct {
 // for the 8 columns, with 31 MB, in the time of the orbits.
 #define TRANSPORT_MAX_STACK (((slong)1) << 12)
 
+static slong transport_memory_mb = TRANSPORT_DEFAULT_MEMORY_MB;
+
+void hecke_transport_set_memory(slong mb)
+{
+  transport_memory_mb = mb;
+}
+
 bool hecke_transport_fits(int p)
 {
-  return ((W64)p * p * p + (W64)p * p + p + 1) <= TRANSPORT_MAX_LINES;
+  W64 lines = (W64)p * p * p + (W64)p * p + p + 1;
+  return lines <= ((W64)transport_memory_mb << 20) / TRANSPORT_BYTES_PER_LINE;
+}
+
+int hecke_transport_max_prime(void)
+{
+  int p, best = 0;
+  for (p = 2; hecke_transport_fits(p); p = (int)n_nextprime(p, 1))
+    best = p;
+  return best;
 }
 
 // the spinor bits of the isometry c : keys[i] -> keys[j], normalized to the frame of keys[0] as in
