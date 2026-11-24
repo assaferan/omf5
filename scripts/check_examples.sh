@@ -689,7 +689,7 @@ check_matrix disc48-p3-hecke-basis '{1 : \[\[30\]\],2 : \[\],3 : \[\],6 : \[\[-1
 # eigenvalues of Magma (core, test/Geometry/ModFrmAlg/Rank5Disc83Wt4.m). Without -prec the types are
 # not determined.
 check_matrix weight1-disc83-hecke '{1 : \[\[-17\]\],83 : ' -quad=1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2 -format=GG -hecke -p=2 -weight=1
-check_output weight1-disc83-prec "{1 : \[{ 'aut_rep_type' : 'U', 'field_poly' : '2  17 1', 'lambda_p' : \['-17','-23','-36','-124','-359','-288','464','1302','252','-4134',\]" -quad=1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2 -format=GG -prec=30 -weight=1
+check_output weight1-disc83-prec "{1 : \[{ 'aut_rep_type' : 'G', 'field_poly' : '2  17 1', 'lambda_p' : \['-17','-23','-36','-124','-359','-288','464','1302','252','-4134',\]" -quad=1,0,-1,0,0,1,0,-1,0,2,1,0,2,1,2 -format=GG -prec=30 -weight=1
 # D5, whose genus has one class, with the weight (4, 0): 81 T_3 = 1224 as in Magma, and T_5 = 23580
 check_output weight4-d5-p5 "'field_poly' : '2  -1224 1', 'lambda_p' : \['23580',\]" -quad=1,-1,0,0,0,1,-1,0,0,1,-1,-1,1,0,1 -format=GG -p=5 -weight=4
 # The lattice of discriminant 216 with the weight (2, 0): the space of conductor 1 on which T_7 = 2185 and
@@ -717,6 +717,12 @@ check_output weight11-disc19-square "{1 : \[{ 'aut_rep_type' : 'U', 'field_poly'
 # printed as T_p + p^a, negated when p divides the conductor: for 2.K.19.3.2.a.a, T_19 + 19 = -969, and
 # T_{19^2} = 0
 check_matrix weight11-disc39-hecke-bad-prime '{1 : \[\[-19,15\],\[10,6\]\],3 : \[\[9\]\],13 : \[\],39 : ' -quad=1,1,1,1,0,1,1,1,0,1,1,0,2,0,3 -format=GG -hecke -p=3 -weight=1,1
+# The types with a weight: on the lattice of discriminant 19 with the weight (1, 0), the Saito-Kurokawa
+# lift of the newform of weight 6 and level 19 (T_p = a_p + p^2 + p^3), and on the lattice of discriminant
+# 39 with the weight (1, 1), the Yoshida lift of the newforms of weight 6 and level 3 and of weight 4 and
+# level 13 (T_p = a_p(f) + p a_p(g))
+check_output weight1-disc19-saito-kurokawa "19 : \[{ 'aut_rep_type' : 'P', 'field_poly' : '2  -10 1', 'lambda_p' : \['10','35','126'," -quad=1,0,0,1,1,1,0,1,0,1,0,1,1,0,3 -format=GG -prec=50 -weight=1
+check_output weight11-disc39-yoshida "3 : \[{ 'aut_rep_type' : 'Y', 'field_poly' : '2  16 1', 'lambda_p' : \['-16','-29','-131'," -quad=1,1,1,1,0,1,1,1,0,1,1,0,2,0,3 -format=GG -prec=50 -weight=1,1
 check_output weight11-disc19-bad-prime "{1 : \[{ 'aut_rep_type' : 'U', 'field_poly' : '2  9 1', 'lambda_p' : \['-969',\], 'lambda_p_square' : \['0',\], }, \], 19 : \[\], }" -quad=1,0,0,1,1,1,0,1,0,1,0,1,1,0,3 -format=GG -p=19 -square -weight=1,1
 
 exit $status

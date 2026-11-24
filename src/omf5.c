@@ -366,13 +366,13 @@ int main(int argc, char* argv[])
     if (has_hecke)
       test_res |= print_hecke_matrices_weight(genus, weight, weight_b, p, has_square ? 2 : 1);
     else if (has_p && !has_prec)
-      test_res |= print_eigenvalues_weight(genus, weight, weight_b, &p, 1, &p, has_square ? 1 : 0);
+      test_res |= print_eigenvalues_weight(genus, weight, weight_b, &p, 1, &p, has_square ? 1 : 0, false);
     else {
       int *wps, *wps2;
       int num_wps, num_wps2;
       num_wps = primes_up_to_prime_to(&wps, prec, fmpz_get_si(genus->disc));
       num_wps2 = primes_up_to_prime_to(&wps2, floor(sqrt(prec)), fmpz_get_si(genus->disc));
-      test_res |= print_eigenvalues_weight(genus, weight, weight_b, wps, num_wps, wps2, num_wps2);
+      test_res |= print_eigenvalues_weight(genus, weight, weight_b, wps, num_wps, wps2, num_wps2, true);
       free(wps);
       free(wps2);
     }
@@ -572,6 +572,6 @@ int print_param_desc(char* argv[])
   fprintf(stderr, "If the flag -tests is supplied, additionally runs standard tests.\n");
   fprintf(stderr, "If the flag -nonlifts is supplied, computes eigenvalues only for the forms which are not lifts. It needs -prec=L, which determines the types of the forms, unless -idxs is supplied. Without -prec the types are printed as U (O for the old forms).\n");
   fprintf(stderr, "If the flag -noreduce is supplied, the lattice Q, or the lattices of the genus file, are used in the bases in which they are given. Otherwise a basis is reduced when this lowers the largest diagonal entry of the Gram matrix.\n");
-  fprintf(stderr, "If the flag -weight=a,b is supplied with a >= b >= 0 and a > 0 (-weight=a for b = 0), computes the forms of weight (a, b) of the special orthogonal group, which correspond to paramodular forms of weight (a - b + 3, 2b): with -hecke -p=p the Hecke matrices, with -p=p or -prec=L the eigenforms and their eigenvalues, and with -square those of T_{p^2}. With -prec=L the primes are those not dividing the discriminant, as without the weight, and -p=p may divide it. T_p is normalized by p^a and T_{p^2} by p^(2a), so that their eigenvalues are algebraic integers and the factor at p of the spin L-function is 1 - T_p x + p (T_{p^2} + p^(2a) (p^2 + 1)) x^2 - p^(2a+3) T_p x^3 + p^(4a+6) x^4. At a prime p dividing the discriminant exactly once, the eigenvalue of T_p is reported as T_p + p^a, negated when p divides the conductor, as T_p + 1 is without the weight.\n");
+  fprintf(stderr, "If the flag -weight=a,b is supplied with a >= b >= 0 and a > 0 (-weight=a for b = 0), computes the forms of weight (a, b) of the special orthogonal group, which correspond to paramodular forms of weight (a - b + 3, 2b): with -hecke -p=p the Hecke matrices, with -p=p or -prec=L the eigenforms and their eigenvalues, and with -square those of T_{p^2}. With -prec=L the primes are those not dividing the discriminant, as without the weight, and -p=p may divide it. T_p is normalized by p^a and T_{p^2} by p^(2a), so that their eigenvalues are algebraic integers and the factor at p of the spin L-function is 1 - T_p x + p (T_{p^2} + p^(2a) (p^2 + 1)) x^2 - p^(2a+3) T_p x^3 + p^(4a+6) x^4. At a prime p dividing the discriminant exactly once, the eigenvalue of T_p is reported as T_p + p^a, negated when p divides the conductor, as T_p + 1 is without the weight. With -prec=L the types are determined from these factors as without the weight, P (Saito-Kurokawa, only for b = 0), Y (Yoshida) or G, at the primes p with p^2 <= L which do not divide the discriminant when there are two of them at least, and are U otherwise.\n");
   return -1;
 }

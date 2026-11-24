@@ -501,8 +501,92 @@ bool nf_elem_is_square_fast(const nf_elem_t x, const nf_t K)
   return true;
 }
 
+// The type of a form of the weight (a, b) from its eigenvalues Tp of T_p and Tp2 of T_{p^2} at a prime p
+// which does not divide the discriminant, with the normalizations p^a and p^(2a) of the weight (1 for the
+// weight 0). The factor at p of the spin L-function, with w = 2a + 3, is
+// 1 - Tp x + p (Tp2 + p^(2a) (p^2 + 1)) x^2 - p^w Tp x^3 + p^(2w) x^4, and it is the product of two
+// factors 1 - alpha x + p^w x^2 and 1 - beta x + p^w x^2 when alpha and beta are the roots of
+// X^2 - Tp X + p (Tp2 + p^(2a) (1 - p^2)), whose discriminant is
+// disc = Tp^2 - 4 p (Tp2 + p^(2a) (1 - p^2)).
+// It is P (Saito-Kurokawa) when b = 0 and p^(a+1) (p + 1) is a root, F (Eisenstein) when moreover the
+// weight is 0 and Tp = (p + 1) (p^2 + 1), Y (Yoshida) when disc is another square, and G otherwise. The
+// Saito-Kurokawa lifts come from forms of weight 2a + 4, and only for b = 0; a Yoshida lift has the
+// factors of a form f of weight 2a + 4 and of a form g of weight 2b + 2, with alpha = a_p(f) and
+// beta = p^(a-b+1) a_p(g).
+aut_type lpoly_type(const nf_elem_t Tp, const nf_elem_t Tp2, slong p, int a, int b, const nf_t K)
+{
+  nf_elem_t disc, root;
+  fmpz_t pa, x;
+  bool is_square_fast;
+  aut_type lift_type;
+
+  nf_elem_init(disc, K);
+  nf_elem_init(root, K);
+  fmpz_init(pa);
+  fmpz_init(x);
+
+  // disc = Tp^2 - 4 p (Tp2 + p^(2a) (1 - p^2))
+  fmpz_set_si(pa, p);
+  fmpz_pow_ui(pa, pa, 2 * a);
+  fmpz_set_si(x, 1 - p * p);
+  fmpz_mul(x, x, pa);
+  nf_elem_add_fmpz(root, Tp2, x, K);
+  nf_elem_scalar_mul_si(root, root, 4 * p, K);
+  nf_elem_mul(disc, Tp, Tp, K);
+  nf_elem_sub(disc, disc, root, K);
+
+#ifdef DEBUG
+  printf("disc = ");
+  nf_elem_print_pretty(disc, K, "a");
+  printf(" over ");
+  nf_print(K);
+  printf("\n");
+#endif // DEBUG
+
+  // nf_elem_is_square_fast finds most of the elements which are not squares
+  // not to be squares, and it is never wrong when it does.
+  // It can find an element to be a square when it is not.
+  is_square_fast = nf_elem_is_square_fast(disc, K);
+  assert(is_square_fast || !nf_elem_is_square(disc, K));
+
+  // If not a lift, type G.
+  lift_type = G;
+
+  // if it can be a lift, find which type of lift
+  if (is_square_fast) {
+    // Saito-Kurokawa: r = p^(a+1) (p + 1) is a root, i.e. disc = (Tp - 2r)^2. The discriminant is then
+    // a square.
+    if (b == 0) {
+      fmpz_set_si(x, p);
+      fmpz_pow_ui(x, x, a + 1);
+      fmpz_mul_si(x, x, 2 * (p + 1));
+      nf_elem_sub_fmpz(root, Tp, x, K);
+      nf_elem_mul(root, root, root, K);
+      if (nf_elem_equal(root, disc, K))
+	lift_type = P;
+    }
+    // Otherwise no square root of the discriminant is known, and
+    // nf_elem_is_square decides whether it is a square, for a Yoshida lift.
+    // It takes long in a field of large degree, so it is not used above.
+    if ((lift_type != P) && nf_elem_is_square(disc, K))
+      lift_type = Y;
+
+    // Siegel-Eisenstein, the constant functions of the weight 0: Tp = p^3 + p^2 + p + 1
+    if ((lift_type == P) && (a == 0) &&
+	(nf_elem_equal_si(Tp, (p*p*p + p*p + p + 1), K)))
+      lift_type = F;
+  }
+
+  fmpz_clear(x);
+  fmpz_clear(pa);
+  nf_elem_clear(root, K);
+  nf_elem_clear(disc, K);
+
+  return lift_type;
+}
+
 // This function checks whether the L-polynomial is reducible (indicating that the form is a lift)
-// and returns the corresponding automorphic type.
+// and returns the corresponding automorphic type, by lpoly_type with the weight 0.
 // The relevant form is indicated by ev_idx (so f is the form in that index in evs)
 // p is the prime at which to compute the L-polynomial,
 // c is the conductor
@@ -511,9 +595,6 @@ aut_type ev_is_lpoly_reducible(const eigenvalues_t evs, slong ev_idx, slong p, s
 {
   int k;
   nf_elem_t a[2];
-  nf_elem_t disc; // discriminant of the quadratic controlling lifts
-  nf_elem_t root;
-  bool is_square_fast;
   aut_type lift_type;
 
   // Since we are in rank 5, there are only two Hecke operators T_{p,1} and T_{p,2} at every prime.
@@ -530,58 +611,8 @@ aut_type ev_is_lpoly_reducible(const eigenvalues_t evs, slong ev_idx, slong p, s
   }
 #endif // DEBUG
 
-  // It appears that the reduciblity of the L-polynomial is controlled
-  // by a quadratic equation, so one has only to check whether
-  // a certain discriminant is a square
-  
-  nf_elem_init(disc, evs->nfs[ev_idx]);
+  lift_type = lpoly_type(a[0], a[1], p, 0, 0, evs->nfs[ev_idx]);
 
-  // disc = a[0]^2 - 4*p*(a[1] + 1 - p^2)
-  nf_elem_mul(disc, a[0], a[0], evs->nfs[ev_idx]);
-  nf_elem_add_si(a[1], a[1], 1 - p*p, evs->nfs[ev_idx]);
-  nf_elem_scalar_mul_si(a[1], a[1], 4*p, evs->nfs[ev_idx]);
-  nf_elem_sub(disc, disc, a[1], evs->nfs[ev_idx]); 
-
-#ifdef DEBUG
-  printf("disc = "); 
-  nf_elem_print_pretty(disc, evs->nfs[ev_idx], "a");
-  printf(" over ");
-  nf_print(evs->nfs[ev_idx]);
-  printf("\n");
-#endif // DEBUG
-
-  // nf_elem_is_square_fast finds most of the elements which are not squares
-  // not to be squares, and it is never wrong when it does.
-  // It can find an element to be a square when it is not.
-  is_square_fast = nf_elem_is_square_fast(disc, evs->nfs[ev_idx]);
-  assert(is_square_fast || !nf_elem_is_square(disc, evs->nfs[ev_idx]));
-
-  // If not a lift, type G.
-  lift_type = G;
-
-  // if it can be a lift, find which type of lift
-  if (is_square_fast) {
-    nf_elem_init(root, evs->nfs[ev_idx]);
-    // check whether (2*p*(p+1) - a[0])^2 == disc for Saito-Kurokawa, i.e. p(p+1) is a root
-    // The discriminant is then a square.
-    nf_elem_sub_si(root, a[0], 2*p*(p+1), evs->nfs[ev_idx]);
-    nf_elem_mul(root, root, root, evs->nfs[ev_idx]);
-    if (nf_elem_equal(root, disc, evs->nfs[ev_idx]))
-      lift_type = P;
-    // Otherwise no square root of the discriminant is known, and
-    // nf_elem_is_square decides whether it is a square, for a Yoshida lift.
-    // It takes long in a field of large degree, so it is not used above.
-    else if (nf_elem_is_square(disc, evs->nfs[ev_idx]))
-      lift_type = Y;
-
-    // check whether Siegel-Eisenstein - a[0] = p^3 + p^2 + p + 1
-    if ( (lift_type == P) &&
-	 (nf_elem_equal_si(a[0], (p*p*p + p*p + p + 1), evs->nfs[ev_idx])) )
-      lift_type = F;
-    nf_elem_clear(root, evs->nfs[ev_idx]);
-  }
-  
-  nf_elem_clear(disc, evs->nfs[ev_idx]);
   for (k = 1; k < 3; k++) {
     nf_elem_clear(a[k-1], evs->nfs[ev_idx]);
   }
