@@ -57,7 +57,7 @@ hash_t hash_form(const square_matrix_t q, W32 theta_prec)
   // The numbers of vectors of each norm do not depend on the basis, and the search for them is very
   // slow in a basis which is far from reduced, so they are counted in a reduced basis.
   square_matrix_set(red, q);
-  if (square_matrix_is_far_from_reduced(q))
+  if (square_matrix_is_far_from_reduced(q) && !greedy_reduce_try(red))
     square_matrix_reduce(red);
   Q = matrix_TYP_init_set_square_matrix(red);
   num_short = (int*)malloc(theta_prec * sizeof(int));
@@ -485,9 +485,20 @@ int hash_table_indexof(const hash_table_t table, const square_matrix_t key, int 
   clock_t cputime;
   isometry_t s;
   square_matrix_t key_copy;
+  bool is_reduced;
 
   cputime = clock();
-  value = hash_form(key, table->theta_prec);
+  // a key which is far from reduced is reduced once, for its theta series (which does not depend on
+  // the basis) and for the isometry tests; another only when it is tested for isometry
+  square_matrix_set(key_copy, key);
+  is_reduced = false;
+  if (table->red_on_isom && square_matrix_is_far_from_reduced(key)) {
+    isometry_init(s);
+    greedy_checked(key_copy, s);
+    isometry_clear(s);
+    is_reduced = true;
+  }
+  value = hash_form(key_copy, table->theta_prec);
   (*theta_time) += clock() - cputime;
   index = value & table->mask;
   i = 0;
@@ -501,11 +512,11 @@ int hash_table_indexof(const hash_table_t table, const square_matrix_t key, int 
       if (table->vals[offset] == value) {
 	(*num_isom)++;
 	cputime = clock();
-	square_matrix_set(key_copy, key);
-	if (table->red_on_isom) {
+	if (table->red_on_isom && !is_reduced) {
 	  isometry_init(s);
 	  greedy_checked(key_copy, s);
 	  isometry_clear(s);
+	  is_reduced = true;
 	}
 	if (is_isometric(s, table->keys[offset], key_copy)) {
 	  (*isom_time) += clock() - cputime;
@@ -532,11 +543,20 @@ int hash_table_index_and_isom(const hash_table_t table, const square_matrix_t ke
   hash_t index, value;
   clock_t cputime;
   isometry_t s;
-  bool is_key_copied = false;
   square_matrix_t key_copy;
 
   cputime = clock();
-  value = hash_form(key, table->theta_prec);
+  // the key is reduced once, for its theta series (which does not depend on the basis) and for the
+  // isometry tests; s takes key to key_copy
+  square_matrix_set(key_copy, key);
+  if (table->red_on_isom) {
+    isometry_init(s);
+    greedy_checked(key_copy, s);
+#ifdef DEBUG_LEVEL_FULL
+    assert(isometry_is_isom(s, key, key_copy));
+#endif // DEBUG_LEVEL_FULL
+  }
+  value = hash_form(key_copy, table->theta_prec);
   (*theta_time) += clock() - cputime;
   index = value & table->mask;
   i = 0;
@@ -548,15 +568,6 @@ int hash_table_index_and_isom(const hash_table_t table, const square_matrix_t ke
       if (table->vals[offset] == value) {
 	(*num_isom)++;
 	cputime = clock();
-	if (!(is_key_copied))
-	  square_matrix_set(key_copy, key);
-	if (table->red_on_isom) {
-	  isometry_init(s);
-	  greedy_checked(key_copy, s);
-#ifdef DEBUG_LEVEL_FULL
-	  assert(isometry_is_isom(s, key, key_copy));
-#endif // DEBUG_LEVEL_FULL
-	}
 	if (is_isometric(isom, key_copy, table->keys[offset])) {
 #ifdef DEBUG_LEVEL_FULL
 	  assert(isometry_is_isom(isom, key_copy, table->keys[offset]));
@@ -578,7 +589,7 @@ int hash_table_index_and_isom(const hash_table_t table, const square_matrix_t ke
     index = (index + 1) & table->mask;
   }
 
-  if ((table->red_on_isom) && (is_key_copied))
+  if (table->red_on_isom)
     isometry_clear(s);
 
   // the key is not in the table
