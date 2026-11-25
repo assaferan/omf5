@@ -11,6 +11,7 @@
 // System dependencies
 
 #include <assert.h>
+#include <string.h>
 
 // Required packages dependencies
 
@@ -462,8 +463,12 @@ static bool hecke_use_transport(int p)
   return false;
 }
 
-slong hecke_col_nbr_data_all_conductors(W64* spin_vals, int p, int k, int gen_idx, const genus_t genus)
+// As hecke_col_nbr_data_all_conductors, but when hist is not NULL the neighbors are counted in
+// hist[(class << num_primes) | spinor bits] instead of written to spin_vals (which is then not used).
+static slong hecke_col_nbr_data_all_conductors_count(W64* spin_vals, slong* hist, int p, int k, int gen_idx,
+						     const genus_t genus)
 {
+  W64 val;
   square_matrix_t Q;
   nbr_data_t nbr_man;
   int lc;
@@ -488,9 +493,11 @@ slong hecke_col_nbr_data_all_conductors(W64* spin_vals, int p, int k, int gen_id
   nbr_data_init(nbr_man, Q, p, k);
 
   while (!(nbr_data_has_ended(nbr_man))) {
-    process_isotropic_vector_nbr_data_all_conductors(nbr_man, &(spin_vals[lc]), genus,
+    process_isotropic_vector_nbr_data_all_conductors(nbr_man, (hist == NULL) ? &(spin_vals[lc]) : &val, genus,
 						     &theta_time, &isom_time, &total_time,
 						     &num_isom, gen_idx);
+    if (hist != NULL)
+      hist[val]++;
     nbr_data_get_next_neighbor(nbr_man);
     lc++;
   }
@@ -505,11 +512,21 @@ slong hecke_col_nbr_data_all_conductors(W64* spin_vals, int p, int k, int gen_id
   return lc;
 }
 
+slong hecke_col_nbr_data_all_conductors(W64* spin_vals, int p, int k, int gen_idx, const genus_t genus)
+{
+  return hecke_col_nbr_data_all_conductors_count(spin_vals, NULL, p, k, gen_idx, genus);
+}
+
 /* compute Hecke column,
    using neighbor_manager type as a neighbor manager - for all conductors at once.
    Data is stored bit-sliced in spin_vals */
-slong hecke_col_all_conductors(W64* spin_vals, int p, int gen_idx, const genus_t genus)
+// As hecke_col_all_conductors, but when hist is not NULL the neighbors are counted in
+// hist[(class << num_primes) | spinor bits] instead of written to spin_vals (which is then not used): only
+// the values of one orbit of the automorphisms are kept at a time.
+static slong hecke_col_all_conductors_count(W64* spin_vals, slong* hist, int p, int gen_idx, const genus_t genus)
 {
+  W64* orbit_vals = NULL;
+  slong n, j;
   square_matrix_t Q;
   neighbor_manager_t nbr_man;
   int lc, i;
@@ -533,13 +550,26 @@ slong hecke_col_all_conductors(W64* spin_vals, int p, int gen_idx, const genus_t
     nbr_process_init(nbr_man, Q, p, i, genus->isoms[gen_idx]);
 
     while (!(nbr_process_has_ended(nbr_man))) {
-      lc += process_isotropic_vector_all_conductors(nbr_man, &(spin_vals[lc]), genus,
-						    &theta_time, &isom_time, &total_time,
-						    &num_isom, gen_idx);
+      if ((hist != NULL) && (orbit_vals == NULL)) {
+	// an orbit has at most as many lines as there are automorphisms
+	orbit_vals = (W64*)malloc((nbr_man->num_auts + 1) * sizeof(W64));
+	if (orbit_vals == NULL) {
+	  fprintf(stderr, "Error: out of memory in hecke_col_all_conductors\n");
+	  exit(EXIT_FAILURE);
+	}
+      }
+      n = process_isotropic_vector_all_conductors(nbr_man, (hist == NULL) ? &(spin_vals[lc]) : orbit_vals, genus,
+						  &theta_time, &isom_time, &total_time,
+						  &num_isom, gen_idx);
+      if (hist != NULL)
+	for (j = 0; j < n; j++)
+	  hist[orbit_vals[j]]++;
+      lc += n;
       nbr_process_advance(nbr_man);
     }
     nbr_process_clear(nbr_man);
   }
+  free(orbit_vals);
 
 #ifdef DEBUG
   printf("theta_time = %f, isom_time = %f, total_time = %f, num_isom = %d / %d \n",
@@ -547,6 +577,11 @@ slong hecke_col_all_conductors(W64* spin_vals, int p, int gen_idx, const genus_t
 #endif // DEBUG
 
   return lc;
+}
+
+slong hecke_col_all_conductors(W64* spin_vals, int p, int gen_idx, const genus_t genus)
+{
+  return hecke_col_all_conductors_count(spin_vals, NULL, p, gen_idx, genus);
 }
 
 /* update Hecke column by a chunk of neighbors,
@@ -664,68 +699,49 @@ int char_val(W64 x)
 
 /* Adds the column of the class gen_idx of T_{p,k} (by the neighbors of nbr_data, or by the orbits of the
    automorphisms when orbits is set) to rows[c], for each conductor c whose space contains the class
-   (lut_positions[c][gen_idx] != -1; the others are not used). num_nbrs is the number of neighbors. With a
-   table of T_q (-transport) and k = 1, the neighbors are counted by class and spinor bits, without a
-   word for each of them. */
+   (lut_positions[c][gen_idx] != -1; the others are not used). num_nbrs is the number of neighbors. The
+   neighbors are counted by class and spinor bits, without a word for each of them; with a table of T_q
+   (-transport) and k = 1 or 2, they are found by transport. */
 static void hecke_col_add_rows(int** rows, int p, int k, bool orbits, int gen_idx, const genus_t genus,
 			       slong num_nbrs)
 {
-  slong c, spin_idx, rpos, b, nb, n;
+  slong c, rpos, b, nb, n;
   slong* lut;
-  W64 r;
-  W64* spin_vals;
   slong* hist;
   int np = genus->spinor->num_primes;
 
-  if (((k == 1) || (k == 2)) && hecke_use_transport(p)) {
-    nb = ((slong)genus->genus_reps->num_stored) << np;
-    hist = (slong*)calloc(nb, sizeof(slong));
-    if (hist == NULL) {
-      fprintf(stderr, "Error: out of memory in hecke_col_add_rows\n");
-      exit(EXIT_FAILURE);
-    }
-    n = hecke_col_all_conductors_transport(hist, p, k, gen_idx, genus, hecke_transport_table);
-    if (n >= 0) {
-#ifdef DEBUG
-      assert(n == num_nbrs);
-#endif // DEBUG
-      // the nonzero entries first: there are at most the number of neighbors of them
-      for (b = 0; b < nb; b++) {
-	if (hist[b] == 0) continue;
-	for (c = 0; c < genus->num_conductors; c++) {
-	  lut = genus->lut_positions[c];
-	  if (unlikely(lut[gen_idx] == -1)) continue;
-	  rpos = lut[b >> np];
-	  if (unlikely(rpos == -1)) continue;
-	  rows[c][rpos] += hist[b] * char_val(((W64)b) & c);
-	}
-      }
-      free(hist);
-      return;
-    }
-    free(hist);
+  nb = ((slong)genus->genus_reps->num_stored) << np;
+  hist = (slong*)calloc(nb, sizeof(slong));
+  if (hist == NULL) {
+    fprintf(stderr, "Error: out of memory in hecke_col_add_rows\n");
+    exit(EXIT_FAILURE);
   }
-
-  spin_vals = (W64*)malloc(num_nbrs * sizeof(W64));
-  if (orbits)
-    n = hecke_col_all_conductors(spin_vals, p, gen_idx, genus);
-  else
-    n = hecke_col_nbr_data_all_conductors(spin_vals, p, k, gen_idx, genus);
+  n = -1;
+  if (((k == 1) || (k == 2)) && hecke_use_transport(p))
+    n = hecke_col_all_conductors_transport(hist, p, k, gen_idx, genus, hecke_transport_table);
+  if (n < 0) {
+    memset(hist, 0, nb * sizeof(slong));
+    if (orbits)
+      n = hecke_col_all_conductors_count(NULL, hist, p, gen_idx, genus);
+    else
+      n = hecke_col_nbr_data_all_conductors_count(NULL, hist, p, k, gen_idx, genus);
+  }
 #ifdef DEBUG
   assert(n == num_nbrs);
 #endif // DEBUG
   (void)n;
-  for (c = 0; c < genus->num_conductors; c++) {
-    lut = genus->lut_positions[c];
-    if (unlikely(lut[gen_idx] == -1)) continue;
-    for (spin_idx = 0; spin_idx < num_nbrs; spin_idx++) {
-      r = spin_vals[spin_idx] >> np;
-      rpos = lut[r];
+  (void)num_nbrs;
+  for (b = 0; b < nb; b++) {
+    if (hist[b] == 0) continue;
+    for (c = 0; c < genus->num_conductors; c++) {
+      lut = genus->lut_positions[c];
+      if (unlikely(lut[gen_idx] == -1)) continue;
+      rpos = lut[b >> np];
       if (unlikely(rpos == -1)) continue;
-      rows[c][rpos] += char_val(spin_vals[spin_idx] & c);
+      rows[c][rpos] += hist[b] * char_val(((W64)b) & c);
     }
   }
-  free(spin_vals);
+  free(hist);
 }
 
 /* Compute columns of the Hecke operators T_{p,1} for all conductors.
