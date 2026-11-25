@@ -1198,6 +1198,33 @@ static bool greedy_is_valid(const square_matrix_t gram0, const isometry_t s0, co
   return valid;
 }
 
+/* Replaces gram by its greedy reduction when greedy ends, its arithmetic is checked to be right and
+   the result is not far from reduced, and returns whether it did; otherwise gram is not changed. It is
+   much cheaper than the reduction with big integers of square_matrix_reduce. */
+bool greedy_reduce_try(square_matrix_t gram)
+{
+  square_matrix_t gram0;
+  isometry_t s, s0;
+  bool is_done;
+
+  square_matrix_set(gram0, gram);
+  isometry_init(s);
+  isometry_init(s0);
+
+  greedy_passes_left = GREEDY_MAX_PASSES;
+  greedy(gram, s, QF_RANK);
+  is_done = (greedy_passes_left != 0);
+  greedy_passes_left = -1;
+  is_done = is_done && greedy_is_valid(gram0, s0, gram, s) && !square_matrix_is_far_from_reduced(gram);
+  if (!is_done)
+    square_matrix_set(gram, gram0);
+
+  isometry_clear(s);
+  isometry_clear(s0);
+
+  return is_done;
+}
+
 void greedy_checked(square_matrix_t gram, isometry_t s)
 {
   square_matrix_t gram0;

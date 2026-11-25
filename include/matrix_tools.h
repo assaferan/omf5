@@ -226,6 +226,10 @@ void greedy(square_matrix_t gram, isometry_t s, int dim);
 
 void greedy_checked(square_matrix_t gram, isometry_t s);
 
+/* Replaces gram by its greedy reduction when greedy ends, its arithmetic is right and the result is not
+   far from reduced, and returns whether it did; otherwise gram is not changed. */
+bool greedy_reduce_try(square_matrix_t gram);
+
 /****************************************************************************
  *
  * Function: fmpz_mat_is_gram_in_basis
