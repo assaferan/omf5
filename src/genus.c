@@ -583,7 +583,7 @@ void square_matrix_find_isometries(isometry_t* isoms, const square_matrix_t A, c
   isometry_t isom_B, isom_B_inv;
   slong i, rep_idx;
   double theta_time, isom_time;
-  int num_isom = 0;
+  slong num_isom = 0;
 
   theta_time = isom_time = 0;
   

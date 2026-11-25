@@ -2227,7 +2227,7 @@ STATUS compute_eigenvalues_up_to(const genus_t genus, int prec, bool nonlifts, i
 
 STATUS compute_hecke_col_all_conds(const genus_t genus, slong p, int gen_idx)
 {
-  int** hecke;
+  slong** hecke;
   slong c, i;
 
   clock_t cpuclock_0, cpuclock_1;
@@ -2247,7 +2247,7 @@ STATUS compute_hecke_col_all_conds(const genus_t genus, slong p, int gen_idx)
     printf("%ld : ", genus->conductors[c]);
     printf("[");
     for (i = 0; i < genus->dims[c]; i++) {
-      printf("%d", hecke[c][i]);
+      printf("%ld", hecke[c][i]);
       if (i != genus->dims[c]-1)
 	printf(",");
     }
@@ -2286,7 +2286,7 @@ static int conductor_index(const genus_t genus, slong c)
 
 STATUS compute_hecke_col(const genus_t genus, slong p, slong c)
 {
-  int* hecke;
+  slong* hecke;
   int c_idx, i, gen_idx;
 
   clock_t cpuclock_0, cpuclock_1;
@@ -2305,7 +2305,7 @@ STATUS compute_hecke_col(const genus_t genus, slong p, slong c)
   if (c_idx != 0)
     return compute_hecke_col_all_conds(genus, p, gen_idx);
 
-  hecke = (int*)malloc(genus->dims[0] * sizeof(int));
+  hecke = (slong*)malloc(genus->dims[0] * sizeof(slong));
 
   cpuclock_0 = clock();
 
@@ -2321,7 +2321,7 @@ STATUS compute_hecke_col(const genus_t genus, slong p, slong c)
   printf("{%ld : ", genus->conductors[c_idx]);
   printf("[");
   for (i = 0; i < genus->dims[c_idx]; i++) {
-    printf("%d", hecke[i]);
+    printf("%ld", hecke[i]);
     if (i != genus->dims[c_idx]-1)
       printf(",");
   }

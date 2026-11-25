@@ -253,7 +253,7 @@ int hash_table_exists(const hash_table_t table, const square_matrix_t key, int c
  **********************************************************************
  */
 
-int hash_table_indexof(const hash_table_t table, const square_matrix_t key, int check_isom, double* theta_time, double* isom_time, int* num_isom);
+int hash_table_indexof(const hash_table_t table, const square_matrix_t key, int check_isom, double* theta_time, double* isom_time, slong* num_isom);
 
 /**********************************************************************
  *
@@ -287,7 +287,7 @@ int hash_table_indexof(const hash_table_t table, const square_matrix_t key, int 
  */
 
 int hash_table_index_and_isom(const hash_table_t table, const square_matrix_t key, isometry_t isom,
-			      double* theta_time, double* isom_time, int* num_isom);
+			      double* theta_time, double* isom_time, slong* num_isom);
 
 /**********************************************************************
  *
