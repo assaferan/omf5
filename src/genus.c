@@ -31,6 +31,7 @@
 #include "aut_grp.h"
 #include "genus.h"
 #include "hash.h"
+#include "hecke.h"
 #include "io.h"
 #include "isometry.h"
 #include "mass.h"
@@ -486,6 +487,7 @@ void genus_clear(genus_t genus)
 {
   slong c;
 
+  hecke_ev_cache_clear(genus);
   fmpz_clear(genus->disc);
   
   for (c = 0; c < genus->num_conductors; c++)

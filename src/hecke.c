@@ -937,6 +937,171 @@ matrix_TYP* hecke_matrix(const genus_t genus, int p)
   return hecke;
 }
 
+// The columns of T_{p,k} computed for the eigenvalues (get_hecke_ev*), kept so that the forms whose
+// pivot is the same class share one column: the eigenvalues at p of all the forms, and the types,
+// which need T_p and T_{p^2} again, then cost a column for each class used instead of one for each form.
+// An entry holds the rows of every conductor (all), or the row of the trivial conductor only.
+// The entries belong to a genus and are freed by hecke_ev_cache_clear, which genus_clear calls.
+typedef struct {
+  const genus_struct* genus;
+  int p;
+  int k;
+  slong gen_idx;
+  bool all;
+  slong** rows;
+} hecke_ev_cache_entry;
+
+static hecke_ev_cache_entry* hecke_ev_cache = NULL;
+static slong hecke_ev_cache_num = 0;
+static slong hecke_ev_cache_cap = 0;
+static size_t hecke_ev_cache_bytes = 0;
+
+// Beyond this many bytes of columns, a new column is computed and freed as before.
+#define HECKE_EV_CACHE_MAX_BYTES (((size_t)256) << 20)
+
+void hecke_ev_cache_clear(const genus_struct* genus)
+{
+  slong i, j, c, num_rows;
+
+  j = 0;
+  for (i = 0; i < hecke_ev_cache_num; i++) {
+    if (hecke_ev_cache[i].genus == genus) {
+      num_rows = hecke_ev_cache[i].all ? genus->num_conductors : 1;
+      for (c = 0; c < num_rows; c++) {
+	hecke_ev_cache_bytes -= (c == 0 ? genus->genus_reps->num_stored : genus->dims[c]) * sizeof(slong);
+	free(hecke_ev_cache[i].rows[c]);
+      }
+      free(hecke_ev_cache[i].rows);
+    }
+    else
+      hecke_ev_cache[j++] = hecke_ev_cache[i];
+  }
+  hecke_ev_cache_num = j;
+  if (hecke_ev_cache_num == 0) {
+    free(hecke_ev_cache);
+    hecke_ev_cache = NULL;
+    hecke_ev_cache_cap = 0;
+    hecke_ev_cache_bytes = 0;
+  }
+}
+
+// The column of T_{p,k} at the class gen_idx in the cache, or NULL. With all, only an entry with the
+// rows of every conductor will do.
+static slong** hecke_ev_cache_find(const genus_t genus, int p, int k, slong gen_idx, bool all)
+{
+  slong i;
+
+  for (i = 0; i < hecke_ev_cache_num; i++)
+    if ((hecke_ev_cache[i].genus == genus) && (hecke_ev_cache[i].p == p) && (hecke_ev_cache[i].k == k) &&
+	(hecke_ev_cache[i].gen_idx == gen_idx) && (hecke_ev_cache[i].all || !all))
+      return hecke_ev_cache[i].rows;
+
+  return NULL;
+}
+
+// The pivot of the eigenvector of evs[ev_idx], as a position in the space of the conductor c, and its
+// class in gen_idx. This is a nonzero entry whose class has a column of T_{p,k} in the cache, with the
+// most automorphisms among those, and otherwise the entry chosen by ev_get_pivot. Any nonzero entry
+// gives the same eigenvalue.
+static slong hecke_ev_pivot(slong* gen_idx, const genus_t genus, const eigenvalues_t evs, int ev_idx,
+			    slong c, int p, int k, bool all)
+{
+  slong i, pos, pivot, max_aut;
+
+  pivot = -1;
+  max_aut = 0;
+  for (i = 0; i < genus->genus_reps->num_stored; i++) {
+    pos = genus->lut_positions[c][i];
+    if ((pos == -1) || nf_elem_is_zero(evs->eigenvecs[ev_idx][pos], evs->nfs[ev_idx]))
+      continue;
+    if ((genus->num_auts[c][pos] > max_aut) && (hecke_ev_cache_find(genus, p, k, i, all) != NULL)) {
+      max_aut = genus->num_auts[c][pos];
+      pivot = pos;
+      *gen_idx = i;
+    }
+  }
+  if (pivot != -1)
+    return pivot;
+
+  pivot = ev_get_pivot(evs->eigenvecs[ev_idx], evs->nfs[ev_idx], genus, c);
+  for (*gen_idx = 0; *gen_idx < genus->dims[0];) {
+    if (pivot == genus->lut_positions[c][*gen_idx])
+      break;
+    (*gen_idx)++;
+  }
+
+  return pivot;
+}
+
+// The column of T_{p,k} at the class gen_idx: rows[c] for every conductor c when all, and rows[0] for the
+// trivial conductor otherwise, from the cache or computed (with orbits, by hecke_col for k = 1 and
+// hecke_col_add_rows with orbits for all). It is put in the cache when it fits; otherwise *to_free is
+// set, and the caller frees it with hecke_ev_column_free.
+static slong** hecke_ev_column(bool* to_free, const genus_t genus, int p, int k, slong gen_idx, bool all,
+			       bool orbits)
+{
+  slong** rows;
+  slong c, num_rows, len;
+  slong num_nbrs;
+  size_t bytes;
+  nbr_data_t nbr_man;
+
+  *to_free = false;
+  rows = hecke_ev_cache_find(genus, p, k, gen_idx, all);
+  if (rows != NULL)
+    return rows;
+
+  num_rows = all ? genus->num_conductors : 1;
+  rows = (slong**)malloc(num_rows * sizeof(slong*));
+  bytes = 0;
+  for (c = 0; c < num_rows; c++) {
+    len = (c == 0) ? genus->genus_reps->num_stored : genus->dims[c];
+    rows[c] = (slong*)calloc(len > 0 ? len : 1, sizeof(slong));
+    bytes += len * sizeof(slong);
+  }
+
+  if (all) {
+    assert(genus->genus_reps->num_stored > 0);
+    nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, k);
+    num_nbrs = number_of_neighbors(nbr_man, false);
+    nbr_data_clear(nbr_man);
+    hecke_col_add_rows(rows, p, k, orbits, gen_idx, genus, num_nbrs);
+  }
+  else if ((k == 1) && orbits)
+    hecke_col(rows[0], p, gen_idx, genus);
+  else
+    hecke_col_nbr_data(rows[0], p, k, gen_idx, genus);
+
+  if (hecke_ev_cache_bytes + bytes > HECKE_EV_CACHE_MAX_BYTES) {
+    *to_free = true;
+    return rows;
+  }
+  if (hecke_ev_cache_num == hecke_ev_cache_cap) {
+    hecke_ev_cache_cap = (hecke_ev_cache_cap == 0) ? 16 : 2 * hecke_ev_cache_cap;
+    hecke_ev_cache = (hecke_ev_cache_entry*)realloc(hecke_ev_cache,
+						     hecke_ev_cache_cap * sizeof(hecke_ev_cache_entry));
+  }
+  hecke_ev_cache[hecke_ev_cache_num].genus = genus;
+  hecke_ev_cache[hecke_ev_cache_num].p = p;
+  hecke_ev_cache[hecke_ev_cache_num].k = k;
+  hecke_ev_cache[hecke_ev_cache_num].gen_idx = gen_idx;
+  hecke_ev_cache[hecke_ev_cache_num].all = all;
+  hecke_ev_cache[hecke_ev_cache_num].rows = rows;
+  hecke_ev_cache_num++;
+  hecke_ev_cache_bytes += bytes;
+
+  return rows;
+}
+
+static void hecke_ev_column_free(slong** rows, const genus_t genus, bool all)
+{
+  slong c;
+
+  for (c = 0; c < (all ? genus->num_conductors : 1); c++)
+    free(rows[c]);
+  free(rows);
+}
+
 /* get the Hecke eigenvalue of T_{p,k} on an eigenform (evs[ev_idx]) with trivial conductor */
 void get_hecke_ev_nbr_data(nf_elem_t e, const genus_t genus, const eigenvalues_t evs,
 			   int p, int k, int ev_idx)
@@ -949,18 +1114,21 @@ void get_hecke_ev_nbr_data(nf_elem_t e, const genus_t genus, const eigenvalues_t
 
   nf_elem_t e_new;
   slong* a;
-  int num, i, pivot;
+  slong** rows;
+  slong gen_idx;
+  bool to_free;
+  int i, pivot;
+#ifdef DEBUG
+  int num;
+#endif // DEBUG
   nf_elem_t prod;
   fmpz_mat_t q;
   fmpz_t disc;
 
   nf_elem_init(e, evs->nfs[ev_idx]);
   nf_elem_init(prod, evs->nfs[ev_idx]);
-  a = (slong*)malloc(evs->dim * sizeof(slong));
-  for (num = 0; num < evs->dim; num++)
-    a[num] = 0;
 
-  pivot = ev_get_pivot(evs->eigenvecs[ev_idx], evs->nfs[ev_idx], genus, 0);
+  pivot = hecke_ev_pivot(&gen_idx, genus, evs, ev_idx, 0, p, k, false);
 #ifdef DEBUG
   clock_t cpuclock;
   double cputime;
@@ -968,7 +1136,8 @@ void get_hecke_ev_nbr_data(nf_elem_t e, const genus_t genus, const eigenvalues_t
   cpuclock = clock();
 #endif // DEBUG
   
-  hecke_col_nbr_data(a, p, k, pivot, genus);
+  rows = hecke_ev_column(&to_free, genus, p, k, gen_idx, false, false);
+  a = rows[0];
 
 #ifdef DEBUG
   cpuclock = clock() - cpuclock;
@@ -1014,7 +1183,8 @@ void get_hecke_ev_nbr_data(nf_elem_t e, const genus_t genus, const eigenvalues_t
 #endif // DEBUG
 
   nf_elem_clear(prod, evs->nfs[ev_idx]);
-  free(a);
+  if (to_free)
+    hecke_ev_column_free(rows, genus, false);
   
   return;
 }
@@ -1025,11 +1195,10 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
 					  int p, int k, int ev_idx, slong ev_cond)
 {
   nf_elem_t e_new;
-  nbr_data_t nbr_man;
   slong** hecke;
+  bool to_free;
   int i, pivot;
-  slong num_nbrs;
-  slong c, gen_idx;
+  slong gen_idx;
   nf_elem_t prod;
   fmpz_mat_t q;
   fmpz_t disc;
@@ -1044,28 +1213,8 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
   nf_elem_init(e, evs->nfs[ev_idx]);
   nf_elem_init(prod, evs->nfs[ev_idx]);
 
-  pivot = ev_get_pivot(evs->eigenvecs[ev_idx], evs->nfs[ev_idx], genus, ev_cond);
-
-  for (gen_idx = 0; gen_idx < genus->dims[0];) {
-    if (pivot == genus->lut_positions[ev_cond][gen_idx])
-      break;
-    gen_idx++;
-  }
-  
-  hecke = (slong**)malloc(genus->num_conductors * sizeof(slong*));
-  
-  for (c = 0; c < genus->num_conductors; c++) {
-    hecke[c] = (slong*)malloc(genus->dims[c] * sizeof(slong));
-    for (i = 0; i < genus->dims[c]; i++)
-      hecke[c][i] = 0;
-  }
-
-  assert(genus->genus_reps->num_stored > 0);
-  nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, k);
-  num_nbrs = number_of_neighbors(nbr_man, false);
-  nbr_data_clear(nbr_man);
-
-  hecke_col_add_rows(hecke, p, k, false, gen_idx, genus, num_nbrs);
+  pivot = hecke_ev_pivot(&gen_idx, genus, evs, ev_idx, ev_cond, p, k, true);
+  hecke = hecke_ev_column(&to_free, genus, p, k, gen_idx, true, false);
 
 #ifdef DEBUG
   cpuclock = clock() - cpuclock;
@@ -1113,11 +1262,8 @@ void get_hecke_ev_nbr_data_all_conductors(nf_elem_t e, const genus_t genus,
 #endif // DEBUG
 
   nf_elem_clear(prod, evs->nfs[ev_idx]);
-
-  for (c = 0; c < genus->num_conductors; c++)
-    free(hecke[c]);
-
-  free(hecke);
+  if (to_free)
+    hecke_ev_column_free(hecke, genus, true);
   
   return;
 }
@@ -1128,11 +1274,10 @@ void get_hecke_ev_all_conductors(nf_elem_t e, const genus_t genus,
 				 int p, int ev_idx, slong ev_cond)
 {
   nf_elem_t e_new;
-  nbr_data_t nbr_man;
   slong** hecke;
+  bool to_free;
   int i, pivot;
-  slong num_nbrs;
-  slong c, gen_idx;
+  slong gen_idx;
   nf_elem_t prod;
   fmpz_mat_t q;
   fmpz_t disc;
@@ -1147,28 +1292,8 @@ void get_hecke_ev_all_conductors(nf_elem_t e, const genus_t genus,
   nf_elem_init(e, evs->nfs[ev_idx]);
   nf_elem_init(prod, evs->nfs[ev_idx]);
 
-  pivot = ev_get_pivot(evs->eigenvecs[ev_idx], evs->nfs[ev_idx], genus, ev_cond);
-
-  for (gen_idx = 0; gen_idx < genus->dims[0];) {
-    if (pivot == genus->lut_positions[ev_cond][gen_idx])
-      break;
-    gen_idx++;
-  }
-  
-  hecke = (slong**)malloc(genus->num_conductors * sizeof(slong*));
-  
-  for (c = 0; c < genus->num_conductors; c++) {
-    hecke[c] = (slong*)malloc(genus->dims[c] * sizeof(slong));
-    for (i = 0; i < genus->dims[c]; i++)
-      hecke[c][i] = 0;
-  }
-
-  assert(genus->genus_reps->num_stored > 0);
-  nbr_data_init(nbr_man, genus->genus_reps->keys[0], p, 1);
-  num_nbrs = number_of_neighbors(nbr_man, false);
-  nbr_data_clear(nbr_man);
-
-  hecke_col_add_rows(hecke, p, 1, true, gen_idx, genus, num_nbrs);
+  pivot = hecke_ev_pivot(&gen_idx, genus, evs, ev_idx, ev_cond, p, 1, true);
+  hecke = hecke_ev_column(&to_free, genus, p, 1, gen_idx, true, true);
 
 #ifdef DEBUG
   cpuclock = clock() - cpuclock;
@@ -1213,11 +1338,8 @@ void get_hecke_ev_all_conductors(nf_elem_t e, const genus_t genus,
 #endif // DEBUG
 
   nf_elem_clear(prod, evs->nfs[ev_idx]);
-
-  for (c = 0; c < genus->num_conductors; c++)
-    free(hecke[c]);
-
-  free(hecke);
+  if (to_free)
+    hecke_ev_column_free(hecke, genus, true);
   
   return;
 }
@@ -1233,18 +1355,21 @@ void get_hecke_ev(nf_elem_t e, const genus_t genus, const eigenvalues_t evs, int
 
   nf_elem_t e_new;
   slong* a;
-  int num, i, pivot;
+  slong** rows;
+  slong gen_idx;
+  bool to_free;
+  int i, pivot;
+#ifdef DEBUG
+  int num;
+#endif // DEBUG
   nf_elem_t prod;
   fmpz_mat_t q;
   fmpz_t disc;
 
   nf_elem_init(e, evs->nfs[ev_idx]);
   nf_elem_init(prod, evs->nfs[ev_idx]);
-  a = (slong*)malloc(genus->genus_reps->num_stored * sizeof(slong));
-  for (num = 0; num < genus->genus_reps->num_stored; num++)
-    a[num] = 0;
 
-  pivot = ev_get_pivot(evs->eigenvecs[ev_idx], evs->nfs[ev_idx], genus, 0);
+  pivot = hecke_ev_pivot(&gen_idx, genus, evs, ev_idx, 0, p, 1, false);
 #ifdef DEBUG
   clock_t cpuclock;
   double cputime;
@@ -1252,7 +1377,8 @@ void get_hecke_ev(nf_elem_t e, const genus_t genus, const eigenvalues_t evs, int
   cpuclock = clock();
 #endif // DEBUG
   
-  hecke_col(a, p, pivot, genus);
+  rows = hecke_ev_column(&to_free, genus, p, 1, gen_idx, false, true);
+  a = rows[0];
 
 #ifdef DEBUG
   cpuclock = clock() - cpuclock;
@@ -1295,7 +1421,8 @@ void get_hecke_ev(nf_elem_t e, const genus_t genus, const eigenvalues_t evs, int
   }
 
   nf_elem_clear(prod, evs->nfs[ev_idx]);
-  free(a);
+  if (to_free)
+    hecke_ev_column_free(rows, genus, false);
   
   return;
 }

@@ -261,6 +261,10 @@ slong hecke_col_all_conductors(W64* spin_vals, int p, int gen_idx, const genus_t
 // orbits and the neighbors.
 void hecke_set_transport_table(const tq_table_struct* T);
 
+// The columns of the Hecke operators computed for the eigenvalues (get_hecke_ev*) are kept for the
+// genus, so that the forms whose pivot is in the same class share one. genus_clear frees them.
+void hecke_ev_cache_clear(const genus_struct* genus);
+
 /***************************************************************************
  *
  * Function: hecke_col_all_conds_sparse
