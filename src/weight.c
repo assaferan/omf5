@@ -15,7 +15,7 @@ int process_isotropic_vector_isometries(neighbor_manager_t nbr_man,
 					square_matrix_t** large_hecke,
 					const genus_t genus,
 					double* theta_time, double* isom_time,
-					double* total_time, int* num_isom, int gen_idx)
+					double* total_time, slong* num_isom, int gen_idx)
 {
   int i, j;
   clock_t cputime;
@@ -164,8 +164,9 @@ slong hecke_col_isometries(square_matrix_t** large_hecke,
 {
   square_matrix_t Q;
   neighbor_manager_t nbr_man;
-  int lc, i;
-  int num_isom;
+  slong lc;
+  int i;
+  slong num_isom;
   double theta_time, isom_time, total_time;
 
   num_isom = lc = 0;
@@ -193,7 +194,7 @@ slong hecke_col_isometries(square_matrix_t** large_hecke,
   }
 
 #ifdef DEBUG
-  printf("theta_time = %f, isom_time = %f, total_time = %f, num_isom = %d / %d \n",
+  printf("theta_time = %f, isom_time = %f, total_time = %f, num_isom = %ld / %ld \n",
 	 theta_time/lc, isom_time/lc, total_time, num_isom, lc);
 #endif // DEBUG
 
@@ -1101,7 +1102,8 @@ static void weight_sums_orbits(fmpq_mat_t** acc, const genus_t genus, const weig
   square_matrix_t nbr, aut_tr;
   isometry_t s_nbr, hash_isom, s_inv, t;
   slong k, e, b, nb, num_auts, orb_size, i;
-  int num_isom, line, vec_cmp;
+  int line, vec_cmp;
+  slong num_isom;
   double theta_time, isom_time;
   bool found, has_auts;
   W64 bits_s;
@@ -1239,7 +1241,7 @@ static fmpq_mat_struct* hecke_matrices_weight_impl(const genus_t genus, const we
   isometry_t s_nbr, hash_isom, s_inv;
   fmpz_t pa;
   slong c, i, j, h, nb, b;
-  int num_isom;
+  slong num_isom;
   double theta_time, isom_time;
   W64 bits;
   bool needed;

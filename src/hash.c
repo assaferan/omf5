@@ -478,7 +478,7 @@ int hash_table_exists(const hash_table_t table, const square_matrix_t key, int c
 /* Returns the index in the hash table of a lattice with the same hash value,
    or an isometric lattice if check_isom is set. */
 
-int hash_table_indexof(const hash_table_t table, const square_matrix_t key, int check_isom, double* theta_time, double* isom_time, int* num_isom)
+int hash_table_indexof(const hash_table_t table, const square_matrix_t key, int check_isom, double* theta_time, double* isom_time, slong* num_isom)
 {
   int offset, i;
   hash_t index, value;
@@ -537,7 +537,7 @@ int hash_table_indexof(const hash_table_t table, const square_matrix_t key, int 
 /* Returns also an isometry between the lattices */
 
 int hash_table_index_and_isom(const hash_table_t table, const square_matrix_t key, isometry_t isom,
-			      double* theta_time, double* isom_time, int* num_isom)
+			      double* theta_time, double* isom_time, slong* num_isom)
 {
   int offset, i;
   hash_t index, value;

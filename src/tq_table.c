@@ -53,7 +53,7 @@ void tq_table_init(tq_table_t T, const genus_t genus, int q)
   square_matrix_t nbr;
   isometry_t s_nbr, hash_isom, s_inv, s_norm;
   vector_t w;
-  int num_isom;
+  slong num_isom;
   double theta_time, isom_time;
 
   assert(fmpz_fdiv_ui(genus->disc, q) != 0);

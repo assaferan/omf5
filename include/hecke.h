@@ -39,7 +39,7 @@
  *
  * Arguments:
  *     + nbr_man (nbr_data_t) - a neighbor manager
- *     + T (int*) - a column of the matrix representing the Hecke operator
+ *     + T (slong*) - a column of the matrix representing the Hecke operator
  *                  corresponding to the lattice whose neighbors we
  *                  are enumerating over
  *     + genus (const genus_t) - the associated genus
@@ -49,13 +49,13 @@
  *     + theta_time (double*) - time spent computing theta series
  *     + isom_time (double*) - time spent checking isometries
  *     + total_time (double*) - total time spent
- *     + num_isom (int*) - number of isometry tests done
+ *     + num_isom (slong*) - number of isometry tests done
  *
  **********************************************************************
  */
 
-int process_isotropic_vector_nbr_data(nbr_data_t nbr_man, int* T, const genus_t genus, 
-				      double* theta_time, double* isom_time, double* total_time, int* num_isom);
+int process_isotropic_vector_nbr_data(nbr_data_t nbr_man, slong* T, const genus_t genus, 
+				      double* theta_time, double* isom_time, double* total_time, slong* num_isom);
 
 /**********************************************************************
  *
@@ -68,7 +68,7 @@ int process_isotropic_vector_nbr_data(nbr_data_t nbr_man, int* T, const genus_t 
  *
  * Arguments:
  *     + nbr_man (neighbor_manager_t) - a neighbor manager
- *     + T (int*) - a column of the matrix representing the Hecke operator
+ *     + T (slong*) - a column of the matrix representing the Hecke operator
  *                  corresponding to the lattice whose neighbors we
  *                  are enumerating over
  *     + genus (const genus_t) - the associated genus
@@ -79,13 +79,13 @@ int process_isotropic_vector_nbr_data(nbr_data_t nbr_man, int* T, const genus_t 
  *     + theta_time (double*) - time spent computing theta series
  *     + isom_time (double*) - time spent checking isometries
  *     + total_time (double*) - total time spent
- *     + num_isom (int*) - number of isometry tests done
+ *     + num_isom (slong*) - number of isometry tests done
  *
  **********************************************************************
  */
 
-int process_isotropic_vector(neighbor_manager_t nbr_man, int* T, const genus_t genus,
-			     double* theta_time, double* isom_time, double* total_time, int* num_isom);
+int process_isotropic_vector(neighbor_manager_t nbr_man, slong* T, const genus_t genus,
+			     double* theta_time, double* isom_time, double* total_time, slong* num_isom);
 
 /**********************************************************************
  *
@@ -97,7 +97,7 @@ int process_isotropic_vector(neighbor_manager_t nbr_man, int* T, const genus_t g
  *              neighbor_manager.
  *
  * Arguments:
- *     + T (int*) - a column of the matrix representing the Hecke operator
+ *     + T (slong*) - a column of the matrix representing the Hecke operator
  *                  corresponding to the lattice whose neighbors we
  *                  are enumerating over
  *     + p (int) - the prime (computing T_p)
@@ -111,13 +111,13 @@ int process_isotropic_vector(neighbor_manager_t nbr_man, int* T, const genus_t g
  *     + theta_time (double*) - time spent computing theta series
  *     + isom_time (double*) - time spent checking isometries
  *     + total_time (double*) - total time spent
- *     + num_isom (int*) - number of isometry tests done
+ *     + num_isom (slong*) - number of isometry tests done
  *
  **********************************************************************
  */
 
-int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const genus_t genus,
-			    double* theta_time, double* isom_time, double* total_time, int* num_isom);
+slong process_neighbour_chunk(slong* T, int p, int i, int gen_idx, const genus_t genus,
+			    double* theta_time, double* isom_time, double* total_time, slong* num_isom);
 
 /**********************************************************************
  *
@@ -129,7 +129,7 @@ int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const genus_t gen
  *              nbr_data.
  *
  * Arguments:
- *     + T (int*) - a column of the matrix representing the Hecke operator
+ *     + T (slong*) - a column of the matrix representing the Hecke operator
  *                  corresponding to the lattice whose neighbors we
  *                  are enumerating over
  *     + p (int) - the prime
@@ -143,13 +143,13 @@ int process_neighbour_chunk(int* T, int p, int i, int gen_idx, const genus_t gen
  *     + theta_time (double*) - time spent computing theta series
  *     + isom_time (double*) - time spent checking isometries
  *     + total_time (double*) - total time spent
- *     + num_isom (int*) - number of isometry tests done
+ *     + num_isom (slong*) - number of isometry tests done
  *
  **********************************************************************
  */
 
-int process_neighbour_chunk_nbr_data(int* T, int p, int k, int gen_idx, const genus_t genus, 
-				     double* theta_time, double* isom_time, double* total_time, int* num_isom);
+slong process_neighbour_chunk_nbr_data(slong* T, int p, int k, int gen_idx, const genus_t genus, 
+				     double* theta_time, double* isom_time, double* total_time, slong* num_isom);
 
 /*****************************************************************************
  *
@@ -167,7 +167,7 @@ int process_neighbour_chunk_nbr_data(int* T, int p, int k, int gen_idx, const ge
  *     + genus (const genus_t) - the associated genus
  *
  * Returns:
- *     + T (int*) - the column of the matrix representing the
+ *     + T (slong*) - the column of the matrix representing the
  *                  Hecke operator T_{p,k}
  *                  corresponding to the lattice whose neighbors we
  *                  are enumerating over (genus[gen_idx])
@@ -175,7 +175,7 @@ int process_neighbour_chunk_nbr_data(int* T, int p, int k, int gen_idx, const ge
  *****************************************************************************
  */
 
-void hecke_col_nbr_data(int* T, int p, int k, int gen_idx, const genus_t genus);
+void hecke_col_nbr_data(slong* T, int p, int k, int gen_idx, const genus_t genus);
 
 /***************************************************************************
  *
@@ -219,7 +219,7 @@ slong hecke_col_nbr_data_all_conductors(W64* spin_vals, int p, int k, int gen_id
  *     + genus (const genus_t) - the associated genus
  *
  * Returns:
- *     + T (int*) - the column of the matrix representing the
+ *     + T (slong*) - the column of the matrix representing the
  *                  Hecke operator T_{p,1}
  *                  corresponding to the lattice whose neighbors we
  *                  are enumerating over (genus[gen_idx])
@@ -227,7 +227,7 @@ slong hecke_col_nbr_data_all_conductors(W64* spin_vals, int p, int k, int gen_id
  **************************************************************************
  */
 
-void hecke_col(int* T, int p, int gen_idx, const genus_t genus);
+void hecke_col(slong* T, int p, int gen_idx, const genus_t genus);
 
 /***************************************************************************
  *
@@ -287,7 +287,7 @@ void hecke_set_transport_table(const tq_table_struct* T);
  **************************************************************************
  */
 
-int** hecke_col_all_conds_sparse(int p, int col_idx, const genus_t genus);
+slong** hecke_col_all_conds_sparse(int p, int col_idx, const genus_t genus);
 
 /***************************************************************************
  *
