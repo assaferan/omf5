@@ -29,6 +29,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <flint/ulong_extras.h>
 
@@ -36,6 +37,7 @@
 #include "aut_grp.h"
 #include "hash.h"
 #include "isometry.h"
+#include "nbr_data.h"
 #include "neighbor.h"
 #include "spinor.h"
 #include "transport.h"
@@ -74,11 +76,6 @@ static W64 line_set_slot(const line_set_struct* S, W64 key)
   while ((S->keys[h] != LINE_SET_EMPTY) && (S->keys[h] != key))
     h = (h + 1) & S->mask;
   return h;
-}
-
-static bool line_set_contains(const line_set_struct* S, W64 key)
-{
-  return S->keys[line_set_slot(S, key)] == key;
 }
 
 // inserts the key, and returns whether it was not there. The set is kept at most half full.
@@ -240,24 +237,6 @@ static W64 seen_set_bit(const seen_set_struct* S, const vector_t v)
   return 2 * (S->offs[t] + idx) + ((x > other) ? 1 : 0);
 }
 
-static bool seen_set_contains(const seen_set_struct* S, const vector_t v)
-{
-  W64 bit;
-  vector_t w;
-
-  if (S->k < 0) {
-    vector_set(w, v);
-    return line_set_contains(&(S->hash), line_key(w, S->p));
-  }
-  bit = seen_set_bit(S, v);
-  if (S->check) {
-    vector_set(w, v);
-    if (line_set_contains(&(S->shadow), line_key(w, S->p)) != (bool)((S->bits[bit >> 6] >> (bit & 63)) & 1))
-      fprintf(stderr, "transport: the bitmap of the lines differs from the hash set, p = %ld\n", (long)S->p);
-  }
-  return (S->bits[bit >> 6] >> (bit & 63)) & 1;
-}
-
 // inserts the line of v, and returns whether it was not there
 static bool seen_set_insert(seen_set_struct* S, const vector_t v)
 {
@@ -387,8 +366,200 @@ static void line_of_inverse(vector_t l, const isometry_t g, Z64 q)
   assert(found);
 }
 
+// ---- the p^2-neighbors (T_{p^2}), by their lattices ----
+//
+// A p^2-neighbor N of L is determined by N_p, and p N contains p^3 L (as in nbr_data_build_neighbor), so
+// it is determined by the Z-span of the columns of a matrix B with p N = B Z^5 + p^3 L, and the key of N
+// is the Hermite normal form of this span, with its entries in [0, p^3). An isometry g of L[1/q] which is
+// integral at p maps it to the neighbor at g B (its denominator, a power of q, is a unit at p).
+
+// the Hermite normal form H (rows, upper triangular, H[r][c] in [0, H[c][c]) for r < c) of the Z-span
+// of the columns of B and of m Z^5
+static void lattice_hnf_mod(Z64 H[QF_RANK][QF_RANK], const Z64 B[QF_RANK][QF_RANK], Z64 m)
+{
+  Z64 A[2 * QF_RANK][QF_RANK];
+  int r, c, i, j;
+
+  for (r = 0; r < QF_RANK; r++)
+    for (c = 0; c < QF_RANK; c++) {
+      A[r][c] = ((B[c][r] % m) + m) % m;
+      A[QF_RANK + r][c] = (r == c) ? m : 0;
+    }
+  for (j = 0; j < QF_RANK; j++) {
+    // gcd of the column j of the rows j, j+1, ... into the row j
+    for (i = j + 1; i < 2 * QF_RANK; i++) {
+      Z64 a = A[j][j], b = A[i][j], g, x, y;
+      if (b == 0)
+	continue;
+      if (a == 0) {
+	for (c = 0; c < QF_RANK; c++) {
+	  Z64 t = A[j][c];
+	  A[j][c] = A[i][c];
+	  A[i][c] = t;
+	}
+	continue;
+      }
+      g = gcdext(a, b, &x, &y);
+      if (g < 0) { g = -g; x = -x; y = -y; }
+      for (c = 0; c < QF_RANK; c++) {
+	__int128 u = (__int128)x * A[j][c] + (__int128)y * A[i][c];
+	__int128 v = (__int128)(a / g) * A[i][c] - (__int128)(b / g) * A[j][c];
+	A[j][c] = (Z64)(((u % m) + m) % m);
+	A[i][c] = (Z64)(((v % m) + m) % m);
+      }
+      // the pivot is g exactly (g divides m, as m is a row of the span)
+      A[j][j] = g;
+      A[i][j] = 0;
+    }
+    if (A[j][j] == 0)
+      A[j][j] = m;
+    // reduce the rows above
+    for (r = 0; r < j; r++) {
+      Z64 t = A[r][j] / A[j][j];
+      if (t != 0)
+	for (c = j; c < QF_RANK; c++)
+	  A[r][c] = (((A[r][c] - t * A[j][c]) % m) + m) % m;
+      // the entries are in [0, m) and A[j][j] divides m, so A[r][j] is now in [0, A[j][j])
+    }
+  }
+  for (r = 0; r < QF_RANK; r++)
+    for (c = 0; c < QF_RANK; c++)
+      H[r][c] = (c < r) ? 0 : A[r][c];
+}
+
+#define LATTICE_KEY_WORDS 8
+
 typedef struct {
-  vector_t v;
+  W64* keys;     // LATTICE_KEY_WORDS * cap words
+  bool* used;
+  W64 mask;
+  W64 count;
+  int nw;        // the words of a key
+  int bits;      // the bits of an entry
+  Z64 m;
+} lattice_set_struct;
+
+static void lattice_set_init(lattice_set_struct* S, Z64 p, W64 min_size)
+{
+  W64 cap = 16, i;
+  S->m = p * p * p;
+  for (S->bits = 1; (((Z64)1) << S->bits) <= S->m; S->bits++);
+  S->nw = (15 * S->bits + 63) / 64;
+  assert(S->nw <= LATTICE_KEY_WORDS);
+  while (cap < 2 * min_size)
+    cap <<= 1;
+  S->keys = (W64*)malloc(cap * S->nw * sizeof(W64));
+  S->used = (bool*)malloc(cap * sizeof(bool));
+  if ((S->keys == NULL) || (S->used == NULL)) {
+    fprintf(stderr, "Error: out of memory for the neighbors of T_{%ld^2} in hecke_col_all_conductors_transport\n", (long)p);
+    exit(EXIT_FAILURE);
+  }
+  for (i = 0; i < cap; i++)
+    S->used[i] = false;
+  S->mask = cap - 1;
+  S->count = 0;
+}
+
+static void lattice_set_clear(lattice_set_struct* S)
+{
+  free(S->keys);
+  free(S->used);
+}
+
+// the key of the span of the columns of B and m Z^5: the 15 entries of its Hermite form, packed
+static void lattice_key(W64 key[LATTICE_KEY_WORDS], const lattice_set_struct* S, const Z64 B[QF_RANK][QF_RANK])
+{
+  Z64 H[QF_RANK][QF_RANK];
+  int r, c, w, pos;
+
+  lattice_hnf_mod(H, B, S->m);
+  for (w = 0; w < S->nw; w++)
+    key[w] = 0;
+  pos = 0;
+  for (r = 0; r < QF_RANK; r++)
+    for (c = r; c < QF_RANK; c++) {
+      W64 x = (W64)H[r][c];
+      int b;
+      for (b = 0; b < S->bits; b++, pos++)
+	if ((x >> b) & 1)
+	  key[pos >> 6] |= ((W64)1) << (pos & 63);
+    }
+}
+
+static W64 lattice_set_slot(const lattice_set_struct* S, const W64* key)
+{
+  W64 h = 0, i;
+  int w;
+  for (w = 0; w < S->nw; w++)
+    h = (h ^ key[w]) * 0x9E3779B97F4A7C15ULL;
+  // the product carries only upwards, so the high bits are folded into the low ones, which the mask keeps
+  h ^= h >> 32;
+  h &= S->mask;
+  for (i = h; S->used[i]; i = (i + 1) & S->mask) {
+    for (w = 0; (w < S->nw) && (S->keys[i * S->nw + w] == key[w]); w++);
+    if (w == S->nw)
+      return i;
+  }
+  return i;
+}
+
+// inserts the key, and returns whether it was not there. The set is kept at most half full.
+static bool lattice_set_insert(lattice_set_struct* S, const W64* key)
+{
+  W64 h, i, old_cap;
+  W64* old_keys;
+  bool* old_used;
+  int w;
+
+  h = lattice_set_slot(S, key);
+  if (S->used[h])
+    return false;
+  S->used[h] = true;
+  for (w = 0; w < S->nw; w++)
+    S->keys[h * S->nw + w] = key[w];
+  S->count++;
+  if (2 * S->count > S->mask) {
+    old_keys = S->keys;
+    old_used = S->used;
+    old_cap = S->mask + 1;
+    S->mask = 2 * old_cap - 1;
+    S->keys = (W64*)malloc(2 * old_cap * S->nw * sizeof(W64));
+    S->used = (bool*)malloc(2 * old_cap * sizeof(bool));
+    if ((S->keys == NULL) || (S->used == NULL)) {
+      fprintf(stderr, "Error: out of memory in hecke_col_all_conductors_transport\n");
+      exit(EXIT_FAILURE);
+    }
+    for (i = 0; i <= S->mask; i++)
+      S->used[i] = false;
+    for (i = 0; i < old_cap; i++)
+      if (old_used[i]) {
+	h = lattice_set_slot(S, old_keys + i * S->nw);
+	S->used[h] = true;
+	for (w = 0; w < S->nw; w++)
+	  S->keys[h * S->nw + w] = old_keys[i * S->nw + w];
+      }
+    free(old_keys);
+    free(old_used);
+  }
+  return true;
+}
+
+// res = S B mod m, for an integral matrix S
+static void mat_mat_mod(Z64 res[QF_RANK][QF_RANK], const square_matrix_t S, const Z64 B[QF_RANK][QF_RANK], Z64 m)
+{
+  int r, c, k;
+  for (r = 0; r < QF_RANK; r++)
+    for (c = 0; c < QF_RANK; c++) {
+      __int128 acc = 0;
+      for (k = 0; k < QF_RANK; k++)
+	acc += (__int128)(((S[r][k] % m) + m) % m) * B[k][c];
+      res[r][c] = (Z64)(acc % m);
+    }
+}
+
+typedef struct {
+  vector_t v;                  // the line, for T_p
+  Z64 B[QF_RANK][QF_RANK];     // p times a basis of the neighbor mod p^3, for T_{p^2}
   int cls;
   W64 bits;
   isometry_t c;
@@ -444,33 +615,105 @@ static W64 transport_bits(const genus_t genus, int i, int j, const isometry_t c)
   return bits;
 }
 
-slong hecke_col_all_conductors_transport(slong* hist, int p, int gen_idx, const genus_t genus,
+// the images of an item under the generator a, as in the comments of hecke_col_all_conductors_transport:
+// c_{av} = a c_v for an automorphism, and c_{gv} = g c_v t for g, with t from the table at (cls, line of
+// c_v^(-1) l_g mod q)
+static void transport_child(transport_item* child, const transport_item* item, int a, int num_auts,
+			    const isometry_struct* g, const vector_t* lgs, const W64* bits_gen, W64 mask,
+			    const tq_table_t T)
+{
+  isometry_t tmp;
+  slong idx;
+
+  isometry_init(child->c);
+  if (a < num_auts) {
+    isometry_mul(child->c, g, item->c);
+    child->cls = item->cls;
+    child->bits = item->bits ^ bits_gen[a];
+  }
+  else {
+    vector_t lw;
+    line_mod_q(lw, item->c->s_inv, item->c->inv_denom, lgs[a - num_auts], T->q);
+    idx = tq_table_pos(T, item->cls, lw);
+    if (idx < 0) {
+      fprintf(stderr, "Error: a carried line is not in the table of T_%ld\n", (long)T->q);
+      exit(EXIT_FAILURE);
+    }
+    isometry_init(tmp);
+    isometry_mul(tmp, g, item->c);
+    isometry_mul(child->c, tmp, T->isom[item->cls][idx]);
+    isometry_clear(tmp);
+    child->cls = T->cls[item->cls][idx];
+    child->bits = item->bits ^ bits_gen[a] ^ (T->spin[item->cls][idx] & mask);
+  }
+  isometry_reduce(child->c);
+}
+
+// with OMF5_TRANSPORT_CHECK: the carried isometry is an isometry onto the class, with denominators
+// products of p and q
+static void transport_check_child(transport_item* child, int a, int num_auts, int gen_idx, int p,
+				  Z64 q, const genus_t genus)
+{
+  Z64 d1 = child->c->denom, d2 = child->c->inv_denom;
+
+  if (!isometry_is_isom(child->c, genus->genus_reps->keys[gen_idx], genus->genus_reps->keys[child->cls]))
+    fprintf(stderr, "transport: not an isometry, generator %d (%s), class %d -> %d\n", a,
+	    (a < num_auts) ? "aut" : "g", gen_idx, child->cls);
+  while (d1 % p == 0) d1 /= p;
+  while (d1 % q == 0) d1 /= q;
+  while (d2 % p == 0) d2 /= p;
+  while (d2 % q == 0) d2 /= q;
+  if ((d1 != 1 && d1 != -1) || (d2 != 1 && d2 != -1))
+    fprintf(stderr, "transport: denominators %ld, %ld, generator %d (%s), class %d -> %d\n",
+	    (long)child->c->denom, (long)child->c->inv_denom, a, (a < num_auts) ? "aut" : "g", gen_idx,
+	    child->cls);
+}
+
+slong hecke_col_all_conductors_transport(slong* hist, int p, int k, int gen_idx, const genus_t genus,
 					 const tq_table_t T)
 {
   neighbor_manager_t nbr_man;
+  nbr_data_t nd;
   aut_grp_t grp;
   square_matrix_t nbr;
-  isometry_t *auts, *gs, s_nbr, hash_isom, tmp;
+  isometry_t *auts, *gs, s_nbr, hash_isom;
   W64 *bits_gen, mask;
-  bool check;
+  W64 key[LATTICE_KEY_WORDS];
+  bool check, is_new, has_root;
   vector_t *lgs, u, w;
-  slong num_gs, idx, lc, num_items, cap_items, num_roots;
-  int a, i, j2, num_isom;
+  Z64 B[QF_RANK][QF_RANK];
+  slong num_gs, idx, lc, num_items, cap_items, num_roots, num_nbrs = 0;
+  int a, i, r, c, num_isom, chart;
   double theta_time, isom_time;
-  Z64 q = T->q;
-  int chart;
+  Z64 q = T->q, m = (Z64)p * p * p;
   seen_set_struct seen;
+  lattice_set_struct lseen;
   transport_item* stack;
   transport_item item, child;
+  fmpz_mat_t nbr_fmpz, s_fmpz;
 
   assert(q != p);
+  assert((k == 1) || (k == 2));
   assert(gen_idx < T->num_classes);
-  // the lines are kept in a bitmap when the Gram matrix of the class has a diagonal entry prime to p, and
-  // otherwise in a hash set, which takes more memory: then, if it does not fit, the column is left to the
-  // orbits (-1)
-  chart = seen_set_chart(genus->genus_reps->keys[gen_idx], p);
-  if ((chart < 0) && (transport_bits_needed(p, false) > (((W64)transport_memory_mb) << 23)))
-    return -1;
+  chart = -1;
+  if (k == 1) {
+    // the lines are kept in a bitmap when the Gram matrix of the class has a diagonal entry prime to p,
+    // and otherwise in a hash set, which takes more memory: then, if it does not fit, the column is left
+    // to the orbits (-1)
+    chart = seen_set_chart(genus->genus_reps->keys[gen_idx], p);
+    if ((chart < 0) && (transport_bits_needed(p, false) > (((W64)transport_memory_mb) << 23)))
+      return -1;
+  }
+  else {
+    // the p^2-neighbors are kept in a hash set of their keys, of up to 4 slots of 8 LATTICE_KEY_WORDS
+    // bytes and a flag for each of them; if it does not fit, the column is left to the neighbors (-1)
+    nbr_data_init(nd, genus->genus_reps->keys[gen_idx], p, 2);
+    num_nbrs = number_of_neighbors(nd, false);
+    if ((W64)num_nbrs * 4 * (8 * LATTICE_KEY_WORDS + 1) > (((W64)transport_memory_mb) << 20)) {
+      nbr_data_clear(nd);
+      return -1;
+    }
+  }
   num_isom = 0;
   theta_time = isom_time = 0;
 
@@ -500,124 +743,122 @@ slong hecke_col_all_conductors_transport(slong* hist, int p, int gen_idx, const 
       num_gs++;
     }
 
-  seen_set_init(&seen, genus->genus_reps->keys[gen_idx], p, chart);
+  if (k == 1)
+    seen_set_init(&seen, genus->genus_reps->keys[gen_idx], p, chart);
+  else {
+    lattice_set_init(&lseen, p, num_nbrs);
+    fmpz_mat_init(nbr_fmpz, QF_RANK, QF_RANK);
+    fmpz_mat_init(s_fmpz, QF_RANK, QF_RANK);
+  }
   cap_items = 1024;
   stack = (transport_item*)malloc(cap_items * sizeof(transport_item));
 
   lc = 0;
   num_roots = 0;
-  for (i = 0; i < p; i++) {
-    nbr_process_init(nbr_man, genus->genus_reps->keys[gen_idx], p, i, genus->isoms[gen_idx]);
-    while (!nbr_process_has_ended(nbr_man)) {
-      vector_set(u, nbr_man->iso_vec);
-      if (seen_set_insert(&seen, u)) {
+  // the neighbors, as the managers of the orbits (T_p) and of the neighbors (T_{p^2}) give them: the first
+  // one of each orbit is tested for isometry, and the others are carried from it
+  for (i = 0; i < ((k == 1) ? p : 1); i++) {
+    if (k == 1)
+      nbr_process_init(nbr_man, genus->genus_reps->keys[gen_idx], p, i, genus->isoms[gen_idx]);
+    while ((k == 1) ? !nbr_process_has_ended(nbr_man) : !nbr_data_has_ended(nd)) {
+      if (k == 1) {
+	vector_set(u, nbr_man->iso_vec);
+	is_new = seen_set_insert(&seen, u);
+	has_root = is_new && nbr_process_build_nb_and_isom(nbr, s_nbr, nbr_man);
+      }
+      else {
+	nbr_data_build_neighbor(nbr_fmpz, s_fmpz, nd);
+	for (r = 0; r < QF_RANK; r++)
+	  for (c = 0; c < QF_RANK; c++)
+	    B[r][c] = (Z64)(((fmpz_get_si(fmpz_mat_entry(s_fmpz, r, c)) % m) + m) % m);
+	lattice_key(key, &lseen, (const Z64 (*)[QF_RANK])B);
+	is_new = lattice_set_insert(&lseen, key);
+	has_root = is_new;
+	if (has_root) {
+	  square_matrix_set_fmpz_mat(nbr, nbr_fmpz);
+	  isometry_init_set_fmpz_mat(s_nbr, s_fmpz, p);
+	}
+      }
+      if (has_root) {
 	// a new orbit: its first neighbor is tested for isometry
+	int j = hash_table_index_and_isom(genus->genus_reps, nbr, hash_isom, &theta_time, &isom_time,
+					  &num_isom);
 	num_roots++;
-	if (nbr_process_build_nb_and_isom(nbr, s_nbr, nbr_man)) {
-	  int j = hash_table_index_and_isom(genus->genus_reps, nbr, hash_isom, &theta_time, &isom_time,
-					    &num_isom);
-	  num_items = 0;
+	if (k == 1)
 	  vector_set(stack[0].v, u);
-	  stack[0].cls = j;
-	  isometry_init(stack[0].c);
-	  isometry_mul(stack[0].c, s_nbr, hash_isom);
-	  stack[0].bits = transport_bits(genus, gen_idx, j, stack[0].c);
-	  isometry_clear(hash_isom);
-	  num_items = 1;
-	  while (num_items > 0) {
-	    item = stack[--num_items];
-	    // the entry of this neighbor
-	    if (check && (item.bits != transport_bits(genus, gen_idx, item.cls, item.c)))
-	      fprintf(stderr, "transport: carried spinor bits differ, class %d -> %d\n", gen_idx, item.cls);
-	    hist[(((W64)item.cls) << (genus->spinor->num_primes)) | item.bits]++;
-	    lc++;
-	    // its images under the generators
-	    for (a = 0; a < grp->num_gens + num_gs; a++) {
-	      const isometry_struct* g = (a < grp->num_gens) ? auts[a] : gs[a - grp->num_gens];
+	else
+	  memcpy(stack[0].B, B, sizeof(B));
+	stack[0].cls = j;
+	isometry_init(stack[0].c);
+	isometry_mul(stack[0].c, s_nbr, hash_isom);
+	stack[0].bits = transport_bits(genus, gen_idx, j, stack[0].c);
+	isometry_clear(hash_isom);
+	num_items = 1;
+	while (num_items > 0) {
+	  item = stack[--num_items];
+	  // the entry of this neighbor
+	  if (check && (item.bits != transport_bits(genus, gen_idx, item.cls, item.c)))
+	    fprintf(stderr, "transport: carried spinor bits differ, class %d -> %d\n", gen_idx, item.cls);
+	  hist[(((W64)item.cls) << (genus->spinor->num_primes)) | item.bits]++;
+	  lc++;
+	  // its images under the generators
+	  for (a = 0; a < grp->num_gens + num_gs; a++) {
+	    const isometry_struct* g = (a < grp->num_gens) ? auts[a] : gs[a - grp->num_gens];
+	    // a neighbor reached when the stack is full is left for later: it is reached again from another
+	    // one, or begins a new orbit
+	    if (num_items == TRANSPORT_MAX_STACK)
+	      continue;
+	    if (k == 1) {
 	      mat_vec_mod_p(w, g->s, item.v, p);
-	      // a line reached when the stack is full is left for later: it is reached again from another
-	      // line, or begins a new orbit
-	      if (seen_set_contains(&seen, w) || (num_items == TRANSPORT_MAX_STACK))
+	      if (!seen_set_insert(&seen, w))
 		continue;
-	      seen_set_insert(&seen, w);
 	      vector_set(child.v, w);
-	      isometry_init(child.c);
-	      if (a < grp->num_gens) {
-		// c_{av} = a c_v
-		isometry_mul(child.c, g, item.c);
-		child.cls = item.cls;
-		child.bits = item.bits ^ bits_gen[a];
-	      }
-	      else {
-		// c_{gv} = g c_v t, t from the table at (cls, line of c_v^(-1) l_g)
-		vector_t lw;
-		line_mod_q(lw, item.c->s_inv, item.c->inv_denom, lgs[a - grp->num_gens], q);
-		idx = tq_table_pos(T, item.cls, lw);
-		if (idx < 0) {
-		  fprintf(stderr, "Error: a carried line is not in the table of T_%ld\n", (long)q);
-		  exit(EXIT_FAILURE);
-		}
-		j2 = T->cls[item.cls][idx];
-		isometry_init(tmp);
-		isometry_mul(tmp, g, item.c);
-		isometry_mul(child.c, tmp, T->isom[item.cls][idx]);
-		isometry_clear(tmp);
-		child.cls = j2;
-		child.bits = item.bits ^ bits_gen[a] ^ (T->spin[item.cls][idx] & mask);
-	      }
-	      isometry_reduce(child.c);
-	      if (check) {
-		square_matrix_t nb;
-		isometry_t sn;
-		vector_t uu;
-		bool okk;
-		// the neighbor at w, built directly, must be the image of keys[cls] under c
-		okk = isometry_is_isom(child.c, genus->genus_reps->keys[gen_idx],
-				       genus->genus_reps->keys[child.cls]);
-		vector_set(uu, w);
-		(void)uu; (void)nb; (void)sn;
-		if (!okk)
-		  fprintf(stderr, "transport: not an isometry, generator %d (%s), class %d -> %d\n", a,
-			  (a < grp->num_gens) ? "aut" : "g", item.cls, child.cls);
-		{
-		  // integrality away from p and q: the denominators of c and c^(-1) are products of p and q
-		  Z64 d1 = child.c->denom, d2 = child.c->inv_denom;
-		  while (d1 % p == 0) d1 /= p;
-		  while (d1 % q == 0) d1 /= q;
-		  while (d2 % p == 0) d2 /= p;
-		  while (d2 % q == 0) d2 /= q;
-		  if ((d1 != 1 && d1 != -1) || (d2 != 1 && d2 != -1))
-		    fprintf(stderr, "transport: denominators %ld, %ld, generator %d (%s), class %d -> %d\n",
-			    (long)child.c->denom, (long)child.c->inv_denom, a,
-			    (a < grp->num_gens) ? "aut" : "g", item.cls, child.cls);
-		}
-	      }
-	      if (num_items == cap_items) {
-		cap_items *= 2;
-		stack = (transport_item*)realloc(stack, cap_items * sizeof(transport_item));
-		if (stack == NULL) {
-		  fprintf(stderr, "Error: out of memory in hecke_col_all_conductors_transport\n");
-		  exit(EXIT_FAILURE);
-		}
-	      }
-	      stack[num_items++] = child;
 	    }
-	    isometry_clear(item.c);
+	    else {
+	      mat_mat_mod(child.B, g->s, (const Z64 (*)[QF_RANK])item.B, m);
+	      lattice_key(key, &lseen, (const Z64 (*)[QF_RANK])child.B);
+	      if (!lattice_set_insert(&lseen, key))
+		continue;
+	    }
+	    transport_child(&child, &item, a, grp->num_gens, g, lgs, bits_gen, mask, T);
+	    if (check)
+	      transport_check_child(&child, a, grp->num_gens, gen_idx, p, q, genus);
+	    if (num_items == cap_items) {
+	      cap_items *= 2;
+	      stack = (transport_item*)realloc(stack, cap_items * sizeof(transport_item));
+	      if (stack == NULL) {
+		fprintf(stderr, "Error: out of memory in hecke_col_all_conductors_transport\n");
+		exit(EXIT_FAILURE);
+	      }
+	    }
+	    stack[num_items++] = child;
 	  }
+	  isometry_clear(item.c);
 	}
 	square_matrix_clear(nbr);
 	isometry_clear(s_nbr);
       }
-      nbr_process_advance(nbr_man);
+      if (k == 1)
+	nbr_process_advance(nbr_man);
+      else
+	nbr_data_get_next_neighbor(nd);
     }
-    nbr_process_clear(nbr_man);
+    if (k == 1)
+      nbr_process_clear(nbr_man);
   }
 
-  if (getenv("OMF5_TRANSPORT_CHECK") != NULL)
-    fprintf(stderr, "transport stats: class %d, p = %d, q = %ld, %ld generators of Aut, %ld g's, %ld roots, %ld lines\n",
-	    gen_idx, p, (long)q, (long)grp->num_gens, (long)num_gs, (long)num_roots, (long)lc);
+  if (check)
+    fprintf(stderr, "transport stats: class %d, p = %d, k = %d, q = %ld, %ld generators of Aut, %ld g's, %ld roots, %ld neighbors\n",
+	    gen_idx, p, k, (long)q, (long)grp->num_gens, (long)num_gs, (long)num_roots, (long)lc);
   free(stack);
-  seen_set_clear(&seen);
+  if (k == 1)
+    seen_set_clear(&seen);
+  else {
+    lattice_set_clear(&lseen);
+    fmpz_mat_clear(nbr_fmpz);
+    fmpz_mat_clear(s_fmpz);
+    nbr_data_clear(nd);
+  }
   for (a = 0; a < grp->num_gens; a++)
     isometry_clear(auts[a]);
   free(auts);
