@@ -682,7 +682,7 @@ slong hecke_col_all_conductors_transport(slong* hist, int p, int k, int gen_idx,
   bool check, is_new, has_root;
   vector_t *lgs, u, w;
   Z64 B[QF_RANK][QF_RANK];
-  slong num_gs, idx, lc, num_items, cap_items, num_roots, num_nbrs;
+  slong num_gs, idx, lc, num_items, cap_items, num_roots, num_nbrs = 0;
   int a, i, r, c, num_isom, chart;
   double theta_time, isom_time;
   Z64 q = T->q, m = (Z64)p * p * p;
