@@ -17,13 +17,14 @@
 #include "tq_table.h"
 #include "typedefs.h"
 
-// The memory of T_p with transport for each of the p^3 + p^2 + p + 1 isotropic lines mod p, in bits: 2
-// for the bitmap of the lines reached, so it grows as p^3 / 4 bytes. When the Gram matrix of a class has
-// no diagonal entry prime to p, its lines are kept in a hash set instead, of up to 32 bytes a line (8
-// bytes a slot, at most half of the slots used, rounded to a power of 2). -transport=M bounds it by M MB
-// (256 by default): the primes p for which it would need more use the orbits and the neighbors instead,
-// and so do the columns of the classes whose hash set would not fit.
-#define TRANSPORT_BITS_PER_LINE 2
+// The memory of T_p with transport for each of the p^3 + p^2 + p + 1 isotropic lines mod p, in bits: 1
+// for the bitmap of the lines reached at an odd p, so it grows as p^3 / 8 bytes. At p = 2, and when the
+// Gram matrix of a class is degenerate mod p, the bitmap takes 2 bits a line, and when it has no diagonal
+// entry prime to p, its lines are kept in a hash set instead, of up to 32 bytes a line (8 bytes a slot, at
+// most half of the slots used, rounded to a power of 2). -transport=M bounds it by M MB (256 by default):
+// the primes p for which it would need more use the orbits and the neighbors instead, and so do the
+// columns of the classes whose 2-bit bitmap or hash set would not fit.
+#define TRANSPORT_BITS_PER_LINE 1
 #define TRANSPORT_BITS_PER_LINE_HASH 256
 #define TRANSPORT_DEFAULT_MEMORY_MB 256
 
