@@ -1,5 +1,7 @@
 #include <assert.h>
 #include <inttypes.h>
+#include <stdlib.h>
+#include <string.h>
 
 #ifdef DEBUG
 #include <carat/symm.h>
@@ -425,13 +427,57 @@ bool get_next_isotropic_vector(neighbor_manager_t nbr_man)
   return false;
 }
 
-void nbr_process_init(neighbor_manager_t nbr_man, const square_matrix_t Q, Z64 p, int i, const isometry_t isom)
+// The automorphisms of the last lattice given to nbr_process_init, and their conjugates by its isometry.
+// T_p calls nbr_process_init p times for each class, for the p batches of the isotropic lines: the
+// automorphism group is found by CARAT once for them, and not p times.
+
+static struct {
+  bool valid;
+  square_matrix_t Q;
+  isometry_t isom;
+  slong num_auts;
+  square_matrix_t* auts;
+  isometry_t* conj_auts;
+} nbr_aut_cache = {false};
+
+static void nbr_aut_cache_set(const square_matrix_t Q, const isometry_t isom)
 {
   aut_grp_t grp;
-  bool found, has_isotropic;
   int aut_idx;
   square_matrix_t aut_tr;
-  
+
+  if (nbr_aut_cache.valid) {
+    free(nbr_aut_cache.auts);
+    free(nbr_aut_cache.conj_auts);
+  }
+
+  aut_grp_init_square_matrix(grp, Q);
+
+  nbr_aut_cache.auts = (square_matrix_t*)malloc(grp->order * sizeof(square_matrix_t));
+  nbr_aut_cache.conj_auts = (isometry_t*)malloc(grp->order * sizeof(isometry_t));
+  aut_grp_get_elements(nbr_aut_cache.auts, grp);
+  nbr_aut_cache.num_auts = grp->order;
+  // conjugating the automorphisms
+  for (aut_idx = 0; aut_idx < grp->order; aut_idx++) {
+    square_matrix_transpose(aut_tr, nbr_aut_cache.auts[aut_idx]);
+    isometry_inv(nbr_aut_cache.conj_auts[aut_idx], isom);
+    isometry_mul_mateq_left(nbr_aut_cache.conj_auts[aut_idx], aut_tr, 1);
+    isometry_muleq_left(nbr_aut_cache.conj_auts[aut_idx], isom);
+  }
+
+  aut_grp_clear(grp);
+
+  square_matrix_set(nbr_aut_cache.Q, Q);
+  isometry_init_set(nbr_aut_cache.isom, isom);
+  nbr_aut_cache.valid = true;
+
+  return;
+}
+
+void nbr_process_init(neighbor_manager_t nbr_man, const square_matrix_t Q, Z64 p, int i, const isometry_t isom)
+{
+  bool found, has_isotropic;
+
   square_matrix_set(nbr_man->Q, Q);
   nbr_man->p = p;
   has_isotropic = get_isotropic_vector(nbr_man->v, Q, p);
@@ -469,21 +515,19 @@ void nbr_process_init(neighbor_manager_t nbr_man, const square_matrix_t Q, Z64 p
   // It could be that there are no isotropic vectors in this batch
   //  assert(is_isotropic_vector(nbr_man->iso_vec, nbr_man->Q, nbr_man->p));
 
-  aut_grp_init_square_matrix(grp, nbr_man->Q);
+  // the cache is used only for exactly the same Gram matrix and isometry. The automorphisms are those
+  // CARAT found for this Gram matrix at the first call; CARAT may draw random elements, so their order is
+  // not unique, and the callers accept them in any order
+  if (!nbr_aut_cache.valid || (memcmp(nbr_aut_cache.Q, Q, sizeof(square_matrix_t)) != 0) ||
+      (memcmp(nbr_aut_cache.isom, isom, sizeof(isometry_t)) != 0))
+    nbr_aut_cache_set(Q, isom);
 
-  nbr_man->auts = (square_matrix_t*)malloc(grp->order * sizeof(square_matrix_t));
-  nbr_man->conj_auts = (isometry_t*)malloc(grp->order * sizeof(isometry_t));
-  aut_grp_get_elements(nbr_man->auts,grp);
-  nbr_man->num_auts = grp->order;
-  // conjugating the automorphisms
-  for (aut_idx = 0; aut_idx < grp->order; aut_idx++) {
-    square_matrix_transpose(aut_tr, nbr_man->auts[aut_idx]);
-    isometry_inv(nbr_man->conj_auts[aut_idx], isom);
-    isometry_mul_mateq_left(nbr_man->conj_auts[aut_idx], aut_tr, 1);
-    isometry_muleq_left(nbr_man->conj_auts[aut_idx], isom);
-  }
-  
-  aut_grp_clear(grp);
+  nbr_man->num_auts = nbr_aut_cache.num_auts;
+  nbr_man->auts = (square_matrix_t*)malloc(nbr_man->num_auts * sizeof(square_matrix_t));
+  nbr_man->conj_auts = (isometry_t*)malloc(nbr_man->num_auts * sizeof(isometry_t));
+  memcpy(nbr_man->auts, nbr_aut_cache.auts, nbr_man->num_auts * sizeof(square_matrix_t));
+  memcpy(nbr_man->conj_auts, nbr_aut_cache.conj_auts, nbr_man->num_auts * sizeof(isometry_t));
+
   return;
 }
 
