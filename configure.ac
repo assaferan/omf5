@@ -6,7 +6,7 @@ dnl
 dnl Setup autoconf
 dnl
 AC_PREREQ([2.69])
-AC_INIT([omf5],[1.7.2],[https://github.com/assaferan/omf5],[omf5],[https://github.com/assaferan/omf5])
+AC_INIT([omf5],[1.7.3],[https://github.com/assaferan/omf5],[omf5],[https://github.com/assaferan/omf5])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([cnf])
 
