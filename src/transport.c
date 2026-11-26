@@ -118,7 +118,8 @@ static W64 line_key(vector_t v, Z64 p)
   return key;
 }
 
-// ---- the set of the isotropic lines mod p reached, as a bitmap of 2 (p^3 + p^2 + p + 1) bits ----
+// ---- the set of the isotropic lines mod p reached, as a bitmap of p^3 + p^2 + p + 1 bits (2 bits a line ----
+// ---- at p = 2, and for a Gram matrix degenerate mod p) ----
 //
 // For a coordinate k with Q(e_k) = a != 0 mod p, Q(v) = a v_k^2 + b v_k + c, where b = sum_{i != k} G_ik v_i
 // and c do not depend on v_k. An isotropic v is not a multiple of e_k, so its other four coordinates are a
@@ -126,9 +127,20 @@ static W64 line_key(vector_t v, Z64 p)
 // then the index of y among the p^3 + p^2 + p + 1 points of P^3, and one bit telling which root v_k is.
 // When there is no such k (Q(e_k) = 0 mod p for each k), the lines are kept in the hash set above.
 
+// For an odd p, the lines are instead indexed by the projection from an isotropic line P_0, with one bit a
+// line: with B(P_0, P_1) = 1, Q(P_1) = 0 and W the orthogonal of P_0 and P_1, v = a P_0 + b P_1 + w has
+// Q(v) = a b + Q(w). The lines with b != 0 are those of a = -Q(w) for w in W (p^3 of them, indexed by w / b),
+// those with b = 0 and w != 0 are a P_0 + w for the p + 1 isotropic lines of W and any a (p (p + 1) of
+// them), and the last one is P_0: p^3 + p^2 + p + 1 in all.
+
+#define SEEN_SET_PROJ (-2)
+
 typedef struct {
-  int k;               // the coordinate solved for, or -1 for the hash set
+  int k;               // the coordinate solved for, -1 for the hash set, or SEEN_SET_PROJ
   Z64 p;
+  Z64 minv[QF_RANK][QF_RANK]; // the coordinates (a, b, w) of v, for SEEN_SET_PROJ
+  Z64 mfwd[QF_RANK][QF_RANK]; // its inverse, whose columns are P_0, P_1 and the basis of W
+  W64* conic;          // the indices of the p + 1 isotropic points of P(W), increasing, for SEEN_SET_PROJ
   Z64 a_inv;           // the inverse of Q(e_k) mod p
   Z64* inv;            // the inverses mod p of 1, ..., p - 1 (inv[0] = 0)
   Z64 g[QF_RANK];      // G_ik mod p
@@ -139,6 +151,36 @@ typedef struct {
   bool check;           // with OMF5_TRANSPORT_CHECK, the lines are also kept in shadow, to check the bitmap
   line_set_struct shadow;
 } seen_set_struct;
+
+// whether the Gram matrix G is nondegenerate mod p (the determinant mod p, by elimination)
+static bool seen_set_nondegenerate(const square_matrix_t G, Z64 p)
+{
+  Z64 A[QF_RANK][QF_RANK], x, y;
+  int r, c, piv, k;
+
+  for (r = 0; r < QF_RANK; r++)
+    for (c = 0; c < QF_RANK; c++)
+      A[r][c] = ((G[r][c] % p) + p) % p;
+  for (c = 0; c < QF_RANK; c++) {
+    for (piv = c; (piv < QF_RANK) && (A[piv][c] == 0); piv++);
+    if (piv == QF_RANK)
+      return false;
+    for (k = 0; k < QF_RANK; k++) {
+      Z64 t = A[c][k];
+      A[c][k] = A[piv][k];
+      A[piv][k] = t;
+    }
+    gcdext(A[c][c], p, &x, &y);
+    x = ((x % p) + p) % p;
+    for (r = c + 1; r < QF_RANK; r++)
+      if (A[r][c] != 0) {
+	Z64 f = (A[r][c] * x) % p;
+	for (k = c; k < QF_RANK; k++)
+	  A[r][k] = ((A[r][k] - f * A[c][k]) % p + p) % p;
+      }
+  }
+  return true;
+}
 
 // the k for a Gram matrix mod p, or -1
 static int seen_set_chart(const square_matrix_t G, Z64 p)
@@ -155,6 +197,223 @@ static W64 seen_set_num_points(Z64 p)
   return (W64)p * p * p + (W64)p * p + p + 1;
 }
 
+// Q(x) mod p, for the Gram matrix Gm mod p, an odd p and the inverse inv2 of 2
+static Z64 seen_set_q(const Z64 Gm[QF_RANK][QF_RANK], const vector_t x, Z64 p, Z64 inv2)
+{
+  Z64 acc = 0;
+  int r, c;
+
+  for (r = 0; r < QF_RANK; r++) {
+    Z64 row = 0;
+    for (c = 0; c < QF_RANK; c++)
+      row += Gm[r][c] * x[c];
+    acc = (acc + (row % p) * x[r]) % p;
+  }
+  return (acc * inv2) % p;
+}
+
+// B(x, y) = x^t G y mod p
+static Z64 seen_set_b(const Z64 Gm[QF_RANK][QF_RANK], const vector_t x, const vector_t y, Z64 p)
+{
+  Z64 acc = 0;
+  int r, c;
+
+  for (r = 0; r < QF_RANK; r++) {
+    Z64 row = 0;
+    for (c = 0; c < QF_RANK; c++)
+      row += Gm[r][c] * y[c];
+    acc = (acc + (row % p) * x[r]) % p;
+  }
+  return acc;
+}
+
+// the inverse mod p of the matrix whose columns are cols, in inv; false if it is singular
+static bool seen_set_mat_inv(Z64 inv[QF_RANK][QF_RANK], const vector_t* cols, Z64 p, const Z64* invs)
+{
+  Z64 A[QF_RANK][2 * QF_RANK];
+  int r, c, piv, rr;
+
+  for (r = 0; r < QF_RANK; r++)
+    for (c = 0; c < QF_RANK; c++) {
+      A[r][c] = cols[c][r];
+      A[r][QF_RANK + c] = (r == c) ? 1 : 0;
+    }
+  for (c = 0; c < QF_RANK; c++) {
+    for (piv = c; (piv < QF_RANK) && (A[piv][c] == 0); piv++);
+    if (piv == QF_RANK)
+      return false;
+    for (rr = 0; rr < 2 * QF_RANK; rr++) {
+      Z64 t = A[c][rr];
+      A[c][rr] = A[piv][rr];
+      A[piv][rr] = t;
+    }
+    {
+      Z64 s = invs[A[c][c]];
+      for (rr = 0; rr < 2 * QF_RANK; rr++)
+	A[c][rr] = (A[c][rr] * s) % p;
+    }
+    for (r = 0; r < QF_RANK; r++)
+      if ((r != c) && (A[r][c] != 0)) {
+	Z64 f = A[r][c];
+	for (rr = 0; rr < 2 * QF_RANK; rr++)
+	  A[r][rr] = ((A[r][rr] - f * A[c][rr]) % p + p) % p;
+      }
+  }
+  for (r = 0; r < QF_RANK; r++)
+    for (c = 0; c < QF_RANK; c++)
+      inv[r][c] = A[r][QF_RANK + c];
+  return true;
+}
+
+// the projection from an isotropic line, for an odd p (see above); false if it cannot be set up, which
+// does not happen for a Gram matrix nondegenerate mod p
+static bool seen_set_proj_init(seen_set_struct* S, const square_matrix_t G, Z64 p)
+{
+  Z64 Gm[QF_RANK][QF_RANK], inv2 = S->inv[2], GW[3][3];
+  vector_t P0, P1, cols[QF_RANK], x;
+  W64 n, m, num;
+  int r, c, t, j, nw;
+
+  for (r = 0; r < QF_RANK; r++)
+    for (c = 0; c < QF_RANK; c++)
+      Gm[r][c] = ((G[r][c] % p) + p) % p;
+  // only for a Gram matrix nondegenerate mod p (p not dividing the discriminant)
+  {
+    vector_t gcols[QF_RANK];
+    Z64 ginv[QF_RANK][QF_RANK];
+    for (c = 0; c < QF_RANK; c++)
+      for (r = 0; r < QF_RANK; r++)
+	gcols[c][r] = Gm[r][c];
+    if (!seen_set_mat_inv(ginv, (const vector_t*)gcols, p, S->inv))
+      return false;
+  }
+  // an isotropic P_0: the first, in the order of their first nonzero coordinate t (equal to 1)
+  for (t = 0; t < QF_RANK; t++) {
+    W64 total = 1;
+    for (r = t + 1; r < QF_RANK; r++)
+      total *= (W64)p;
+    for (n = 0; n < total; n++) {
+      for (r = 0; r < QF_RANK; r++)
+	P0[r] = 0;
+      P0[t] = 1;
+      for (m = n, r = t + 1; r < QF_RANK; r++, m /= (W64)p)
+	P0[r] = (Z64)(m % (W64)p);
+      if (seen_set_q((const Z64 (*)[QF_RANK])Gm, P0, p, inv2) == 0)
+	break;
+    }
+    if (n < total)
+      break;
+  }
+  if (t == QF_RANK)
+    return false;
+  // P_1 with B(P_0, P_1) = 1 and Q(P_1) = 0
+  for (j = 0; j < QF_RANK; j++) {
+    for (r = 0; r < QF_RANK; r++)
+      x[r] = (r == j) ? 1 : 0;
+    if (seen_set_b((const Z64 (*)[QF_RANK])Gm, P0, x, p) != 0)
+      break;
+  }
+  if (j == QF_RANK)
+    return false;
+  {
+    Z64 s = S->inv[seen_set_b((const Z64 (*)[QF_RANK])Gm, P0, x, p)], q1;
+    for (r = 0; r < QF_RANK; r++)
+      P1[r] = (x[r] * s) % p;
+    q1 = seen_set_q((const Z64 (*)[QF_RANK])Gm, P1, p, inv2);
+    for (r = 0; r < QF_RANK; r++)
+      P1[r] = ((P1[r] - q1 * P0[r]) % p + p) % p;
+  }
+  // a basis of W, from the projections e_i - B(e_i, P_1) P_0 - B(e_i, P_0) P_1, independent of P_0, P_1
+  vector_set(cols[0], P0);
+  vector_set(cols[1], P1);
+  nw = 0;
+  for (j = 0; (j < QF_RANK) && (nw < 3); j++) {
+    Z64 b1, b0, tmp_inv[QF_RANK][QF_RANK];
+    for (r = 0; r < QF_RANK; r++)
+      x[r] = (r == j) ? 1 : 0;
+    b1 = seen_set_b((const Z64 (*)[QF_RANK])Gm, x, P1, p);
+    b0 = seen_set_b((const Z64 (*)[QF_RANK])Gm, x, P0, p);
+    for (r = 0; r < QF_RANK; r++)
+      x[r] = ((x[r] - b1 * P0[r] - b0 * P1[r]) % p + 2 * p) % p;
+    vector_set(cols[2 + nw], x);
+    // keep it if the columns so far are independent: completed by unit vectors, the matrix is invertible
+    // for some completion when they are
+    {
+      bool indep = false;
+      int e0, e1;
+      vector_t trial[QF_RANK];
+      for (r = 0; r < 3 + nw; r++)
+	vector_set(trial[r], cols[r]);
+      for (e0 = 0; (e0 < QF_RANK) && !indep; e0++)
+	for (e1 = 0; (e1 < QF_RANK) && !indep; e1++) {
+	  int fill = 3 + nw;
+	  if (fill < QF_RANK) {
+	    for (r = 0; r < QF_RANK; r++)
+	      trial[fill][r] = (r == e0) ? 1 : 0;
+	    fill++;
+	  }
+	  if (fill < QF_RANK) {
+	    for (r = 0; r < QF_RANK; r++)
+	      trial[fill][r] = (r == e1) ? 1 : 0;
+	    fill++;
+	  }
+	  indep = seen_set_mat_inv(tmp_inv, (const vector_t*)trial, p, S->inv);
+	}
+      if (indep)
+	nw++;
+    }
+  }
+  if ((nw < 3) || !seen_set_mat_inv(S->minv, (const vector_t*)cols, p, S->inv))
+    return false;
+  for (r = 0; r < QF_RANK; r++)
+    for (c = 0; c < QF_RANK; c++)
+      S->mfwd[r][c] = cols[c][r];
+  for (r = 0; r < 3; r++)
+    for (c = 0; c < 3; c++)
+      GW[r][c] = seen_set_b((const Z64 (*)[QF_RANK])Gm, cols[2 + r], cols[2 + c], p);
+  // the isotropic points of P(W), in the order of the normalized points (1, c_2, c_3), (0, 1, c_3), (0, 0, 1)
+  num = (W64)p * p + p + 1;
+  S->conic = (W64*)malloc((p + 1) * sizeof(W64));
+  if (S->conic == NULL) {
+    fprintf(stderr, "Error: out of memory for the lines of T_%ld in hecke_col_all_conductors_transport\n", (long)p);
+    exit(EXIT_FAILURE);
+  }
+  j = 0;
+  for (n = 0; n < num; n++) {
+    Z64 w[3], acc = 0;
+    int a, b;
+    if (n < (W64)p * p) {
+      w[0] = 1;
+      w[1] = (Z64)(n % (W64)p);
+      w[2] = (Z64)(n / (W64)p);
+    }
+    else if (n < (W64)p * p + p) {
+      w[0] = 0;
+      w[1] = 1;
+      w[2] = (Z64)(n - (W64)p * p);
+    }
+    else {
+      w[0] = w[1] = 0;
+      w[2] = 1;
+    }
+    for (a = 0; a < 3; a++)
+      for (b = 0; b < 3; b++)
+	acc = (acc + ((GW[a][b] * w[a]) % p) * w[b]) % p;
+    if (acc == 0) {
+      if (j == p + 1) {
+	free(S->conic);
+	return false;
+      }
+      S->conic[j++] = n;
+    }
+  }
+  if (j != p + 1) {
+    free(S->conic);
+    return false;
+  }
+  return true;
+}
+
 static void seen_set_init(seen_set_struct* S, const square_matrix_t G, Z64 p, int k)
 {
   Z64 x, y, a;
@@ -164,7 +423,7 @@ static void seen_set_init(seen_set_struct* S, const square_matrix_t G, Z64 p, in
   S->p = p;
   S->k = k;
   S->bits = NULL;
-  S->check = (k >= 0) && (getenv("OMF5_TRANSPORT_CHECK") != NULL);
+  S->check = (k != -1) && (getenv("OMF5_TRANSPORT_CHECK") != NULL);
   if (S->check) {
     int r, c;
     line_set_init(&(S->shadow), seen_set_num_points(p));
@@ -172,13 +431,10 @@ static void seen_set_init(seen_set_struct* S, const square_matrix_t G, Z64 p, in
       for (c = 0; c < QF_RANK; c++)
 	S->g_full[r][c] = ((G[r][c] % (2 * p)) + 2 * p) % (2 * p);
   }
-  if (k < 0) {
+  if (k == -1) {
     line_set_init(&(S->hash), seen_set_num_points(p));
     return;
   }
-  a = ((G[k][k] / 2) % p + p) % p;
-  gcdext(a, p, &x, &y);
-  S->a_inv = ((x % p) + p) % p;
   // the inverses mod p, from inv(i) = -(p / i) inv(p mod i)
   S->inv = (Z64*)malloc(p * sizeof(Z64));
   S->inv[0] = 0;
@@ -186,6 +442,28 @@ static void seen_set_init(seen_set_struct* S, const square_matrix_t G, Z64 p, in
     S->inv[1] = 1;
   for (i = 2; i < p; i++)
     S->inv[i] = (p - ((p / i) * S->inv[p % i]) % p) % p;
+  if (k == SEEN_SET_PROJ) {
+    if (seen_set_proj_init(S, G, p)) {
+      num_words = (seen_set_num_points(p) + 63) / 64;
+      S->bits = (W64*)calloc(num_words, sizeof(W64));
+      if (S->bits == NULL) {
+	fprintf(stderr, "Error: out of memory for the lines of T_%ld in hecke_col_all_conductors_transport\n", (long)p);
+	exit(EXIT_FAILURE);
+      }
+      return;
+    }
+    // not for a Gram matrix nondegenerate mod p: the chart, or the hash set
+    k = seen_set_chart(G, p);
+    S->k = k;
+    if (k < 0) {
+      free(S->inv);
+      line_set_init(&(S->hash), seen_set_num_points(p));
+      return;
+    }
+  }
+  a = ((G[k][k] / 2) % p + p) % p;
+  gcdext(a, p, &x, &y);
+  S->a_inv = ((x % p) + p) % p;
   for (i = 0; i < QF_RANK; i++)
     S->g[i] = ((G[i][k] % p) + p) % p;
   S->offs[0] = 0;
@@ -205,11 +483,13 @@ static void seen_set_init(seen_set_struct* S, const square_matrix_t G, Z64 p, in
 
 static void seen_set_clear(seen_set_struct* S)
 {
-  if (S->k < 0)
+  if (S->k == -1)
     line_set_clear(&(S->hash));
   else {
     free(S->bits);
     free(S->inv);
+    if (S->k == SEEN_SET_PROJ)
+      free(S->conic);
   }
   if (S->check)
     line_set_clear(&(S->shadow));
@@ -247,17 +527,128 @@ static W64 seen_set_bit(const seen_set_struct* S, const vector_t v)
   return 2 * (S->offs[t] + idx) + ((x > other) ? 1 : 0);
 }
 
-// inserts the line of v, and returns whether it was not there
-static bool seen_set_insert(seen_set_struct* S, const vector_t v)
+// The lines are given to the seen set in its frame: the coordinates (a, b, w) for SEEN_SET_PROJ, and the
+// standard ones otherwise. res is the vector of the frame of the vector v, reduced mod p.
+static void seen_set_to_frame(vector_t res, const seen_set_struct* S, const vector_t v)
+{
+  Z64 p = S->p, vv[QF_RANK];
+  int r, k;
+
+  for (k = 0; k < QF_RANK; k++)
+    vv[k] = ((v[k] % p) + p) % p;
+  if (S->k != SEEN_SET_PROJ) {
+    vector_set(res, vv);
+    return;
+  }
+  for (r = 0; r < QF_RANK; r++) {
+    Z64 acc = 0;
+    for (k = 0; k < QF_RANK; k++)
+      acc += S->minv[r][k] * vv[k];
+    res[r] = acc % p;
+  }
+}
+
+// the standard vector of the vector x of the frame
+static void seen_set_from_frame(vector_t res, const seen_set_struct* S, const vector_t x)
+{
+  Z64 p = S->p;
+  int r, k;
+
+  if (S->k != SEEN_SET_PROJ) {
+    vector_set(res, x);
+    return;
+  }
+  for (r = 0; r < QF_RANK; r++) {
+    Z64 acc = 0;
+    for (k = 0; k < QF_RANK; k++)
+      acc += S->mfwd[r][k] * x[k];
+    res[r] = acc % p;
+  }
+}
+
+// the matrix of the frame of an integral matrix A (acting on the standard vectors), mod p: M^(-1) A M
+static void seen_set_mat_to_frame(square_matrix_t res, const seen_set_struct* S, const square_matrix_t A)
+{
+  Z64 p = S->p, tmp[QF_RANK][QF_RANK];
+  int r, c, k;
+
+  for (r = 0; r < QF_RANK; r++)
+    for (c = 0; c < QF_RANK; c++)
+      res[r][c] = ((A[r][c] % p) + p) % p;
+  if (S->k != SEEN_SET_PROJ)
+    return;
+  for (r = 0; r < QF_RANK; r++)
+    for (c = 0; c < QF_RANK; c++) {
+      Z64 acc = 0;
+      for (k = 0; k < QF_RANK; k++)
+	acc += res[r][k] * S->mfwd[k][c];
+      tmp[r][c] = acc % p;
+    }
+  for (r = 0; r < QF_RANK; r++)
+    for (c = 0; c < QF_RANK; c++) {
+      Z64 acc = 0;
+      for (k = 0; k < QF_RANK; k++)
+	acc += S->minv[r][k] * tmp[k][c];
+      res[r][c] = acc % p;
+    }
+}
+
+// the bit of the line of an isotropic vector, of coordinates co (in [0, p)) in the frame of the projection
+static W64 seen_set_proj_bit(const seen_set_struct* S, const vector_t co)
+{
+  Z64 p = S->p, s;
+  W64 p2 = (W64)p * p;
+  int t;
+
+  if (co[1] != 0) {
+    s = S->inv[co[1]];
+    return (W64)((co[2] * s) % p) + (W64)p * (W64)((co[3] * s) % p) + p2 * (W64)((co[4] * s) % p);
+  }
+  for (t = 2; (t < QF_RANK) && (co[t] == 0); t++);
+  if (t == QF_RANK)
+    return p2 * (W64)p + (W64)p * (W64)(p + 1);
+  s = S->inv[co[t]];
+  {
+    W64 pt;
+    int j;
+    if (t == 2)
+      pt = (W64)((co[3] * s) % p) + (W64)p * (W64)((co[4] * s) % p);
+    else if (t == 3)
+      pt = p2 + (W64)((co[4] * s) % p);
+    else
+      pt = p2 + p;
+    // its position among the p + 1 isotropic points
+    {
+      int lo = 0, hi = (int)p;
+      while (lo < hi) {
+	int mid = (lo + hi) / 2;
+	if (S->conic[mid] < pt)
+	  lo = mid + 1;
+	else
+	  hi = mid;
+      }
+      j = lo;
+    }
+    assert(S->conic[j] == pt);
+    return p2 * (W64)p + (W64)j * (W64)p + (W64)((co[0] * s) % p);
+  }
+}
+
+// inserts the line of the vector x of the frame, and returns whether it was not there
+static bool seen_set_insert(seen_set_struct* S, const vector_t x)
 {
   W64 bit, m;
-  vector_t w;
+  vector_t w, v;
 
-  if (S->k < 0) {
+  if ((S->k != SEEN_SET_PROJ) || S->check)
+    seen_set_from_frame(v, S, x);
+
+  if (S->k == -1) {
     vector_set(w, v);
     return line_set_insert(&(S->hash), line_key(w, S->p));
   }
-  bit = seen_set_bit(S, v);
+  bit = (S->k == SEEN_SET_PROJ) ? seen_set_proj_bit(S, x) : seen_set_bit(S, v);
+  assert(bit < ((S->k == SEEN_SET_PROJ) ? 1 : 2) * seen_set_num_points(S->p));
   if (S->check) {
     Z64 qv = 0;
     int r, c;
@@ -290,16 +681,6 @@ static void mat_vec_mod_p(vector_t res, const square_matrix_t R, const vector_t 
       acc += R[r][k] * v[k];
     res[r] = acc % p;
   }
-}
-
-// R = S mod p, with entries in [0, p)
-static void mat_mod_p(square_matrix_t R, const square_matrix_t S, Z64 p)
-{
-  int r, k;
-
-  for (r = 0; r < QF_RANK; r++)
-    for (k = 0; k < QF_RANK; k++)
-      R[r][k] = ((S[r][k] % p) + p) % p;
 }
 
 // divides the numerators and denominators of s and of its inverse by their gcd
@@ -701,11 +1082,12 @@ void hecke_transport_set_memory(slong mb)
   transport_memory_mb = mb;
 }
 
-// the memory of the lines of p, in bits: 2 a line with the bitmap, up to 256 with the hash set
+// the memory of the lines of p, in bits: 1 a line with the bitmap (2 for p = 2), up to 256 with the hash set
 static W64 transport_bits_needed(int p, bool bitmap)
 {
   W64 lines = (W64)p * p * p + (W64)p * p + p + 1;
-  return lines * (bitmap ? TRANSPORT_BITS_PER_LINE : TRANSPORT_BITS_PER_LINE_HASH);
+  return lines * (bitmap ? ((p == 2) ? 2 * TRANSPORT_BITS_PER_LINE : TRANSPORT_BITS_PER_LINE) :
+		  TRANSPORT_BITS_PER_LINE_HASH);
 }
 
 bool hecke_transport_fits(int p)
@@ -906,12 +1288,20 @@ slong hecke_col_all_conductors_transport(slong* hist, int p, int k, int gen_idx,
   assert(gen_idx < T->num_classes);
   chart = -1;
   if (k == 1) {
-    // the lines are kept in a bitmap when the Gram matrix of the class has a diagonal entry prime to p,
-    // and otherwise in a hash set, which takes more memory: then, if it does not fit, the column is left
-    // to the orbits (-1)
-    chart = seen_set_chart(genus->genus_reps->keys[gen_idx], p);
-    if ((chart < 0) && (transport_bits_needed(p, false) > (((W64)transport_memory_mb) << 23)))
-      return -1;
+    // at an odd p the lines are kept in a bitmap of the projection from an isotropic line; at p = 2, in a
+    // bitmap when the Gram matrix of the class has a diagonal entry prime to 2, and otherwise in a hash
+    // set, which takes more memory: then, if it does not fit, the column is left to the orbits (-1)
+    if ((p != 2) && seen_set_nondegenerate(genus->genus_reps->keys[gen_idx], p))
+      chart = SEEN_SET_PROJ;
+    else {
+      // 2 bits a line, or the hash set
+      chart = seen_set_chart(genus->genus_reps->keys[gen_idx], p);
+      if ((chart < 0) && (transport_bits_needed(p, false) > (((W64)transport_memory_mb) << 23)))
+	return -1;
+      if ((chart >= 0) && (p != 2) &&
+	  (2 * transport_bits_needed(p, true) > (((W64)transport_memory_mb) << 23)))
+	return -1;
+    }
   }
   else {
     // the p^2-neighbors are kept in a hash set of their keys, of up to 4 slots of 8 LATTICE_KEY_WORDS
@@ -1005,16 +1395,15 @@ slong hecke_col_all_conductors_transport(slong* hist, int p, int k, int gen_idx,
     }
   }
 
+  if (k == 1)
+    seen_set_init(&seen, genus->genus_reps->keys[gen_idx], p, chart);
   // the numerators of the generators mod p, which move the lines of T_p: their denominators are 1 or powers
-  // of q, prime to p, and the lines are projective
+  // of q, prime to p, and the lines are projective; in the frame of the seen set
   rgen = (square_matrix_t*)malloc((grp->num_gens + num_gs + num_loops + 1) * sizeof(square_matrix_t));
   if (k == 1)
     for (a = 0; a < grp->num_gens + num_gs + num_loops; a++)
-      mat_mod_p(rgen[a], (a < grp->num_gens) ? auts[a]->s :
-		((a < grp->num_gens + num_gs) ? gs[a - grp->num_gens]->s : loops[a - grp->num_gens - num_gs].h), p);
-
-  if (k == 1)
-    seen_set_init(&seen, genus->genus_reps->keys[gen_idx], p, chart);
+      seen_set_mat_to_frame(rgen[a], &seen, (a < grp->num_gens) ? auts[a]->s :
+			    ((a < grp->num_gens + num_gs) ? gs[a - grp->num_gens]->s : loops[a - grp->num_gens - num_gs].h));
   else {
     lattice_set_init(&lseen, p, num_nbrs);
     fmpz_mat_init(nbr_fmpz, QF_RANK, QF_RANK);
@@ -1032,8 +1421,7 @@ slong hecke_col_all_conductors_transport(slong* hist, int p, int k, int gen_idx,
       nbr_process_init(nbr_man, genus->genus_reps->keys[gen_idx], p, i, genus->isoms[gen_idx]);
     while ((k == 1) ? !nbr_process_has_ended(nbr_man) : !nbr_data_has_ended(nd)) {
       if (k == 1) {
-	for (r = 0; r < QF_RANK; r++)
-	  u[r] = ((nbr_man->iso_vec[r] % p) + p) % p;
+	seen_set_to_frame(u, &seen, nbr_man->iso_vec);
 	is_new = seen_set_insert(&seen, u);
 	has_root = is_new && nbr_process_build_nb_and_isom(nbr, s_nbr, nbr_man);
       }
