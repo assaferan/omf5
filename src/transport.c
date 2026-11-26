@@ -130,6 +130,7 @@ typedef struct {
   int k;               // the coordinate solved for, or -1 for the hash set
   Z64 p;
   Z64 a_inv;           // the inverse of Q(e_k) mod p
+  Z64* inv;            // the inverses mod p of 1, ..., p - 1 (inv[0] = 0)
   Z64 g[QF_RANK];      // G_ik mod p
   W64 offs[QF_RANK - 1]; // the index of the first point of P^3 whose first nonzero coordinate is the t-th
   W64* bits;
@@ -178,6 +179,13 @@ static void seen_set_init(seen_set_struct* S, const square_matrix_t G, Z64 p, in
   a = ((G[k][k] / 2) % p + p) % p;
   gcdext(a, p, &x, &y);
   S->a_inv = ((x % p) + p) % p;
+  // the inverses mod p, from inv(i) = -(p / i) inv(p mod i)
+  S->inv = (Z64*)malloc(p * sizeof(Z64));
+  S->inv[0] = 0;
+  if (p > 1)
+    S->inv[1] = 1;
+  for (i = 2; i < p; i++)
+    S->inv[i] = (p - ((p / i) * S->inv[p % i]) % p) % p;
   for (i = 0; i < QF_RANK; i++)
     S->g[i] = ((G[i][k] % p) + p) % p;
   S->offs[0] = 0;
@@ -199,8 +207,10 @@ static void seen_set_clear(seen_set_struct* S)
 {
   if (S->k < 0)
     line_set_clear(&(S->hash));
-  else
+  else {
     free(S->bits);
+    free(S->inv);
+  }
   if (S->check)
     line_set_clear(&(S->shadow));
 }
@@ -209,7 +219,7 @@ static void seen_set_clear(seen_set_struct* S)
 // the bit of the line of v, for an isotropic v
 static W64 seen_set_bit(const seen_set_struct* S, const vector_t v)
 {
-  Z64 p = S->p, y[QF_RANK - 1], x, inv, s, b, other;
+  Z64 p = S->p, y[QF_RANK - 1], x, inv, b, other;
   int i, n, t, k = S->k;
   W64 idx;
 
@@ -219,15 +229,15 @@ static W64 seen_set_bit(const seen_set_struct* S, const vector_t v)
   x = ((v[k] % p) + p) % p;
   for (t = 0; (t < QF_RANK - 1) && (y[t] == 0); t++);
   assert(t < QF_RANK - 1);
-  gcdext(y[t], p, &inv, &s);
-  inv = ((inv % p) + p) % p;
+  inv = S->inv[y[t]];
   b = 0;
   for (i = 0, n = 0; i < QF_RANK; i++)
     if (i != k) {
       y[n] = (y[n] * inv) % p;
-      b = (b + S->g[i] * y[n]) % p;
+      b += S->g[i] * y[n];
       n++;
     }
+  b %= p;
   x = (x * inv) % p;
   // the other root: -b/a - x
   other = ((((p - b) % p) * S->a_inv) % p - x + p) % p;
@@ -267,8 +277,9 @@ static bool seen_set_insert(seen_set_struct* S, const vector_t v)
   return true;
 }
 
-// res = S v mod p, for an integral matrix S (the numerator of an isometry, whose denominator is prime to p)
-static void mat_vec_mod_p(vector_t res, const square_matrix_t S, const vector_t v, Z64 p)
+// res = R v mod p, for a matrix R and a vector v with entries in [0, p): the products fit in 64 bits for
+// p < 2^30
+static void mat_vec_mod_p(vector_t res, const square_matrix_t R, const vector_t v, Z64 p)
 {
   int r, k;
   Z64 acc;
@@ -276,9 +287,19 @@ static void mat_vec_mod_p(vector_t res, const square_matrix_t S, const vector_t 
   for (r = 0; r < QF_RANK; r++) {
     acc = 0;
     for (k = 0; k < QF_RANK; k++)
-      acc = (acc + ((S[r][k] % p + p) % p) * (v[k] % p)) % p;
-    res[r] = acc;
+      acc += R[r][k] * v[k];
+    res[r] = acc % p;
   }
+}
+
+// R = S mod p, with entries in [0, p)
+static void mat_mod_p(square_matrix_t R, const square_matrix_t S, Z64 p)
+{
+  int r, k;
+
+  for (r = 0; r < QF_RANK; r++)
+    for (k = 0; k < QF_RANK; k++)
+      R[r][k] = ((S[r][k] % p) + p) % p;
 }
 
 // divides the numerators and denominators of s and of its inverse by their gcd
@@ -863,7 +884,7 @@ slong hecke_col_all_conductors_transport(slong* hist, int p, int k, int gen_idx,
   W64 key[LATTICE_KEY_WORDS];
   bool check, is_new, has_root;
   vector_t *lgs, *qlgs, u, w;
-  square_matrix_t* adj;
+  square_matrix_t *adj, *rgen;
   Z64 B[QF_RANK][QF_RANK];
   slong num_gs, num_loops, idx, lc, num_items, cap_items, num_roots, num_nbrs = 0;
   transport_loop* loops;
@@ -984,6 +1005,14 @@ slong hecke_col_all_conductors_transport(slong* hist, int p, int k, int gen_idx,
     }
   }
 
+  // the numerators of the generators mod p, which move the lines of T_p: their denominators are 1 or powers
+  // of q, prime to p, and the lines are projective
+  rgen = (square_matrix_t*)malloc((grp->num_gens + num_gs + num_loops + 1) * sizeof(square_matrix_t));
+  if (k == 1)
+    for (a = 0; a < grp->num_gens + num_gs + num_loops; a++)
+      mat_mod_p(rgen[a], (a < grp->num_gens) ? auts[a]->s :
+		((a < grp->num_gens + num_gs) ? gs[a - grp->num_gens]->s : loops[a - grp->num_gens - num_gs].h), p);
+
   if (k == 1)
     seen_set_init(&seen, genus->genus_reps->keys[gen_idx], p, chart);
   else {
@@ -1003,7 +1032,8 @@ slong hecke_col_all_conductors_transport(slong* hist, int p, int k, int gen_idx,
       nbr_process_init(nbr_man, genus->genus_reps->keys[gen_idx], p, i, genus->isoms[gen_idx]);
     while ((k == 1) ? !nbr_process_has_ended(nbr_man) : !nbr_data_has_ended(nd)) {
       if (k == 1) {
-	vector_set(u, nbr_man->iso_vec);
+	for (r = 0; r < QF_RANK; r++)
+	  u[r] = ((nbr_man->iso_vec[r] % p) + p) % p;
 	is_new = seen_set_insert(&seen, u);
 	has_root = is_new && nbr_process_build_nb_and_isom(nbr, s_nbr, nbr_man);
       }
@@ -1061,7 +1091,7 @@ slong hecke_col_all_conductors_transport(slong* hist, int p, int k, int gen_idx,
 	    if (num_items == TRANSPORT_MAX_STACK)
 	      continue;
 	    if (k == 1) {
-	      mat_vec_mod_p(w, (g != NULL) ? g->s : l->h, item.v, p);
+	      mat_vec_mod_p(w, rgen[a], item.v, p);
 	      if (!seen_set_insert(&seen, w))
 		continue;
 	      vector_set(child.v, w);
@@ -1119,6 +1149,7 @@ slong hecke_col_all_conductors_transport(slong* hist, int p, int k, int gen_idx,
   free(gs);
   free(lgs);
   free(qlgs);
+  free(rgen);
   free(adj);
   free(loops);
   free(bits_gen);
