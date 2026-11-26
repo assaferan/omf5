@@ -622,6 +622,26 @@ static void transport_isom_mul(transport_isom* res, const square_matrix_t A, Z64
     fprintf(stderr, "Error: a carried isometry does not fit in 64 bits\n");
     exit(EXIT_FAILURE);
   }
+  // when the entries are below 2^30 in absolute value, the sums of 5 products fit in 64 bits
+  {
+    W64 o = 0;
+    for (r = 0; r < QF_RANK; r++)
+      for (c = 0; c < QF_RANK; c++)
+	o |= (W64)((A[r][c] < 0) ? -A[r][c] : A[r][c]) | (W64)((B[r][c] < 0) ? -B[r][c] : B[r][c]);
+    if (o < (((W64)1) << 30)) {
+      for (r = 0; r < QF_RANK; r++)
+	for (c = 0; c < QF_RANK; c++) {
+	  Z64 acc64 = 0;
+	  for (k = 0; k < QF_RANK; k++)
+	    acc64 += A[r][k] * B[k][c];
+	  res->s[r][c] = acc64;
+	}
+      res->denom = (Z64)d;
+      transport_strip(&(res->s[0][0]), QF_RANK * QF_RANK, &(res->denom), p);
+      transport_strip(&(res->s[0][0]), QF_RANK * QF_RANK, &(res->denom), q);
+      return;
+    }
+  }
   for (r = 0; r < QF_RANK; r++)
     for (c = 0; c < QF_RANK; c++) {
       acc = 0;
