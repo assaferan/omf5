@@ -108,12 +108,15 @@ void hash_table_init(hash_table_t table, hash_t hash_size)
 }
 
 /* Compute the time spent for an isometry testing, red_cost returns the amount of type spent on reduction */
-// At the moment, done by sampling neighbors, and testing isometries between them
+// At the moment, done by sampling neighbors, and testing isometries between them.
+// The neighbors are those of at most ISOM_COST_SAMPLE lattices of the table, spread over it: the tests
+// cost about a millisecond each, and NUM_ISOMS tests at every lattice took most of the time of the
+// genus at large discriminants (20 s of 32 s at the discriminant 997).
 double get_isom_cost(const hash_table_t table, double* red_cost)
 {
   double isom_cost;
   clock_t cputime;
-  hash_t idx, offset, i;
+  hash_t idx, offset, i, sample, num_sample;
   
 #ifdef NBR_DATA
   nbr_data_t nbr_man;
@@ -129,6 +132,7 @@ double get_isom_cost(const hash_table_t table, double* red_cost)
   square_matrix_t nbr;
 
 #define NUM_ISOMS 10
+#define ISOM_COST_SAMPLE 20
   
 #ifdef NBR_DATA
   fmpz_mat_init(nbr_isom, QF_RANK, QF_RANK);
@@ -139,7 +143,9 @@ double get_isom_cost(const hash_table_t table, double* red_cost)
   if (red_cost != NULL)
     *red_cost = 0;
   idx = 0;
-  for (offset = 0; offset < table->num_stored; offset++) {
+  num_sample = (table->num_stored < ISOM_COST_SAMPLE) ? table->num_stored : ISOM_COST_SAMPLE;
+  for (sample = 0; sample < num_sample; sample++) {
+    offset = (sample * table->num_stored) / num_sample;
 #ifdef NBR_DATA
     nbr_data_init(nbr_man, table->keys[offset], 3, 1);
 #else
@@ -199,9 +205,9 @@ double get_isom_cost(const hash_table_t table, double* red_cost)
     nbr_process_clear(nbr_man);
 #endif // NBR_DATA
   }
-  isom_cost /= (NUM_ISOMS * table->num_stored);
+  isom_cost /= (NUM_ISOMS * num_sample);
   if (red_cost != NULL)
-    (*red_cost) /= (NUM_ISOMS * table->num_stored);
+    (*red_cost) /= (NUM_ISOMS * num_sample);
 
   return isom_cost;
 }
@@ -300,13 +306,12 @@ void hash_table_recalibrate(hash_table_t new_table, const hash_table_t table)
     fmpq_div(new_table->probs[offset], table->probs[offset], mass);
   }
   
-  // first we check the cost of checking isometries with random neighbors
-  isom_cost = get_isom_cost(table, NULL);
-  // then we try to reduce them first
+  // the cost of checking isometries with random neighbors, reducing them first. get_total_cost always
+  // reduces them (red_on_isom), so the cost without reduction is not used and is not measured.
   red_isom_cost = get_isom_cost(table, &greedy_cost);
+  isom_cost = red_isom_cost + greedy_cost;
 
 #ifdef DEBUG_LEVEL_FULL
-  printf("Expected cost of isometries is %f\n", isom_cost);
   printf("Expected cost of reduced isometries is %f\n", red_isom_cost + greedy_cost);
 #endif // DEBUG_LEVEL_FULL
   
