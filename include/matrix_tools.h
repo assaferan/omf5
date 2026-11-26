@@ -367,6 +367,10 @@ bool square_matrix_change_basis_fits(square_matrix_t res, const fmpz_mat_t t1, c
  ****************************************************************************
  */
 
+// When set, get_eigenvector_on_subspace does not print the characteristic polynomials on stderr (for an
+// eigenvector computed a second time, as the right eigenvectors of the forms of a weight).
+extern bool matrix_tools_quiet;
+
 bool get_eigenvector_on_subspace(nf_elem_t* evec, nf_t nf, const fmpq_mat_t T, const fmpq_mat_t basis_W);
 
 void fmpq_mat_init_set_matrix_TYP(fmpq_mat_t M, const matrix_TYP* mat);

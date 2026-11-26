@@ -1711,6 +1711,8 @@ void get_eigenvector(nf_elem_t* evec, nf_t nf, const fmpq_mat_t T)
 }
 
 // tries to get an eigenvecetor for T over the subspace W
+bool matrix_tools_quiet = false;
+
 bool get_eigenvector_on_subspace(nf_elem_t* evec, nf_t nf, const fmpq_mat_t T,
 				 const fmpq_mat_t basis_W)
 {
@@ -1731,9 +1733,11 @@ bool get_eigenvector_on_subspace(nf_elem_t* evec, nf_t nf, const fmpq_mat_t T,
   fmpq_poly_init(f);
   fmpq_mat_charpoly(f, T_W);
 
-  fprintf(stderr, "constructing eigenvector for poly\n");
-  fmpq_poly_fprint_pretty(stderr, f, "x");
-  fprintf(stderr, "\n");
+  if (!matrix_tools_quiet) {
+    fprintf(stderr, "constructing eigenvector for poly\n");
+    fmpq_poly_fprint_pretty(stderr, f, "x");
+    fprintf(stderr, "\n");
+  }
   
   is_irred = fmpq_poly_is_irreducible(f);
 
