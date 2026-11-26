@@ -15,6 +15,7 @@
 // Required packages dependencies
 
 #include <flint/fmpq_mat.h>
+#include <flint/fmpz_mat.h>
 
 // Self dependencies
 
@@ -40,6 +41,128 @@ void decomposition_init(decomposition_t decomp, slong num)
   return;
 }
 
+// Divides the row vector w by a positive rational, making it a primitive vector of integers.
+static void row_make_primitive(fmpq_mat_t w)
+{
+  fmpz_mat_t num;
+  fmpz_t den, g;
+
+  fmpz_mat_init(num, 1, fmpq_mat_ncols(w));
+  fmpz_init(den);
+  fmpz_init(g);
+  fmpq_mat_get_fmpz_mat_matwise(num, den, w);
+  fmpz_mat_content(g, num);
+  if (!fmpz_is_zero(g))
+    fmpz_mat_scalar_divexact_fmpz(num, num, g);
+  fmpq_mat_set_fmpz_mat(w, num);
+  fmpz_clear(g);
+  fmpz_clear(den);
+  fmpz_mat_clear(num);
+}
+
+// For an irreducible factor g of the characteristic polynomial f of T, with g^2 not dividing f: a basis
+// of K = {x : x g(T) = 0}, without computing g(T).
+// K is spanned by w, w T, ..., w T^(deg g - 1) for any nonzero w = v (f/g)(T): x f(T) = 0 for every x,
+// and K is a simple module since g divides f once. This needs deg f products of a vector by T instead of
+// deg g products of matrices.
+// The basis is, up to sign, the one fmpq_mat_left_kernel gives for g(T). That one is the null space of
+// g(T)^T, made primitive: it has a common multiple of the identity on the columns F which are not pivots
+// of g(T)^T, F being the last set of columns, in lexicographic order, on which the coordinates of K are
+// independent. So it is the reduced echelon form of K with the columns taken from the last, with its rows
+// in the order of F, made primitive. Its sign there is the sign of the denominator of fmpz_mat_rref on
+// g(T)^T, which has no meaning; here the multiple of the identity on F is positive. The eigenvalues do not
+// depend on it. ker is initialized, and the function returns true, unless (f/g)(T) is zero on the first
+// vectors of the standard basis tried, or K has not the rank deg g; then ker is not initialized.
+static bool decomposition_factor_kernel(fmpq_mat_t ker, const fmpq_poly_t g, const fmpq_poly_t f,
+					const fmpq_mat_t T)
+{
+  slong n, d, i, j, k, tries, rank;
+  fmpq_poly_t h, rem;
+  fmpq_mat_t w, wT, K;
+  fmpz_mat_t num, KZ, RZ;
+  fmpz_t den, content;
+  fmpq_t coeff;
+  bool found;
+
+  n = fmpq_mat_nrows(T);
+  d = fmpq_poly_degree(g);
+
+  fmpq_poly_init(h);
+  fmpq_poly_init(rem);
+  fmpq_poly_divrem(h, rem, f, g);
+  assert(fmpq_poly_is_zero(rem));
+  fmpq_poly_clear(rem);
+
+  fmpq_init(coeff);
+  fmpq_mat_init(w, 1, n);
+  fmpq_mat_init(wT, 1, n);
+
+  // w = e_j h(T), by Horner on the vector
+  found = false;
+  tries = (n < 4) ? n : 4;
+  for (j = 0; (j < tries) && !found; j++) {
+    fmpq_mat_zero(w);
+    for (i = fmpq_poly_degree(h); i >= 0; i--) {
+      fmpq_mat_mul(wT, w, T);
+      fmpq_poly_get_coeff_fmpq(coeff, h, i);
+      fmpq_add(fmpq_mat_entry(wT, 0, j), fmpq_mat_entry(wT, 0, j), coeff);
+      fmpq_mat_swap(w, wT);
+    }
+    found = !fmpq_mat_is_zero(w);
+  }
+
+  if (found) {
+    // K holds w T^k, with the columns reversed
+    row_make_primitive(w);
+    fmpq_mat_init(K, d, n);
+    for (k = 0; k < d; k++) {
+      for (i = 0; i < n; i++)
+	fmpq_set(fmpq_mat_entry(K, k, n-1-i), fmpq_mat_entry(w, 0, i));
+      if (k + 1 < d) {
+	fmpq_mat_mul(wT, w, T);
+	fmpq_mat_swap(w, wT);
+	row_make_primitive(w);
+      }
+    }
+    // The reduced echelon form, multimodular: fmpq_mat_rref, by fraction free elimination, takes
+    // seconds on some of these matrices of large entries (a factor of degree 92 at the discriminant 797).
+    fmpz_mat_init(KZ, d, n);
+    fmpz_mat_init(RZ, d, n);
+    fmpz_init(den);
+    fmpq_mat_get_fmpz_mat_matwise(KZ, den, K);
+    rank = fmpz_mat_rref_mul(RZ, den, KZ);
+    found = (rank == d);
+    if (found) {
+      // reverse the columns back and the order of the rows, and make the whole matrix primitive
+      fmpz_mat_init(num, d, n);
+      for (k = 0; k < d; k++)
+	for (i = 0; i < n; i++)
+	  fmpz_set(fmpz_mat_entry(num, k, i), fmpz_mat_entry(RZ, d-1-k, n-1-i));
+      fmpz_init(content);
+      fmpz_mat_content(content, num);
+      fmpz_mat_scalar_divexact_fmpz(num, num, content);
+      // a positive multiple of the identity on F
+      if (fmpz_sgn(den) < 0)
+	fmpz_mat_neg(num, num);
+      fmpq_mat_init(ker, d, n);
+      fmpq_mat_set_fmpz_mat(ker, num);
+      fmpz_clear(content);
+      fmpz_mat_clear(num);
+    }
+    fmpz_clear(den);
+    fmpz_mat_clear(RZ);
+    fmpz_mat_clear(KZ);
+    fmpq_mat_clear(K);
+  }
+
+  fmpq_mat_clear(wT);
+  fmpq_mat_clear(w);
+  fmpq_clear(coeff);
+  fmpq_poly_clear(h);
+
+  return found;
+}
+
 // This function tries to decompose a subspace fixed by the Hecke algebra to irreducible subspaces,
 // using a finite list of Hecke operators -
 // Here basis_V is a matrix whose rows specify a basis for the subspace,
@@ -57,7 +180,7 @@ bool decomposition_finite_subspace(decomposition_t decomp, const genus_t genus, 
 				   const int* ps, slong idx, slong num_ps, slong c)
 {
   slong i, dim_V, next_idx;
-  fmpq_mat_t T, fT, W;
+  fmpq_mat_t T, fT, W, ker;
   fmpq_poly_t f;
   fmpq_poly_factor_t fac;
   bool is_complete, is_complete_W;
@@ -126,8 +249,16 @@ bool decomposition_finite_subspace(decomposition_t decomp, const genus_t genus, 
 
   is_complete = true;
   for (i = 0; i < fac->num; i++) {
-    fmpq_poly_evaluate_fmpq_mat(fT, &(fac->p[i]), T);
-    kernel_on(W, fT, basis_V);
+    if ((fac->exp[i] == 1) && (fmpq_poly_degree(&(fac->p[i])) >= 2) &&
+	decomposition_factor_kernel(ker, &(fac->p[i]), f, T)) {
+      fmpq_mat_init(W, fmpq_mat_nrows(ker), fmpq_mat_ncols(basis_V));
+      fmpq_mat_mul(W, ker, basis_V);
+      fmpq_mat_clear(ker);
+    }
+    else {
+      fmpq_poly_evaluate_fmpq_mat(fT, &(fac->p[i]), T);
+      kernel_on(W, fT, basis_V);
+    }
     // W is the stable subspace corresponding to this irreducible factor 
     assert(fmpq_mat_nrows(W) != 0);
     // We lift the basis to vectors of the original space
