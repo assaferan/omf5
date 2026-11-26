@@ -615,58 +615,134 @@ static W64 transport_bits(const genus_t genus, int i, int j, const isometry_t c)
   return bits;
 }
 
-// the images of an item under the generator a, as in the comments of hecke_col_all_conductors_transport:
-// c_{av} = a c_v for an automorphism, and c_{gv} = g c_v t for g, with t from the table at (cls, line of
-// c_v^(-1) l_g mod q)
-static void transport_child(transport_item* child, const transport_item* item, int a, int num_auts,
-			    const isometry_struct* g, const vector_t* lgs, const W64* bits_gen, W64 mask,
-			    const tq_table_t T)
+// A loop of the table of T_q from L back to L through other classes: L = X_0, X_1, ..., X_{n-1}, X_n = L
+// with T->cls[X_t][e_t] = X_{t+1}, for n = 2 or 3. The isometry T->isom[X_t][e_t] takes the coordinates of
+// X_{t+1} to those of X_t, so the generator acts by the steps g[0] = T->isom[X_{n-1}][e_{n-1}] (from L to
+// X_{n-1}), ..., g[n-1] = T->isom[L][e_0] (back to L), each at its line lg[s] (transport_step). Their
+// product is an isometry of L[1/q] which the isometries of the table going back to L directly may not
+// give, and it can make the orbits of the lines larger, so that fewer of them are tested for isometry.
+#define TRANSPORT_MAX_STEPS 3
+typedef struct {
+  int len;
+  const isometry_struct* g[TRANSPORT_MAX_STEPS];
+  vector_t lg[TRANSPORT_MAX_STEPS];
+  W64 bits[TRANSPORT_MAX_STEPS];
+  square_matrix_t h;  // the numerator of the product g[len - 1] ... g[0], which moves the lines
+} transport_loop;
+
+// At most this many loops are generators: each costs a product mod p for every line reached. The loops
+// of length 3 are used only while the class has fewer than TRANSPORT_FEW_GENS generators from the table
+// (the isometries g and the loops of length 2).
+#define TRANSPORT_MAX_LOOPS 32
+#define TRANSPORT_FEW_GENS 8
+
+// adds the loop of the steps (cls[s], e[s]), s = 0, ..., len - 1, in the order of the action, unless its
+// product is an automorphism of L (as a loop which goes back along the line by which it left), which gives
+// no new line
+static void transport_add_loop(transport_loop* loops, slong* num_loops, int len, const int* cls,
+			       const slong* e, Z64 q, W64 mask, const tq_table_t T)
+{
+  transport_loop* l = &(loops[*num_loops]);
+  isometry_t h, tmp;
+  int st;
+
+  isometry_init(h);
+  for (st = 0; st < len; st++) {
+    isometry_init(tmp);
+    isometry_mul(tmp, T->isom[cls[st]][e[st]], h);
+    isometry_init_set(h, tmp);
+    isometry_clear(tmp);
+    isometry_reduce(h);
+  }
+  if (((h->denom == 1) || (h->denom == -1)) && ((h->inv_denom == 1) || (h->inv_denom == -1))) {
+    isometry_clear(h);
+    return;
+  }
+  square_matrix_set(l->h, h->s);
+  isometry_clear(h);
+  l->len = len;
+  for (st = 0; st < len; st++) {
+    l->g[st] = T->isom[cls[st]][e[st]];
+    line_of_inverse(l->lg[st], l->g[st], q);
+    l->bits[st] = T->spin[cls[st]][e[st]] & mask;
+  }
+  (*num_loops)++;
+}
+
+// the image of an item under an isometry g of the table, from the q-neighbor of a class at the line l_g
+// to a class: c_{gv} = g c_v t, with t from the table at (cls, line of c_v^(-1) l_g mod q)
+static void transport_step(transport_item* child, const transport_item* item, const isometry_struct* g,
+			   const vector_t lg, W64 bits_g, W64 mask, const tq_table_t T)
 {
   isometry_t tmp;
   slong idx;
+  vector_t lw;
 
   isometry_init(child->c);
+  line_mod_q(lw, item->c->s_inv, item->c->inv_denom, lg, T->q);
+  idx = tq_table_pos(T, item->cls, lw);
+  if (idx < 0) {
+    fprintf(stderr, "Error: a carried line is not in the table of T_%ld\n", (long)T->q);
+    exit(EXIT_FAILURE);
+  }
+  isometry_init(tmp);
+  isometry_mul(tmp, g, item->c);
+  isometry_mul(child->c, tmp, T->isom[item->cls][idx]);
+  isometry_clear(tmp);
+  child->cls = T->cls[item->cls][idx];
+  child->bits = item->bits ^ bits_g ^ (T->spin[item->cls][idx] & mask);
+  isometry_reduce(child->c);
+}
+
+// the images of an item under the generator a, as in the comments of hecke_col_all_conductors_transport:
+// c_{av} = a c_v for an automorphism, c_{gv} = g c_v t for g (transport_step), and the steps of a loop
+static void transport_child(transport_item* child, const transport_item* item, int a, int num_auts,
+			    int num_gs, const isometry_struct* g, const vector_t* lgs, const W64* bits_gen,
+			    W64 mask, const tq_table_t T, const transport_loop* loops)
+{
+  transport_item mid;
+
   if (a < num_auts) {
+    isometry_init(child->c);
     isometry_mul(child->c, g, item->c);
     child->cls = item->cls;
     child->bits = item->bits ^ bits_gen[a];
+    isometry_reduce(child->c);
   }
+  else if (a < num_auts + num_gs)
+    transport_step(child, item, g, lgs[a - num_auts], bits_gen[a], mask, T);
   else {
-    vector_t lw;
-    line_mod_q(lw, item->c->s_inv, item->c->inv_denom, lgs[a - num_auts], T->q);
-    idx = tq_table_pos(T, item->cls, lw);
-    if (idx < 0) {
-      fprintf(stderr, "Error: a carried line is not in the table of T_%ld\n", (long)T->q);
-      exit(EXIT_FAILURE);
+    const transport_loop* l = &(loops[a - num_auts - num_gs]);
+    int st;
+    mid = *item;
+    for (st = 0; st < l->len; st++) {
+      transport_step(child, &mid, l->g[st], l->lg[st], l->bits[st], mask, T);
+      if (st > 0)
+	isometry_clear(mid.c);
+      if (st < l->len - 1)
+	mid = *child;
     }
-    isometry_init(tmp);
-    isometry_mul(tmp, g, item->c);
-    isometry_mul(child->c, tmp, T->isom[item->cls][idx]);
-    isometry_clear(tmp);
-    child->cls = T->cls[item->cls][idx];
-    child->bits = item->bits ^ bits_gen[a] ^ (T->spin[item->cls][idx] & mask);
   }
-  isometry_reduce(child->c);
 }
 
 // with OMF5_TRANSPORT_CHECK: the carried isometry is an isometry onto the class, with denominators
 // products of p and q
-static void transport_check_child(transport_item* child, int a, int num_auts, int gen_idx, int p,
-				  Z64 q, const genus_t genus)
+static void transport_check_child(transport_item* child, int a, int num_auts, int num_gs, int gen_idx,
+				  int p, Z64 q, const genus_t genus)
 {
   Z64 d1 = child->c->denom, d2 = child->c->inv_denom;
 
   if (!isometry_is_isom(child->c, genus->genus_reps->keys[gen_idx], genus->genus_reps->keys[child->cls]))
     fprintf(stderr, "transport: not an isometry, generator %d (%s), class %d -> %d\n", a,
-	    (a < num_auts) ? "aut" : "g", gen_idx, child->cls);
+	    (a < num_auts) ? "aut" : ((a < num_auts + num_gs) ? "g" : "loop"), gen_idx, child->cls);
   while (d1 % p == 0) d1 /= p;
   while (d1 % q == 0) d1 /= q;
   while (d2 % p == 0) d2 /= p;
   while (d2 % q == 0) d2 /= q;
   if ((d1 != 1 && d1 != -1) || (d2 != 1 && d2 != -1))
     fprintf(stderr, "transport: denominators %ld, %ld, generator %d (%s), class %d -> %d\n",
-	    (long)child->c->denom, (long)child->c->inv_denom, a, (a < num_auts) ? "aut" : "g", gen_idx,
-	    child->cls);
+	    (long)child->c->denom, (long)child->c->inv_denom, a,
+	    (a < num_auts) ? "aut" : ((a < num_auts + num_gs) ? "g" : "loop"), gen_idx, child->cls);
 }
 
 slong hecke_col_all_conductors_transport(slong* hist, int p, int k, int gen_idx, const genus_t genus,
@@ -682,7 +758,9 @@ slong hecke_col_all_conductors_transport(slong* hist, int p, int k, int gen_idx,
   bool check, is_new, has_root;
   vector_t *lgs, u, w;
   Z64 B[QF_RANK][QF_RANK];
-  slong num_gs, idx, lc, num_items, cap_items, num_roots, num_nbrs = 0;
+  slong num_gs, num_loops, idx, lc, num_items, cap_items, num_roots, num_nbrs = 0;
+  transport_loop* loops;
+  int len;
   int a, i, r, c, chart;
   slong num_isom;
   double theta_time, isom_time;
@@ -743,6 +821,42 @@ slong hecke_col_all_conductors_transport(slong* hist, int p, int k, int gen_idx,
       bits_gen[grp->num_gens + num_gs] = T->spin[gen_idx][idx] & mask;
       num_gs++;
     }
+  // the loops of length 2, and then of length 3 if the class has few generators from the table, in the
+  // order of the table, at most TRANSPORT_MAX_LOOPS of them
+  loops = (transport_loop*)malloc(TRANSPORT_MAX_LOOPS * sizeof(transport_loop));
+  num_loops = 0;
+  for (len = 2; len <= TRANSPORT_MAX_STEPS; len++) {
+    slong e0, e1, e2;
+    if ((len == 3) && (num_gs + num_loops >= TRANSPORT_FEW_GENS))
+      break;
+    for (e0 = 0; (e0 < T->num_lines[gen_idx]) && (num_loops < TRANSPORT_MAX_LOOPS) &&
+	   ((len == 2) || (num_gs + num_loops < TRANSPORT_FEW_GENS)); e0++) {
+      int x1 = T->cls[gen_idx][e0];
+      if (x1 == gen_idx)
+	continue;
+      for (e1 = 0; (e1 < T->num_lines[x1]) && (num_loops < TRANSPORT_MAX_LOOPS) &&
+	     ((len == 2) || (num_gs + num_loops < TRANSPORT_FEW_GENS)); e1++) {
+	int x2 = T->cls[x1][e1];
+	if (len == 2) {
+	  if (x2 == gen_idx) {
+	    int cls[2] = {x1, gen_idx};
+	    slong e[2] = {e1, e0};
+	    transport_add_loop(loops, &num_loops, 2, cls, e, q, mask, T);
+	  }
+	  continue;
+	}
+	if (x2 == gen_idx)
+	  continue;
+	for (e2 = 0; (e2 < T->num_lines[x2]) && (num_gs + num_loops < TRANSPORT_FEW_GENS) &&
+	       (num_loops < TRANSPORT_MAX_LOOPS); e2++)
+	  if (T->cls[x2][e2] == gen_idx) {
+	    int cls[3] = {x2, x1, gen_idx};
+	    slong e[3] = {e2, e1, e0};
+	    transport_add_loop(loops, &num_loops, 3, cls, e, q, mask, T);
+	  }
+      }
+    }
+  }
 
   if (k == 1)
     seen_set_init(&seen, genus->genus_reps->keys[gen_idx], p, chart);
@@ -803,27 +917,29 @@ slong hecke_col_all_conductors_transport(slong* hist, int p, int k, int gen_idx,
 	  hist[(((W64)item.cls) << (genus->spinor->num_primes)) | item.bits]++;
 	  lc++;
 	  // its images under the generators
-	  for (a = 0; a < grp->num_gens + num_gs; a++) {
-	    const isometry_struct* g = (a < grp->num_gens) ? auts[a] : gs[a - grp->num_gens];
+	  for (a = 0; a < grp->num_gens + num_gs + num_loops; a++) {
+	    const isometry_struct* g = (a < grp->num_gens) ? auts[a] :
+	      ((a < grp->num_gens + num_gs) ? gs[a - grp->num_gens] : NULL);
+	    const transport_loop* l = (g == NULL) ? &(loops[a - grp->num_gens - num_gs]) : NULL;
 	    // a neighbor reached when the stack is full is left for later: it is reached again from another
 	    // one, or begins a new orbit
 	    if (num_items == TRANSPORT_MAX_STACK)
 	      continue;
 	    if (k == 1) {
-	      mat_vec_mod_p(w, g->s, item.v, p);
+	      mat_vec_mod_p(w, (g != NULL) ? g->s : l->h, item.v, p);
 	      if (!seen_set_insert(&seen, w))
 		continue;
 	      vector_set(child.v, w);
 	    }
 	    else {
-	      mat_mat_mod(child.B, g->s, (const Z64 (*)[QF_RANK])item.B, m);
+	      mat_mat_mod(child.B, (g != NULL) ? g->s : l->h, (const Z64 (*)[QF_RANK])item.B, m);
 	      lattice_key(key, &lseen, (const Z64 (*)[QF_RANK])child.B);
 	      if (!lattice_set_insert(&lseen, key))
 		continue;
 	    }
-	    transport_child(&child, &item, a, grp->num_gens, g, lgs, bits_gen, mask, T);
+	    transport_child(&child, &item, a, grp->num_gens, num_gs, g, lgs, bits_gen, mask, T, loops);
 	    if (check)
-	      transport_check_child(&child, a, grp->num_gens, gen_idx, p, q, genus);
+	      transport_check_child(&child, a, grp->num_gens, num_gs, gen_idx, p, q, genus);
 	    if (num_items == cap_items) {
 	      cap_items *= 2;
 	      stack = (transport_item*)realloc(stack, cap_items * sizeof(transport_item));
@@ -849,8 +965,9 @@ slong hecke_col_all_conductors_transport(slong* hist, int p, int k, int gen_idx,
   }
 
   if (check)
-    fprintf(stderr, "transport stats: class %d, p = %d, k = %d, q = %ld, %ld generators of Aut, %ld g's, %ld roots, %ld neighbors\n",
-	    gen_idx, p, k, (long)q, (long)grp->num_gens, (long)num_gs, (long)num_roots, (long)lc);
+    fprintf(stderr, "transport stats: class %d, p = %d, k = %d, q = %ld, %ld generators of Aut, %ld g's, %ld loops, %ld roots, %ld neighbors\n",
+	    gen_idx, p, k, (long)q, (long)grp->num_gens, (long)num_gs, (long)num_loops, (long)num_roots,
+	    (long)lc);
   free(stack);
   if (k == 1)
     seen_set_clear(&seen);
@@ -867,6 +984,7 @@ slong hecke_col_all_conductors_transport(slong* hist, int p, int k, int gen_idx,
     isometry_clear(gs[idx]);
   free(gs);
   free(lgs);
+  free(loops);
   free(bits_gen);
   aut_grp_clear(grp);
 
