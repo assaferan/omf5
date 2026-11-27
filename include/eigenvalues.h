@@ -282,6 +282,34 @@ bool ev_is_scalar_on_old_space(const eigenvalues_t evs, slong ev_idx, const fmpq
 
 /******************************************************************
  *
+ * Function: ev_old_space_eigenvalue
+ *
+ * Description: The test of ev_is_scalar_on_old_space, from the
+ *              operator on the space W of the form alone. When it
+ *              is a scalar, sets lambda to the eigenvalue, the one
+ *              found from the vector of the form.
+ *
+ * Arguments:
+ *     + lambda (nf_elem_t) - initialized in the field of the form
+ *     + evs (const eigenvalues_t) - the eigenvalues data
+ *     + ev_idx (slong) - the index of the form, with is_old
+ *     + T_W (const fmpq_mat_t) - the operator on W in the basis
+ *                                old_basis: W T = T_W W
+ *     + coords (const nf_elem_t*) - the coordinates c of the
+ *                                   vector v of the form in that
+ *                                   basis: v = c W
+ *
+ * Returns:
+ *     + (bool) - true if T_W acts on W as an element of the field
+ *
+ ******************************************************************
+ */
+
+bool ev_old_space_eigenvalue(nf_elem_t lambda, const eigenvalues_t evs, slong ev_idx, const fmpq_mat_t T_W,
+			     const nf_elem_t* coords);
+
+/******************************************************************
+ *
  * Function: eigenvalues_clear
  *
  * Description: Deallocates memory for an eigenvalues struct.
