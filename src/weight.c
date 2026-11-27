@@ -2068,7 +2068,7 @@ static fmpq_mat_struct* hecke_matrices_weight_eval(const genus_t genus, const we
 	fmpq_mat_init(C, WEIGHT_EVAL_CHECKS, S->dims[c]);
 	fmpq_mat_mul(C, E.chk + c, B);
 	if (!fmpq_mat_equal(C, Rchk)) {
-	  fprintf(stderr, "Error: at the conductor index %ld, the image of a form under a Hecke operator is not invariant under the automorphisms of the lattice\n", (long)c);
+	  fprintf(stderr, "Error: at the conductor index %ld, the image of a form under a Hecke operator, found by evaluation, does not agree with its values at the points of the check, so it is not in the space of the forms of the lattice\n", (long)c);
 	  exit(EXIT_FAILURE);
 	}
 	for (m = 0; m < Pj[c].rows; m++)
