@@ -68,17 +68,25 @@ LT_INIT
 dnl
 dnl Setting the locations of flint, antic and gmp
 dnl
+omf5_flint_path_set=yes
+omf5_antic_path_set=yes
+omf5_gmp_path_set=yes
+omf5_carat_path_set=yes
 if test "${FLINT_PATH+set}" != set; then
      export FLINT_PATH="/usr/local/"
+     omf5_flint_path_set=no
 fi
 if test "${ANTIC_PATH+set}" != set; then
      export ANTIC_PATH="/usr/local/"
+     omf5_antic_path_set=no
 fi
 if test "${GMP_PATH+set}" != set; then
      export GMP_PATH="/usr/local/"
+     omf5_gmp_path_set=no
 fi
 if test "${CARAT_PATH+set}" != set; then
      export CARAT_PATH="/usr/local/"
+     omf5_carat_path_set=no
 fi
 
 echo FLINT_PATH=${FLINT_PATH}
@@ -111,7 +119,7 @@ AC_SEARCH_LIBS([gmp])
 dnl
 dnl Include and library paths of the dependencies, flint first, so that
 dnl the build compiles against the flint headers checked here (see
-dnl src/Makefile.am). The flint library itself is not checked.
+dnl src/Makefile.am). The flint library is checked below.
 dnl
 DEPS_CPPFLAGS="-I${FLINT_PATH}/include -I${GMP_PATH}/include"
 DEPS_LDFLAGS="-L${FLINT_PATH}/lib -L${GMP_PATH}/lib"
@@ -154,8 +162,56 @@ if test "$need_antic" = "yes"; then
      [AC_MSG_ERROR([flint 2.x requires antic, but antic/nf.h was not found under ${ANTIC_PATH}/include, set ANTIC_PATH to the antic installation])])
 fi
 
+dnl
+dnl The flint library found by the linker has to be the one of these
+dnl headers: a -L of the paths above, which the build puts before the
+dnl user's LDFLAGS (src/Makefile.am), can put another libflint first,
+dnl and omf5 then crashes. The test links as the build does, with the
+dnl -L of CARAT too. If the versions differ, the -L of the paths that
+dnl were not set are left out, so that the linker searches its own
+dnl directories; if they still differ, configure stops.
+dnl
+CARAT_LDFLAGS="-L${CARAT_PATH}/lib -L${CARAT_PATH}"
+m4_define([OMF5_FLINT_VERSION_PROGRAM],
+  [AC_LANG_PROGRAM([[#include <string.h>
+#include <flint/flint.h>]],
+    [[return strcmp(flint_version, FLINT_VERSION) != 0;]])])
+save_LDFLAGS="$LDFLAGS"
+save_LIBS="$LIBS"
+LIBS="-lflint -lgmp -lm $save_LIBS"
+LDFLAGS="$DEPS_LDFLAGS $CARAT_LDFLAGS $save_LDFLAGS"
+AC_MSG_CHECKING([whether a program links with -lflint -lgmp -lm])
+AC_LINK_IFELSE([OMF5_FLINT_VERSION_PROGRAM],
+  [AC_MSG_RESULT([yes])],
+  [AC_MSG_RESULT([no])
+   AC_MSG_ERROR([cannot link a program with -lflint -lgmp -lm and $LDFLAGS; set FLINT_PATH and GMP_PATH to the installations of flint and gmp])])
+AC_MSG_CHECKING([whether the flint library linked matches the flint headers])
+AC_RUN_IFELSE([OMF5_FLINT_VERSION_PROGRAM],
+  [AC_MSG_RESULT([yes]); flint_link=yes],
+  [AC_MSG_RESULT([no]); flint_link=no],
+  [AC_MSG_RESULT([not checked, cross compiling]); flint_link=yes])
+if test "$flint_link" = "no"; then
+   DEPS_LDFLAGS=""
+   test "$omf5_flint_path_set" = "yes" && DEPS_LDFLAGS="$DEPS_LDFLAGS -L${FLINT_PATH}/lib"
+   test "$omf5_gmp_path_set" = "yes" && DEPS_LDFLAGS="$DEPS_LDFLAGS -L${GMP_PATH}/lib"
+   test "$need_antic" = "yes" && test "$omf5_antic_path_set" = "yes" && DEPS_LDFLAGS="$DEPS_LDFLAGS -L${ANTIC_PATH}/lib"
+   DEPS_LDFLAGS=`echo $DEPS_LDFLAGS`
+   test "$omf5_carat_path_set" = "yes" || CARAT_LDFLAGS=""
+   omf5_retry_ldflags=`echo $DEPS_LDFLAGS $CARAT_LDFLAGS`
+   AC_MSG_CHECKING([whether it does without the -L of the default paths (${omf5_retry_ldflags:-none})])
+   LDFLAGS="$DEPS_LDFLAGS $CARAT_LDFLAGS $save_LDFLAGS"
+   AC_RUN_IFELSE([OMF5_FLINT_VERSION_PROGRAM],
+     [AC_MSG_RESULT([yes])],
+     [AC_MSG_RESULT([no])
+      AC_MSG_ERROR([the flint library found by the linker is not the flint of ${FLINT_PATH}/include, or it cannot be loaded: another libflint may come first on the library path; set FLINT_PATH, GMP_PATH and CARAT_PATH to installations without another libflint])],
+     [AC_MSG_RESULT([not checked, cross compiling])])
+fi
+LDFLAGS="$save_LDFLAGS"
+LIBS="$save_LIBS"
+
 CPPFLAGS="$save_CPPFLAGS"
 AC_SUBST([DEPS_CPPFLAGS])
 AC_SUBST([DEPS_LDFLAGS])
+AC_SUBST([CARAT_LDFLAGS])
 AC_SUBST([ANTIC_LIBS])
 AC_OUTPUT()
