@@ -1884,6 +1884,84 @@ static void weight_eval_points_clear(weight_eval_points_struct* E)
   _fmpz_vec_clear(E->PY, QF_RANK * E->cap);
 }
 
+// Rv[pt][c][offsets[c][i] + m] = sum_b chi_c(b) <F_m, mom[pt][i][b]>, the values at the point pt of the images
+// (without p^a) of the basis vectors of conductor c, with F_m the polynomial of the m-th basis vector of H[c][i].
+// F_m = sum_k H[c][i][m][k] F_{e_k}, F_{e_k} the k-th basis polynomial of W, basis_z / basis_den, so the moments
+// are paired with these first, all of them in one product with BzT[mono][k] = basis_z[kx][k ny + ky]; this needs
+// no polynomial of the forms of the other classes.
+static void weight_eval_values(fmpq*** Rv, weight_mom_struct*** mom, slong npts, const fmpz_mat_t BzT,
+			       const weight_rep_t W, const weight_space_t S, slong h, slong nb, slong nc)
+{
+  fmpz_mat_t Mu, Q;
+  fmpq_t t;
+  fmpz_t den;
+  fmpq **sv;
+  slong n, row, pt, i, b, e, c, k, m, len = W->nx * W->ny;
+
+  n = 0;
+  for (pt = 0; pt < npts; pt++)
+    for (i = 0; i < h; i++)
+      for (b = 0; b < nb; b++)
+	n += mom[pt][i][b].n;
+  fmpz_mat_init(Mu, (n > 0) ? n : 1, len);
+  row = 0;
+  for (pt = 0; pt < npts; pt++)
+    for (i = 0; i < h; i++)
+      for (b = 0; b < nb; b++)
+	for (e = 0; e < mom[pt][i][b].n; e++, row++)
+	  _fmpz_vec_set(fmpz_mat_entry(Mu, row, 0), mom[pt][i][b].nums[e], len);
+  fmpz_mat_init(Q, (n > 0) ? n : 1, W->dim);
+  if (n > 0)
+    fmpz_mat_mul(Q, Mu, BzT);
+  fmpz_mat_clear(Mu);
+
+  fmpq_init(t);
+  fmpz_init(den);
+  sv = (fmpq**)malloc(nc * sizeof(fmpq*));
+  for (c = 0; c < nc; c++)
+    sv[c] = _fmpq_vec_init(W->dim);
+  for (pt = 0; pt < npts; pt++)
+    for (c = 0; c < nc; c++)
+      Rv[pt][c] = _fmpq_vec_init((S->dims[c] > 0) ? S->dims[c] : 1);
+  row = 0;
+  for (pt = 0; pt < npts; pt++)
+    for (i = 0; i < h; i++) {
+      // sv[c][k] = sum_b chi_c(b) <F_{e_k}, mom[pt][i][b]>
+      for (c = 0; c < nc; c++)
+	for (k = 0; k < W->dim; k++)
+	  fmpq_zero(sv[c] + k);
+      for (b = 0; b < nb; b++)
+	for (e = 0; e < mom[pt][i][b].n; e++, row++)
+	  for (k = 0; k < W->dim; k++) {
+	    if (fmpz_is_zero(fmpz_mat_entry(Q, row, k)))
+	      continue;
+	    fmpz_mul(den, W->basis_den + k, mom[pt][i][b].dens + e);
+	    fmpq_set_fmpz_frac(t, fmpz_mat_entry(Q, row, k), den);
+	    for (c = 0; c < nc; c++) {
+	      if (fmpq_mat_nrows(S->H[c] + i) == 0)
+		continue;
+	      if (weight_char((W64)b, c) > 0)
+		fmpq_add(sv[c] + k, sv[c] + k, t);
+	      else
+		fmpq_sub(sv[c] + k, sv[c] + k, t);
+	    }
+	  }
+      for (c = 0; c < nc; c++)
+	for (m = 0; m < fmpq_mat_nrows(S->H[c] + i); m++) {
+	  fmpq* rr = Rv[pt][c] + S->offsets[c][i] + m;
+	  for (k = 0; k < W->dim; k++)
+	    if (!fmpq_is_zero(fmpq_mat_entry(S->H[c] + i, m, k)))
+	      fmpq_addmul(rr, fmpq_mat_entry(S->H[c] + i, m, k), sv[c] + k);
+	}
+    }
+  for (c = 0; c < nc; c++)
+    _fmpq_vec_clear(sv[c], W->dim);
+  free(sv);
+  fmpq_clear(t);
+  fmpz_clear(den);
+  fmpz_mat_clear(Q);
+}
+
 static void hecke_weight_rho_classes(fmpq_mat_struct* T, const genus_t genus, const weight_rep_t W,
 				     const weight_space_t S, int p, int k, const bool* classes, bool use_orbits);
 
@@ -1896,11 +1974,13 @@ static fmpq_mat_struct* hecke_matrices_weight_eval(const genus_t genus, const we
 						   int p, int k)
 {
   fmpq_mat_struct* T;
-  weight_bpoly_struct **bpoly, *Pj;
+  weight_bpoly_struct* Pj;
   weight_eval_points_struct E;
   weight_mom_struct*** mom;
+  fmpq*** Rv;
+  fmpz_mat_t BzT;
   fmpz_t pa;
-  slong c, i, j, h, nb, b, nc, len, pt, m, r, col, npts;
+  slong c, i, j, h, nb, b, nc, len, pt, m, r, col, npts, k2, kx, ky;
   bool needed, any_rho, any_eval, *by_rho;
 
   h = genus->genus_reps->num_stored;
@@ -1932,13 +2012,12 @@ static fmpq_mat_struct* hecke_matrices_weight_eval(const genus_t genus, const we
       any_eval = true;
   }
 
-  // bpoly[c][i], the polynomials of the basis of H[c][i], when some class is found by evaluation
-  bpoly = (weight_bpoly_struct**)malloc(nc * sizeof(weight_bpoly_struct*));
-  for (c = 0; c < nc; c++) {
-    bpoly[c] = (weight_bpoly_struct*)malloc(h * sizeof(weight_bpoly_struct));
-    for (i = 0; (i < h) && any_eval; i++)
-      weight_bpoly_init(&(bpoly[c][i]), S->H[c] + i, W);
-  }
+  // BzT[mono][k] = basis_z[kx][k ny + ky], when some class is found by evaluation
+  fmpz_mat_init(BzT, any_eval ? len : 1, W->dim);
+  for (k2 = 0; (k2 < W->dim) && any_eval; k2++)
+    for (kx = 0; kx < W->nx; kx++)
+      for (ky = 0; ky < W->ny; ky++)
+	fmpz_set(fmpz_mat_entry(BzT, kx * W->ny + ky, k2), fmpz_mat_entry(W->basis_z, kx, k2 * W->ny + ky));
   Pj = (weight_bpoly_struct*)malloc(nc * sizeof(weight_bpoly_struct));
 
   for (j = 0; j < h; j++) {
@@ -1947,8 +2026,9 @@ static fmpq_mat_struct* hecke_matrices_weight_eval(const genus_t genus, const we
       needed = needed || (fmpq_mat_nrows(S->H[c] + j) > 0);
     if (!needed || by_rho[j])
       continue;
+    // the polynomials of the basis of H[c][j], for the points
     for (c = 0; c < nc; c++)
-      Pj[c] = bpoly[c][j];
+      weight_bpoly_init(Pj + c, S->H[c] + j, W);
     weight_eval_points_init(&E, Pj, nc, W);
 
     mom = (weight_mom_struct***)malloc(E.npts * sizeof(weight_mom_struct**));
@@ -1961,6 +2041,10 @@ static fmpq_mat_struct* hecke_matrices_weight_eval(const genus_t genus, const we
       }
     }
     weight_moments(mom, genus, W, j, p, k, E.npts, E.PX, E.PY);
+    Rv = (fmpq***)malloc(E.npts * sizeof(fmpq**));
+    for (pt = 0; pt < E.npts; pt++)
+      Rv[pt] = (fmpq**)malloc(nc * sizeof(fmpq*));
+    weight_eval_values(Rv, mom, E.npts, BzT, W, S, h, nb, nc);
 
     for (c = 0; c < nc; c++) {
       if (Pj[c].rows == 0)
@@ -1969,18 +2053,14 @@ static fmpq_mat_struct* hecke_matrices_weight_eval(const genus_t genus, const we
       // Rchk the same at the points of the check; then the block is p^a Einv Rsel
       {
 	fmpq_mat_t Rsel, Rchk, B, C;
-	slong d = (S->dims[c] > 0) ? S->dims[c] : 1;
-	fmpq* rr = _fmpq_vec_init(d);
 	fmpq_mat_init(Rsel, Pj[c].rows, S->dims[c]);
 	fmpq_mat_init(Rchk, WEIGHT_EVAL_CHECKS, S->dims[c]);
 	for (r = 0; r < Pj[c].rows + WEIGHT_EVAL_CHECKS; r++) {
 	  pt = (r < Pj[c].rows) ? E.sel[c][r] : E.npts - WEIGHT_EVAL_CHECKS + (r - Pj[c].rows);
-	  weight_eval_pairing(rr, bpoly[c], S, c, mom[pt], h, nb, len);
 	  for (col = 0; col < S->dims[c]; col++)
 	    fmpq_set((r < Pj[c].rows) ? fmpq_mat_entry(Rsel, r, col) : fmpq_mat_entry(Rchk, r - Pj[c].rows, col),
-		     rr + col);
+		     Rv[pt][c] + col);
 	}
-	_fmpq_vec_clear(rr, d);
 	fmpq_mat_init(B, Pj[c].rows, S->dims[c]);
 	fmpq_mat_mul(B, E.Einv + c, Rsel);
 	// the check: F_U at the points of the check is the combination of the values there of the basis of
@@ -2002,6 +2082,9 @@ static fmpq_mat_struct* hecke_matrices_weight_eval(const genus_t genus, const we
     }
 
     for (pt = 0; pt < E.npts; pt++) {
+      for (c = 0; c < nc; c++)
+	_fmpq_vec_clear(Rv[pt][c], (S->dims[c] > 0) ? S->dims[c] : 1);
+      free(Rv[pt]);
       for (i = 0; i < h; i++) {
 	for (b = 0; b < nb; b++)
 	  weight_mom_clear(&(mom[pt][i][b]));
@@ -2009,20 +2092,18 @@ static fmpq_mat_struct* hecke_matrices_weight_eval(const genus_t genus, const we
       }
       free(mom[pt]);
     }
+    free(Rv);
     free(mom);
     weight_eval_points_clear(&E);
+    for (c = 0; c < nc; c++)
+      weight_bpoly_clear(Pj + c);
   }
 
   if (any_rho)
     hecke_weight_rho_classes(T, genus, W, S, p, k, by_rho, true);
   free(by_rho);
 
-  for (c = 0; c < nc; c++) {
-    for (i = 0; (i < h) && any_eval; i++)
-      weight_bpoly_clear(&(bpoly[c][i]));
-    free(bpoly[c]);
-  }
-  free(bpoly);
+  fmpz_mat_clear(BzT);
   free(Pj);
   fmpz_clear(pa);
   return T;
