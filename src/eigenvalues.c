@@ -171,15 +171,51 @@ void eigenvalues_clear(eigenvalues_t evs)
   return;
 }
 
+// Whether T_W, an operator on the space W of the old form ev_idx in the basis old_basis, is q(A) for the
+// polynomial q of lambda in the generator of the field, where A is old_hecke, the matrix on W of the
+// generator.
+static bool ev_old_is_poly(const eigenvalues_t evs, slong ev_idx, const fmpq_mat_t T_W, const nf_elem_t lambda)
+{
+  slong i, j, dim_W;
+  fmpq_mat_t q_A, tmp;
+  fmpq_poly_t q;
+  fmpq_t coeff;
+  bool is_scalar;
+
+  dim_W = fmpq_mat_nrows(evs->old_basis[ev_idx]);
+  // write lambda as a polynomial q in the generator of the field,
+  fmpq_poly_init(q);
+  nf_elem_get_fmpq_poly(q, lambda, evs->nfs[ev_idx]);
+
+  // and compare T on W with q(A). This is the Horner scheme: fmpq_poly_evaluate_fmpq_mat is of
+  // no use here, since it rescales its result.
+  fmpq_mat_init(q_A, dim_W, dim_W);
+  fmpq_mat_init(tmp, dim_W, dim_W);
+  fmpq_init(coeff);
+  for (i = fmpq_poly_degree(q); i >= 0; i--) {
+    fmpq_mat_mul(tmp, q_A, evs->old_hecke[ev_idx]);
+    fmpq_mat_swap(q_A, tmp);
+    fmpq_poly_get_coeff_fmpq(coeff, q, i);
+    for (j = 0; j < dim_W; j++)
+      fmpq_add(fmpq_mat_entry(q_A, j, j), fmpq_mat_entry(q_A, j, j), coeff);
+  }
+  is_scalar = fmpq_mat_equal(T_W, q_A);
+
+  fmpq_clear(coeff);
+  fmpq_mat_clear(tmp);
+  fmpq_mat_clear(q_A);
+  fmpq_poly_clear(q);
+
+  return is_scalar;
+}
+
 // Test whether T acts on the space of an old form as an element of its field
 bool ev_is_scalar_on_old_space(const eigenvalues_t evs, slong ev_idx, const fmpq_mat_t T)
 {
   slong i, j, pivot, dim_W;
-  fmpq_mat_t T_W, WT, both, q_A, tmp;
+  fmpq_mat_t T_W, WT, both, tmp;
   nf_elem_t* evec_T;
   nf_elem_t lambda;
-  fmpq_poly_t q;
-  fmpq_t coeff;
   bool is_scalar;
 
   assert(evs->is_old[ev_idx]);
@@ -228,31 +264,54 @@ bool ev_is_scalar_on_old_space(const eigenvalues_t evs, slong ev_idx, const fmpq
     nf_elem_clear(evec_T[i], evs->nfs[ev_idx]);
   free(evec_T);
 
-  // write it as a polynomial q in the generator of the field,
-  fmpq_poly_init(q);
-  nf_elem_get_fmpq_poly(q, lambda, evs->nfs[ev_idx]);
+  is_scalar = ev_old_is_poly(evs, ev_idx, T_W, lambda);
+
   nf_elem_clear(lambda, evs->nfs[ev_idx]);
-
-  // and compare T on W with q(A), where A is the matrix on W of the
-  // generator. This is the Horner scheme: fmpq_poly_evaluate_fmpq_mat is of
-  // no use here, since it rescales its result.
-  fmpq_mat_init(q_A, dim_W, dim_W);
-  fmpq_mat_init(tmp, dim_W, dim_W);
-  fmpq_init(coeff);
-  for (i = fmpq_poly_degree(q); i >= 0; i--) {
-    fmpq_mat_mul(tmp, q_A, evs->old_hecke[ev_idx]);
-    fmpq_mat_swap(q_A, tmp);
-    fmpq_poly_get_coeff_fmpq(coeff, q, i);
-    for (j = 0; j < dim_W; j++)
-      fmpq_add(fmpq_mat_entry(q_A, j, j), fmpq_mat_entry(q_A, j, j), coeff);
-  }
-  is_scalar = fmpq_mat_equal(T_W, q_A);
-
-  fmpq_clear(coeff);
-  fmpq_mat_clear(tmp);
-  fmpq_mat_clear(q_A);
-  fmpq_poly_clear(q);
   fmpq_mat_clear(T_W);
+
+  return is_scalar;
+}
+
+// The same test from T_W, the operator on the space W of the form in the basis old_basis (W T = T_W W),
+// and the coordinates c of the vector v of the form in that basis (v = c W): T is an element of the field on
+// W exactly when T_W is, and then lambda = (c T_W)_k / c_k for any c_k != 0 is its eigenvalue at v, the
+// number which ev_is_scalar_on_old_space finds from v T. With the test of weight_eigenvalue that v T = lambda v,
+// it is the test of both.
+bool ev_old_space_eigenvalue(nf_elem_t lambda, const eigenvalues_t evs, slong ev_idx, const fmpq_mat_t T_W,
+			     const nf_elem_t* coords)
+{
+  slong k, l, dim_W;
+  nf_elem_t* cT;
+  bool is_scalar;
+
+  assert(evs->is_old[ev_idx]);
+  dim_W = fmpq_mat_nrows(evs->old_basis[ev_idx]);
+  assert((fmpq_mat_nrows(T_W) == dim_W) && (fmpq_mat_ncols(T_W) == dim_W));
+
+  for (k = 0; (k < dim_W) && nf_elem_is_zero(coords[k], evs->nfs[ev_idx]); k++);
+  if (k == dim_W)
+    return false;
+
+  cT = (nf_elem_t*)malloc(dim_W * sizeof(nf_elem_t));
+  for (l = 0; l < dim_W; l++)
+    nf_elem_init(cT[l], evs->nfs[ev_idx]);
+  nf_elem_vec_mul_fmpq_mat(cT, coords, T_W, evs->nfs[ev_idx]);
+  nf_elem_div(lambda, cT[k], coords[k], evs->nfs[ev_idx]);
+  is_scalar = ev_old_is_poly(evs, ev_idx, T_W, lambda);
+  // and v is an eigenvector, v T = lambda v, as weight_eigenvalue checks: v T = (c T_W) W, and the rows of W
+  // are independent, so this is c T_W = lambda c (which q(A) = T_W gives only when c is an eigenvector of A)
+  if (is_scalar) {
+    nf_elem_t t;
+    nf_elem_init(t, evs->nfs[ev_idx]);
+    for (l = 0; is_scalar && (l < dim_W); l++) {
+      nf_elem_mul(t, lambda, coords[l], evs->nfs[ev_idx]);
+      is_scalar = nf_elem_equal(t, cT[l], evs->nfs[ev_idx]);
+    }
+    nf_elem_clear(t, evs->nfs[ev_idx]);
+  }
+  for (l = 0; l < dim_W; l++)
+    nf_elem_clear(cT[l], evs->nfs[ev_idx]);
+  free(cT);
 
   return is_scalar;
 }
