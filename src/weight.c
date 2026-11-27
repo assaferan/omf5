@@ -228,6 +228,7 @@ square_matrix_t** hecke_matrices_isometries(const genus_t genus, int p)
 #include <flint/fmpz_mat.h>
 #include <flint/fmpz_vec.h>
 #include <flint/nmod_mat.h>
+#include <flint/nmod_vec.h>
 #include <flint/ulong_extras.h>
 #include <flint/fmpq_mat.h>
 #include <flint/fmpq_vec.h>
@@ -1082,6 +1083,154 @@ static void weight_add_block(fmpq_mat_t T, const weight_space_t S, slong c, slon
   return;
 }
 
+// The sums acc[i][b] for the lattice L_j, by orbits of the automorphisms of L_j on the isotropic
+// lines, as process_isotropic_vector_all_conductors does: for an automorphism g of L_j the neighbor at
+// g v is g N_v, whose isometry to the first lattice is t s, for t = isoms[j] g isoms[j]^(-1) and s that
+// of N_v. So rho(t s) = rho(t) rho(s), and the orbit adds (sum of rho(t), by the spinor bits of t) times
+// rho(s), with the spinor bits of t s those of t xor those of s. Only the representative of an orbit,
+// the smallest vector in it, is tested for isometry.
+static void weight_sums_orbits(fmpq_mat_t** acc, const genus_t genus, const weight_rep_t W, slong j, int p,
+			       const fmpz_t pa)
+{
+  neighbor_manager_t nbr_man;
+  fmpq_mat_t* Raut;
+  W64* bits_aut;
+  fmpq_mat_t* orbsum;
+  fmpq_mat_t Rs, prod;
+  slong* orbit_aut;
+  vector_t* orbit;
+  square_matrix_t* auts;
+  vector_t g_vec;
+  square_matrix_t nbr, aut_tr;
+  isometry_t s_nbr, hash_isom, s_inv, t;
+  slong k, e, b, nb, num_auts, orb_size, i;
+  int line, vec_cmp;
+  slong num_isom;
+  double theta_time, isom_time;
+  bool found, has_auts;
+  W64 bits_s;
+
+  nb = (slong)1 << genus->spinor->num_primes;
+  theta_time = isom_time = 0;
+  num_isom = 0;
+  has_auts = false;
+  Raut = NULL;
+  bits_aut = NULL;
+  num_auts = 0;
+  orbsum = (fmpq_mat_t*)malloc(nb * sizeof(fmpq_mat_t));
+  for (b = 0; b < nb; b++)
+    fmpq_mat_init(orbsum[b], W->dim, W->dim);
+  fmpq_mat_init(Rs, W->dim, W->dim);
+  fmpq_mat_init(prod, W->dim, W->dim);
+
+  for (line = 0; line < p; line++) {
+    nbr_process_init(nbr_man, genus->genus_reps->keys[j], p, line, genus->isoms[j]);
+    if (!has_auts) {
+      // rho of every automorphism of L_j, taken to the first lattice
+      num_auts = nbr_man->num_auts;
+      Raut = (fmpq_mat_t*)malloc(num_auts * sizeof(fmpq_mat_t));
+      bits_aut = (W64*)malloc(num_auts * sizeof(W64));
+      isometry_inv(s_inv, genus->isoms[j]);
+      for (k = 0; k < num_auts; k++) {
+	square_matrix_transpose(aut_tr, nbr_man->auts[k]);
+	isometry_init_set_square_matrix(t, aut_tr, 1);
+	isometry_muleq_left(t, genus->isoms[j]);
+	isometry_muleq_right(t, s_inv);
+	assert(isometry_is_isom(t, genus->genus_reps->keys[0], genus->genus_reps->keys[0]));
+	fmpq_mat_init(Raut[k], W->dim, W->dim);
+	weight_rep_action(Raut[k], W, t);
+	bits_aut[k] = spinor_norm_isom(genus->spinor, t);
+	isometry_clear(t);
+      }
+      orbit = (vector_t*)malloc((num_auts + 1) * sizeof(vector_t));
+      orbit_aut = (slong*)malloc((num_auts + 1) * sizeof(slong));
+      // nbr_process_init finds the automorphisms again for every line, not always in the same
+      // order, so the orbits are found with this list, whose k-th element is that of Raut[k]
+      auts = (square_matrix_t*)malloc(num_auts * sizeof(square_matrix_t));
+      for (k = 0; k < num_auts; k++)
+	square_matrix_set(auts[k], nbr_man->auts[k]);
+      has_auts = true;
+    }
+    assert(nbr_man->num_auts == num_auts);
+    while (!nbr_process_has_ended(nbr_man)) {
+      // the orbit of the isotropic vector, which is skipped unless it is the smallest in it
+      vector_mod_p(nbr_man->iso_vec, nbr_man->p);
+      normalize_mod_p(nbr_man->iso_vec, nbr_man->p);
+      vector_set(orbit[0], nbr_man->iso_vec);
+      orbit_aut[0] = -1;
+      orb_size = 1;
+      vec_cmp = 1;
+      for (k = 0; k < num_auts; k++) {
+	square_matrix_mul_vec_left(g_vec, nbr_man->iso_vec, auts[k]);
+	vector_mod_p(g_vec, nbr_man->p);
+	normalize_mod_p(g_vec, nbr_man->p);
+	vec_cmp = vector_cmp(g_vec, nbr_man->iso_vec);
+	if (vec_cmp < 0)
+	  break;
+	if (vec_cmp > 0) {
+	  found = false;
+	  for (e = 0; (e < orb_size) && !found; e++)
+	    found = (vector_cmp(g_vec, orbit[e]) == 0);
+	  if (!found) {
+	    vector_set(orbit[orb_size], g_vec);
+	    orbit_aut[orb_size] = k;
+	    orb_size++;
+	  }
+	}
+      }
+      if ((vec_cmp >= 0) && nbr_process_build_nb_and_isom(nbr, s_nbr, nbr_man)) {
+	i = hash_table_index_and_isom(genus->genus_reps, nbr, hash_isom, &theta_time, &isom_time, &num_isom);
+	assert((0 <= i) && (i < genus->genus_reps->num_stored));
+	isometry_muleq_left(s_nbr, genus->isoms[j]);
+	isometry_muleq_right(s_nbr, hash_isom);
+	isometry_inv(t, genus->isoms[i]);
+	isometry_muleq_right(s_nbr, t);
+	assert(isometry_is_isom(s_nbr, genus->genus_reps->keys[0], genus->genus_reps->keys[0]));
+	bits_s = spinor_norm_isom(genus->spinor, s_nbr);
+	weight_rep_action(Rs, W, s_nbr);
+	fmpq_mat_scalar_mul_fmpz(Rs, Rs, pa);
+	for (b = 0; b < nb; b++)
+	  fmpq_mat_zero(orbsum[b]);
+	for (e = 0; e < orb_size; e++) {
+	  if (orbit_aut[e] < 0) {
+	    for (k = 0; k < W->dim; k++)
+	      fmpq_add_si(fmpq_mat_entry(orbsum[0], k, k), fmpq_mat_entry(orbsum[0], k, k), 1);
+	  }
+	  else
+	    fmpq_mat_add(orbsum[bits_aut[orbit_aut[e]]], orbsum[bits_aut[orbit_aut[e]]], Raut[orbit_aut[e]]);
+	}
+	for (b = 0; b < nb; b++) {
+	  if (fmpq_mat_is_zero(orbsum[b]))
+	    continue;
+	  fmpq_mat_mul(prod, orbsum[b], Rs);
+	  fmpq_mat_add(acc[i][b ^ bits_s], acc[i][b ^ bits_s], prod);
+	}
+	isometry_clear(s_nbr);
+	isometry_clear(hash_isom);
+	square_matrix_clear(nbr);
+      }
+      nbr_process_advance(nbr_man);
+    }
+    nbr_process_clear(nbr_man);
+  }
+
+  if (has_auts) {
+    for (k = 0; k < num_auts; k++)
+      fmpq_mat_clear(Raut[k]);
+    free(Raut);
+    free(bits_aut);
+    free(orbit);
+    free(orbit_aut);
+    free(auts);
+  }
+  for (b = 0; b < nb; b++)
+    fmpq_mat_clear(orbsum[b]);
+  free(orbsum);
+  fmpq_mat_clear(Rs);
+  fmpq_mat_clear(prod);
+  return;
+}
+
 // ---- The eigenvalues of T_p and T_{p^2} by evaluation at a point ----
 //
 // For a right eigenvector u of the Hecke operators (T u = lambda u), with the vector U_i of W of its block
@@ -1401,32 +1550,6 @@ static void weight_moments(weight_mom_struct*** mom, const genus_t genus, const 
   fmpz_clear(one);
 }
 
-// B[m][mono] = sum_k H[m][k] basis_z[kx][k ny + ky] / basis_den[k], for mono = kx ny + ky: the
-// polynomial of the m-th basis vector of H, as coefficients on the bimonomials
-static void weight_block_polys(fmpq_mat_t B, const fmpq_mat_t H, const weight_rep_t W)
-{
-  slong m, k, kx, ky;
-  fmpq_t term;
-
-  fmpq_init(term);
-  fmpq_mat_init(B, fmpq_mat_nrows(H), W->nx * W->ny);
-  for (m = 0; m < fmpq_mat_nrows(H); m++)
-    for (k = 0; k < W->dim; k++) {
-      if (fmpq_is_zero(fmpq_mat_entry(H, m, k)))
-	continue;
-      for (kx = 0; kx < W->nx; kx++)
-	for (ky = 0; ky < W->ny; ky++) {
-	  const fmpz* z = fmpz_mat_entry(W->basis_z, kx, k * W->ny + ky);
-	  if (fmpz_is_zero(z))
-	    continue;
-	  fmpq_set_fmpz_frac(term, z, W->basis_den + k);
-	  fmpq_mul(term, term, fmpq_mat_entry(H, m, k));
-	  fmpq_add(fmpq_mat_entry(B, m, kx * W->ny + ky), fmpq_mat_entry(B, m, kx * W->ny + ky), term);
-	}
-    }
-  fmpq_clear(term);
-}
-
 // The polynomials of the basis vectors of H[c][i], as integral rows Bnum[m] over Bden[m].
 typedef struct
 {
@@ -1437,14 +1560,45 @@ typedef struct
 
 static void weight_bpoly_init(weight_bpoly_struct* P, const fmpq_mat_t H, const weight_rep_t W)
 {
-  fmpq_mat_t B;
-  weight_block_polys(B, H, W);
-  P->rows = fmpq_mat_nrows(B);
-  fmpz_mat_init(P->num, (P->rows > 0) ? P->rows : 1, W->nx * W->ny);
+  fmpq_mat_t Hs;
+  fmpz_mat_t Hz, Bz;
+  fmpz_t g;
+  slong m, k, kx, ky, len = W->nx * W->ny;
+
+  // B[m][kx ny + ky] = sum_k H[m][k] basis_z[kx][k ny + ky] / basis_den[k], the polynomial of the m-th basis
+  // vector of H. So B = H D^(-1) Bz, with D = diag(basis_den) and Bz[k][kx ny + ky] = basis_z[kx][k ny + ky]:
+  // the rows of H D^(-1) over their denominators, times Bz, and each row then in lowest terms, with the
+  // smallest common denominator, as fmpq_mat_get_fmpz_mat_rowwise of B would give
+  P->rows = fmpq_mat_nrows(H);
+  fmpz_mat_init(P->num, (P->rows > 0) ? P->rows : 1, len);
   P->den = _fmpz_vec_init((P->rows > 0) ? P->rows : 1);
-  if (P->rows > 0)
-    fmpq_mat_get_fmpz_mat_rowwise(P->num, P->den, B);
-  fmpq_mat_clear(B);
+  if (P->rows == 0)
+    return;
+  fmpq_mat_init(Hs, P->rows, W->dim);
+  for (m = 0; m < P->rows; m++)
+    for (k = 0; k < W->dim; k++)
+      fmpq_div_fmpz(fmpq_mat_entry(Hs, m, k), fmpq_mat_entry(H, m, k), W->basis_den + k);
+  fmpz_mat_init(Hz, P->rows, W->dim);
+  fmpq_mat_get_fmpz_mat_rowwise(Hz, P->den, Hs);
+  fmpq_mat_clear(Hs);
+  fmpz_mat_init(Bz, W->dim, len);
+  for (k = 0; k < W->dim; k++)
+    for (kx = 0; kx < W->nx; kx++)
+      for (ky = 0; ky < W->ny; ky++)
+	fmpz_set(fmpz_mat_entry(Bz, k, kx * W->ny + ky), fmpz_mat_entry(W->basis_z, kx, k * W->ny + ky));
+  fmpz_mat_mul(P->num, Hz, Bz);
+  fmpz_mat_clear(Hz);
+  fmpz_mat_clear(Bz);
+  fmpz_init(g);
+  for (m = 0; m < P->rows; m++) {
+    _fmpz_vec_content(g, fmpz_mat_entry(P->num, m, 0), len);
+    fmpz_gcd(g, g, P->den + m);
+    if (fmpz_is_zero(g) || fmpz_is_one(g))
+      continue;
+    _fmpz_vec_scalar_divexact_fmpz(fmpz_mat_entry(P->num, m, 0), fmpz_mat_entry(P->num, m, 0), len, g);
+    fmpz_divexact(P->den + m, P->den + m, g);
+  }
+  fmpz_clear(g);
 }
 
 static void weight_bpoly_clear(weight_bpoly_struct* P)
@@ -1498,10 +1652,26 @@ static void weight_eval_pairing(fmpq* r, const weight_bpoly_struct* P, const wei
 // E[r][m] the value at z_r of the m-th of them. The value at one more point checks that U is in H[c][j], as
 // weight_add_block does. So no matrix of rho(s) on W is needed.
 
-// The point of index t, (x0, y0) for t = 0, and otherwise with entries in [-7, 7] from a fixed sequence.
-static void weight_eval_candidate(fmpz* X, fmpz* Y, slong t)
+// The point of index t: (x0, y0) for t = 0, and otherwise with entries in [-w, w] from a fixed sequence,
+// w = 7 + t / 64, so that the candidates are not confined to a grid on which a polynomial of the weight vanishes.
+// The points of the check, seed 1 and 2 of another sequence, have entries in [-60, 60].
+static void weight_eval_point_seq(fmpz* X, fmpz* Y, ulong seed, slong w)
 {
   ulong st;
+  int r;
+
+  st = seed * UWORD(0x9E3779B97F4A7C15);
+  for (r = 0; r < 2 * QF_RANK; r++) {
+    st = st * UWORD(6364136223846793005) + UWORD(1442695040888963407);
+    if (r < QF_RANK)
+      fmpz_set_si(X + r, (slong)((st >> 33) % (ulong)(2 * w + 1)) - w);
+    else
+      fmpz_set_si(Y + r - QF_RANK, (slong)((st >> 33) % (ulong)(2 * w + 1)) - w);
+  }
+}
+
+static void weight_eval_candidate(fmpz* X, fmpz* Y, slong t)
+{
   int r;
 
   if (t == 0) {
@@ -1511,14 +1681,12 @@ static void weight_eval_candidate(fmpz* X, fmpz* Y, slong t)
     }
     return;
   }
-  st = (ulong)t * UWORD(0x9E3779B97F4A7C15);
-  for (r = 0; r < 2 * QF_RANK; r++) {
-    st = st * UWORD(6364136223846793005) + UWORD(1442695040888963407);
-    if (r < QF_RANK)
-      fmpz_set_si(X + r, (slong)((st >> 33) % 15) - 7);
-    else
-      fmpz_set_si(Y + r - QF_RANK, (slong)((st >> 33) % 15) - 7);
-  }
+  weight_eval_point_seq(X, Y, (ulong)t, 7 + t / 64);
+}
+
+static void weight_eval_check_point(fmpz* X, fmpz* Y, int q)
+{
+  weight_eval_point_seq(X, Y, UWORD(0xC0FFEE) + (ulong)q, 60);
 }
 
 // v[m] = the value of the m-th polynomial of P at the point (X, Y)
@@ -1539,41 +1707,56 @@ static void weight_bpoly_values(fmpq* v, const weight_bpoly_struct* P, const wei
   fmpz_clear(dot);
 }
 
-// The points of the class j: PX, PY hold npts points, the last one only for the check. For each conductor
-// index c, sel[c][r], r < dim H[c][j], is the index of the r-th point of E[c], Einv[c] the inverse of E[c],
-// and chk[c] the values of the polynomials of H[c][j] at the last point.
+#define WEIGHT_EVAL_CHECKS 2
+#ifndef WEIGHT_EVAL_FACTOR
+#define WEIGHT_EVAL_FACTOR 4.0
+#endif
+
+// The points of the class j: PX, PY hold npts points, the last WEIGHT_EVAL_CHECKS of them only for the check.
+// For each conductor index c, sel[c][r], r < dim H[c][j], is the index of the r-th point of E[c], Einv[c] the
+// inverse of E[c], and chk[c] (WEIGHT_EVAL_CHECKS x dim H[c][j]) the values of the polynomials of H[c][j] at the
+// points of the check.
 typedef struct
 {
   slong npts;
   fmpz *PX, *PY;
   slong** sel;
   fmpq_mat_struct* Einv;
-  fmpq** chk;
+  fmpq_mat_struct* chk;
   slong nc, cap;
 } weight_eval_points_struct;
 
 static void weight_eval_points_init(weight_eval_points_struct* E, const weight_bpoly_struct* P, slong nc,
 				    const weight_rep_t W)
 {
-  slong c, t, cap, n, done, m, r, len = W->nx * W->ny;
-  slong* cnt;
+  slong c, t, cap, n, done, m, r, q, len = W->nx * W->ny;
+  slong *cnt, **piv;
   fmpq_mat_struct* rows;
+  ulong ***red, *row, prime, f;
+  nmod_t mod;
   fmpz *X, *Y, *vec, *xm, *ym;
   fmpq* v;
-  bool used;
+  bool used, ok;
 
   E->nc = nc;
   E->sel = (slong**)malloc(nc * sizeof(slong*));
   E->Einv = (fmpq_mat_struct*)malloc(nc * sizeof(fmpq_mat_struct));
-  E->chk = (fmpq**)malloc(nc * sizeof(fmpq*));
+  E->chk = (fmpq_mat_struct*)malloc(nc * sizeof(fmpq_mat_struct));
   cnt = (slong*)calloc(nc, sizeof(slong));
   rows = (fmpq_mat_struct*)malloc(nc * sizeof(fmpq_mat_struct));
-  // each point kept raises the rank for some c, so there are at most sum_c dim H[c][j] of them, and the check
+  piv = (slong**)malloc(nc * sizeof(slong*));
+  red = (ulong***)malloc(nc * sizeof(ulong**));
+  // each point kept raises the rank for some c, so there are at most sum_c dim H[c][j] of them, and the checks
   n = 0;
-  cap = 1;
+  cap = WEIGHT_EVAL_CHECKS;
   for (c = 0; c < nc; c++) {
-    E->sel[c] = (slong*)malloc(((P[c].rows > 0) ? P[c].rows : 1) * sizeof(slong));
-    fmpq_mat_init(rows + c, (P[c].rows > 0) ? P[c].rows : 1, (P[c].rows > 0) ? P[c].rows : 1);
+    slong d = (P[c].rows > 0) ? P[c].rows : 1;
+    E->sel[c] = (slong*)malloc(d * sizeof(slong));
+    fmpq_mat_init(rows + c, d, d);
+    piv[c] = (slong*)malloc(d * sizeof(slong));
+    red[c] = (ulong**)malloc(d * sizeof(ulong*));
+    for (r = 0; r < d; r++)
+      red[c][r] = (ulong*)calloc(d, sizeof(ulong));
     n = (P[c].rows > n) ? P[c].rows : n;
     cap += P[c].rows;
   }
@@ -1586,9 +1769,13 @@ static void weight_eval_points_init(weight_eval_points_struct* E, const weight_b
   xm = _fmpz_vec_init(W->nx);
   ym = _fmpz_vec_init(W->ny);
   v = _fmpq_vec_init(n + 1);
+  row = (ulong*)malloc((n + 1) * sizeof(ulong));
+  prime = n_nextprime(UWORD(1) << 62, 1);
+  nmod_init(&mod, prime);
 
-  // a candidate is kept when it makes the values of the polynomials of some H[c][j] at the points kept for c
-  // of larger rank
+  // a candidate is kept for c when its row of values of the polynomials of H[c][j] is independent of the rows
+  // kept for c modulo a prime, which is reduced against them (the rows in echelon form red[c], with the pivots
+  // piv[c]); then it is independent over Q too, so E[c] is invertible
   E->npts = 0;
   done = 0;
   for (c = 0; c < nc; c++)
@@ -1605,29 +1792,34 @@ static void weight_eval_points_init(weight_eval_points_struct* E, const weight_b
       if (cnt[c] == P[c].rows)
 	continue;
       weight_bpoly_values(v, P + c, W, X, Y, vec, xm, ym);
-      for (m = 0; m < P[c].rows; m++)
-	fmpq_set(fmpq_mat_entry(rows + c, cnt[c], m), v + m);
-      {
-	fmpq_mat_t A;
-	slong a2;
-	fmpq_mat_init(A, cnt[c] + 1, P[c].rows);
-	for (a2 = 0; a2 <= cnt[c]; a2++)
+      ok = true;
+      for (m = 0; (m < P[c].rows) && ok; m++) {
+	f = fmpz_fdiv_ui(fmpq_denref(v + m), prime);
+	ok = (f != 0);
+	if (ok)
+	  row[m] = nmod_mul(fmpz_fdiv_ui(fmpq_numref(v + m), prime), n_invmod(f, prime), mod);
+      }
+      if (!ok)
+	continue;
+      for (r = 0; r < cnt[c]; r++) {
+	f = row[piv[c][r]];
+	if (f != 0)
 	  for (m = 0; m < P[c].rows; m++)
-	    fmpq_set(fmpq_mat_entry(A, a2, m), fmpq_mat_entry(rows + c, a2, m));
-	{
-	  fmpq_mat_t B;
-	  fmpq_mat_init(B, cnt[c] + 1, P[c].rows);
-	  r = fmpq_mat_rref(B, A);
-	  fmpq_mat_clear(B);
-	}
-	fmpq_mat_clear(A);
+	    row[m] = nmod_sub(row[m], nmod_mul(f, red[c][r][m], mod), mod);
       }
-      if (r == cnt[c] + 1) {
-	E->sel[c][cnt[c]++] = E->npts;
-	used = true;
-	if (cnt[c] == P[c].rows)
-	  done++;
-      }
+      for (m = 0; (m < P[c].rows) && (row[m] == 0); m++);
+      if (m == P[c].rows)
+	continue;
+      piv[c][cnt[c]] = m;
+      f = n_invmod(row[m], prime);
+      for (q = 0; q < P[c].rows; q++)
+	red[c][cnt[c]][q] = nmod_mul(row[q], f, mod);
+      for (q = 0; q < P[c].rows; q++)
+	fmpq_set(fmpq_mat_entry(rows + c, cnt[c], q), v + q);
+      E->sel[c][cnt[c]++] = E->npts;
+      used = true;
+      if (cnt[c] == P[c].rows)
+	done++;
     }
     if (used) {
       _fmpz_vec_set(E->PX + QF_RANK * E->npts, X, QF_RANK);
@@ -1635,20 +1827,38 @@ static void weight_eval_points_init(weight_eval_points_struct* E, const weight_b
       E->npts++;
     }
   }
-  // the point of the check, the next candidate
-  weight_eval_candidate(X, Y, t);
-  _fmpz_vec_set(E->PX + QF_RANK * E->npts, X, QF_RANK);
-  _fmpz_vec_set(E->PY + QF_RANK * E->npts, Y, QF_RANK);
-  E->npts++;
   for (c = 0; c < nc; c++) {
     fmpq_mat_init(E->Einv + c, P[c].rows, P[c].rows);
     if (P[c].rows > 0)
       fmpq_mat_inv(E->Einv + c, rows + c);
-    E->chk[c] = _fmpq_vec_init((P[c].rows > 0) ? P[c].rows : 1);
-    weight_bpoly_values(E->chk[c], P + c, W, X, Y, vec, xm, ym);
-    fmpq_mat_clear(rows + c);
+    fmpq_mat_init(E->chk + c, WEIGHT_EVAL_CHECKS, P[c].rows);
+  }
+  // the points of the check
+  for (q = 0; q < WEIGHT_EVAL_CHECKS; q++) {
+    weight_eval_check_point(X, Y, q);
+    _fmpz_vec_set(E->PX + QF_RANK * E->npts, X, QF_RANK);
+    _fmpz_vec_set(E->PY + QF_RANK * E->npts, Y, QF_RANK);
+    E->npts++;
+    for (c = 0; c < nc; c++) {
+      if (P[c].rows == 0)
+	continue;
+      weight_bpoly_values(v, P + c, W, X, Y, vec, xm, ym);
+      for (m = 0; m < P[c].rows; m++)
+	fmpq_set(fmpq_mat_entry(E->chk + c, q, m), v + m);
+    }
   }
 
+  for (c = 0; c < nc; c++) {
+    slong d = (P[c].rows > 0) ? P[c].rows : 1;
+    fmpq_mat_clear(rows + c);
+    for (r = 0; r < d; r++)
+      free(red[c][r]);
+    free(red[c]);
+    free(piv[c]);
+  }
+  free(red);
+  free(piv);
+  free(row);
   free(rows);
   free(cnt);
   _fmpz_vec_clear(X, QF_RANK);
@@ -1659,13 +1869,13 @@ static void weight_eval_points_init(weight_eval_points_struct* E, const weight_b
   _fmpq_vec_clear(v, n + 1);
 }
 
-static void weight_eval_points_clear(weight_eval_points_struct* E, const weight_bpoly_struct* P)
+static void weight_eval_points_clear(weight_eval_points_struct* E)
 {
   slong c;
   for (c = 0; c < E->nc; c++) {
     free(E->sel[c]);
     fmpq_mat_clear(E->Einv + c);
-    _fmpq_vec_clear(E->chk[c], (P[c].rows > 0) ? P[c].rows : 1);
+    fmpq_mat_clear(E->chk + c);
   }
   free(E->sel);
   free(E->Einv);
@@ -1674,7 +1884,14 @@ static void weight_eval_points_clear(weight_eval_points_struct* E, const weight_
   _fmpz_vec_clear(E->PY, QF_RANK * E->cap);
 }
 
-// The matrices of T_{p^k} on the spaces of each conductor, as hecke_matrices_weight_impl, by evaluation.
+static void hecke_weight_rho_classes(fmpq_mat_struct* T, const genus_t genus, const weight_rep_t W,
+				     const weight_space_t S, int p, int k, const bool* classes, bool use_orbits);
+
+// The matrices of T_{p^k} on the spaces of each conductor, as hecke_matrices_weight_impl. The rows of a class j
+// are found by evaluation when that is cheaper, when the npts points times the nmons bimonomials of each moved
+// point are at most WEIGHT_EVAL_FACTOR dim W^2, dim W^2 being the size of a matrix of rho(s) (4 was the fastest
+// of 1/4, 1, 4, 16 and infinity, on the weights (1, 0) to (6, 3)); otherwise, when L_j has few automorphisms and
+// so H[c][j] is almost as large as W, from the matrices of rho(s), by the orbits of the automorphisms for T_p.
 static fmpq_mat_struct* hecke_matrices_weight_eval(const genus_t genus, const weight_rep_t W, const weight_space_t S,
 						   int p, int k)
 {
@@ -1682,11 +1899,9 @@ static fmpq_mat_struct* hecke_matrices_weight_eval(const genus_t genus, const we
   weight_bpoly_struct **bpoly, *Pj;
   weight_eval_points_struct E;
   weight_mom_struct*** mom;
-  fmpq **R;
-  fmpq_t acc, tmp;
   fmpz_t pa;
-  slong c, i, j, h, nb, b, nc, len, pt, m, r, col;
-  bool needed;
+  slong c, i, j, h, nb, b, nc, len, pt, m, r, col, npts;
+  bool needed, any_rho, any_eval, *by_rho;
 
   h = genus->genus_reps->num_stored;
   nb = (slong)1 << genus->spinor->num_primes;
@@ -1698,14 +1913,30 @@ static fmpq_mat_struct* hecke_matrices_weight_eval(const genus_t genus, const we
   fmpz_init(pa);
   fmpz_set_ui(pa, p);
   fmpz_pow_ui(pa, pa, (k == 1) ? W->a : 2 * W->a);
-  fmpq_init(acc);
-  fmpq_init(tmp);
 
-  // bpoly[c][i], the polynomials of the basis of H[c][i]
+  // the classes whose rows are found from the matrices of rho(s)
+  by_rho = (bool*)calloc((h > 0) ? h : 1, sizeof(bool));
+  any_rho = any_eval = false;
+  for (j = 0; j < h; j++) {
+    needed = false;
+    npts = WEIGHT_EVAL_CHECKS;
+    for (c = 0; c < nc; c++) {
+      needed = needed || (fmpq_mat_nrows(S->H[c] + j) > 0);
+      npts += fmpq_mat_nrows(S->H[c] + j);
+    }
+    if (!needed)
+      continue;
+    if ((double)npts * (double)len > WEIGHT_EVAL_FACTOR * (double)W->dim * (double)W->dim)
+      by_rho[j] = any_rho = true;
+    else
+      any_eval = true;
+  }
+
+  // bpoly[c][i], the polynomials of the basis of H[c][i], when some class is found by evaluation
   bpoly = (weight_bpoly_struct**)malloc(nc * sizeof(weight_bpoly_struct*));
   for (c = 0; c < nc; c++) {
     bpoly[c] = (weight_bpoly_struct*)malloc(h * sizeof(weight_bpoly_struct));
-    for (i = 0; i < h; i++)
+    for (i = 0; (i < h) && any_eval; i++)
       weight_bpoly_init(&(bpoly[c][i]), S->H[c] + i, W);
   }
   Pj = (weight_bpoly_struct*)malloc(nc * sizeof(weight_bpoly_struct));
@@ -1714,7 +1945,7 @@ static fmpq_mat_struct* hecke_matrices_weight_eval(const genus_t genus, const we
     needed = false;
     for (c = 0; c < nc; c++)
       needed = needed || (fmpq_mat_nrows(S->H[c] + j) > 0);
-    if (!needed)
+    if (!needed || by_rho[j])
       continue;
     for (c = 0; c < nc; c++)
       Pj[c] = bpoly[c][j];
@@ -1734,33 +1965,40 @@ static fmpq_mat_struct* hecke_matrices_weight_eval(const genus_t genus, const we
     for (c = 0; c < nc; c++) {
       if (Pj[c].rows == 0)
 	continue;
-      // R[pt][col], the value at the point pt of the image of the basis vector col, without p^a
-      R = (fmpq**)malloc(E.npts * sizeof(fmpq*));
-      for (pt = 0; pt < E.npts; pt++) {
-	R[pt] = _fmpq_vec_init((S->dims[c] > 0) ? S->dims[c] : 1);
-	weight_eval_pairing(R[pt], bpoly[c], S, c, mom[pt], h, nb, len);
-      }
-      for (col = 0; col < S->dims[c]; col++) {
-	for (m = 0; m < Pj[c].rows; m++) {
-	  fmpq_zero(acc);
-	  for (r = 0; r < Pj[c].rows; r++)
-	    fmpq_addmul(acc, fmpq_mat_entry(E.Einv + c, m, r), R[E.sel[c][r]] + col);
-	  fmpq_mul_fmpz(fmpq_mat_entry(T + c, S->offsets[c][j] + m, col), acc, pa);
+      // Rsel[r][col], the value at the r-th point of E[c] of the image of the basis vector col, without p^a, and
+      // Rchk the same at the points of the check; then the block is p^a Einv Rsel
+      {
+	fmpq_mat_t Rsel, Rchk, B, C;
+	slong d = (S->dims[c] > 0) ? S->dims[c] : 1;
+	fmpq* rr = _fmpq_vec_init(d);
+	fmpq_mat_init(Rsel, Pj[c].rows, S->dims[c]);
+	fmpq_mat_init(Rchk, WEIGHT_EVAL_CHECKS, S->dims[c]);
+	for (r = 0; r < Pj[c].rows + WEIGHT_EVAL_CHECKS; r++) {
+	  pt = (r < Pj[c].rows) ? E.sel[c][r] : E.npts - WEIGHT_EVAL_CHECKS + (r - Pj[c].rows);
+	  weight_eval_pairing(rr, bpoly[c], S, c, mom[pt], h, nb, len);
+	  for (col = 0; col < S->dims[c]; col++)
+	    fmpq_set((r < Pj[c].rows) ? fmpq_mat_entry(Rsel, r, col) : fmpq_mat_entry(Rchk, r - Pj[c].rows, col),
+		     rr + col);
 	}
-	// the check: F_U at the last point is the combination of the values there of the basis of H[c][j]
-	fmpq_zero(acc);
-	for (m = 0; m < Pj[c].rows; m++) {
-	  fmpq_div_fmpz(tmp, fmpq_mat_entry(T + c, S->offsets[c][j] + m, col), pa);
-	  fmpq_addmul(acc, tmp, E.chk[c] + m);
-	}
-	if (!fmpq_equal(acc, R[E.npts - 1] + col)) {
+	_fmpq_vec_clear(rr, d);
+	fmpq_mat_init(B, Pj[c].rows, S->dims[c]);
+	fmpq_mat_mul(B, E.Einv + c, Rsel);
+	// the check: F_U at the points of the check is the combination of the values there of the basis of
+	// H[c][j]
+	fmpq_mat_init(C, WEIGHT_EVAL_CHECKS, S->dims[c]);
+	fmpq_mat_mul(C, E.chk + c, B);
+	if (!fmpq_mat_equal(C, Rchk)) {
 	  fprintf(stderr, "Error: at the conductor index %ld, the image of a form under a Hecke operator is not invariant under the automorphisms of the lattice\n", (long)c);
 	  exit(EXIT_FAILURE);
 	}
+	for (m = 0; m < Pj[c].rows; m++)
+	  for (col = 0; col < S->dims[c]; col++)
+	    fmpq_mul_fmpz(fmpq_mat_entry(T + c, S->offsets[c][j] + m, col), fmpq_mat_entry(B, m, col), pa);
+	fmpq_mat_clear(Rsel);
+	fmpq_mat_clear(Rchk);
+	fmpq_mat_clear(B);
+	fmpq_mat_clear(C);
       }
-      for (pt = 0; pt < E.npts; pt++)
-	_fmpq_vec_clear(R[pt], (S->dims[c] > 0) ? S->dims[c] : 1);
-      free(R);
     }
 
     for (pt = 0; pt < E.npts; pt++) {
@@ -1772,28 +2010,30 @@ static fmpq_mat_struct* hecke_matrices_weight_eval(const genus_t genus, const we
       free(mom[pt]);
     }
     free(mom);
-    weight_eval_points_clear(&E, Pj);
+    weight_eval_points_clear(&E);
   }
 
+  if (any_rho)
+    hecke_weight_rho_classes(T, genus, W, S, p, k, by_rho, true);
+  free(by_rho);
+
   for (c = 0; c < nc; c++) {
-    for (i = 0; i < h; i++)
+    for (i = 0; (i < h) && any_eval; i++)
       weight_bpoly_clear(&(bpoly[c][i]));
     free(bpoly[c]);
   }
   free(bpoly);
   free(Pj);
-  fmpq_clear(acc);
-  fmpq_clear(tmp);
   fmpz_clear(pa);
   return T;
 }
 
-// The matrices of T_{p^k} by the matrices of rho(s) on W, with every neighbor of nbr_data tested for
-// isometry: the definition, for the tests of hecke_matrices_weight_eval.
-static fmpq_mat_struct* hecke_matrices_weight_impl(const genus_t genus, const weight_rep_t W,
-						   const weight_space_t S, int p, int k)
+// Adds to the matrices T of T_{p^k} the rows of the classes j with classes[j] true, from the matrices of rho(s)
+// on W: for k = 1 with use_orbits by the orbits of the automorphisms of L_j (weight_sums_orbits), and otherwise
+// summed over every neighbor of nbr_data, each tested for isometry.
+static void hecke_weight_rho_classes(fmpq_mat_struct* T, const genus_t genus, const weight_rep_t W,
+				     const weight_space_t S, int p, int k, const bool* classes, bool use_orbits)
 {
-  fmpq_mat_struct* T;
   fmpq_mat_t** acc;
   fmpq_mat_t R, M;
   nbr_data_t nbr_man;
@@ -1809,9 +2049,6 @@ static fmpq_mat_struct* hecke_matrices_weight_impl(const genus_t genus, const we
 
   h = genus->genus_reps->num_stored;
   nb = (slong)1 << genus->spinor->num_primes;
-  T = (fmpq_mat_struct*)malloc(genus->num_conductors * sizeof(fmpq_mat_struct));
-  for (c = 0; c < genus->num_conductors; c++)
-    fmpq_mat_init(T + c, S->dims[c], S->dims[c]);
 
   fmpz_init(pa);
   // fmpz_ui_pow_ui is not in flint 2.9
@@ -1840,7 +2077,7 @@ static fmpq_mat_struct* hecke_matrices_weight_impl(const genus_t genus, const we
 
   for (j = 0; j < h; j++) {
     needed = false;
-    for (c = 0; c < genus->num_conductors; c++)
+    for (c = 0; (c < genus->num_conductors) && classes[j]; c++)
       needed = needed || (fmpq_mat_nrows(S->H[c] + j) > 0);
     if (!needed)
       continue;
@@ -1848,6 +2085,11 @@ static fmpq_mat_struct* hecke_matrices_weight_impl(const genus_t genus, const we
       for (b = 0; b < nb; b++)
 	fmpq_mat_zero(acc[i][b]);
 
+    // the orbits are taken for T_p, also at the primes dividing the discriminant, as for the Hecke
+    // matrices of the weight 0 (hecke_col_all_conductors)
+    if (use_orbits && (k == 1))
+      weight_sums_orbits(acc, genus, W, j, p, pa);
+    else {
     nbr_data_init(nbr_man, genus->genus_reps->keys[j], p, k);
     while (!nbr_data_has_ended(nbr_man)) {
       // the isometry from the first lattice to itself through this neighbor, as in
@@ -1869,6 +2111,7 @@ static fmpq_mat_struct* hecke_matrices_weight_impl(const genus_t genus, const we
       nbr_data_get_next_neighbor(nbr_man);
     }
     nbr_data_clear(nbr_man);
+    }
 
     for (c = 0; c < genus->num_conductors; c++) {
       if (fmpq_mat_nrows(S->H[c] + j) == 0)
@@ -1899,6 +2142,25 @@ static fmpq_mat_struct* hecke_matrices_weight_impl(const genus_t genus, const we
   fmpz_mat_clear(nbr_fmpz);
   fmpz_mat_clear(nbr_isom);
   fmpz_clear(pa);
+}
+
+// The matrices of T_{p^k} by the matrices of rho(s) on W, with every neighbor of nbr_data tested for
+// isometry: the definition, for the tests of hecke_matrices_weight_eval.
+static fmpq_mat_struct* hecke_matrices_weight_impl(const genus_t genus, const weight_rep_t W,
+						   const weight_space_t S, int p, int k)
+{
+  fmpq_mat_struct* T;
+  bool* classes;
+  slong c, j, h = genus->genus_reps->num_stored;
+
+  T = (fmpq_mat_struct*)malloc(genus->num_conductors * sizeof(fmpq_mat_struct));
+  for (c = 0; c < genus->num_conductors; c++)
+    fmpq_mat_init(T + c, S->dims[c], S->dims[c]);
+  classes = (bool*)malloc((h > 0 ? h : 1) * sizeof(bool));
+  for (j = 0; j < h; j++)
+    classes[j] = true;
+  hecke_weight_rho_classes(T, genus, W, S, p, k, classes, false);
+  free(classes);
   return T;
 }
 
