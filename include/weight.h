@@ -125,11 +125,16 @@ void weight_space_clear(weight_space_t S);
 // eigenvalues algebraic integers. Returns an array of genus->num_conductors matrices, to be cleared and
 // freed by the caller. The neighbors are taken by orbits of the automorphisms of each lattice, so only one
 // neighbor of each orbit is tested for isometry, also when p divides the discriminant; the characters are
-// then those of the weight 0.
+// then those of the weight 0. The blocks are found from the values of the polynomials of the forms at the
+// points moved by the neighbors, at as many points as the dimension of the block and one more for a check,
+// without a matrix of the action on W.
 fmpq_mat_struct* hecke_matrices_weight(const genus_t genus, const weight_rep_t W, const weight_space_t S, int p);
 
-// The same, with every neighbor tested for isometry (the neighbors of nbr_data). For tests.
-fmpq_mat_struct* hecke_matrices_weight_by_neighbor(const genus_t genus, const weight_rep_t W, const weight_space_t S, int p);
+// The matrices of T_p (k = 1) or T_{p^2} (k = 2) from the matrices of rho(s) on W, summed over every
+// neighbor of nbr_data, each tested for isometry. Much slower, and for tests: hecke_matrices_weight and
+// hecke_matrices_weight_square evaluate the polynomials of the forms at the moved points instead.
+fmpq_mat_struct* hecke_matrices_weight_by_rho(const genus_t genus, const weight_rep_t W, const weight_space_t S, int p,
+					      int k);
 
 // The matrices of T_{p^2}, the operator of the p^2-neighbors, with the normalization p^(2a): the
 // eigenvalues are algebraic integers, and when p does not divide the discriminant the factor at p of the

@@ -776,9 +776,9 @@ static STATUS test_weight_of(const Z64* Q_coeffs, int a, int b, slong c, slong d
   return test_weight_of_k(Q_coeffs, a, b, c, dim, p, 1, tr);
 }
 
-// The Hecke matrices of the weight (a, b) by orbits of the automorphisms and neighbor by neighbor
-// have to be the same, at every conductor.
-static STATUS test_weight_orbits_of(const Z64* Q_coeffs, int a, int b, int p)
+// The Hecke matrices of T_{p^k} of the weight (a, b) by evaluation (by orbits of the automorphisms for
+// k = 1) and from the matrices of rho(s), neighbor by neighbor, have to be the same, at every conductor.
+static STATUS test_weight_orbits_of_k(const Z64* Q_coeffs, int a, int b, int p, int k)
 {
   genus_t genus;
   weight_rep_t W;
@@ -790,8 +790,8 @@ static STATUS test_weight_orbits_of(const Z64* Q_coeffs, int a, int b, int p)
   compute_genus(genus, Q_coeffs, "GG", false);
   weight_rep_init(W, a, b, genus->genus_reps->keys[0]);
   weight_space_init(S, genus, W);
-  T1 = hecke_matrices_weight(genus, W, S, p);
-  T2 = hecke_matrices_weight_by_neighbor(genus, W, S, p);
+  T1 = (k == 1) ? hecke_matrices_weight(genus, W, S, p) : hecke_matrices_weight_square(genus, W, S, p);
+  T2 = hecke_matrices_weight_by_rho(genus, W, S, p, k);
   ret = SUCCESS;
   for (c = 0; c < genus->num_conductors; c++) {
     if (!fmpq_mat_equal(T1 + c, T2 + c))
@@ -805,6 +805,11 @@ static STATUS test_weight_orbits_of(const Z64* Q_coeffs, int a, int b, int p)
   weight_rep_clear(W);
   genus_clear(genus);
   return ret;
+}
+
+static STATUS test_weight_orbits_of(const Z64* Q_coeffs, int a, int b, int p)
+{
+  return test_weight_orbits_of_k(Q_coeffs, a, b, p, 1);
 }
 
 // Weights (1, 0), (2, 0), (1, 1) and (2, 1): the values of T_p are those of Magma's ModFrmAlg (core,
@@ -886,6 +891,12 @@ STATUS test_weight()
   ret |= test_weight_orbits_of(Q124, 1, 1, 31);
   ret |= test_weight_orbits_of(Q52, 2, 1, 2);
   ret |= test_weight_orbits_of(Q124, 1, 0, 2);
+  // T_{p^2}, also at primes dividing the discriminant
+  ret |= test_weight_orbits_of_k(Q83, 1, 1, 2, 2);
+  ret |= test_weight_orbits_of_k(Q61, 2, 1, 2, 2);
+  ret |= test_weight_orbits_of_k(Q39, 2, 1, 3, 2);
+  ret |= test_weight_orbits_of_k(Q52, 1, 1, 2, 2);
+  ret |= test_weight_orbits_of_k(Q124, 1, 0, 2, 2);
 
   return ret;
 }
