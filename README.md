@@ -28,7 +28,12 @@ We also use the CARAT package for working with lattices
   Versions of flint older than 2.9 are not supported)
 - [CARAT](https://github.com/lbfm-rwth/carat)
 
-On x86-64 the code is compiled with `-msse3 -mavx`, so it needs a processor with AVX.
+On x86-64 the code is compiled with `-msse3 -mavx` when the processor of the build has AVX, and
+without them otherwise; a binary built with them does not run on a processor without AVX.
+
+`configure` checks that the flint library found by the linker is the one of the flint headers. If
+the `-L` of a default path (`/usr/local/`) puts another libflint first, it leaves out the `-L` of
+the paths that were not set, and stops with an error if that does not help.
 
 The continuous integration builds and tests the code on:
 

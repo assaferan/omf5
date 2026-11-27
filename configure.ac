@@ -37,7 +37,16 @@ AM_CONDITIONAL([LINUX], [test "$build_linux" = "yes"])
 AM_CONDITIONAL([WINDOWS], [test "$build_windows" = "yes"])
 AM_CONDITIONAL([OSX], [test "$build_mac" = "yes"])
 
-# x86-specific optimization flags (-msse3 -mavx) are not valid elsewhere (e.g. arm64)
+dnl
+dnl C is the language
+dnl
+: ${CFLAGS=""}
+AC_PROG_CC
+
+# x86-specific optimization flags (-msse3 -mavx) are not valid elsewhere (e.g. arm64),
+# and only for a CPU with AVX: elsewhere omf5 would stop at once with SIGILL. They
+# are used when the CPU of the build has AVX (not checked when cross compiling, and
+# then not used); a binary built with them does not run on a CPU without AVX.
 case "${host_cpu}" in
     x86_64|i?86)
         build_x86=yes
@@ -46,14 +55,17 @@ case "${host_cpu}" in
         build_x86=no
         ;;
 esac
+if test "$build_x86" = "yes"; then
+   AC_MSG_CHECKING([whether the CPU has SSE3 and AVX, for -msse3 -mavx])
+   AC_RUN_IFELSE([AC_LANG_PROGRAM([[]],
+     [[__builtin_cpu_init();
+       return !(__builtin_cpu_supports("sse3") && __builtin_cpu_supports("avx"));]])],
+     [AC_MSG_RESULT([yes])],
+     [AC_MSG_RESULT([no, building without them]); build_x86=no],
+     [AC_MSG_RESULT([not checked, cross compiling; building without them]); build_x86=no])
+fi
 
 AM_CONDITIONAL([X86], [test "$build_x86" = "yes"])
-
-dnl
-dnl C is the language
-dnl
-: ${CFLAGS=""}
-AC_PROG_CC
 AC_LANG([C])
 
 dnl
