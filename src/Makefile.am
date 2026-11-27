@@ -4,7 +4,7 @@ bin_PROGRAMS = omf5 # omf5_dbg omf5_dbg_full omf5_nbr_data omf5_nbr_data_dbg omf
 # DEPS_CPPFLAGS and DEPS_LDFLAGS are set by configure, flint first,
 # and with antic only for flint 2.x, so that the build compiles against
 # the flint headers that configure checked. configure also checks that
-# the libflint found through DEPS_LDFLAGS and CARAT_LDFLAGS, which come
+# the libflint found through DEPS_LDFLAGS and CARAT_LD_FLAGS, which come
 # before the user's LDFLAGS in the link, is the one of these headers.
 ALL_CFLAGS = -I$(top_srcdir)/include @DEPS_CPPFLAGS@ -Wall -Werror
 
@@ -32,7 +32,12 @@ DBG_CFLAGS += ${ALL_CFLAGS}
 DBG_FULL_CFLAGS = -DDEBUG_LEVEL_FULL
 DBG_FULL_CFLAGS += ${DBG_CFLAGS}
 
-ALL_LD_FLAGS = @DEPS_LDFLAGS@ @CARAT_LDFLAGS@
+# The -L of CARAT, unless configure left out the default CARAT_PATH; CARAT_PATH
+# can still be changed when calling make.
+if CARAT_LDIRS
+CARAT_LD_FLAGS = -L${CARAT_PATH}/lib -L${CARAT_PATH}
+endif
+ALL_LD_FLAGS = @DEPS_LDFLAGS@ $(CARAT_LD_FLAGS)
 
 # The libraries must come after the objects on the link line (LDADD, not LDFLAGS),
 # otherwise GNU ld drops the static libfunctions.a of CARAT.

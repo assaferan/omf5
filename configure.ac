@@ -196,11 +196,21 @@ AC_MSG_CHECKING([whether a program links with -lflint -lgmp -lm])
 AC_LINK_IFELSE([OMF5_FLINT_VERSION_PROGRAM],
   [AC_MSG_RESULT([yes])],
   [AC_MSG_RESULT([no])
-   AC_MSG_ERROR([cannot link a program with -lflint -lgmp -lm and $LDFLAGS; set FLINT_PATH and GMP_PATH to the installations of flint and gmp])])
+   omf5_ld=`echo $LDFLAGS`
+   AC_MSG_ERROR([cannot link a program with -lflint -lgmp -lm and the flags ${omf5_ld:-none}; set FLINT_PATH and GMP_PATH to the installations of flint and gmp])])
 AC_MSG_CHECKING([whether the flint library linked matches the flint headers])
+dnl a version mismatch exits with status 1; any other failure means that
+dnl the program did not run, typically because libflint is not on the
+dnl path of the runtime loader, and the check is then skipped
 AC_RUN_IFELSE([OMF5_FLINT_VERSION_PROGRAM],
   [AC_MSG_RESULT([yes]); flint_link=yes],
-  [AC_MSG_RESULT([no]); flint_link=no],
+  [if test "$ac_status" = 1; then
+      AC_MSG_RESULT([no]); flint_link=no
+   else
+      AC_MSG_RESULT([not checked, the test program did not run (status $ac_status)])
+      AC_MSG_WARN([could not run a program linked with flint, so the flint library was not checked against its headers; omf5 needs libflint on the path of the runtime loader, for instance through LD_LIBRARY_PATH or an rpath in LDFLAGS])
+      flint_link=yes
+   fi],
   [AC_MSG_RESULT([not checked, cross compiling]); flint_link=yes])
 if test "$flint_link" = "no"; then
    DEPS_LDFLAGS=""
@@ -215,15 +225,23 @@ if test "$flint_link" = "no"; then
    AC_RUN_IFELSE([OMF5_FLINT_VERSION_PROGRAM],
      [AC_MSG_RESULT([yes])],
      [AC_MSG_RESULT([no])
-      AC_MSG_ERROR([the flint library found by the linker is not the flint of ${FLINT_PATH}/include, or it cannot be loaded: another libflint may come first on the library path; set FLINT_PATH, GMP_PATH and CARAT_PATH to installations without another libflint])],
+      AC_MSG_ERROR([the flint library found by the linker is not the flint of ${FLINT_PATH}/include, or a program linked with it does not run (status $ac_status): another libflint may come first on the library path; set FLINT_PATH, GMP_PATH and CARAT_PATH to installations without another libflint])],
      [AC_MSG_RESULT([not checked, cross compiling])])
 fi
+dnl CARAT's libfunctions, with the -L kept above
+LIBS="-lfunctions $save_LIBS"
+AC_MSG_CHECKING([whether a program links with -lfunctions of CARAT])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[]])],
+  [AC_MSG_RESULT([yes])],
+  [AC_MSG_RESULT([no])
+   omf5_ld=`echo $LDFLAGS`
+   AC_MSG_ERROR([cannot link with -lfunctions, the library of CARAT, and the flags ${omf5_ld:-none}; set CARAT_PATH to the CARAT installation])])
 LDFLAGS="$save_LDFLAGS"
 LIBS="$save_LIBS"
 
 CPPFLAGS="$save_CPPFLAGS"
 AC_SUBST([DEPS_CPPFLAGS])
 AC_SUBST([DEPS_LDFLAGS])
-AC_SUBST([CARAT_LDFLAGS])
+AM_CONDITIONAL([CARAT_LDIRS], [test -n "$CARAT_LDFLAGS"])
 AC_SUBST([ANTIC_LIBS])
 AC_OUTPUT()
