@@ -98,6 +98,7 @@ void hash_table_init(hash_table_t table, hash_t hash_size)
   table->num_stored = 0;
   table->theta_prec = INITIAL_THETA_PREC;
   table->red_on_isom = TRUE;
+  table->isom_cache = NULL;
 
   for (i = 0; i < 2*table->capacity; i++) {
     table->key_ptr[i] = -1;
@@ -539,6 +540,135 @@ int hash_table_indexof(const hash_table_t table, const square_matrix_t key, int 
   return -1;
 }
 
+// ---- The cache of hash_table_index_and_isom ----
+//
+// The neighbors of the lattices of a genus reduce to few forms: at D = 148 and the weight (2, 1), 4.4
+// million neighbors with -prec=100 reduce to 397 forms. The class of a form is unique, and the isometry
+// which is_isometric finds from it to a key of the table depends only on the two forms, so the cache
+// keeps, for each reduced form found, the offset of its class and that isometry: the lookup then gives
+// what the search gives. It holds at most ISOM_CACHE_MAX forms (about 35 MB), and is cleared with the table.
+// is_isometric gives CARAT no automorphisms, so its search does not use rand() and depends on nothing but
+// the two forms; if it is ever given generators of a group, the cache has to be checked again.
+
+#define ISOM_CACHE_MAX (1 << 16)
+#define ISOM_CACHE_LEN (QF_RANK * (QF_RANK + 1) / 2)
+
+typedef struct {
+  slong cap, n;
+  Z64* forms;              // ISOM_CACHE_LEN entries for each slot, the upper triangle of the form
+  int* offsets;            // the offset of the class, or -1 for an empty slot
+  isometry_struct* isoms;  // the isometry from the form to the key of the class
+} isom_cache_struct;
+
+static void isom_cache_form(Z64* v, const square_matrix_t q)
+{
+  int r, c, k = 0;
+  for (r = 0; r < QF_RANK; r++)
+    for (c = r; c < QF_RANK; c++)
+      v[k++] = q[r][c];
+}
+
+static slong isom_cache_slot(const isom_cache_struct* C, const Z64* v)
+{
+  ulong h = UWORD(1469598103934665603);
+  slong slot;
+  int k;
+  for (k = 0; k < ISOM_CACHE_LEN; k++)
+    h = (h ^ (ulong)v[k]) * UWORD(1099511628211);
+  for (slot = (slong)(h & (ulong)(C->cap - 1)); C->offsets[slot] >= 0; slot = (slot + 1) & (C->cap - 1)) {
+    for (k = 0; (k < ISOM_CACHE_LEN) && (C->forms[ISOM_CACHE_LEN * slot + k] == v[k]); k++);
+    if (k == ISOM_CACHE_LEN)
+      break;
+  }
+  return slot;
+}
+
+static void isom_cache_alloc(isom_cache_struct* C, slong cap)
+{
+  slong i;
+  C->cap = cap;
+  C->n = 0;
+  C->forms = (Z64*)malloc(cap * ISOM_CACHE_LEN * sizeof(Z64));
+  C->offsets = (int*)malloc(cap * sizeof(int));
+  C->isoms = (isometry_struct*)malloc(cap * sizeof(isometry_struct));
+  for (i = 0; i < cap; i++)
+    C->offsets[i] = -1;
+}
+
+static void isom_cache_free(isom_cache_struct* C)
+{
+  free(C->forms);
+  free(C->offsets);
+  free(C->isoms);
+}
+
+static void isom_cache_clear(hash_table_t table)
+{
+  if (table->isom_cache != NULL) {
+    isom_cache_free((isom_cache_struct*)table->isom_cache);
+    free(table->isom_cache);
+    table->isom_cache = NULL;
+  }
+}
+
+// the offset of the class of the reduced form q and the isometry from q to its key, or -1
+static int isom_cache_find(isometry_t isom, const hash_table_t table, const square_matrix_t q)
+{
+  const isom_cache_struct* C = (const isom_cache_struct*)table->isom_cache;
+  Z64 v[ISOM_CACHE_LEN];
+  slong slot;
+  if (C == NULL)
+    return -1;
+  isom_cache_form(v, q);
+  slot = isom_cache_slot(C, v);
+  if (C->offsets[slot] < 0)
+    return -1;
+  isom[0] = C->isoms[slot];
+  return C->offsets[slot];
+}
+
+static void isom_cache_add(const hash_table_t table, const square_matrix_t q, int offset, const isometry_t isom)
+{
+  // the table is const for its keys; the cache it points to is not
+  hash_table* T = (hash_table*)table;
+  isom_cache_struct* C = (isom_cache_struct*)T->isom_cache;
+  Z64 v[ISOM_CACHE_LEN];
+  slong slot, i;
+  int k;
+  if (C == NULL) {
+    C = (isom_cache_struct*)malloc(sizeof(isom_cache_struct));
+    isom_cache_alloc(C, 1024);
+    T->isom_cache = C;
+  }
+  if (2 * (C->n + 1) > C->cap) {
+    // at most half full: twice as many slots, up to twice ISOM_CACHE_MAX
+    isom_cache_struct D;
+    if (C->cap >= 2 * ISOM_CACHE_MAX)
+      return;
+    isom_cache_alloc(&D, 2 * C->cap);
+    for (i = 0; i < C->cap; i++)
+      if (C->offsets[i] >= 0) {
+	slot = isom_cache_slot(&D, C->forms + ISOM_CACHE_LEN * i);
+	for (k = 0; k < ISOM_CACHE_LEN; k++)
+	  D.forms[ISOM_CACHE_LEN * slot + k] = C->forms[ISOM_CACHE_LEN * i + k];
+	D.offsets[slot] = C->offsets[i];
+	D.isoms[slot] = C->isoms[i];
+	D.n++;
+      }
+    isom_cache_free(C);
+    *C = D;
+  }
+  isom_cache_form(v, q);
+  slot = isom_cache_slot(C, v);
+  if (C->offsets[slot] >= 0)
+    return;
+  for (k = 0; k < ISOM_CACHE_LEN; k++)
+    C->forms[ISOM_CACHE_LEN * slot + k] = v[k];
+  C->offsets[slot] = offset;
+  C->isoms[slot] = isom[0];
+  C->n++;
+}
+
 /* Returns also an isometry between the lattices */
 
 int hash_table_index_and_isom(const hash_table_t table, const square_matrix_t key, isometry_t isom,
@@ -561,6 +691,16 @@ int hash_table_index_and_isom(const hash_table_t table, const square_matrix_t ke
     assert(isometry_is_isom(s, key, key_copy));
 #endif // DEBUG_LEVEL_FULL
   }
+  offset = isom_cache_find(isom, table, key_copy);
+  if (offset >= 0) {
+    (*num_isom)++;
+    if (table->red_on_isom) {
+      isometry_muleq_left(isom, s);
+      isometry_clear(s);
+    }
+    (*theta_time) += clock() - cputime;
+    return offset;
+  }
   value = hash_form(key_copy, table->theta_prec);
   (*theta_time) += clock() - cputime;
   index = value & table->mask;
@@ -577,6 +717,7 @@ int hash_table_index_and_isom(const hash_table_t table, const square_matrix_t ke
 #ifdef DEBUG_LEVEL_FULL
 	  assert(isometry_is_isom(isom, key_copy, table->keys[offset]));
 #endif // DEBUG_LEVEL_FULL
+	  isom_cache_add(table, key_copy, offset, isom);
 	  if (table->red_on_isom) {
 	    isometry_muleq_left(isom, s);
 #ifdef DEBUG_LEVEL_FULL
@@ -651,6 +792,7 @@ void hash_table_clear(hash_table_t table)
     fmpq_clear(table->probs[i]);
   free(table->probs);
   free(table->counts);
+  isom_cache_clear(table);
 
   return;
 }
