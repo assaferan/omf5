@@ -1244,11 +1244,20 @@ static void weight_sums_orbits(fmpq_mat_t** acc, const genus_t genus, const weig
 static const Z64 weight_x0[QF_RANK] = {1, 3, -2, 5, 7};
 static const Z64 weight_y0[QF_RANK] = {2, -1, 4, -3, 1};
 
-// the sums of the values of the monomials, with a numerator vector for each denominator
+// the sums of the values of the monomials, with a numerator vector for each denominator. With 128-bit
+// integers, the values of the points whose coordinates and monomials fit in 64 bits are added to acc[e]
+// first, and weight_mom_flush adds acc[e] to nums[e]: nums is read only after weight_moments, which flushes.
+#ifdef __SIZEOF_INT128__
+#define WEIGHT_MOM_ACC
+#endif
+
 typedef struct {
   slong n, cap, len;
   fmpz* dens;
   fmpz** nums;
+#ifdef WEIGHT_MOM_ACC
+  __int128** acc;
+#endif
 } weight_mom_struct;
 
 static void weight_mom_init(weight_mom_struct* A, slong len)
@@ -1258,6 +1267,9 @@ static void weight_mom_init(weight_mom_struct* A, slong len)
   A->len = len;
   A->dens = NULL;
   A->nums = NULL;
+#ifdef WEIGHT_MOM_ACC
+  A->acc = NULL;
+#endif
 }
 
 static void weight_mom_clear(weight_mom_struct* A)
@@ -1266,13 +1278,19 @@ static void weight_mom_clear(weight_mom_struct* A)
   for (e = 0; e < A->n; e++) {
     fmpz_clear(A->dens + e);
     _fmpz_vec_clear(A->nums[e], A->len);
+#ifdef WEIGHT_MOM_ACC
+    free(A->acc[e]);
+#endif
   }
   free(A->dens);
   free(A->nums);
+#ifdef WEIGHT_MOM_ACC
+  free(A->acc);
+#endif
 }
 
-// adds vec / d
-static void weight_mom_add(weight_mom_struct* A, const fmpz_t d, const fmpz* vec)
+// the index of the denominator d in A, which is added (with a zero numerator) if it is not there
+static slong weight_mom_den(weight_mom_struct* A, const fmpz_t d)
 {
   slong e;
   for (e = 0; (e < A->n) && !fmpz_equal(A->dens + e, d); e++);
@@ -1282,14 +1300,55 @@ static void weight_mom_add(weight_mom_struct* A, const fmpz_t d, const fmpz* vec
       A->cap = (A->cap == 0) ? 4 : 2 * A->cap;
       A->dens = (fmpz*)realloc(A->dens, A->cap * sizeof(fmpz));
       A->nums = (fmpz**)realloc(A->nums, A->cap * sizeof(fmpz*));
+#ifdef WEIGHT_MOM_ACC
+      A->acc = (__int128**)realloc(A->acc, A->cap * sizeof(__int128*));
+#endif
       for (t = A->n; t < A->cap; t++)
 	fmpz_init(A->dens + t);
     }
     fmpz_set(A->dens + e, d);
     A->nums[e] = _fmpz_vec_init(A->len);
+#ifdef WEIGHT_MOM_ACC
+    A->acc[e] = (__int128*)calloc((A->len > 0) ? A->len : 1, sizeof(__int128));
+#endif
     A->n++;
   }
+  return e;
+}
+
+// adds vec / d
+static void weight_mom_add(weight_mom_struct* A, const fmpz_t d, const fmpz* vec)
+{
+  slong e = weight_mom_den(A, d);
   _fmpz_vec_add(A->nums[e], A->nums[e], vec, A->len);
+}
+
+#ifdef WEIGHT_MOM_ACC
+static void weight_fmpz_add_int128(fmpz_t f, __int128 x)
+{
+  fmpz_t t;
+  unsigned __int128 u = (unsigned __int128)x;
+  fmpz_init(t);
+  fmpz_set_signed_uiui(t, (ulong)(u >> 64), (ulong)u);
+  fmpz_add(f, f, t);
+  fmpz_clear(t);
+}
+#endif
+
+// adds the 128-bit sums of A to its numerators
+static void weight_mom_flush(weight_mom_struct* A)
+{
+#ifdef WEIGHT_MOM_ACC
+  slong e, m;
+  for (e = 0; e < A->n; e++)
+    for (m = 0; m < A->len; m++)
+      if (A->acc[e][m] != 0) {
+	weight_fmpz_add_int128(A->nums[e] + m, A->acc[e][m]);
+	A->acc[e][m] = 0;
+      }
+#else
+  (void)A;
+#endif
 }
 
 // vec[kx * ny + ky] = X^ex[kx] Y^ey[ky], the bimonomials of bidegree (a, b) at the integral point (X, Y)
@@ -1340,6 +1399,95 @@ static int weight_isom_sign(const weight_rep_t W, const isometry_t s)
   return sign;
 }
 
+#ifdef WEIGHT_MOM_ACC
+#define WEIGHT_MOM_MAXDEG 8
+// the monomials of degree 5 in 5 variables: C(9, 4) = 126
+#define WEIGHT_MOM_MAXMON 126
+// the values of the monomials of degree e at the point (x_r), in 64 bits: false on an overflow or when the
+// absolute value of one of them reaches 2^62, so that a product of two of them fits in 128 bits
+static bool weight_mon_values_64(slong* m, const ulong* ex, slong n, int deg, const slong* x)
+{
+  slong pw[QF_RANK][WEIGHT_MOM_MAXDEG + 1], v;
+  const slong lim = WORD(1) << 62;
+  slong kx;
+  int r, t;
+  for (r = 0; r < QF_RANK; r++) {
+    pw[r][0] = 1;
+    for (t = 1; t <= deg; t++) {
+      if (__builtin_mul_overflow(pw[r][t - 1], x[r], &(pw[r][t])) || (pw[r][t] >= lim) || (pw[r][t] <= -lim))
+	return false;
+    }
+  }
+  for (kx = 0; kx < n; kx++) {
+    v = 1;
+    for (r = 0; r < QF_RANK; r++)
+      if (ex[QF_RANK * kx + r] > 0)
+	if (__builtin_mul_overflow(v, pw[r][ex[QF_RANK * kx + r]], &v) || (v >= lim) || (v <= -lim))
+	  return false;
+    m[kx] = v;
+  }
+  return true;
+}
+
+// weight_mom_point in 64 bits, adding to the 128-bit sums of A = mom[i][bits]: false, with nothing added,
+// when a number does not fit. The denominator and its index are those which weight_mom_point finds.
+static bool weight_mom_point_64(weight_mom_struct* A, int sign, const weight_rep_t W, const isometry_t s,
+				const fmpz* TX, const fmpz* TY, const fmpz_t dt)
+{
+  slong X[QF_RANK], Y[QF_RANK], tx[QF_RANK], ty[QF_RANK], xm[WEIGHT_MOM_MAXMON], ym[WEIGHT_MOM_MAXMON], D, d, u;
+  slong e, kx, ky;
+  int r, k, t;
+  fmpz_t df;
+  __int128 *acc, prod, sum;
+
+  if ((W->a > WEIGHT_MOM_MAXDEG) || (W->b > WEIGHT_MOM_MAXDEG) || (W->nx > WEIGHT_MOM_MAXMON) || (W->ny > WEIGHT_MOM_MAXMON) ||
+      !fmpz_fits_si(dt))
+    return false;
+  for (r = 0; r < QF_RANK; r++) {
+    if (!fmpz_fits_si(TX + r) || !fmpz_fits_si(TY + r))
+      return false;
+    tx[r] = fmpz_get_si(TX + r);
+    ty[r] = fmpz_get_si(TY + r);
+  }
+  for (r = 0; r < QF_RANK; r++) {
+    X[r] = Y[r] = 0;
+    for (k = 0; k < QF_RANK; k++) {
+      if (__builtin_mul_overflow(tx[k], (slong)s->s_inv[r][k], &u) || __builtin_add_overflow(X[r], u, &(X[r])) ||
+	  __builtin_mul_overflow(ty[k], (slong)s->s_inv[r][k], &u) || __builtin_add_overflow(Y[r], u, &(Y[r])))
+	return false;
+    }
+  }
+  if (__builtin_mul_overflow(fmpz_get_si(dt), (slong)s->inv_denom, &D))
+    return false;
+  d = 1;
+  for (t = 0; t < W->a + W->b; t++)
+    if (__builtin_mul_overflow(d, D, &d))
+      return false;
+  if ((d == WORD_MIN) || !weight_mon_values_64(xm, W->ex, W->nx, W->a, X) ||
+      !weight_mon_values_64(ym, W->ey, W->ny, W->b, Y))
+    return false;
+  if (sign < 0)
+    d = -d;
+  fmpz_init_set_si(df, d);
+  e = weight_mom_den(A, df);
+  fmpz_clear(df);
+  acc = A->acc[e];
+  for (kx = 0; kx < W->nx; kx++)
+    for (ky = 0; ky < W->ny; ky++) {
+      prod = (__int128)xm[kx] * (__int128)ym[ky];
+      // the builtin stores the wrapped sum on an overflow, so the sum goes to a temporary
+      if (__builtin_add_overflow(acc[kx * W->ny + ky], prod, &sum)) {
+	// acc + prod does not fit: acc goes to the numerator, and prod stays
+	weight_fmpz_add_int128(A->nums[e] + kx * W->ny + ky, acc[kx * W->ny + ky]);
+	acc[kx * W->ny + ky] = prod;
+      }
+      else
+	acc[kx * W->ny + ky] = sum;
+    }
+  return true;
+}
+#endif
+
 // the contribution of the isometry s to the neighbor class i, with the point (t^(-1) x0, t^(-1) y0) given as
 // the integral vectors TX, TY over dt: adds the values at (h TX / dt, h TY / dt), h = s^(-1), to mom[i][bits]
 static void weight_mom_point(weight_mom_struct** mom, slong i, W64 bits, int sign, const weight_rep_t W,
@@ -1350,6 +1498,10 @@ static void weight_mom_point(weight_mom_struct** mom, slong i, W64 bits, int sig
   fmpz_t D, d;
   int r, k;
 
+#ifdef WEIGHT_MOM_ACC
+  if (weight_mom_point_64(mom[i] + bits, sign, W, s, TX, TY, dt))
+    return;
+#endif
   for (r = 0; r < QF_RANK; r++) {
     fmpz_init(X + r);
     fmpz_init(Y + r);
@@ -1392,7 +1544,7 @@ static void weight_inv_point(fmpz* TX, fmpz* TY, fmpz_t dt, const isometry_t t, 
 // mom[t][i][b] for the p^k-neighbors of L_j, at the npts integral points (PX + QF_RANK t, PY + QF_RANK t): for
 // k = 1 by the orbits of the automorphisms, as weight_sums_orbits, and for k = 2 every neighbor of nbr_data
 static void weight_moments(weight_mom_struct*** mom, const genus_t genus, const weight_rep_t W, slong j, int p, int k,
-			   slong npts, const fmpz* PX, const fmpz* PY)
+			   slong npts, const fmpz* PX, const fmpz* PY, slong h, slong nb)
 {
   slong len = W->nx * W->ny, num_isom, kk, e, num_auts, orb_size, i, pt;
   fmpz *vec, *xm, *ym, *TX, *TY, *dts;
@@ -1544,6 +1696,10 @@ static void weight_moments(weight_mom_struct*** mom, const genus_t genus, const 
     }
   }
 
+  for (pt = 0; pt < npts; pt++)
+    for (i = 0; i < h; i++)
+      for (e = 0; e < nb; e++)
+	weight_mom_flush(&(mom[pt][i][e]));
   _fmpz_vec_clear(vec, len);
   _fmpz_vec_clear(xm, W->nx);
   _fmpz_vec_clear(ym, W->ny);
@@ -2040,7 +2196,7 @@ static fmpq_mat_struct* hecke_matrices_weight_eval(const genus_t genus, const we
 	  weight_mom_init(&(mom[pt][i][b]), len);
       }
     }
-    weight_moments(mom, genus, W, j, p, k, E.npts, E.PX, E.PY);
+    weight_moments(mom, genus, W, j, p, k, E.npts, E.PX, E.PY, h, nb);
     Rv = (fmpq***)malloc(E.npts * sizeof(fmpq**));
     for (pt = 0; pt < E.npts; pt++)
       Rv[pt] = (fmpq**)malloc(nc * sizeof(fmpq*));
@@ -3073,7 +3229,7 @@ int print_eigenvalues_weight(const genus_t genus, int a, int b, const int* ps, i
 	      weight_mom_init(&(mom[pt][ii][bb]), len);
 	  }
 	}
-	weight_moments(mom, genus, W, jj, q, (n < xnum_ps) ? 1 : 2, nids, PX, PY);
+	weight_moments(mom, genus, W, jj, q, (n < xnum_ps) ? 1 : 2, nids, PX, PY, h, nb);
 	rrs = (fmpq**)malloc(nids * sizeof(fmpq*));
 	for (c = 0; c < genus->num_conductors; c++) {
 	  slong dc = (S->dims[c] > 0) ? S->dims[c] : 1;
