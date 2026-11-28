@@ -82,6 +82,9 @@ typedef struct {
   W32 theta_prec;
 
   bool red_on_isom;
+
+  // the isometries found by hash_table_index_and_isom, by the reduced form of the key (hash.c)
+  void* isom_cache;
 } hash_table;
 
 typedef hash_table hash_table_t[1];
